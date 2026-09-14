@@ -79,6 +79,16 @@ See [`.env.example`](.env.example).
 To deploy without the blueprint: create a Web Service (build `npm install && npm run build`,
 start `node server/index.js`), add a Postgres instance, and set the environment variables above.
 
+### Choosing plans
+
+`render.yaml` asks for a `starter` web service and a `basic-256mb` database. That is deliberate:
+Render's free web services spin down when idle and take roughly a minute to wake, and a buyer
+standing at a sign with their phone out will not wait through that. Free Postgres also expires
+after 30 days.
+
+For pure pre-launch testing where nobody is scanning a real sign, change both `plan:` values to
+`free` — everything works, with those two caveats.
+
 ### Live rates via Zapier
 
 Point an email-parser Zap at:
