@@ -1,0 +1,24 @@
+{
+  "name": "project-sellers-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Builder Community App — buyer PWA + builder admin, one Express service.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "install:client": "npm --prefix client install",
+    "build": "npm run install:client && npm --prefix client run build",
+    "start": "node server/index.js",
+    "dev": "concurrently -n server,client -c blue,magenta \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "npm --prefix client run dev",
+    "test": "node --test server/test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
