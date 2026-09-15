@@ -177,3 +177,162 @@ test('disabled tools are reflected in the buyer payload', async () => {
   assert.equal(publicView.body.tools.compare, false);
   assert.equal(publicView.body.tools.payment, true);
 });
+
+test('a call request stays pending until an admin marks it handled', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Tour Test' } });
+  const cid = community.body.id;
+
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Robin Vale', email: 'robin@test.co', phone: '(801) 555-0144' },
+  });
+  const leadToken = entered.body.token;
+  const leadId = entered.body.lead.id;
+
+  // no request yet — nothing pending anywhere
+  let list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 0);
+
+  await api('/api/me/tour', { method: 'POST', token: leadToken, body: { time: 'This weekend' } });
+
+  list = await api('/api/admin/communities', { token });
+  assert.equal(
+    list.body.find((c) => c.id === cid).pendingTours, 1,
+    'the communities list surfaces the pending request',
+  );
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(leads.body[0].tour.time, 'This weekend');
+  assert.equal(leads.body[0].tour.handledAt, undefined);
+
+  // marking it handled clears the count but keeps the request on the record
+  const handled = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { tourHandled: true },
+  });
+  assert.ok(handled.body.tour.handledAt, 'handled stamp is recorded');
+  assert.equal(handled.body.tour.time, 'This weekend', 'the original request is preserved');
+
+  list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 0, 'handled requests stop counting');
+
+  // and it can be reopened
+  const reopened = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { tourHandled: false },
+  });
+  assert.ok(!reopened.body.tour.handledAt);
+  list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 1, 'reopening restores the count');
+});
+
+test('a second request from the same lead reopens a handled one', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Repeat Test' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Ada Reyes', email: 'ada@test.co', phone: '(801) 555-0155' },
+  });
+
+  await api('/api/me/tour', { method: 'POST', token: entered.body.token, body: { time: 'This weekend' } });
+  await api(`/api/admin/leads/${entered.body.lead.id}`, { method: 'PATCH', token, body: { tourHandled: true } });
+
+  // they ask again — this must count as pending, not stay buried under the old stamp
+  await api('/api/me/tour', { method: 'POST', token: entered.body.token, body: { time: 'A phone call first' } });
+  const list = await api('/api/admin/communities', { token });
+  assert.equal(
+    list.body.find((c) => c.id === cid).pendingTours, 1,
+    'asking again puts the lead back in the queue',
+  );
+});
+
+test('area highlights: the admin writes them, the buyer reads them', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Area Test' } });
+  const cid = community.body.id;
+
+  // A nameless place is not a place.
+  assert.equal(
+    (await api(`/api/admin/communities/${cid}/highlights`, { method: 'POST', token, body: { name: ' ' } })).status,
+    400,
+  );
+
+  const school = await api(`/api/admin/communities/${cid}/highlights`, {
+    method: 'POST', token,
+    body: {
+      category: 'schools', name: 'Oakridge Elementary', detail: '4 min drive',
+      description: 'K–6, bus stops at the entrance.',
+    },
+  });
+  assert.equal(school.status, 201);
+  assert.equal(school.body.category, 'schools');
+  assert.equal(school.body.photo, null);
+
+  // An unknown category falls back rather than being stored as-is.
+  const odd = await api(`/api/admin/communities/${cid}/highlights`, {
+    method: 'POST', token, body: { category: 'nightlife', name: 'The Creamery' },
+  });
+  assert.equal(odd.body.category, 'other');
+
+  // A 1×1 GIF — enough to prove the photo round-trips onto the highlight.
+  const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  const photo = await api(`/api/admin/highlights/${school.body.id}/photos`, {
+    method: 'POST', token, body: { dataUrl: gif },
+  });
+  assert.equal(photo.status, 201);
+
+  // Uploading again replaces rather than accumulates: one photo per place.
+  await api(`/api/admin/highlights/${school.body.id}/photos`, { method: 'POST', token, body: { dataUrl: gif } });
+
+  const buyerView = await api(`/api/c/${cid}`);
+  assert.equal(buyerView.status, 200, 'no auth needed — this is behind the QR code');
+  assert.equal(buyerView.body.highlights.length, 2);
+  const seen = buyerView.body.highlights.find((h) => h.name === 'Oakridge Elementary');
+  assert.equal(seen.detail, '4 min drive');
+  assert.ok(seen.photo?.url, 'the photo reaches the buyer');
+  assert.equal(seen.photo.url, `/api/photos/${seen.photo.id}`, 'served from the database, not the disk');
+
+  // Ordering is stable, so the admin's arrangement is what buyers get.
+  assert.deepEqual(
+    buyerView.body.highlights.map((h) => h.name),
+    ['Oakridge Elementary', 'The Creamery'],
+  );
+
+  const edited = await api(`/api/admin/highlights/${school.body.id}`, {
+    method: 'PATCH', token, body: { detail: '6 min drive', category: 'other' },
+  });
+  assert.equal(edited.body.detail, '6 min drive');
+  assert.equal(edited.body.category, 'other');
+  assert.ok(edited.body.photo, 'editing the text keeps the photo');
+
+  // Deleting takes the photo with it.
+  const photoId = seen.photo.id;
+  assert.equal((await api(`/api/admin/highlights/${school.body.id}`, { method: 'DELETE', token })).status, 204);
+  assert.equal((await api(`/api/photos/${photoId}`)).status, 404, 'the orphaned photo is gone too');
+  assert.equal((await api(`/api/c/${cid}`)).body.highlights.length, 1);
+});
+
+test('deleting a community takes its highlights with it', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Sweep Test' } });
+  const cid = community.body.id;
+  const made = await api(`/api/admin/communities/${cid}/highlights`, {
+    method: 'POST', token, body: { category: 'parks', name: 'Riverside Park' },
+  });
+
+  await api(`/api/admin/communities/${cid}`, { method: 'DELETE', token });
+  assert.equal(
+    (await api(`/api/admin/highlights/${made.body.id}`, { method: 'PATCH', token, body: { name: 'x' } })).status,
+    404,
+    'the highlight does not outlive its community',
+  );
+});

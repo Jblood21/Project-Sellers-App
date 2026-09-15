@@ -3,9 +3,12 @@ import { dirname } from 'node:path';
 
 import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
-import { shapeCommunity, shapeHome, shapeLead, shapePhoto } from './shape.js';
+import { shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto } from './shape.js';
 
-const EMPTY = { admins: [], communities: [], homes: [], photos: [], leads: [], planItems: [], activity: [] };
+const EMPTY = {
+  admins: [], communities: [], homes: [], highlights: [], photos: [],
+  leads: [], planItems: [], activity: [],
+};
 
 /**
  * Local-development store: the same interface as the Postgres one, backed by a JSON
@@ -39,6 +42,11 @@ export function createFileStore(path) {
   const now = () => new Date().toISOString();
   const photosOf = (homeId) =>
     db.photos.filter((p) => p.homeId === homeId).sort((a, b) => a.position - b.position).map(shapePhoto);
+  // A highlight carries at most one photo, so take the first rather than a gallery.
+  const photoOf = (highlightId) => {
+    const row = db.photos.find((p) => p.highlightId === highlightId);
+    return row ? shapePhoto(row) : null;
+  };
   const planOf = (leadId) =>
     Object.fromEntries(db.planItems.filter((p) => p.leadId === leadId).map((p) => [p.key, p.summary]));
   const activityOf = (leadId, limit = 200) =>
@@ -82,6 +90,9 @@ export function createFileStore(path) {
         shapeCommunity(c, {
           homesCount: db.homes.filter((h) => h.communityId === c.id).length,
           leadsCount: db.leads.filter((l) => l.communityId === c.id).length,
+          pendingTours: db.leads.filter(
+            (l) => l.communityId === c.id && l.tour && !l.tour.handledAt,
+          ).length,
         }),
       );
     },
@@ -90,7 +101,7 @@ export function createFileStore(path) {
       return shapeCommunity(db.communities.find((c) => c.id === id));
     },
 
-    async createCommunity({ name, location = '', status = 'Pre-sale', theme = 'classic', builder = '' }) {
+    async createCommunity({ name, location = '', status = 'Pre-sale', theme = 'modern', builder = '' }) {
       const row = {
         id: slugId(name), name, location, status, theme, builder,
         websiteUrl: null,
@@ -119,6 +130,7 @@ export function createFileStore(path) {
       const leadIds = db.leads.filter((l) => l.communityId === id).map((l) => l.id);
       db.communities = db.communities.filter((c) => c.id !== id);
       db.homes = db.homes.filter((h) => h.communityId !== id);
+      db.highlights = db.highlights.filter((h) => h.communityId !== id);
       db.photos = db.photos.filter((p) => p.communityId !== id);
       db.leads = db.leads.filter((l) => l.communityId !== id);
       db.planItems = db.planItems.filter((p) => !leadIds.includes(p.leadId));
@@ -163,14 +175,57 @@ export function createFileStore(path) {
       save();
     },
 
+    async listHighlights(communityId) {
+      return db.highlights
+        .filter((h) => h.communityId === communityId)
+        .sort((a, b) => a.position - b.position)
+        .map((h) => shapeHighlight(h, photoOf(h.id)));
+    },
+
+    async getHighlight(id) {
+      const row = db.highlights.find((h) => h.id === id);
+      return row ? shapeHighlight(row, photoOf(id)) : null;
+    },
+
+    async createHighlight(communityId, data) {
+      const position = db.highlights.filter((h) => h.communityId === communityId).length;
+      const row = { id: `g_${shortId(10)}`, communityId, ...data, position, createdAt: now() };
+      db.highlights.push(row);
+      save();
+      return shapeHighlight(row, null);
+    },
+
+    async updateHighlight(id, patch) {
+      const row = db.highlights.find((h) => h.id === id);
+      if (!row) return null;
+      for (const key of ['category', 'name', 'description', 'detail', 'position']) {
+        if (patch[key] !== undefined) row[key] = patch[key];
+      }
+      save();
+      return shapeHighlight(row, photoOf(id));
+    },
+
+    async deleteHighlight(id) {
+      db.highlights = db.highlights.filter((h) => h.id !== id);
+      db.photos = db.photos.filter((p) => p.highlightId !== id);
+      save();
+    },
+
+    async listHighlightPhotos(highlightId) {
+      return db.photos.filter((p) => p.highlightId === highlightId).map(shapePhoto);
+    },
+
     async countHomePhotos(homeId) {
       return db.photos.filter((p) => p.homeId === homeId).length;
     },
 
-    async addPhoto({ communityId, homeId = null, kind = 'home', contentType = null, data = null, url = null }) {
+    async addPhoto({
+      communityId, homeId = null, highlightId = null, kind = 'home',
+      contentType = null, data = null, url = null,
+    }) {
       const position = db.photos.filter((p) => p.communityId === communityId && p.homeId === homeId).length;
       const row = {
-        id: `p_${shortId(12)}`, communityId, homeId, kind,
+        id: `p_${shortId(12)}`, communityId, homeId, highlightId, kind,
         content_type: contentType, data, url, position, createdAt: now(),
       };
       db.photos.push(row);

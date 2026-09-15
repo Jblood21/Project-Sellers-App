@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialSheet } from './Chrome.jsx';
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
 import AllTools from './screens/AllTools.jsx';
+import Area from './screens/Area.jsx';
 import Explore from './screens/Explore.jsx';
 import Gate from './screens/Gate.jsx';
 import HomeDetail from './screens/HomeDetail.jsx';
@@ -14,7 +15,7 @@ import Saved from './screens/Saved.jsx';
 import ToolScreen from './tools/index.jsx';
 
 const THEME_COLORS = {
-  classic: '#8a5230', modern: '#1d63e0', lux: '#0f231b',
+  modern: '#147a4a', forest: '#0b1d13', lux: '#0f231b',
   blueprint: '#1553b5', slate: '#171c23', estate: '#1c1916',
 };
 
@@ -102,6 +103,7 @@ function BuyerShell() {
         />
         <Route path="tools" element={guard(<AllTools />)} />
         <Route path="explore" element={guard(<Explore />)} />
+        <Route path="area" element={guard(<Area />)} />
         <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourOpen(true)} />)} />
         <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
         <Route path="saved" element={guard(<Saved />)} />

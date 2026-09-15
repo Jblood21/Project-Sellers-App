@@ -9,7 +9,7 @@ const DEMO = {
     name: 'Willow Creek',
     location: 'Lehi, Utah',
     status: 'Now selling',
-    theme: 'classic',
+    theme: 'forest',
     builder: 'Hearthside Homes',
   },
   homes: [
@@ -26,6 +26,24 @@ const DEMO = {
       description: 'Family plan with a finished basement and a vaulted primary suite.',
     },
   ],
+  highlights: [
+    {
+      category: 'schools', name: 'Willow Creek Elementary', detail: '4 min drive',
+      description: 'K–6, and the district bus stops at the front of the development.',
+    },
+    {
+      category: 'parks', name: 'Dry Creek Trailhead', detail: 'Walkable',
+      description: 'Eleven miles of paved trail, a splash pad and two ball fields.',
+    },
+    {
+      category: 'shopping', name: 'Traverse Mountain Outlets', detail: '9 min drive',
+      description: 'Groceries, a pharmacy and the usual weeknight dinner options.',
+    },
+    {
+      category: 'commute', name: 'I-15 at Timpanogos Hwy', detail: '6 min drive',
+      description: 'About 35 minutes to downtown Salt Lake outside of rush hour.',
+    },
+  ],
 };
 
 export async function seedIfEmpty(store) {
@@ -37,5 +55,6 @@ export async function seedIfEmpty(store) {
     settings: { ...DEFAULT_SETTINGS, ratesUpdatedAt: new Date().toISOString() },
   });
   for (const home of DEMO.homes) await store.createHome(community.id, home);
+  for (const highlight of DEMO.highlights) await store.createHighlight(community.id, highlight);
   return community;
 }

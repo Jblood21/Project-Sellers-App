@@ -56,6 +56,14 @@ export const adminApi = {
   deleteHome: (token, id) => request(`/api/admin/homes/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   addHomePhoto: (token, homeId, body) =>
     request(`/api/admin/homes/${encodeURIComponent(homeId)}/photos`, { method: 'POST', body, token }),
+  createHighlight: (token, communityId, body) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/highlights`, { method: 'POST', body, token }),
+  updateHighlight: (token, id, body) =>
+    request(`/api/admin/highlights/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
+  deleteHighlight: (token, id) =>
+    request(`/api/admin/highlights/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  addHighlightPhoto: (token, highlightId, body) =>
+    request(`/api/admin/highlights/${encodeURIComponent(highlightId)}/photos`, { method: 'POST', body, token }),
   addCommunityPhoto: (token, communityId, kind, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/photos/${kind}`, {
       method: 'POST', body, token,

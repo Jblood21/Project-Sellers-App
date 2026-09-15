@@ -7,7 +7,7 @@ const BuyerContext = createContext(null);
 
 export const DEFAULT_TOOL_STATE = {
   pay: { homeId: null, program: 'conv', downPct: 5, dpaOn: false },
-  aff: { income: '', debts: '', credit: 'good' },
+  aff: { income: '', debts: '', credit: 'good', downPayment: '' },
   loans: { path: 'know', picked: null, veteran: 'no', downPct: 5, credit: 'good' },
   compare: { aProgram: 'fha', aDown: 3.5, bProgram: 'conv', bDown: 5 },
   dpa: { income: '', savings: '', firstTime: 'yes', military: 'no', credit: 'good' },

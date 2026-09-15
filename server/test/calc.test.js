@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  DEFAULT_SETTINGS, calcAffordability, calcPayment, creditRanges, pay30, planProgress,
-  screenDpa, suggestPrograms,
+  DEFAULT_SETTINGS, THEMES, affordabilityLevers, calcAffordability, calcPayment, creditRanges,
+  normalizeTheme, pay30, planProgress, screenDpa, suggestPrograms,
 } from '../../shared/domain.js';
 
 const settings = DEFAULT_SETTINGS;
@@ -113,4 +113,60 @@ test('plan progress counts saved homes plus the seven tools', () => {
     }),
     100,
   );
+});
+
+test('affordability reports the range a lender actually works in', () => {
+  const r = calcAffordability({ income: 85000, debts: 450, credit: 'good', settings });
+
+  // the conservative end is unchanged, so nothing downstream silently shifted
+  assert.equal(Math.round(r.comfortable.maxPayment), 2100); // 85,000/12 × 0.36 − 450
+  assert.equal(Math.round(r.buyingPower), Math.round(r.comfortable.price));
+
+  // 43% DTI is the Qualified Mortgage ceiling
+  assert.equal(Math.round(r.lenderMax.maxPayment), 2596); // 85,000/12 × 0.43 − 450
+  assert.ok(r.lenderMax.price > r.comfortable.price, 'the top of the range is higher');
+});
+
+test('a bigger down payment reaches a higher price for the same loan', () => {
+  const five = calcAffordability({ income: 85000, debts: 300, credit: 'good', settings, downPct: 5 });
+  const twenty = calcAffordability({ income: 85000, debts: 300, credit: 'good', settings, downPct: 20 });
+  assert.equal(Math.round(five.loan), Math.round(twenty.loan), 'the loan is set by the payment, not the down payment');
+  assert.ok(twenty.buyingPower > five.buyingPower, 'more cash in means a higher reachable price');
+});
+
+test('levers are real deltas, and never promise what is not there', () => {
+  const levers = affordabilityLevers({
+    income: 65000, debts: 450, credit: 'fair', settings, dpaAmount: 15000,
+  });
+  const keys = levers.map((l) => l.key);
+  assert.ok(keys.includes('debt'), 'clearing debt is offered when there is debt');
+  assert.ok(keys.includes('dpa'), 'assistance is offered when the community has a programme');
+  assert.ok(keys.includes('credit'), 'a credit step is offered below the top range');
+  assert.ok(levers.every((l) => l.delta > 0), 'every lever moves the number up');
+  assert.deepEqual([...levers].sort((a, b) => b.delta - a.delta), levers, 'biggest lever first');
+
+  // nothing to clear, nothing to improve, no programme -> no empty promises
+  const none = affordabilityLevers({ income: 200000, debts: 0, credit: 'exc', settings, dpaAmount: 0 });
+  assert.equal(none.length, 0);
+
+  // and no income means no speculation at all
+  assert.deepEqual(affordabilityLevers({ income: '', debts: 0, credit: 'good', settings }), []);
+});
+
+test('the debt lever matches what clearing the debt actually produces', () => {
+  const base = calcAffordability({ income: 65000, debts: 450, credit: 'fair', settings });
+  const cleared = calcAffordability({ income: 65000, debts: 0, credit: 'fair', settings });
+  const lever = affordabilityLevers({ income: 65000, debts: 450, credit: 'fair', settings })
+    .find((l) => l.key === 'debt');
+  assert.equal(Math.round(lever.delta), Math.round(cleared.buyingPower - base.buyingPower));
+});
+
+test('retired themes still resolve so old communities keep rendering', () => {
+  assert.equal(normalizeTheme('classic'), 'forest', 'the retired theme maps to its replacement');
+  assert.equal(normalizeTheme('forest'), 'forest');
+  assert.equal(normalizeTheme('nonsense'), 'modern', 'an unknown theme falls back, never undefined');
+  assert.equal(normalizeTheme(undefined), 'modern');
+  for (const key of Object.keys(THEMES)) {
+    assert.equal(normalizeTheme(key), key, `${key} survives normalization`);
+  }
 });

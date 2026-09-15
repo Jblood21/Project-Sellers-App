@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import {
   AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED,
-  MAX_PHOTOS_PER_HOME, THEMES, TOOL_KEYS,
+  HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
@@ -52,7 +52,7 @@ export function adminRouter() {
       name,
       location: str(req.body?.location) || 'Location TBD',
       status: COMMUNITY_STATUSES.includes(req.body?.status) ? req.body.status : 'Pre-sale',
-      theme: THEMES[req.body?.theme] ? req.body.theme : 'classic',
+      theme: THEMES[req.body?.theme] ? req.body.theme : 'modern',
       builder: str(req.body?.builder),
     });
     res.status(201).json(community);
@@ -62,12 +62,16 @@ export function adminRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
-    const [homes, heroes, icons] = await Promise.all([
+    const [homes, highlights, heroes, icons] = await Promise.all([
       store.listHomes(community.id),
+      store.listHighlights(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
     ]);
-    res.json({ ...community, homes, heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null });
+    res.json({
+      ...community, homes, highlights,
+      heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null,
+    });
   });
 
   router.patch('/communities/:id', async (req, res) => {
@@ -162,6 +166,43 @@ export function adminRouter() {
     res.status(204).end();
   });
 
+  // ── area highlights ──────────────────────────────────────────────────────
+  /** What's around the community: schools, parks, shops, clinics, commute notes. */
+  router.post('/communities/:id/highlights', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const name = str(req.body?.name);
+    if (!name) return res.status(400).json({ error: 'Give this place a name.' });
+    const highlight = await store.createHighlight(community.id, {
+      category: HIGHLIGHT_CATEGORY_KEYS.includes(req.body?.category) ? req.body.category : 'other',
+      name,
+      description: str(req.body?.description),
+      detail: str(req.body?.detail),
+    });
+    res.status(201).json(highlight);
+  });
+
+  router.patch('/highlights/:id', async (req, res) => {
+    const store = await getStore();
+    const highlight = await store.getHighlight(req.params.id);
+    if (!highlight) return res.status(404).json({ error: 'Highlight not found' });
+    const patch = {};
+    if (req.body?.name !== undefined) patch.name = str(req.body.name) || highlight.name;
+    if (req.body?.description !== undefined) patch.description = str(req.body.description);
+    if (req.body?.detail !== undefined) patch.detail = str(req.body.detail);
+    if (req.body?.category !== undefined && HIGHLIGHT_CATEGORY_KEYS.includes(req.body.category)) {
+      patch.category = req.body.category;
+    }
+    res.json(await store.updateHighlight(highlight.id, patch));
+  });
+
+  router.delete('/highlights/:id', async (req, res) => {
+    const store = await getStore();
+    await store.deleteHighlight(req.params.id);
+    res.status(204).end();
+  });
+
   // ── photos ───────────────────────────────────────────────────────────────
   /**
    * Accepts either a data URL (the client downscales before upload) or an external
@@ -208,6 +249,19 @@ export function adminRouter() {
     res.status(201).json(await store.addPhoto({ communityId: community.id, kind, ...image }));
   });
 
+  /** One photo per highlight — a second upload replaces the first. */
+  router.post('/highlights/:id/photos', async (req, res) => {
+    const store = await getStore();
+    const highlight = await store.getHighlight(req.params.id);
+    if (!highlight) return res.status(404).json({ error: 'Highlight not found' });
+    const image = readImage(req.body);
+    if (image.error) return res.status(400).json({ error: image.error });
+    for (const old of await store.listHighlightPhotos(highlight.id)) await store.deletePhoto(old.id);
+    res.status(201).json(await store.addPhoto({
+      communityId: highlight.communityId, highlightId: highlight.id, kind: 'highlight', ...image,
+    }));
+  });
+
   router.delete('/photos/:id', async (req, res) => {
     const store = await getStore();
     await store.deletePhoto(req.params.id);
@@ -236,6 +290,14 @@ export function adminRouter() {
       patch.status = req.body.status;
     }
     if (req.body?.notes !== undefined) patch.notes = String(req.body.notes).slice(0, 4000);
+    // Clearing the call request is what keeps the badge meaningful: handled
+    // requests stop counting, but the request itself stays on the record.
+    if (req.body?.tourHandled !== undefined && lead.tour) {
+      patch.tour = {
+        ...lead.tour,
+        handledAt: req.body.tourHandled ? new Date().toISOString() : null,
+      };
+    }
     res.json(await store.updateLead(lead.id, patch));
   });
 

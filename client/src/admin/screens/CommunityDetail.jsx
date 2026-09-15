@@ -5,6 +5,8 @@ import { COMMUNITY_STATUSES } from '@shared/domain.js';
 import { ChevronLeft, Pencil, QrIcon } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import PhotoPicker from '../PhotoPicker.jsx';
+import AreaTab from '../tabs/AreaTab.jsx';
 import HomesTab from '../tabs/HomesTab.jsx';
 import LeadsTab from '../tabs/LeadsTab.jsx';
 import SetupTab from '../tabs/SetupTab.jsx';
@@ -17,6 +19,7 @@ import QrDialog from './QrDialog.jsx';
 
 const TABS = [
   ['homes', 'Homes'],
+  ['area', 'Area'],
   ['tools', 'Tools'],
   ['leads', 'Leads'],
   ['stats', 'Stats'],
@@ -108,6 +111,7 @@ function CommunityTabs({ community, leads, reload }) {
       </div>
 
       {tab === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
+      {tab === 'area' ? <AreaTab community={community} reload={reload} /> : null}
       {tab === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
       {tab === 'leads' ? <LeadsTab community={community} leads={leads} /> : null}
       {tab === 'stats' ? <StatsTab community={community} leads={leads} /> : null}
@@ -148,6 +152,7 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
     websiteUrl: community.websiteUrl ?? '',
     status: community.status,
   });
+  const [heroDataUrl, setHeroDataUrl] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -156,6 +161,11 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
     setError('');
     try {
       await adminApi.updateCommunity(token, community.id, form);
+      // Only sent when a new file was picked, so saving other fields never
+      // disturbs the existing photo.
+      if (heroDataUrl) {
+        await adminApi.addCommunityPhoto(token, community.id, 'hero', { dataUrl: heroDataUrl });
+      }
       await onSaved();
     } catch (err) {
       setError(err.message);
@@ -178,7 +188,9 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
         <>
           <button type="button" className="btn btn-danger" onClick={remove} style={{ marginRight: 'auto' }}>Delete</button>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>Save</button>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
         </>
       }
     >
@@ -188,6 +200,13 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
       <TextField
         label="Community website" value={form.websiteUrl}
         onChange={(websiteUrl) => setForm((f) => ({ ...f, websiteUrl }))} placeholder="https://…"
+      />
+      <PhotoPicker
+        label="Community photo"
+        hint="Tap to upload — buyers see this first when they scan the sign"
+        currentUrl={community.heroPhoto?.url}
+        pendingDataUrl={heroDataUrl}
+        onPick={setHeroDataUrl}
       />
       <div className="field">
         <span>Status</span>
