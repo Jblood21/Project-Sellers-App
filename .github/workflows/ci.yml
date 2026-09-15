@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests and production build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the floor declared in package.json engines; 22 is what Render runs.
+        node: ['20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      # Mirrors Render exactly: NODE_ENV=production makes npm omit devDependencies,
+      # which silently broke the client build until --include=dev was added.
+      - name: Build the client the way Render does
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Boot the server and check it serves the app
+        run: |
+          node server/index.js &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+
+          curl -sf http://127.0.0.1:3000/api/health | tee /dev/stderr | grep -q '"ok":true'
+          curl -sf http://127.0.0.1:3000/admin | grep -q '<div id="root">'
+        env:
+          NODE_ENV: production
+          PORT: '3000'
+          SEED_DEMO: 'false'
+          SESSION_SECRET: ci-smoke-test-secret
+          DATA_FILE: ${{ runner.temp }}/ci-db.json

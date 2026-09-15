@@ -1,0 +1,140 @@
+# Cornerpost
+
+*A cornerpost is the first post set on a site — the fixed reference every other line is squared
+from. This one turns the sign at a community entrance into the builder's lead engine.*
+
+A mobile-first web app for individual builder communities, with two sides sharing one backend:
+
+- **Buyer PWA** (`/c/:communityId`) — reached by scanning the QR code on a development sign.
+  Buyers explore homes, run seven consumer-friendly financial tools, save homes, build a
+  progressive "My Home Plan" and download it as a PDF. Entry is gated behind name/email/phone.
+- **Builder admin** (`/admin`) — manage communities, homes and photo galleries, toggle which
+  buyer tools are live, read leads with their full behavioural activity log, see stats, and
+  configure per-community theme, live mortgage rates, cost assumptions, DPA rules and credit
+  cutoffs.
+
+The buyer app is **white-labeled per community** — a buyer scanning the sign at Willow Creek sees
+"Willow Creek," never "Cornerpost." The name is for the builder: their login, the invoice, the
+sales conversation.
+
+Every buyer action — home views, saves, tool runs, price points tested, loan types explored,
+PDF downloads, tour requests — is tracked to the lead record and visible on the admin side.
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Frontend | React 18 + Vite, React Router, one bundle serving both route trees |
+| Backend | Node 20+ / Express, REST API |
+| Database | Postgres (`DATABASE_URL`), with a JSON-file store for local dev |
+| PDF | Client-side `window.print()` with print CSS |
+| QR | `qrcode-generator`, rendered in the admin |
+| PWA | Per-community `manifest.webmanifest` + service worker |
+
+Calculation logic and domain constants live in [`shared/domain.js`](shared/domain.js) so the
+server and client can never drift apart.
+
+## Local development
+
+```bash
+npm install
+npm run install:client
+
+# Terminal 1 + 2 in one command (Express on :3000, Vite on :5173 proxying /api)
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=devpassword npm run dev
+```
+
+Open http://localhost:5173/admin, sign in with those credentials, and a demo community
+("Willow Creek") is seeded on first boot. Its QR link is on the community's QR button.
+
+Without `DATABASE_URL` the server writes to `data/db.json` — no database needed to develop.
+Set `DATABASE_URL` to use Postgres; the schema is created on boot.
+
+### Production-style run
+
+```bash
+npm run build && npm start   # Express serves client/dist plus the API on :3000
+```
+
+## Environment
+
+See [`.env.example`](.env.example).
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string. Omit for the local JSON store. |
+| `SESSION_SECRET` | Signs admin and buyer session tokens. **Set this in production.** |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Bootstraps (or resets) the admin account on boot. |
+| `RATES_WEBHOOK_SECRET` | Shared secret for the inbound rate webhook. |
+| `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
+| `PORT` | Defaults to 3000; Render sets this. |
+
+## Deploying to Render
+
+1. Push this repo to GitHub.
+2. Render → **New → Blueprint**, select the repo. [`render.yaml`](render.yaml) provisions the
+   web service and a Postgres instance, and generates `SESSION_SECRET` and
+   `RATES_WEBHOOK_SECRET`.
+3. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the service's environment before the first deploy
+   (they are marked `sync: false` so they never live in the repo).
+4. Deploy. Build runs `npm install && npm run build`; start runs `node server/index.js`, which
+   serves the API, both SPAs and the per-community manifests from one service.
+5. Sign in at `https://<your-domain>/admin`, create a community, add homes and photos, then use
+   the QR button to print the sign. QR codes point at `https://<your-domain>/c/<communityId>`.
+6. Test **Add to Home Screen** on iOS Safari and Android Chrome.
+
+To deploy without the blueprint: create a Web Service (build `npm install && npm run build`,
+start `node server/index.js`), add a Postgres instance, and set the environment variables above.
+
+### Choosing plans
+
+`render.yaml` asks for a `starter` web service and a `basic-256mb` database. That is deliberate:
+Render's free web services spin down when idle and take roughly a minute to wake, and a buyer
+standing at a sign with their phone out will not wait through that. Free Postgres also expires
+after 30 days.
+
+For pure pre-launch testing where nobody is scanning a real sign, change both `plan:` values to
+`free` — everything works, with those two caveats.
+
+### Live rates via Zapier
+
+Point an email-parser Zap at:
+
+```
+POST https://<your-domain>/api/communities/<communityId>/rates
+x-webhook-secret: <RATES_WEBHOOK_SECRET>
+{ "conv": "6.45", "fha": "6.10", "va": "5.90" }
+```
+
+Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
+
+## Project layout
+
+```
+shared/domain.js     tokens, tool definitions, and every calculator (single source of truth)
+server/
+  index.js           Express app, static hosting, SPA fallback, PWA manifests
+  db/                Postgres store, JSON-file store, schema, demo seed
+  lib/               password hashing, session tokens, id generation
+  routes/            buyer API, admin API, rate webhook
+client/src/
+  buyer/             the buyer PWA: chrome, screens, the seven tools
+  admin/             the admin app: communities, 5 tabs, lead detail, QR + flyer
+  lib/               API client, formatting, photo downscaling, storage
+```
+
+## The numbers
+
+All estimates, and labelled as such in the buyer UI.
+
+- **Monthly P&I** — 30-year amortisation: `L·r / (1 − (1+r)^−360)`, `r = rate/1200`.
+- **Payment** — P&I + property tax (`price × taxPctYr/100/12`) + insurance (`insuranceYr/12`)
+  + mortgage insurance (FHA `loan × 0.0055/12`; conventional under 20% down `loan × 0.005/12`;
+  VA and 20%-down conventional none) + HOA. Cash to close = down + `price × 2.5%`, minus down
+  payment assistance when the screener said "likely" and the buyer applies it.
+- **Affordability** — 36% DTI, 82% of that toward housing, 5% down, conventional rate adjusted
+  by credit range (excellent −0.15, fair +0.35).
+- **DPA screening and credit ranges** — driven entirely by the admin's Setup values.
+
+Defaults: Conv 6.45 / FHA 6.10 / VA 5.90; tax 0.55%/yr; insurance $1,400/yr; HOA $45/mo;
+DPA limit $110,000, amount $15,000, min credit 660; credit cutoffs 740 / 700 / 660.
