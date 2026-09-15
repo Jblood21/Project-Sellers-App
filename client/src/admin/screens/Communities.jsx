@@ -5,6 +5,7 @@ import { THEMES } from '@shared/domain.js';
 import CardButton from '../../components/CardButton.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import PhotoPicker from '../PhotoPicker.jsx';
 import Wordmark from '../Wordmark.jsx';
 import { Dialog, ErrorNote, Spinner, TextField } from '../ui.jsx';
 
@@ -14,6 +15,7 @@ export default function Communities() {
   const [communities, setCommunities] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ name: '', location: '', builder: '' });
+  const [heroDataUrl, setHeroDataUrl] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -27,8 +29,18 @@ export default function Communities() {
     setError('');
     try {
       const created = await adminApi.createCommunity(token, form);
+      // The photo endpoint needs a community id, so it can only go up now that
+      // the community exists. A failure here must not lose the community.
+      if (heroDataUrl) {
+        try {
+          await adminApi.addCommunityPhoto(token, created.id, 'hero', { dataUrl: heroDataUrl });
+        } catch (photoErr) {
+          setError(`${created.name} was created, but the photo did not upload: ${photoErr.message}`);
+        }
+      }
       setDialogOpen(false);
       setForm({ name: '', location: '', builder: '' });
+      setHeroDataUrl(null);
       navigate(`/admin/communities/${created.id}`);
     } catch (err) {
       setError(err.message);
@@ -111,6 +123,12 @@ export default function Communities() {
           <TextField
             label="Builder name" value={form.builder}
             onChange={(builder) => setForm((f) => ({ ...f, builder }))} placeholder="e.g. Hearthside Homes"
+          />
+          <PhotoPicker
+            label="Community photo"
+            hint="Tap to upload — buyers see this first when they scan the sign"
+            pendingDataUrl={heroDataUrl}
+            onPick={setHeroDataUrl}
           />
           <ErrorNote>{error}</ErrorNote>
         </Dialog>

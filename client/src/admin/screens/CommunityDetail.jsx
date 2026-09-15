@@ -5,6 +5,7 @@ import { COMMUNITY_STATUSES } from '@shared/domain.js';
 import { ChevronLeft, Pencil, QrIcon } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import PhotoPicker from '../PhotoPicker.jsx';
 import HomesTab from '../tabs/HomesTab.jsx';
 import LeadsTab from '../tabs/LeadsTab.jsx';
 import SetupTab from '../tabs/SetupTab.jsx';
@@ -148,6 +149,7 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
     websiteUrl: community.websiteUrl ?? '',
     status: community.status,
   });
+  const [heroDataUrl, setHeroDataUrl] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -156,6 +158,11 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
     setError('');
     try {
       await adminApi.updateCommunity(token, community.id, form);
+      // Only sent when a new file was picked, so saving other fields never
+      // disturbs the existing photo.
+      if (heroDataUrl) {
+        await adminApi.addCommunityPhoto(token, community.id, 'hero', { dataUrl: heroDataUrl });
+      }
       await onSaved();
     } catch (err) {
       setError(err.message);
@@ -188,6 +195,13 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
       <TextField
         label="Community website" value={form.websiteUrl}
         onChange={(websiteUrl) => setForm((f) => ({ ...f, websiteUrl }))} placeholder="https://…"
+      />
+      <PhotoPicker
+        label="Community photo"
+        hint="Tap to upload — buyers see this first when they scan the sign"
+        currentUrl={community.heroPhoto?.url}
+        pendingDataUrl={heroDataUrl}
+        onPick={setHeroDataUrl}
       />
       <div className="field">
         <span>Status</span>
