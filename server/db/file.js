@@ -82,6 +82,9 @@ export function createFileStore(path) {
         shapeCommunity(c, {
           homesCount: db.homes.filter((h) => h.communityId === c.id).length,
           leadsCount: db.leads.filter((l) => l.communityId === c.id).length,
+          pendingTours: db.leads.filter(
+            (l) => l.communityId === c.id && l.tour && !l.tour.handledAt,
+          ).length,
         }),
       );
     },

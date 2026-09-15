@@ -236,6 +236,14 @@ export function adminRouter() {
       patch.status = req.body.status;
     }
     if (req.body?.notes !== undefined) patch.notes = String(req.body.notes).slice(0, 4000);
+    // Clearing the call request is what keeps the badge meaningful: handled
+    // requests stop counting, but the request itself stays on the record.
+    if (req.body?.tourHandled !== undefined && lead.tour) {
+      patch.tour = {
+        ...lead.tour,
+        handledAt: req.body.tourHandled ? new Date().toISOString() : null,
+      };
+    }
     res.json(await store.updateLead(lead.id, patch));
   });
 

@@ -228,3 +228,16 @@ export function planProgress(lead) {
   );
   return Math.round((done.length / PLAN_KEYS.length) * 100);
 }
+
+/**
+ * A call request the builder still owes someone. Requests stay on the lead
+ * forever, so without the handled stamp every badge would eventually be stale
+ * and the signal worthless.
+ */
+export function isTourPending(lead) {
+  return Boolean(lead?.tour && !lead.tour.handledAt);
+}
+
+export function countPendingTours(leads = []) {
+  return leads.filter(isTourPending).length;
+}

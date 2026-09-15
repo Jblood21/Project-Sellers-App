@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PLAN_LABELS, TOOL_KEYS, planProgress } from '@shared/domain.js';
+import { PLAN_LABELS, TOOL_KEYS, isTourPending, planProgress } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { money, shortDate } from '../../lib/format.js';
@@ -32,6 +32,10 @@ export default function LeadDetail({ community }) {
 
   const savedHomes = lead.savedHomeIds.map((id) => community.homes.find((h) => h.id === id)).filter(Boolean);
   const planItems = TOOL_KEYS.filter((key) => lead.plan[key]).map((key) => ({ key, summary: lead.plan[key] }));
+
+  const toggleTourHandled = async () => {
+    setLead(await adminApi.updateLead(token, lead.id, { tourHandled: !lead.tour?.handledAt }));
+  };
 
   const toggleStatus = async () => {
     const next = lead.status === 'new' ? 'contacted' : 'new';
@@ -70,12 +74,32 @@ export default function LeadDetail({ community }) {
       </div>
 
       {lead.tour ? (
-        <div className="card elev-sm" style={{ background: 'var(--color-accent-100)', marginBottom: 12 }}>
-          <span className="card-kicker">Tour request</span>
+        <div
+          className="card elev-sm"
+          style={{
+            marginBottom: 12,
+            background: isTourPending(lead) ? 'var(--color-accent-100)' : 'var(--color-neutral-200)',
+            border: isTourPending(lead) ? '1px solid var(--color-accent)' : '1px solid var(--color-divider)',
+          }}
+        >
+          <span className="card-kicker">
+            {isTourPending(lead) ? '📞 Waiting for a call' : 'Call request — handled'}
+          </span>
           <span style={{ fontWeight: 600 }}>{lead.tour.time}</span>
           {lead.tour.requestedAt ? (
             <span className="text-muted" style={{ fontSize: 12 }}>Asked {shortDate(lead.tour.requestedAt)}</span>
           ) : null}
+          {lead.tour.handledAt ? (
+            <span className="text-muted" style={{ fontSize: 12 }}>Handled {shortDate(lead.tour.handledAt)}</span>
+          ) : null}
+          <button
+            type="button"
+            className={isTourPending(lead) ? 'btn btn-primary' : 'btn btn-ghost'}
+            onClick={toggleTourHandled}
+            style={{ alignSelf: 'flex-start', marginTop: 4 }}
+          >
+            {isTourPending(lead) ? 'Mark handled' : 'Reopen request'}
+          </button>
         </div>
       ) : null}
 

@@ -92,6 +92,16 @@ export default function Communities() {
               <div className="card-meta">
                 {community.homesCount} homes · {community.leadsCount} leads · {THEMES[community.theme]} theme
               </div>
+              {community.pendingTours > 0 ? (
+                <div
+                  style={{
+                    marginTop: 2, fontSize: 12.5, fontWeight: 700,
+                    color: 'var(--color-accent-700)',
+                  }}
+                >
+                  📞 {community.pendingTours} waiting for a call
+                </div>
+              ) : null}
             </CardButton>
           ))}
         </div>

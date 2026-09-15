@@ -177,3 +177,74 @@ test('disabled tools are reflected in the buyer payload', async () => {
   assert.equal(publicView.body.tools.compare, false);
   assert.equal(publicView.body.tools.payment, true);
 });
+
+test('a call request stays pending until an admin marks it handled', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Tour Test' } });
+  const cid = community.body.id;
+
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Robin Vale', email: 'robin@test.co', phone: '(801) 555-0144' },
+  });
+  const leadToken = entered.body.token;
+  const leadId = entered.body.lead.id;
+
+  // no request yet — nothing pending anywhere
+  let list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 0);
+
+  await api('/api/me/tour', { method: 'POST', token: leadToken, body: { time: 'This weekend' } });
+
+  list = await api('/api/admin/communities', { token });
+  assert.equal(
+    list.body.find((c) => c.id === cid).pendingTours, 1,
+    'the communities list surfaces the pending request',
+  );
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(leads.body[0].tour.time, 'This weekend');
+  assert.equal(leads.body[0].tour.handledAt, undefined);
+
+  // marking it handled clears the count but keeps the request on the record
+  const handled = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { tourHandled: true },
+  });
+  assert.ok(handled.body.tour.handledAt, 'handled stamp is recorded');
+  assert.equal(handled.body.tour.time, 'This weekend', 'the original request is preserved');
+
+  list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 0, 'handled requests stop counting');
+
+  // and it can be reopened
+  const reopened = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { tourHandled: false },
+  });
+  assert.ok(!reopened.body.tour.handledAt);
+  list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 1, 'reopening restores the count');
+});
+
+test('a second request from the same lead reopens a handled one', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Repeat Test' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Ada Reyes', email: 'ada@test.co', phone: '(801) 555-0155' },
+  });
+
+  await api('/api/me/tour', { method: 'POST', token: entered.body.token, body: { time: 'This weekend' } });
+  await api(`/api/admin/leads/${entered.body.lead.id}`, { method: 'PATCH', token, body: { tourHandled: true } });
+
+  // they ask again — this must count as pending, not stay buried under the old stamp
+  await api('/api/me/tour', { method: 'POST', token: entered.body.token, body: { time: 'A phone call first' } });
+  const list = await api('/api/admin/communities', { token });
+  assert.equal(
+    list.body.find((c) => c.id === cid).pendingTours, 1,
+    'asking again puts the lead back in the queue',
+  );
+});

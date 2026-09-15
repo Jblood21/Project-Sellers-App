@@ -78,9 +78,19 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`
         SELECT c.*,
                (SELECT count(*)::int FROM homes h WHERE h.community_id = c.id) AS homes_count,
-               (SELECT count(*)::int FROM leads l WHERE l.community_id = c.id) AS leads_count
+               (SELECT count(*)::int FROM leads l WHERE l.community_id = c.id) AS leads_count,
+               (SELECT count(*)::int FROM leads l
+                 WHERE l.community_id = c.id
+                   AND l.tour IS NOT NULL
+                   AND (l.tour->>'handledAt') IS NULL) AS pending_tours
         FROM communities c ORDER BY c.created_at`);
-      return rows.map((r) => shapeCommunity(r, { homesCount: r.homes_count, leadsCount: r.leads_count }));
+      return rows.map((r) =>
+        shapeCommunity(r, {
+          homesCount: r.homes_count,
+          leadsCount: r.leads_count,
+          pendingTours: r.pending_tours,
+        }),
+      );
     },
 
     async getCommunity(id) {
