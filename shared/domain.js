@@ -4,18 +4,28 @@
  */
 
 export const THEMES = {
-  classic: 'Classic',
-  modern: 'Modern',
-  lux: 'Soft Luxury',
-  blueprint: 'Blueprint',
-  slate: 'Slate Dark',
-  estate: 'Estate Dark',
+  modern: 'Modern Green',
+  forest: 'Deep Forest',
+  lux: 'Emerald & Gold',
+  blueprint: 'Blueprint Blue',
+  slate: 'Midnight Blue',
+  estate: 'Warm Umber',
 };
+
+/**
+ * 'classic' (cream and brown) was retired in favour of 'forest'. Communities
+ * created before that still carry the old value, so every read normalizes —
+ * an unknown theme would render with no colour variables at all.
+ */
+export function normalizeTheme(theme) {
+  if (theme === 'classic') return 'forest';
+  return THEMES[theme] ? theme : 'modern';
+}
 
 /** [accent, background] swatch pairs for the admin theme picker. */
 export const THEME_CHIPS = {
-  classic: ['#8a5230', '#f4eee3'],
-  modern: ['#1d63e0', '#ffffff'],
+  modern: ['#147a4a', '#ffffff'],
+  forest: ['#5fbf82', '#0b1d13'],
   lux: ['#cdb37e', '#0f231b'],
   blueprint: ['#1553b5', '#eef3f8'],
   slate: ['#4f8fde', '#171c23'],
@@ -159,12 +169,97 @@ export function creditRateAdjustment(credit) {
   return 0;
 }
 
-/** Buying power: 36% DTI, 82% of that toward housing, 5% down. */
-export function calcAffordability({ income, debts, credit, settings }) {
+/**
+ * Debt-to-income limits. 36% is the conservative rule of thumb; 43% is the
+ * Qualified Mortgage threshold lenders commonly underwrite to. Showing only the
+ * first told buyers they could afford less than a lender would actually lend
+ * them, which reads as "no" when the real answer is "it depends".
+ */
+export const DTI_COMFORTABLE = 0.36;
+export const DTI_LENDER_MAX = 0.43;
+
+/** Share of the housing budget that goes to principal and interest. */
+const HOUSING_SHARE = 0.82;
+
+/**
+ * Buying power across the range a lender would actually work in.
+ *
+ * `buyingPower` stays the conservative figure so nothing downstream silently
+ * starts quoting the top of the range as if it were a recommendation.
+ */
+export function calcAffordability({ income, debts, credit, settings, downPct = 5 }) {
   const rate = ratesOf(settings).conv + creditRateAdjustment(credit);
-  const maxPayment = Math.max(0, num(income) / 12 * 0.36 - num(debts));
-  const loan = amountFor(maxPayment * 0.82, rate);
-  return { rate, maxPayment, loan, buyingPower: loan / 0.95 };
+  const monthlyIncome = num(income) / 12;
+  const debtLoad = num(debts);
+  const downShare = 1 - num(downPct) / 100;
+
+  const at = (dti) => {
+    const maxPayment = Math.max(0, monthlyIncome * dti - debtLoad);
+    const loan = amountFor(maxPayment * HOUSING_SHARE, rate);
+    return { maxPayment, loan, price: downShare > 0 ? loan / downShare : loan };
+  };
+
+  const comfortable = at(DTI_COMFORTABLE);
+  const lenderMax = at(DTI_LENDER_MAX);
+
+  return {
+    rate,
+    maxPayment: comfortable.maxPayment,
+    loan: comfortable.loan,
+    buyingPower: comfortable.price,
+    comfortable,
+    lenderMax,
+  };
+}
+
+/**
+ * Concrete, computed things that move the number — so a buyer who comes up
+ * short sees what to do about it rather than just a figure below every price
+ * on the board. Each delta is the real difference this calculator produces,
+ * not a motivational guess.
+ */
+export function affordabilityLevers({ income, debts, credit, settings, dpaAmount = 0 }) {
+  const base = calcAffordability({ income, debts, credit, settings });
+  if (!num(income)) return [];
+  const levers = [];
+
+  if (num(debts) > 0) {
+    const cleared = calcAffordability({ income, debts: 0, credit, settings });
+    levers.push({
+      key: 'debt',
+      label: `Paying off your ${money(debts)}/mo of other debts`,
+      delta: cleared.buyingPower - base.buyingPower,
+    });
+  }
+
+  // Deliberately no "put less down" lever: a smaller down payment means less
+  // cash at closing, not a bigger house. For a fixed monthly payment the loan
+  // is the same, so less down buys slightly LESS. That belongs in the savings
+  // and payment tools, not here.
+
+  if (num(dpaAmount) > 0) {
+    levers.push({
+      key: 'dpa',
+      label: `Down payment help (${money(dpaAmount)})`,
+      delta: num(dpaAmount),
+    });
+  }
+
+  if (credit !== 'exc') {
+    const better = calcAffordability({
+      income, debts, settings, credit: credit === 'fair' ? 'good' : 'exc',
+    });
+    const delta = better.buyingPower - base.buyingPower;
+    if (delta > 0) {
+      levers.push({
+        key: 'credit',
+        label: credit === 'fair' ? 'Moving up one credit range' : 'Reaching the top credit range',
+        delta,
+      });
+    }
+  }
+
+  return levers.filter((l) => l.delta > 500).sort((a, b) => b.delta - a.delta);
 }
 
 export function creditRanges(settings) {

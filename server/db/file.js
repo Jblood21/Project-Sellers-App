@@ -93,7 +93,7 @@ export function createFileStore(path) {
       return shapeCommunity(db.communities.find((c) => c.id === id));
     },
 
-    async createCommunity({ name, location = '', status = 'Pre-sale', theme = 'classic', builder = '' }) {
+    async createCommunity({ name, location = '', status = 'Pre-sale', theme = 'modern', builder = '' }) {
       const row = {
         id: slugId(name), name, location, status, theme, builder,
         websiteUrl: null,

@@ -52,7 +52,7 @@ export function adminRouter() {
       name,
       location: str(req.body?.location) || 'Location TBD',
       status: COMMUNITY_STATUSES.includes(req.body?.status) ? req.body.status : 'Pre-sale',
-      theme: THEMES[req.body?.theme] ? req.body.theme : 'classic',
+      theme: THEMES[req.body?.theme] ? req.body.theme : 'modern',
       builder: str(req.body?.builder),
     });
     res.status(201).json(community);

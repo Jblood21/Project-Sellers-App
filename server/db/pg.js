@@ -98,7 +98,7 @@ export function createPostgresStore(connectionString) {
       return shapeCommunity(rows[0]);
     },
 
-    async createCommunity({ name, location = '', status = 'Pre-sale', theme = 'classic', builder = '' }) {
+    async createCommunity({ name, location = '', status = 'Pre-sale', theme = 'modern', builder = '' }) {
       const id = slugId(name);
       const { rows } = await q(
         `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools)

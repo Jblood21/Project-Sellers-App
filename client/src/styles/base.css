@@ -28,21 +28,24 @@
    Buyer themes. Every buyer-side style references only these variables, so
    switching the theme in admin re-skins the whole app.
    ─────────────────────────────────────────────────────────────────────────── */
-.t-classic {
-  --t-bg: #f4eee3; --t-sur: #fdfaf4; --t-ink: #2e2519; --t-mut: #77694f;
-  --t-acc: #8a5230; --t-accD: #6d3f23; --t-acc2: #5f7047; --t-onacc: #fdfaf4;
-  --t-line: rgba(46, 37, 25, 0.16); --t-tint: #ece1cb; --t-tint2: #e5e8da;
-  --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 999px;
-  --t-head: 'Lora', Georgia, serif; --t-font: 'Lora', Georgia, serif;
-  --t-headwt: 600; --t-track: 0; --t-up: none;
-}
+/* Modern Green — bright and clean, green where it used to be blue. */
 .t-modern {
-  --t-bg: #ffffff; --t-sur: #f2f5fa; --t-ink: #101828; --t-mut: #5b6779;
-  --t-acc: #1d63e0; --t-accD: #124bb4; --t-acc2: #4d7c0f; --t-onacc: #ffffff;
-  --t-line: rgba(16, 24, 40, 0.12); --t-tint: #e7effd; --t-tint2: #eef6df;
+  --t-bg: #ffffff; --t-sur: #f1f6f2; --t-ink: #10281a; --t-mut: #56705f;
+  --t-acc: #147a4a; --t-accD: #0e5c37; --t-acc2: #4d7c0f; --t-onacc: #ffffff;
+  --t-line: rgba(16, 40, 26, 0.13); --t-tint: #e2f2e8; --t-tint2: #eef6df;
   --t-rad: 16px; --t-radlg: 22px; --t-radbtn: 999px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 800; --t-track: 0; --t-up: none;
+}
+/* Deep Forest — dark evergreen with a bright green accent. Replaces Classic.
+   Kept clearly distinct from Emerald & Gold, which is dark green with gold. */
+.t-forest {
+  --t-bg: #0b1d13; --t-sur: #142a1d; --t-ink: #e9f2ea; --t-mut: #9db3a4;
+  --t-acc: #5fbf82; --t-accD: #8ad6a3; --t-acc2: #b8d98f; --t-onacc: #06150d;
+  --t-line: rgba(233, 242, 234, 0.16); --t-tint: #1b3a27; --t-tint2: #17311f;
+  --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 999px;
+  --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
+  --t-headwt: 700; --t-track: 0; --t-up: none;
 }
 .t-lux {
   --t-bg: #0f231b; --t-sur: #1a3428; --t-ink: #f3ecdd; --t-mut: #b3a98f;

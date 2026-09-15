@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
+import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, normalizeTheme } from '../../shared/domain.js';
 
 export function shapeCommunity(row, extra = {}) {
   if (!row) return null;
@@ -7,7 +7,7 @@ export function shapeCommunity(row, extra = {}) {
     name: row.name,
     location: row.location || '',
     status: row.status,
-    theme: row.theme,
+    theme: normalizeTheme(row.theme),
     websiteUrl: row.website_url ?? row.websiteUrl ?? null,
     builder: row.builder || '',
     settings: { ...DEFAULT_SETTINGS, ...(row.settings || {}) },

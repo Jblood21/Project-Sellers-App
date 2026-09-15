@@ -9,7 +9,7 @@ const DEMO = {
     name: 'Willow Creek',
     location: 'Lehi, Utah',
     status: 'Now selling',
-    theme: 'classic',
+    theme: 'forest',
     builder: 'Hearthside Homes',
   },
   homes: [

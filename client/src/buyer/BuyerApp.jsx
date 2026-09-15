@@ -14,7 +14,7 @@ import Saved from './screens/Saved.jsx';
 import ToolScreen from './tools/index.jsx';
 
 const THEME_COLORS = {
-  classic: '#8a5230', modern: '#1d63e0', lux: '#0f231b',
+  modern: '#147a4a', forest: '#0b1d13', lux: '#0f231b',
   blueprint: '#1553b5', slate: '#171c23', estate: '#1c1916',
 };
 
