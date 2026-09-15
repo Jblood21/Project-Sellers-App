@@ -12,11 +12,13 @@ export default function Afford() {
   const state = tools.aff;
   const ranges = creditRanges(settings);
   const hasIncome = num(state.income) > 0;
+  const hasCash = String(state.downPayment).trim() !== '';
   const result = calcAffordability({
     income: state.income,
     debts: state.debts,
     credit: state.credit,
     settings,
+    downPayment: hasCash ? state.downPayment : null,
   });
 
   const levers = affordabilityLevers({
@@ -24,6 +26,7 @@ export default function Afford() {
     debts: state.debts,
     credit: state.credit,
     settings,
+    downPayment: hasCash ? state.downPayment : null,
     dpaAmount: settings.dpaAmount,
   });
 
@@ -54,6 +57,20 @@ export default function Afford() {
             options={ranges.map((r) => ({ value: r.k, label: r.label }))}
           />
         </Field>
+        <Field
+          label="Down payment you could make"
+          hint={
+            hasCash
+              ? 'Every dollar here raises the price you can reach by a dollar.'
+              : 'Leave blank and we assume 5% down.'
+          }
+        >
+          <MoneyInput
+            value={state.downPayment}
+            onChange={(downPayment) => setTool('aff', { downPayment })}
+            placeholder="20,000"
+          />
+        </Field>
       </div>
 
       {hasIncome ? (
@@ -69,7 +86,9 @@ export default function Afford() {
               The lower number is the comfortable end — about {money(result.comfortable.maxPayment)}/mo
               including taxes and insurance. The higher end is what lenders here will often approve,
               at {money(result.lenderMax.maxPayment)}/mo, which leaves less room in your budget each
-              month. Both assume 5% down at {result.rate.toFixed(2)}%.
+              month. Both assume{' '}
+              {hasCash ? `${money(result.comfortable.down)} down` : '5% down'} at{' '}
+              {result.rate.toFixed(2)}%.
             </span>
           </ResultCard>
 

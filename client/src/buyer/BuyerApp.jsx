@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialSheet } from './Chrome.jsx';
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
 import AllTools from './screens/AllTools.jsx';
+import Area from './screens/Area.jsx';
 import Explore from './screens/Explore.jsx';
 import Gate from './screens/Gate.jsx';
 import HomeDetail from './screens/HomeDetail.jsx';
@@ -102,6 +103,7 @@ function BuyerShell() {
         />
         <Route path="tools" element={guard(<AllTools />)} />
         <Route path="explore" element={guard(<Explore />)} />
+        <Route path="area" element={guard(<Area />)} />
         <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourOpen(true)} />)} />
         <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
         <Route path="saved" element={guard(<Saved />)} />

@@ -5,7 +5,7 @@ import pg from 'pg';
 
 import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
-import { shapeCommunity, shapeHome, shapeLead, shapePhoto } from './shape.js';
+import { shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -190,15 +190,18 @@ export function createPostgresStore(connectionString) {
       return rows[0].n;
     },
 
-    async addPhoto({ communityId, homeId = null, kind = 'home', contentType = null, data = null, url = null }) {
+    async addPhoto({
+      communityId, homeId = null, highlightId = null, kind = 'home',
+      contentType = null, data = null, url = null,
+    }) {
       const { rows: posRows } = await q(
         `SELECT coalesce(max(position), -1) + 1 AS pos FROM photos WHERE community_id = $1 AND coalesce(home_id,'') = coalesce($2,'')`,
         [communityId, homeId],
       );
       const { rows } = await q(
-        `INSERT INTO photos (id, community_id, home_id, kind, content_type, data, url, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-        [`p_${shortId(12)}`, communityId, homeId, kind, contentType, data, url, posRows[0].pos],
+        `INSERT INTO photos (id, community_id, home_id, highlight_id, kind, content_type, data, url, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [`p_${shortId(12)}`, communityId, homeId, highlightId, kind, contentType, data, url, posRows[0].pos],
       );
       return shapePhoto(rows[0]);
     },
@@ -212,12 +215,79 @@ export function createPostgresStore(connectionString) {
       await q(`DELETE FROM photos WHERE id = $1`, [id]);
     },
 
+    async listHighlightPhotos(highlightId) {
+      const { rows } = await q(`SELECT * FROM photos WHERE highlight_id = $1`, [highlightId]);
+      return rows.map(shapePhoto);
+    },
+
     async listCommunityPhotos(communityId, kind) {
       const { rows } = await q(
         `SELECT * FROM photos WHERE community_id = $1 AND kind = $2 ORDER BY position, created_at`,
         [communityId, kind],
       );
       return rows.map(shapePhoto);
+    },
+
+    // ── area highlights ──────────────────────────────────────────────────
+    async listHighlights(communityId) {
+      const { rows } = await q(
+        `SELECT h.*, p.id AS photo_id, p.url AS photo_url
+           FROM highlights h
+           LEFT JOIN LATERAL (
+             SELECT id, url FROM photos WHERE highlight_id = h.id ORDER BY created_at LIMIT 1
+           ) p ON true
+          WHERE h.community_id = $1
+          ORDER BY h.position, h.created_at`,
+        [communityId],
+      );
+      return rows.map((r) =>
+        shapeHighlight(r, r.photo_id ? shapePhoto({ id: r.photo_id, url: r.photo_url }) : null),
+      );
+    },
+
+    async getHighlight(id) {
+      const { rows } = await q(`SELECT * FROM highlights WHERE id = $1`, [id]);
+      if (!rows[0]) return null;
+      const { rows: pics } = await q(
+        `SELECT * FROM photos WHERE highlight_id = $1 ORDER BY created_at LIMIT 1`, [id],
+      );
+      return shapeHighlight(rows[0], pics[0] ? shapePhoto(pics[0]) : null);
+    },
+
+    async createHighlight(communityId, data) {
+      const { rows: pos } = await q(
+        `SELECT coalesce(max(position), -1) + 1 AS pos FROM highlights WHERE community_id = $1`,
+        [communityId],
+      );
+      const { rows } = await q(
+        `INSERT INTO highlights (id, community_id, category, name, description, detail, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [`g_${shortId(10)}`, communityId, data.category, data.name, data.description, data.detail, pos[0].pos],
+      );
+      return shapeHighlight(rows[0], null);
+    },
+
+    async updateHighlight(id, patch) {
+      const map = {
+        category: 'category', name: 'name', description: 'description',
+        detail: 'detail', position: 'position',
+      };
+      const sets = [];
+      const params = [];
+      for (const [key, column] of Object.entries(map)) {
+        if (patch[key] === undefined) continue;
+        params.push(patch[key]);
+        sets.push(`${column} = $${params.length}`);
+      }
+      if (!sets.length) return this.getHighlight(id);
+      params.push(id);
+      await q(`UPDATE highlights SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
+      return this.getHighlight(id);
+    },
+
+    async deleteHighlight(id) {
+      await q(`DELETE FROM photos WHERE highlight_id = $1`, [id]);
+      await q(`DELETE FROM highlights WHERE id = $1`, [id]);
     },
 
     // ── leads ────────────────────────────────────────────────────────────

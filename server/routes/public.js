@@ -7,7 +7,7 @@ import { issueLeadToken, requireLead } from '../lib/auth.js';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PLAN_KEYS = new Set([...TOOL_KEYS, 'homes']);
 
-const publicCommunity = (community, homes, heroPhoto, iconPhoto) => ({
+const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto) => ({
   id: community.id,
   name: community.name,
   location: community.location,
@@ -20,6 +20,7 @@ const publicCommunity = (community, homes, heroPhoto, iconPhoto) => ({
   heroPhoto: heroPhoto?.url ?? null,
   iconPhoto: iconPhoto?.url ?? null,
   homes,
+  highlights,
 });
 
 export function publicRouter() {
@@ -30,12 +31,13 @@ export function publicRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
     if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
-    const [homes, heroes, icons] = await Promise.all([
+    const [homes, highlights, heroes, icons] = await Promise.all([
       store.listHomes(community.id),
+      store.listHighlights(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
     ]);
-    res.json(publicCommunity(community, homes, heroes[0], icons[0]));
+    res.json(publicCommunity(community, homes, highlights, heroes[0], icons[0]));
   });
 
   /**

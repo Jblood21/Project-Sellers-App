@@ -6,12 +6,13 @@ from. This one turns the sign at a community entrance into the builder's lead en
 A mobile-first web app for individual builder communities, with two sides sharing one backend:
 
 - **Buyer PWA** (`/c/:communityId`) — reached by scanning the QR code on a development sign.
-  Buyers explore homes, run seven consumer-friendly financial tools, save homes, build a
-  progressive "My Home Plan" and download it as a PDF. Entry is gated behind name/email/phone.
-- **Builder admin** (`/admin`) — manage communities, homes and photo galleries, toggle which
-  buyer tools are live, read leads with their full behavioural activity log, see stats, and
-  configure per-community theme, live mortgage rates, cost assumptions, DPA rules and credit
-  cutoffs.
+  Buyers explore homes, read the area guide, run seven consumer-friendly financial tools, save
+  homes, build a progressive "My Home Plan" and download it as a PDF. Entry is gated behind
+  name/email/phone.
+- **Builder admin** (`/admin`) — manage communities, homes and photo galleries, write the area
+  guide, toggle which buyer tools are live, read leads with their full behavioural activity log,
+  see stats, and configure per-community theme, live mortgage rates, cost assumptions, DPA rules
+  and credit cutoffs.
 
 The buyer app is **white-labeled per community** — a buyer scanning the sign at Willow Creek sees
 "Willow Creek," never "Cornerpost." The name is for the builder: their login, the invoice, the
@@ -108,6 +109,18 @@ x-webhook-secret: <RATES_WEBHOOK_SECRET>
 
 Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
 
+## The area guide
+
+Buyers ask the same questions on every visit: which school, how far to a grocery store, how long
+to the freeway. **Admin → a community → Area** is where a builder answers them once. Each entry
+has a category (schools, parks, shopping, healthcare, getting around, or good to know), a name, an
+optional distance or hours note, a description and an optional photo — one photo per place, stored
+in the database like every other image.
+
+Entries show up for buyers under **Around Here**, grouped by category and in the order the admin
+created them, with a card on the buyer home screen and an entry in the menu. Both disappear when a
+community has no entries, so a builder who skips this never ships an empty screen.
+
 ## Project layout
 
 ```
@@ -118,8 +131,8 @@ server/
   lib/               password hashing, session tokens, id generation
   routes/            buyer API, admin API, rate webhook
 client/src/
-  buyer/             the buyer PWA: chrome, screens, the seven tools
-  admin/             the admin app: communities, 5 tabs, lead detail, QR + flyer
+  buyer/             the buyer PWA: chrome, screens, the area guide, the seven tools
+  admin/             the admin app: communities, 6 tabs, lead detail, QR + flyer
   lib/               API client, formatting, photo downscaling, storage
 ```
 
@@ -132,8 +145,10 @@ All estimates, and labelled as such in the buyer UI.
   + mortgage insurance (FHA `loan × 0.0055/12`; conventional under 20% down `loan × 0.005/12`;
   VA and 20%-down conventional none) + HOA. Cash to close = down + `price × 2.5%`, minus down
   payment assistance when the screener said "likely" and the buyer applies it.
-- **Affordability** — 36% DTI, 82% of that toward housing, 5% down, conventional rate adjusted
-  by credit range (excellent −0.15, fair +0.35).
+- **Affordability** — a range, not a single number: the comfortable end at 36% DTI and the
+  lender-maximum end at 43% (the Qualified Mortgage limit), 82% of either toward housing,
+  conventional rate adjusted by credit range (excellent −0.15, fair +0.35). Enter a down payment
+  and it is used as cash toward the price; leave it blank and the tool assumes 5% down.
 - **DPA screening and credit ranges** — driven entirely by the admin's Setup values.
 
 Defaults: Conv 6.45 / FHA 6.10 / VA 5.90; tax 0.55%/yr; insurance $1,400/yr; HOA $45/mo;

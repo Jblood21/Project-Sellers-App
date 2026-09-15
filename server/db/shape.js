@@ -62,3 +62,17 @@ export function shapeLead(row, { plan = {}, activity = [] } = {}) {
     activity,
   };
 }
+
+export function shapeHighlight(row, photo = null) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    communityId: row.community_id ?? row.communityId,
+    category: row.category,
+    name: row.name,
+    description: row.description || '',
+    detail: row.detail || '',
+    position: Number(row.position) || 0,
+    photo,
+  };
+}

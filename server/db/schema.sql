@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS photos (
   id           TEXT PRIMARY KEY,
   community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
   home_id      TEXT REFERENCES homes(id) ON DELETE CASCADE,
+  highlight_id TEXT,
   kind         TEXT NOT NULL DEFAULT 'home',
   content_type TEXT,
   data         TEXT,
@@ -49,6 +50,23 @@ CREATE TABLE IF NOT EXISTS photos (
 );
 CREATE INDEX IF NOT EXISTS photos_home_idx ON photos(home_id);
 CREATE INDEX IF NOT EXISTS photos_community_idx ON photos(community_id, kind);
+CREATE INDEX IF NOT EXISTS photos_highlight_idx ON photos(highlight_id);
+
+-- photos predates highlights, so an existing database needs the column added.
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS highlight_id TEXT;
+
+-- What is around the community: schools, parks, shops, commute notes.
+CREATE TABLE IF NOT EXISTS highlights (
+  id           TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  category     TEXT NOT NULL DEFAULT 'other',
+  name         TEXT NOT NULL,
+  description  TEXT NOT NULL DEFAULT '',
+  detail       TEXT NOT NULL DEFAULT '',
+  position     INTEGER NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
 
 CREATE TABLE IF NOT EXISTS leads (
   id             TEXT PRIMARY KEY,

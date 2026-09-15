@@ -77,6 +77,25 @@ export const PROGRAM_DESCRIPTIONS = {
   conv: 'The standard loan — best rates with stronger credit; mortgage insurance drops off at 20% equity.',
 };
 
+/**
+ * What a builder can pin about the area around a community. Ordered the way a
+ * buyer tends to ask: where do my kids go, what is there to do, where do I shop.
+ */
+export const HIGHLIGHT_CATEGORIES = [
+  { k: 'schools', label: 'Schools' },
+  { k: 'parks', label: 'Parks & Recreation' },
+  { k: 'shopping', label: 'Shopping & Dining' },
+  { k: 'health', label: 'Healthcare' },
+  { k: 'commute', label: 'Getting Around' },
+  { k: 'other', label: 'Good to Know' },
+];
+
+export const HIGHLIGHT_CATEGORY_KEYS = HIGHLIGHT_CATEGORIES.map((c) => c.k);
+
+export function highlightCategoryLabel(key) {
+  return HIGHLIGHT_CATEGORIES.find((c) => c.k === key)?.label ?? 'Good to Know';
+}
+
 export const AVAILABILITY = ['Planning', 'Under Construction', 'Move-in ready'];
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 
@@ -187,16 +206,28 @@ const HOUSING_SHARE = 0.82;
  * `buyingPower` stays the conservative figure so nothing downstream silently
  * starts quoting the top of the range as if it were a recommendation.
  */
-export function calcAffordability({ income, debts, credit, settings, downPct = 5 }) {
+export function calcAffordability({
+  income, debts, credit, settings, downPct = 5, downPayment = null,
+}) {
   const rate = ratesOf(settings).conv + creditRateAdjustment(credit);
   const monthlyIncome = num(income) / 12;
   const debtLoad = num(debts);
+
+  // A buyer who knows what they have saved gets the honest version: the price
+  // they can reach is what they can borrow plus what they put in. Without a
+  // figure we fall back to assuming a percentage.
+  const hasCash = downPayment !== null && downPayment !== '' && num(downPayment) >= 0;
   const downShare = 1 - num(downPct) / 100;
 
   const at = (dti) => {
     const maxPayment = Math.max(0, monthlyIncome * dti - debtLoad);
     const loan = amountFor(maxPayment * HOUSING_SHARE, rate);
-    return { maxPayment, loan, price: downShare > 0 ? loan / downShare : loan };
+    const price = hasCash
+      ? loan + num(downPayment)
+      : downShare > 0
+        ? loan / downShare
+        : loan;
+    return { maxPayment, loan, price, down: hasCash ? num(downPayment) : price - loan };
   };
 
   const comfortable = at(DTI_COMFORTABLE);
@@ -218,13 +249,16 @@ export function calcAffordability({ income, debts, credit, settings, downPct = 5
  * on the board. Each delta is the real difference this calculator produces,
  * not a motivational guess.
  */
-export function affordabilityLevers({ income, debts, credit, settings, dpaAmount = 0 }) {
-  const base = calcAffordability({ income, debts, credit, settings });
+export function affordabilityLevers({
+  income, debts, credit, settings, dpaAmount = 0, downPayment = null,
+}) {
+  const shared = { income, credit, settings, downPayment };
+  const base = calcAffordability({ ...shared, debts });
   if (!num(income)) return [];
   const levers = [];
 
   if (num(debts) > 0) {
-    const cleared = calcAffordability({ income, debts: 0, credit, settings });
+    const cleared = calcAffordability({ ...shared, debts: 0 });
     levers.push({
       key: 'debt',
       label: `Paying off your ${money(debts)}/mo of other debts`,
@@ -247,7 +281,7 @@ export function affordabilityLevers({ income, debts, credit, settings, dpaAmount
 
   if (credit !== 'exc') {
     const better = calcAffordability({
-      income, debts, settings, credit: credit === 'fair' ? 'good' : 'exc',
+      ...shared, debts, credit: credit === 'fair' ? 'good' : 'exc',
     });
     const delta = better.buyingPower - base.buyingPower;
     if (delta > 0) {

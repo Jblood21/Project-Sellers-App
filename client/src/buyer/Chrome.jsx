@@ -108,6 +108,7 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
   const items = [
     { label: 'All Tools', to: `/c/${communityId}/tools` },
     { label: 'Explore Homes', to: `/c/${communityId}/explore` },
+    ...(community?.highlights?.length ? [{ label: 'Around Here', to: `/c/${communityId}/area` }] : []),
     ...enabled.map((tool) => ({
       label: tool.name,
       to: `/c/${communityId}/tool/${tool.k}`,

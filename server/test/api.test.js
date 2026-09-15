@@ -248,3 +248,91 @@ test('a second request from the same lead reopens a handled one', async () => {
     'asking again puts the lead back in the queue',
   );
 });
+
+test('area highlights: the admin writes them, the buyer reads them', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Area Test' } });
+  const cid = community.body.id;
+
+  // A nameless place is not a place.
+  assert.equal(
+    (await api(`/api/admin/communities/${cid}/highlights`, { method: 'POST', token, body: { name: ' ' } })).status,
+    400,
+  );
+
+  const school = await api(`/api/admin/communities/${cid}/highlights`, {
+    method: 'POST', token,
+    body: {
+      category: 'schools', name: 'Oakridge Elementary', detail: '4 min drive',
+      description: 'K–6, bus stops at the entrance.',
+    },
+  });
+  assert.equal(school.status, 201);
+  assert.equal(school.body.category, 'schools');
+  assert.equal(school.body.photo, null);
+
+  // An unknown category falls back rather than being stored as-is.
+  const odd = await api(`/api/admin/communities/${cid}/highlights`, {
+    method: 'POST', token, body: { category: 'nightlife', name: 'The Creamery' },
+  });
+  assert.equal(odd.body.category, 'other');
+
+  // A 1×1 GIF — enough to prove the photo round-trips onto the highlight.
+  const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  const photo = await api(`/api/admin/highlights/${school.body.id}/photos`, {
+    method: 'POST', token, body: { dataUrl: gif },
+  });
+  assert.equal(photo.status, 201);
+
+  // Uploading again replaces rather than accumulates: one photo per place.
+  await api(`/api/admin/highlights/${school.body.id}/photos`, { method: 'POST', token, body: { dataUrl: gif } });
+
+  const buyerView = await api(`/api/c/${cid}`);
+  assert.equal(buyerView.status, 200, 'no auth needed — this is behind the QR code');
+  assert.equal(buyerView.body.highlights.length, 2);
+  const seen = buyerView.body.highlights.find((h) => h.name === 'Oakridge Elementary');
+  assert.equal(seen.detail, '4 min drive');
+  assert.ok(seen.photo?.url, 'the photo reaches the buyer');
+  assert.equal(seen.photo.url, `/api/photos/${seen.photo.id}`, 'served from the database, not the disk');
+
+  // Ordering is stable, so the admin's arrangement is what buyers get.
+  assert.deepEqual(
+    buyerView.body.highlights.map((h) => h.name),
+    ['Oakridge Elementary', 'The Creamery'],
+  );
+
+  const edited = await api(`/api/admin/highlights/${school.body.id}`, {
+    method: 'PATCH', token, body: { detail: '6 min drive', category: 'other' },
+  });
+  assert.equal(edited.body.detail, '6 min drive');
+  assert.equal(edited.body.category, 'other');
+  assert.ok(edited.body.photo, 'editing the text keeps the photo');
+
+  // Deleting takes the photo with it.
+  const photoId = seen.photo.id;
+  assert.equal((await api(`/api/admin/highlights/${school.body.id}`, { method: 'DELETE', token })).status, 204);
+  assert.equal((await api(`/api/photos/${photoId}`)).status, 404, 'the orphaned photo is gone too');
+  assert.equal((await api(`/api/c/${cid}`)).body.highlights.length, 1);
+});
+
+test('deleting a community takes its highlights with it', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Sweep Test' } });
+  const cid = community.body.id;
+  const made = await api(`/api/admin/communities/${cid}/highlights`, {
+    method: 'POST', token, body: { category: 'parks', name: 'Riverside Park' },
+  });
+
+  await api(`/api/admin/communities/${cid}`, { method: 'DELETE', token });
+  assert.equal(
+    (await api(`/api/admin/highlights/${made.body.id}`, { method: 'PATCH', token, body: { name: 'x' } })).status,
+    404,
+    'the highlight does not outlive its community',
+  );
+});
