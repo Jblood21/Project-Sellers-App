@@ -146,6 +146,9 @@ function PhotoStrip({ home, reload }) {
   const inputRef = useRef(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // The downscaled photo, shown in place the moment it is ready, so the strip
+  // fills in while the upload is still in flight rather than after it.
+  const [pending, setPending] = useState(null);
 
   const upload = async (event) => {
     const file = event.target.files?.[0];
@@ -155,11 +158,13 @@ function PhotoStrip({ home, reload }) {
     setError('');
     try {
       const dataUrl = await fileToDataUrl(file);
+      setPending(dataUrl);
       await adminApi.addHomePhoto(token, home.id, { dataUrl });
       await reload();
     } catch (err) {
       setError(err.message);
     } finally {
+      setPending(null);
       setBusy(false);
     }
   };
@@ -189,6 +194,23 @@ function PhotoStrip({ home, reload }) {
             </button>
           </div>
         ))}
+        {pending ? (
+          <div style={{ position: 'relative', width: 170, height: 120, flex: 'none' }}>
+            <img
+              src={pending}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12, display: 'block', opacity: 0.55 }}
+            />
+            <span
+              style={{
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 700, color: 'var(--color-text)',
+              }}
+            >
+              Uploading…
+            </span>
+          </div>
+        ) : null}
         {home.photos.length < MAX_PHOTOS_PER_HOME ? (
           <button
             type="button"

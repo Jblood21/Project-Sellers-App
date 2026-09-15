@@ -108,7 +108,9 @@ export default function Communities() {
           actions={
             <>
               <button type="button" className="btn btn-secondary" onClick={() => setDialogOpen(false)}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={create} disabled={busy}>Create</button>
+              <button type="button" className="btn btn-primary" onClick={create} disabled={busy}>
+                {busy ? 'Creating…' : 'Create'}
+              </button>
             </>
           }
         >

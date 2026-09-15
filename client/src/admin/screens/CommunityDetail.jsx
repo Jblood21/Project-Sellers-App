@@ -185,7 +185,9 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
         <>
           <button type="button" className="btn btn-danger" onClick={remove} style={{ marginRight: 'auto' }}>Delete</button>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>Save</button>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
         </>
       }
     >
