@@ -102,6 +102,6 @@ if (isMain) {
     if (seeded) console.log(`Seeded demo community: ${seeded.name} (/c/${seeded.id})`);
   }
   createApp().listen(port, () => {
-    console.log(`Project Sellers App listening on :${port} (${store.kind} store)`);
+    console.log(`Cornerpost listening on :${port} (${store.kind} store)`);
   });
 }

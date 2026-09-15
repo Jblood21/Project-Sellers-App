@@ -2,7 +2,7 @@
 # Create from the Render dashboard: New → Blueprint → point at this repo.
 services:
   - type: web
-    name: project-sellers-app
+    name: cornerpost
     runtime: node
     plan: starter
     region: oregon
@@ -16,7 +16,7 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: project-sellers-db
+          name: cornerpost-db
           property: connectionString
       # Signs admin and buyer session tokens. Render generates it once.
       - key: SESSION_SECRET
@@ -32,8 +32,8 @@ services:
         sync: false
 
 databases:
-  - name: project-sellers-db
+  - name: cornerpost-db
     plan: basic-256mb
     region: oregon
-    databaseName: project_sellers
-    user: project_sellers
+    databaseName: cornerpost
+    user: cornerpost

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useAdmin } from '../AdminContext.jsx';
+import Wordmark from '../Wordmark.jsx';
 import { ErrorNote, TextField } from '../ui.jsx';
 
 export default function Login() {
@@ -26,8 +27,10 @@ export default function Login() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <form className="card elev-sm" onSubmit={submit} style={{ width: '100%', maxWidth: 380, gap: 14, padding: 24 }}>
-        <span className="card-kicker">Builder / agent admin</span>
-        <h2 style={{ margin: '2px 0 4px', fontSize: 24 }}>Sign in</h2>
+        <span style={{ color: 'var(--color-accent)' }}>
+          <Wordmark size={22} />
+        </span>
+        <h2 style={{ margin: '6px 0 4px', fontSize: 24 }}>Sign in</h2>
         <p className="text-muted" style={{ fontSize: 13, margin: '0 0 6px' }}>
           Manage your communities, homes, buyer tools and leads.
         </p>

@@ -5,6 +5,7 @@ import { THEMES } from '@shared/domain.js';
 import CardButton from '../../components/CardButton.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import Wordmark from '../Wordmark.jsx';
 import { Dialog, ErrorNote, Spinner, TextField } from '../ui.jsx';
 
 export default function Communities() {
@@ -40,7 +41,12 @@ export default function Communities() {
     <div className="a-shell">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <div>
-          <span className="card-kicker">Signed in as {admin?.email}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--color-accent)' }}>
+            <Wordmark size={19} />
+            <span className="card-kicker" style={{ color: 'var(--color-neutral-600)' }}>
+              {admin?.email}
+            </span>
+          </span>
           <h2 style={{ margin: '4px 0 6px', fontSize: 28 }}>Communities</h2>
           <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
             Each community gets its own QR code, theme, tools and lead list.

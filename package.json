@@ -1,8 +1,8 @@
 {
-  "name": "project-sellers-app",
+  "name": "cornerpost",
   "version": "1.0.0",
   "private": true,
-  "description": "Builder Community App — buyer PWA + builder admin, one Express service.",
+  "description": "Cornerpost — the homebuyer app builders put on their community sign, plus the builder admin behind it.",
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
