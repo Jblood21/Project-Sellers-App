@@ -1,4 +1,6 @@
-import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, normalizeTheme } from '../../shared/domain.js';
+import {
+  DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, normalizeTheme,
+} from '../../shared/domain.js';
 
 export function shapeCommunity(row, extra = {}) {
   if (!row) return null;
@@ -12,13 +14,14 @@ export function shapeCommunity(row, extra = {}) {
     builder: row.builder || '',
     settings: { ...DEFAULT_SETTINGS, ...(row.settings || {}) },
     tools: { ...DEFAULT_TOOLS_ENABLED, ...(row.tools || {}) },
+    features: { ...DEFAULT_FEATURES, ...(row.features || {}) },
     createdAt: row.created_at ?? row.createdAt ?? null,
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
     ...extra,
   };
 }
 
-export function shapeHome(row, photos = []) {
+export function shapeHome(row, photos = [], floorPlans = []) {
   if (!row) return null;
   return {
     id: row.id,
@@ -30,8 +33,10 @@ export function shapeHome(row, photos = []) {
     sqft: Number(row.sqft) || 0,
     description: row.description || '',
     availability: row.availability,
+    lotNumber: row.lot_number ?? row.lotNumber ?? '',
     position: Number(row.position) || 0,
     photos,
+    floorPlans,
   };
 }
 

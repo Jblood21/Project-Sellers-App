@@ -7,7 +7,18 @@ import { issueLeadToken, requireLead } from '../lib/auth.js';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PLAN_KEYS = new Set([...TOOL_KEYS, 'homes']);
 
-const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto) => ({
+/**
+ * A feature the builder switched off is stripped here rather than hidden in the
+ * client, so an unpublished lot number never reaches a buyer's browser at all.
+ */
+const applyFeatures = (homes, features) =>
+  homes.map((home) => ({
+    ...home,
+    lotNumber: features.lotNumbers ? home.lotNumber : '',
+    floorPlans: features.floorPlans ? home.floorPlans : [],
+  }));
+
+const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto, siteMap) => ({
   id: community.id,
   name: community.name,
   location: community.location,
@@ -17,9 +28,11 @@ const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto) => 
   websiteUrl: community.websiteUrl,
   settings: community.settings,
   tools: community.tools,
+  features: community.features,
   heroPhoto: heroPhoto?.url ?? null,
   iconPhoto: iconPhoto?.url ?? null,
-  homes,
+  siteMap: community.features.siteMap ? (siteMap?.url ?? null) : null,
+  homes: applyFeatures(homes, community.features),
   highlights,
 });
 
@@ -31,13 +44,14 @@ export function publicRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
     if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
-    const [homes, highlights, heroes, icons] = await Promise.all([
+    const [homes, highlights, heroes, icons, maps] = await Promise.all([
       store.listHomes(community.id),
       store.listHighlights(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
+      store.listCommunityPhotos(community.id, 'sitemap'),
     ]);
-    res.json(publicCommunity(community, homes, highlights, heroes[0], icons[0]));
+    res.json(publicCommunity(community, homes, highlights, heroes[0], icons[0], maps[0]));
   });
 
   /**

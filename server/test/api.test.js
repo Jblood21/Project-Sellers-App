@@ -336,3 +336,69 @@ test('deleting a community takes its highlights with it', async () => {
     'the highlight does not outlive its community',
   );
 });
+
+test('lot numbers, floor plans and the site map are gated by their toggles', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Lot Test' } });
+  const cid = community.body.id;
+
+  const home = await api(`/api/admin/communities/${cid}/homes`, {
+    method: 'POST', token, body: { name: 'The Willow', price: 400000, lotNumber: 'Lot 14' },
+  });
+  assert.equal(home.status, 201);
+  assert.equal(home.body.lotNumber, 'Lot 14');
+  assert.deepEqual(home.body.floorPlans, [], 'a new home has no plans');
+
+  const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  assert.equal(
+    (await api(`/api/admin/homes/${home.body.id}/floorplans`, { method: 'POST', token, body: { dataUrl: gif } })).status,
+    201,
+  );
+  assert.equal(
+    (await api(`/api/admin/communities/${cid}/photos/sitemap`, { method: 'POST', token, body: { dataUrl: gif } })).status,
+    201,
+  );
+
+  // A plan must not leak into the photo carousel — both hang off the same home.
+  const withPlan = await api(`/api/admin/communities/${cid}`, { token });
+  const adminHome = withPlan.body.homes[0];
+  assert.equal(adminHome.floorPlans.length, 1, 'the plan is on the home');
+  assert.equal(adminHome.photos.length, 0, 'and not in the gallery');
+  assert.ok(withPlan.body.siteMap, 'the admin sees the site map');
+
+  // Defaults are on, so a builder who uploads something sees it without hunting.
+  let buyer = await api(`/api/c/${cid}`);
+  assert.equal(buyer.body.homes[0].lotNumber, 'Lot 14');
+  assert.equal(buyer.body.homes[0].floorPlans.length, 1);
+  assert.ok(buyer.body.siteMap);
+
+  // Each toggle is independent, and switching one off removes the data from the
+  // payload rather than merely hiding it in the client.
+  await api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { features: { lotNumbers: false } } });
+  buyer = await api(`/api/c/${cid}`);
+  assert.equal(buyer.body.homes[0].lotNumber, '', 'lot number withheld');
+  assert.equal(buyer.body.homes[0].floorPlans.length, 1, 'plans unaffected');
+  assert.ok(buyer.body.siteMap, 'site map unaffected');
+
+  await api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { features: { floorPlans: false } } });
+  buyer = await api(`/api/c/${cid}`);
+  assert.deepEqual(buyer.body.homes[0].floorPlans, [], 'plans withheld');
+
+  await api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { features: { siteMap: false } } });
+  buyer = await api(`/api/c/${cid}`);
+  assert.equal(buyer.body.siteMap, null, 'site map withheld');
+
+  // The admin still has everything — the toggle governs publication, not storage.
+  const stillThere = await api(`/api/admin/communities/${cid}`, { token });
+  assert.equal(stillThere.body.homes[0].lotNumber, 'Lot 14');
+  assert.equal(stillThere.body.homes[0].floorPlans.length, 1);
+  assert.ok(stillThere.body.siteMap);
+
+  // Turning one back on republishes it.
+  await api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { features: { lotNumbers: true } } });
+  buyer = await api(`/api/c/${cid}`);
+  assert.equal(buyer.body.homes[0].lotNumber, 'Lot 14', 'and comes back when switched on');
+});

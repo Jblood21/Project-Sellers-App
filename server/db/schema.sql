@@ -15,9 +15,14 @@ CREATE TABLE IF NOT EXISTS communities (
   builder     TEXT NOT NULL DEFAULT '',
   settings    JSONB NOT NULL DEFAULT '{}'::jsonb,
   tools       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  features    JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Existing databases skip the CREATE TABLE above, so every column added since has
+-- to arrive by ALTER. Keep these directly under their table and above any index
+-- or constraint that names them.
+ALTER TABLE communities ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS homes (
   id           TEXT PRIMARY KEY,
@@ -29,9 +34,12 @@ CREATE TABLE IF NOT EXISTS homes (
   sqft         NUMERIC NOT NULL DEFAULT 0,
   description  TEXT NOT NULL DEFAULT '',
   availability TEXT NOT NULL DEFAULT 'Planning',
+  lot_number   TEXT NOT NULL DEFAULT '',
   position     INTEGER NOT NULL DEFAULT 0,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS lot_number TEXT NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS homes_community_idx ON homes(community_id);
 
 -- Photos live in the database so a Render service with an ephemeral disk keeps them

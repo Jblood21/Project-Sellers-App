@@ -19,16 +19,26 @@ export function createPostgresStore(connectionString) {
   });
   const q = (text, params) => pool.query(text, params);
 
+  /**
+   * A home's images, split by kind: the gallery buyers swipe through, and the
+   * floor plans. Both hang off home_id, so anything reading photos has to say
+   * which it wants or it gets plan drawings in the photo carousel.
+   */
   const photosFor = async (homeIds) => {
-    const byHome = new Map(homeIds.map((id) => [id, []]));
+    const byHome = new Map(homeIds.map((id) => [id, { photos: [], floorPlans: [] }]));
     if (!homeIds.length) return byHome;
     const { rows } = await q(
       `SELECT * FROM photos WHERE home_id = ANY($1::text[]) ORDER BY position, created_at`,
       [homeIds],
     );
-    for (const row of rows) byHome.get(row.home_id)?.push(shapePhoto(row));
+    for (const row of rows) {
+      const entry = byHome.get(row.home_id);
+      if (!entry) continue;
+      (row.kind === 'floorplan' ? entry.floorPlans : entry.photos).push(shapePhoto(row));
+    }
     return byHome;
   };
+  const EMPTY_IMAGES = { photos: [], floorPlans: [] };
 
   const planFor = async (leadId) => {
     const { rows } = await q(`SELECT key, summary FROM lead_plan_items WHERE lead_id = $1`, [leadId]);
@@ -112,6 +122,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', location: 'location', status: 'status', theme: 'theme',
         websiteUrl: 'website_url', builder: 'builder', settings: 'settings', tools: 'tools',
+        features: 'features',
       };
       const sets = [];
       const params = [];
@@ -139,14 +150,17 @@ export function createPostgresStore(connectionString) {
         `SELECT * FROM homes WHERE community_id = $1 ORDER BY position, created_at`, [communityId],
       );
       const byHome = await photosFor(rows.map((r) => r.id));
-      return rows.map((r) => shapeHome(r, byHome.get(r.id) || []));
+      return rows.map((r) => {
+        const images = byHome.get(r.id) || EMPTY_IMAGES;
+        return shapeHome(r, images.photos, images.floorPlans);
+      });
     },
 
     async getHome(id) {
       const { rows } = await q(`SELECT * FROM homes WHERE id = $1`, [id]);
       if (!rows[0]) return null;
-      const byHome = await photosFor([id]);
-      return shapeHome(rows[0], byHome.get(id) || []);
+      const images = (await photosFor([id])).get(id) || EMPTY_IMAGES;
+      return shapeHome(rows[0], images.photos, images.floorPlans);
     },
 
     async createHome(communityId, data) {
@@ -154,18 +168,20 @@ export function createPostgresStore(connectionString) {
         `SELECT coalesce(max(position), -1) + 1 AS pos FROM homes WHERE community_id = $1`, [communityId],
       );
       const { rows } = await q(
-        `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description, availability, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description,
+                            availability, lot_number, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
         [`h_${shortId(10)}`, communityId, data.name, data.price, data.beds, data.baths, data.sqft,
-          data.description, data.availability, posRows[0].pos],
+          data.description, data.availability, data.lotNumber ?? '', posRows[0].pos],
       );
-      return shapeHome(rows[0], []);
+      return shapeHome(rows[0], [], []);
     },
 
     async updateHome(id, patch) {
       const map = {
         name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'sqft',
-        description: 'description', availability: 'availability', position: 'position',
+        description: 'description', availability: 'availability', lotNumber: 'lot_number',
+        position: 'position',
       };
       const sets = [];
       const params = [];
@@ -186,7 +202,10 @@ export function createPostgresStore(connectionString) {
 
     // ── photos ───────────────────────────────────────────────────────────
     async countHomePhotos(homeId) {
-      const { rows } = await q(`SELECT count(*)::int AS n FROM photos WHERE home_id = $1`, [homeId]);
+      // Gallery photos only — floor plans are not part of the per-home photo limit.
+      const { rows } = await q(
+        `SELECT count(*)::int AS n FROM photos WHERE home_id = $1 AND kind <> 'floorplan'`, [homeId],
+      );
       return rows[0].n;
     },
 
@@ -213,6 +232,14 @@ export function createPostgresStore(connectionString) {
 
     async deletePhoto(id) {
       await q(`DELETE FROM photos WHERE id = $1`, [id]);
+    },
+
+    async listHomePhotosOfKind(homeId, kind) {
+      const { rows } = await q(
+        `SELECT * FROM photos WHERE home_id = $1 AND kind = $2 ORDER BY position, created_at`,
+        [homeId, kind],
+      );
+      return rows.map(shapePhoto);
     },
 
     async listHighlightPhotos(highlightId) {

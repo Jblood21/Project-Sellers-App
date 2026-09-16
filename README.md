@@ -109,6 +109,24 @@ x-webhook-secret: <RATES_WEBHOOK_SECRET>
 
 Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
 
+## Lot numbers, floor plans and the site map
+
+Three things a buyer standing at a sign asks before they ask about financing:
+*which lot is that, what does it look like inside, and where does it sit?*
+
+- **Lot numbers** — a field on each home, shown beside the beds/baths line.
+- **Floor plans** — up to four drawings per home, stored under their own photo kind so
+  they never appear in the photo carousel and never count against the 12-photo gallery limit.
+- **Site map** — the community plat, uploaded under **Setup**, with a tap-to-enlarge view and a
+  list of the lots that have a home on them.
+
+Each is switched on or off per community under **Tools → What buyers see**. A feature that is
+switched off is **stripped from the buyer payload on the server**, not merely hidden in the
+client, so an unpublished lot number never reaches a buyer's browser. Switching it back on
+republishes it — the toggle governs publication, not storage, and the admin always sees
+everything. Each also stays hidden while it has no content, so switching one on never shows an
+empty space.
+
 ## The area guide
 
 Buyers ask the same questions on every visit: which school, how far to a grocery store, how long
@@ -133,6 +151,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, the seven tools
   admin/             the admin app: communities, 6 tabs, lead detail, QR + flyer
+                     (Tools carries both the buyer-tool and display-feature switches)
   lib/               API client, formatting, photo downscaling, storage
 ```
 

@@ -12,6 +12,7 @@ import Landing from './screens/Landing.jsx';
 import Plan from './screens/Plan.jsx';
 import PlanPrint from './screens/PlanPrint.jsx';
 import Saved from './screens/Saved.jsx';
+import SiteMap from './screens/SiteMap.jsx';
 import ToolScreen from './tools/index.jsx';
 
 const THEME_COLORS = {
@@ -104,6 +105,7 @@ function BuyerShell() {
         <Route path="tools" element={guard(<AllTools />)} />
         <Route path="explore" element={guard(<Explore />)} />
         <Route path="area" element={guard(<Area />)} />
+        <Route path="map" element={guard(<SiteMap />)} />
         <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourOpen(true)} />)} />
         <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
         <Route path="saved" element={guard(<Saved />)} />

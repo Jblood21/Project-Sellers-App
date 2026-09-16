@@ -99,6 +99,20 @@ export function highlightCategoryLabel(key) {
 export const AVAILABILITY = ['Planning', 'Under Construction', 'Move-in ready'];
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 
+/**
+ * Display features a builder turns on per community. Unlike TOOLS these are not
+ * screens of their own — they add detail to homes the buyer is already looking at.
+ * Each is also hidden when there is nothing to show, so "on" never means "empty".
+ */
+export const FEATURES = [
+  { k: 'lotNumbers', name: 'Lot numbers', q: 'Show which lot each home sits on' },
+  { k: 'floorPlans', name: 'Floor plans', q: 'Let buyers open the plan drawing for a home' },
+  { k: 'siteMap', name: 'Site map', q: 'Show the community plat so buyers can place a home' },
+];
+export const FEATURE_KEYS = FEATURES.map((f) => f.k);
+
+export const DEFAULT_FEATURES = { lotNumbers: true, floorPlans: true, siteMap: true };
+
 export const DEFAULT_TOOLS_ENABLED = {
   payment: true, afford: true, loans: true, compare: true, dpa: true, savings: true, movein: true,
 };

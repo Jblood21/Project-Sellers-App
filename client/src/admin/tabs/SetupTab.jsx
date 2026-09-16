@@ -158,6 +158,7 @@ function CommunityArtwork({ community, reload }) {
   const { token } = useAdmin();
   const heroInput = useRef(null);
   const iconInput = useRef(null);
+  const mapInput = useRef(null);
   const [error, setError] = useState('');
 
   const upload = (kind) => async (event) => {
@@ -195,6 +196,7 @@ function CommunityArtwork({ community, reload }) {
       <span className="card-kicker">Community artwork</span>
       {slot('hero', 'Hero photo (QR landing)', 'Tap to upload the community photo', heroInput, community.heroPhoto, 140)}
       {slot('icon', 'App icon (Add to Home Screen)', 'Tap to upload a square icon', iconInput, community.iconPhoto, 90)}
+      {slot('sitemap', 'Site map (the plat buyers tap)', 'Tap to upload the community site map', mapInput, community.siteMap, 140)}
       <ErrorNote>{error}</ErrorNote>
     </div>
   );

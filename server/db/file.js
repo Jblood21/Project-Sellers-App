@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
+import { DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import { shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto } from './shape.js';
 
@@ -40,8 +40,15 @@ export function createFileStore(path) {
   };
 
   const now = () => new Date().toISOString();
-  const photosOf = (homeId) =>
-    db.photos.filter((p) => p.homeId === homeId).sort((a, b) => a.position - b.position).map(shapePhoto);
+  // A home's gallery and its floor plans both hang off homeId, so every read has
+  // to say which kind it wants or plan drawings land in the photo carousel.
+  const imagesOf = (homeId, kind) =>
+    db.photos
+      .filter((p) => p.homeId === homeId && (kind === 'floorplan' ? p.kind === 'floorplan' : p.kind !== 'floorplan'))
+      .sort((a, b) => a.position - b.position)
+      .map(shapePhoto);
+  const photosOf = (homeId) => imagesOf(homeId, 'home');
+  const plansOf = (homeId) => imagesOf(homeId, 'floorplan');
   // A highlight carries at most one photo, so take the first rather than a gallery.
   const photoOf = (highlightId) => {
     const row = db.photos.find((p) => p.highlightId === highlightId);
@@ -107,6 +114,7 @@ export function createFileStore(path) {
         websiteUrl: null,
         settings: { ...DEFAULT_SETTINGS },
         tools: { ...DEFAULT_TOOLS_ENABLED },
+        features: { ...DEFAULT_FEATURES },
         createdAt: now(), updatedAt: now(),
       };
       db.communities.push(row);
@@ -117,7 +125,9 @@ export function createFileStore(path) {
     async updateCommunity(id, patch) {
       const row = db.communities.find((c) => c.id === id);
       if (!row) return null;
-      for (const key of ['name', 'location', 'status', 'theme', 'websiteUrl', 'builder', 'settings', 'tools']) {
+      for (const key of [
+        'name', 'location', 'status', 'theme', 'websiteUrl', 'builder', 'settings', 'tools', 'features',
+      ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       row.updatedAt = now();
@@ -143,12 +153,12 @@ export function createFileStore(path) {
       return db.homes
         .filter((h) => h.communityId === communityId)
         .sort((a, b) => a.position - b.position)
-        .map((h) => shapeHome(h, photosOf(h.id)));
+        .map((h) => shapeHome(h, photosOf(h.id), plansOf(h.id)));
     },
 
     async getHome(id) {
       const row = db.homes.find((h) => h.id === id);
-      return row ? shapeHome(row, photosOf(id)) : null;
+      return row ? shapeHome(row, photosOf(id), plansOf(id)) : null;
     },
 
     async createHome(communityId, data) {
@@ -156,17 +166,20 @@ export function createFileStore(path) {
       const row = { id: `h_${shortId(10)}`, communityId, ...data, position, createdAt: now() };
       db.homes.push(row);
       save();
-      return shapeHome(row, []);
+      return shapeHome(row, [], []);
     },
 
     async updateHome(id, patch) {
       const row = db.homes.find((h) => h.id === id);
       if (!row) return null;
-      for (const key of ['name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability', 'position']) {
+      for (const key of [
+        'name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability',
+        'lotNumber', 'position',
+      ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       save();
-      return shapeHome(row, photosOf(id));
+      return shapeHome(row, photosOf(id), plansOf(id));
     },
 
     async deleteHome(id) {
@@ -211,12 +224,19 @@ export function createFileStore(path) {
       save();
     },
 
+    async listHomePhotosOfKind(homeId, kind) {
+      return db.photos
+        .filter((p) => p.homeId === homeId && p.kind === kind)
+        .sort((a, b) => a.position - b.position)
+        .map(shapePhoto);
+    },
+
     async listHighlightPhotos(highlightId) {
       return db.photos.filter((p) => p.highlightId === highlightId).map(shapePhoto);
     },
 
     async countHomePhotos(homeId) {
-      return db.photos.filter((p) => p.homeId === homeId).length;
+      return db.photos.filter((p) => p.homeId === homeId && p.kind !== 'floorplan').length;
     },
 
     async addPhoto({

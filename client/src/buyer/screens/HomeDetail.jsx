@@ -46,8 +46,36 @@ export default function HomeDetail({ onOpenTour }) {
         <h3 className="b-head" style={{ fontSize: 24 }}>{home.name}</h3>
         <span style={{ fontWeight: 700, fontSize: 19 }}>{money(home.price)}</span>
       </div>
-      <span style={{ fontSize: 13, color: 'var(--t-mut)' }}>{homeMeta(home)} · {home.availability}</span>
+      <span style={{ fontSize: 13, color: 'var(--t-mut)' }}>
+        {homeMeta(home)} · {home.availability}
+        {home.lotNumber ? ` · ${home.lotNumber}` : ''}
+      </span>
       <p style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
+
+      {home.floorPlans?.length ? (
+        <div style={{ marginBottom: 16 }}>
+          <span className="b-lbl" style={{ display: 'block', marginBottom: 8 }}>Floor plans</span>
+          <div className="scroll-x" style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+            {home.floorPlans.map((plan, index) => (
+              <a
+                key={plan.id}
+                href={plan.url}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Open ${home.name} floor plan ${index + 1}`}
+                style={{
+                  flex: 'none', width: 150, height: 150, borderRadius: 'var(--t-rad)',
+                  overflow: 'hidden', border: '1px solid var(--t-line)', background: '#fff',
+                  display: 'block',
+                }}
+              >
+                <Photo photo={plan} alt={`${home.name} floor plan ${index + 1}`} fit="contain" />
+              </a>
+            ))}
+          </div>
+          <span style={{ fontSize: 11.5, color: 'var(--t-mut)' }}>Tap a plan to open it full size.</span>
+        </div>
+      ) : null}
 
       <div className="b-stack" style={{ gap: 10 }}>
         <button

@@ -64,6 +64,8 @@ export const adminApi = {
     request(`/api/admin/highlights/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   addHighlightPhoto: (token, highlightId, body) =>
     request(`/api/admin/highlights/${encodeURIComponent(highlightId)}/photos`, { method: 'POST', body, token }),
+  addFloorPlan: (token, homeId, body) =>
+    request(`/api/admin/homes/${encodeURIComponent(homeId)}/floorplans`, { method: 'POST', body, token }),
   addCommunityPhoto: (token, communityId, kind, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/photos/${kind}`, {
       method: 'POST', body, token,
