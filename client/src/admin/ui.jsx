@@ -2,13 +2,25 @@ import { useEffect, useRef } from 'react';
 
 export function Dialog({ title, children, actions, onClose }) {
   const ref = useRef(null);
+  // Callers pass an inline arrow for onClose, so its identity changes on every
+  // render. Reading it through a ref keeps the effects below from re-running
+  // each time — which is what used to move focus mid-typing.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  // Focus the first control once, when the dialog opens. This must NOT depend on
+  // anything that changes while the dialog is open: re-running it on every render
+  // yanked the caret out of whatever was being typed and back to the first field,
+  // so only one character per field ever landed.
+  useEffect(() => {
+    ref.current?.querySelector('input, textarea, select, button')?.focus();
+  }, []);
 
   useEffect(() => {
-    const onKey = (event) => event.key === 'Escape' && onClose?.();
+    const onKey = (event) => event.key === 'Escape' && closeRef.current?.();
     document.addEventListener('keydown', onKey);
-    ref.current?.querySelector('input, textarea, select, button')?.focus();
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="dialog-backdrop" onClick={onClose} role="presentation">
