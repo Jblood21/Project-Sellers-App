@@ -118,7 +118,12 @@ CREATE TABLE IF NOT EXISTS leads (
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 
-CREATE UNIQUE INDEX IF NOT EXISTS leads_community_email_idx ON leads(community_id, lower(email));
+-- Email alone no longer identifies a person: two people who share an address are
+-- two leads, and only name + email + phone together mean "the same buyer" (see
+-- isSameLead in shared/domain.js). So this index can no longer be unique, and
+-- identity is decided by the application rather than the database.
+DROP INDEX IF EXISTS leads_community_email_idx;
+CREATE INDEX IF NOT EXISTS leads_community_email_lookup_idx ON leads(community_id, lower(email));
 
 CREATE TABLE IF NOT EXISTS lead_plan_items (
   lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,

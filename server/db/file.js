@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
-  DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, isoDate,
+  DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, isoDate, isSameLead,
 } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
@@ -354,10 +354,8 @@ export function createFileStore(path) {
       return row ? shapeLead(row, { plan: planOf(id), activity: activityOf(id) }) : null;
     },
 
-    async findLeadByEmail(communityId, email) {
-      const row = db.leads.find(
-        (l) => l.communityId === communityId && l.email.toLowerCase() === String(email).toLowerCase(),
-      );
+    async findLeadByIdentity(communityId, input) {
+      const row = db.leads.find((l) => l.communityId === communityId && isSameLead(l, input));
       return row ? shapeLead(row, { plan: planOf(row.id), activity: activityOf(row.id) }) : null;
     },
 

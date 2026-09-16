@@ -444,6 +444,34 @@ export function planProgress(lead) {
  * forever, so without the handled stamp every badge would eventually be stale
  * and the signal worthless.
  */
+/**
+ * Identity for the entry gate. All three have to match for a returning buyer to
+ * be signed back into their own record; anything different is somebody else.
+ *
+ * Matching compares the INFORMATION, not the keystrokes. "(801) 555-0111" and
+ * "8015550111" are one phone number, and "Sam  Rivera" is "sam rivera" — a buyer
+ * who comes back and types their number without brackets must not be handed a
+ * duplicate, since avoiding duplicates is the entire point.
+ */
+const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase();
+const normalizePhone = (value) => String(value ?? '').replace(/\D/g, '');
+const normalizeName = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+export function leadIdentity(input) {
+  return {
+    email: normalizeEmail(input?.email),
+    phone: normalizePhone(input?.phone),
+    name: normalizeName(input?.name),
+  };
+}
+
+/** True when this lead is the same person as the details just typed in. */
+export function isSameLead(lead, input) {
+  const a = leadIdentity(lead);
+  const b = leadIdentity(input);
+  return a.email === b.email && a.phone === b.phone && a.name === b.name;
+}
+
 export function isTourPending(lead) {
   // An archived lead is one the builder is done with, so it must stop counting
   // against the queue even if its request was never marked handled.

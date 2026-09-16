@@ -143,6 +143,33 @@ republishes it — the toggle governs publication, not storage, and the admin al
 everything. Each also stays hidden while it has no content, so switching one on never shows an
 empty space.
 
+## Who counts as the same buyer
+
+The entry gate signs a returning buyer back into their own record — their saved homes, their
+plan, their history — when **name, email and phone all match**. Any one of them different is a
+different person, who gets their own lead.
+
+Matching compares the **information, not the keystrokes**. `(801) 555-0111`, `801-555-0111` and
+`8015550111` are one phone number; `Sam  Rivera` is `sam rivera`. Without that a buyer who came
+back and typed their number without brackets would be handed a duplicate, which is the thing
+this is meant to prevent.
+
+Two consequences worth knowing:
+
+- **Two people can share an email address.** A couple who both scan the sign with one household
+  address are two leads, as they should be. Email alone used to decide identity, which silently
+  merged the second person into the first and lost a lead. That also means
+  `leads(community_id, lower(email))` can no longer be UNIQUE — `schema.sql` drops it and
+  replaces it with a plain lookup index, and identity is now the application's decision rather
+  than the database's.
+- **A different name on the same contact details is a new lead.** Somebody entering "Sam Rivera
+  Jr" having previously entered "Sam Rivera" gets a second record. That is the deliberate cost of
+  requiring all three: strictness that separates two real people also separates one person who
+  typed their name differently. Merging duplicates by hand is not built yet.
+
+Identity is scoped per community — the same person at two developments is two leads, because they
+are two separate conversations.
+
 ## Working the leads
 
 The Leads tab separates two things that used to share one field:
