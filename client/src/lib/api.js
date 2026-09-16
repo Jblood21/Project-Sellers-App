@@ -35,6 +35,7 @@ export const buyerApi = {
     request(`/api/me/plan/${encodeURIComponent(key)}`, { method: 'PUT', body: { summary }, token }),
   track: (token, text) => request('/api/me/activity', { method: 'POST', body: { text }, token }),
   requestTour: (token, time) => request('/api/me/tour', { method: 'POST', body: { time }, token }),
+  emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
 };
 
 // ── admin ─────────────────────────────────────────────────────────────────

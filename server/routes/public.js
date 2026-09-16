@@ -3,8 +3,17 @@ import { Router } from 'express';
 import { PLAN_LABELS, TOOL_KEYS } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
+import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Absolute URL of this deployment, so emails can link back into the app. */
+const baseUrlOf = (req) => {
+  const host = req.get('x-forwarded-host') || req.get('host');
+  if (!host) return '';
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+  return `${proto}://${host}`;
+};
 const PLAN_KEYS = new Set([...TOOL_KEYS, 'homes']);
 
 /**
@@ -134,12 +143,44 @@ export function publicRouter() {
     res.status(204).end();
   });
 
+  /** The buyer asks for their own plan. Never sent unprompted. */
+  router.post('/me/plan/email', requireLead, async (req, res) => {
+    const store = await getStore();
+    const lead = await store.getLead(req.leadId);
+    if (!lead) return res.status(404).json({ error: 'We could not find your plan.' });
+    const community = await store.getCommunity(lead.communityId);
+    if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
+
+    const homes = await store.listHomes(community.id);
+    const result = await sendPlanToBuyer({
+      community: { ...community, homes }, lead, baseUrl: baseUrlOf(req),
+    });
+    if (!result.sent) {
+      return res.status(503).json({
+        error: 'We could not send that right now. You can still download it as a PDF.',
+      });
+    }
+    await store.addActivity(req.leadId, 'Emailed their home plan to themselves');
+    res.json({ sent: true, to: lead.email });
+  });
+
   router.post('/me/tour', requireLead, async (req, res) => {
     const time = String(req.body?.time ?? '').trim();
     if (!time) return res.status(400).json({ error: 'Pick a time that works' });
     const store = await getStore();
     const lead = await store.updateLead(req.leadId, { tour: { time, requestedAt: new Date().toISOString() } });
     await store.addActivity(req.leadId, `Requested to talk: ${time}`);
+
+    // The request is already saved. Telling the builder is best-effort on top of
+    // that — sendEmail never throws, so a mail outage cannot cost them the lead.
+    const community = await store.getCommunity(lead.communityId);
+    if (community) {
+      const homes = await store.listHomes(community.id);
+      const result = await notifyCallRequest({
+        store, community: { ...community, homes }, lead, baseUrl: baseUrlOf(req),
+      });
+      if (result.sent) await store.addActivity(req.leadId, 'Builder emailed about the call request');
+    }
     res.json(lead);
   });
 

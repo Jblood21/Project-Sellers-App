@@ -76,3 +76,30 @@ jobs:
           SEED_DEMO: 'false'
           SESSION_SECRET: ci-smoke-test-secret
           DATA_FILE: ${{ runner.temp }}/ci-db.json
+
+  # Render's own auto-deploy fires on push, before CI has said anything — which is
+  # how a crash-looping schema reached production once. This deploys only what has
+  # already gone green, and only from main.
+  #
+  # It is a separate job on purpose: `test` is a two-entry matrix, so a step inside
+  # it would fire two deploys for every merge.
+  deploy:
+    name: Deploy to Render
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the Render deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set — skipping the deploy."
+            echo "Add it under Settings → Secrets and variables → Actions to turn this on."
+            exit 0
+          fi
+          # --fail makes a non-2xx a build failure rather than a silent no-op, so a
+          # revoked or mistyped hook is visible instead of looking like a deploy.
+          code=$(curl -sS --fail-with-body -o /tmp/hook-response -w '%{http_code}' -X POST "$HOOK")
+          echo "Render responded $code"
+          cat /tmp/hook-response

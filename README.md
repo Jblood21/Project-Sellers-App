@@ -67,6 +67,8 @@ See [`.env.example`](.env.example).
 | `SESSION_SECRET` | Signs admin and buyer session tokens. **Set this in production.** |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Bootstraps (or resets) the admin account on boot. |
 | `RATES_WEBHOOK_SECRET` | Shared secret for the inbound rate webhook. |
+| `RESEND_API_KEY` | Enables outbound email. Omit and the app sends nothing, breaking nothing. |
+| `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
 | `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
 | `PORT` | Defaults to 3000; Render sets this. |
 
@@ -97,6 +99,20 @@ after 30 days.
 For pure pre-launch testing where nobody is scanning a real sign, change both `plan:` values to
 `free` — everything works, with those two caveats.
 
+### Deploying on merge
+
+Render's own auto-deploy fires on push, before CI has said anything — which is how a
+crash-looping schema reached production once. `ci.yml` instead deploys only what has
+already gone green:
+
+1. Render dashboard → your service → **Settings → Deploy Hook**, copy the URL.
+2. GitHub → **Settings → Secrets and variables → Actions → New repository secret**,
+   named `RENDER_DEPLOY_HOOK_URL`.
+3. Turn Render's own **Auto-Deploy** off, so the two do not race.
+
+Merges to `main` now deploy once tests pass. Without the secret the step skips with a
+note, so nothing breaks if you would rather deploy by hand.
+
 ### Live rates via Zapier
 
 Point an email-parser Zap at:
@@ -126,6 +142,25 @@ client, so an unpublished lot number never reaches a buyer's browser. Switching 
 republishes it — the toggle governs publication, not storage, and the admin always sees
 everything. Each also stays hidden while it has no content, so switching one on never shows an
 empty space.
+
+## Email
+
+Two messages, and only two — the app is deliberately quiet.
+
+- **A buyer asks for a call** → the builder is emailed straight away, with the phone
+  number first and the buyer's saved homes and figures underneath. Reply-to is the buyer,
+  so hitting reply reaches them. It goes to **Setup → Call request alerts**, falling back
+  to the signed-in account so a builder who never sets it still gets told.
+- **A buyer presses "Email this plan to me"** → they get their own plan and a link back
+  into the app. Explicit only. Nothing is sent for entering the app, saving a home or
+  running a tool: the gate already took their address, which is exactly why this stays a
+  button.
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` to turn it on. Without them the app sends nothing
+and everything else works unchanged — a call request is still recorded and still shows in
+the builder's queue. **Sending never breaks the thing that triggered it:** if the provider
+is down or slow, the buyer's request is still saved, the send is logged and abandoned
+after five seconds. There is a test for exactly that.
 
 ## The area guide
 

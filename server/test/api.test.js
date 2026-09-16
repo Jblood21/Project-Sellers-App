@@ -7,6 +7,7 @@ import test, { after, before } from 'node:test';
 import { createFileStore } from '../db/file.js';
 import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
+import { setTransportForTests } from '../lib/email.js';
 import { createApp } from '../index.js';
 
 let server;
@@ -401,4 +402,115 @@ test('lot numbers, floor plans and the site map are gated by their toggles', asy
   await api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { features: { lotNumbers: true } } });
   buyer = await api(`/api/c/${cid}`);
   assert.equal(buyer.body.homes[0].lotNumber, 'Lot 14', 'and comes back when switched on');
+});
+
+test('a call request is recorded even when the email provider is down', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Outage Test' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Pat Vale', email: 'pat@test.co', phone: '(801) 555-0190' },
+  });
+
+  process.env.RESEND_API_KEY = 'test-key';
+  const restore = setTransportForTests(async () => { throw new Error('provider exploded'); });
+  try {
+    const tour = await api('/api/me/tour', {
+      method: 'POST', token: entered.body.token, body: { time: 'Tomorrow morning' },
+    });
+    // This is the property worth protecting: the buyer's request survives the
+    // failure of the thing that merely announces it.
+    assert.equal(tour.status, 200, 'the request still succeeds');
+    assert.equal(tour.body.tour.time, 'Tomorrow morning');
+  } finally {
+    restore();
+    delete process.env.RESEND_API_KEY;
+  }
+
+  const list = await api('/api/admin/communities', { token });
+  assert.equal(
+    list.body.find((c) => c.id === cid).pendingTours, 1,
+    'and it is still in the builder queue',
+  );
+});
+
+test('a call request emails the builder, and says so on the lead', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Alert Test' },
+  });
+  const cid = community.body.id;
+  await api(`/api/admin/communities/${cid}`, {
+    method: 'PATCH', token, body: { settings: { notifyEmail: 'sales@builder.co' } },
+  });
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Rae Lin', email: 'rae@test.co', phone: '(801) 555-0191' },
+  });
+
+  const sent = [];
+  process.env.RESEND_API_KEY = 'test-key';
+  const restore = setTransportForTests(async (payload) => { sent.push(payload); return { id: 'x' }; });
+  try {
+    await api('/api/me/tour', { method: 'POST', token: entered.body.token, body: { time: 'This weekend' } });
+  } finally {
+    restore();
+    delete process.env.RESEND_API_KEY;
+  }
+
+  assert.equal(sent.length, 1, 'one alert per request');
+  assert.deepEqual(sent[0].to, ['sales@builder.co']);
+  assert.match(sent[0].text, /\(801\) 555-0191/);
+
+  const lead = await api(`/api/admin/leads/${entered.body.lead.id}`, { token });
+  assert.ok(
+    lead.body.activity.some((a) => a.text === 'Builder emailed about the call request'),
+    'the activity log records that the builder was told',
+  );
+});
+
+test('a buyer can email themselves their plan, and only when asked', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Plan Mail' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Sky Osei', email: 'sky@test.co', phone: '(801) 555-0192' },
+  });
+  const leadToken = entered.body.token;
+  await api('/api/me/plan/afford', { method: 'PUT', token: leadToken, body: { summary: 'Looking at $300k' } });
+
+  // Nothing is sent just by building a plan.
+  const sent = [];
+  process.env.RESEND_API_KEY = 'test-key';
+  const restore = setTransportForTests(async (payload) => { sent.push(payload); return { id: 'x' }; });
+  try {
+    assert.equal(sent.length, 0, 'no email until the buyer asks');
+    const res = await api('/api/me/plan/email', { method: 'POST', token: leadToken, body: {} });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.to, 'sky@test.co');
+    assert.equal(sent.length, 1);
+    assert.deepEqual(sent[0].to, ['sky@test.co']);
+    assert.match(sent[0].text, /\$300k/);
+  } finally {
+    restore();
+    delete process.env.RESEND_API_KEY;
+  }
+
+  // Unconfigured, it fails honestly rather than pretending to have sent.
+  const unconfigured = await api('/api/me/plan/email', { method: 'POST', token: leadToken, body: {} });
+  assert.equal(unconfigured.status, 503);
+  assert.match(unconfigured.body.error, /still download it as a PDF/);
+
+  assert.equal(
+    (await api('/api/me/plan/email', { method: 'POST', body: {} })).status, 401,
+    'and it needs the buyer token',
+  );
 });

@@ -69,6 +69,11 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`SELECT count(*)::int AS n FROM admin_users`);
       return rows[0].n;
     },
+    async firstAdminEmail() {
+      const { rows } = await q(`SELECT email FROM admin_users ORDER BY created_at LIMIT 1`);
+      return rows[0]?.email ?? null;
+    },
+
     async getAdminByEmail(email) {
       const { rows } = await q(`SELECT * FROM admin_users WHERE lower(email) = lower($1)`, [email]);
       return rows[0] || null;

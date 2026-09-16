@@ -76,6 +76,10 @@ export function createFileStore(path) {
     async countAdmins() {
       return db.admins.length;
     },
+    async firstAdminEmail() {
+      return db.admins[0]?.email ?? null;
+    },
+
     async getAdminByEmail(email) {
       return db.admins.find((a) => a.email.toLowerCase() === String(email).toLowerCase()) || null;
     },

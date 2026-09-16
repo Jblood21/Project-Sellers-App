@@ -131,6 +131,9 @@ export const DEFAULT_SETTINGS = {
   creditExcellentMin: '740',
   creditGoodMin: '700',
   creditFairMin: '660',
+  // Where call requests are emailed. Blank falls back to the admin account that
+  // owns the dashboard, so a builder who never sets this still gets told.
+  notifyEmail: '',
 };
 
 export const MAX_PHOTOS_PER_HOME = 8;
