@@ -244,7 +244,7 @@ has a category (schools, parks, shopping, healthcare, getting around, or good to
 optional distance or hours note, a description and an optional photo — one photo per place, stored
 in the database like every other image.
 
-Entries show up for buyers under **Around Here**, grouped by category and in the order the admin
+Entries show up for buyers under **Local Spots**, grouped by category and in the order the admin
 created them, with a card on the buyer home screen and an entry in the menu. Both disappear when a
 community has no entries, so a builder who skips this never ships an empty screen.
 

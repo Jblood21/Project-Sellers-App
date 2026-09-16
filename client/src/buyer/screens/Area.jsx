@@ -16,7 +16,7 @@ export default function Area() {
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
-      <h2 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>Around Here</h2>
+      <h2 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>Local Spots</h2>
       <p style={{ margin: '0 0 18px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
         {highlights.length
           ? `The schools, parks and everyday places near ${community?.name}.`

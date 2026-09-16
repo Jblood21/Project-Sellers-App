@@ -79,7 +79,7 @@ export default function AreaTab({ community, reload }) {
       {highlights.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
           Nothing here yet. Add the schools, parks, shops and drive times buyers ask about —
-          they show up in the buyer app under <strong>Around Here</strong>.
+          they show up in the buyer app under <strong>Local Spots</strong>.
         </p>
       ) : null}
 
