@@ -1,3 +1,15 @@
+-- A snapshot of schema.sql as it stood BEFORE area highlights existed, kept as a
+-- stand-in for a database that has been in production since then.
+--
+-- Its job is to catch migration bugs that only appear on an EXISTING database.
+-- `CREATE TABLE IF NOT EXISTS` is a no-op there, so a column added to a table
+-- definition never lands; only an explicit ALTER adds it, and anything referencing
+-- that column (an index, a constraint) fails if it runs first. A fresh database
+-- hides this completely, which is exactly how it reached production once.
+--
+-- Do not edit this to match new schema changes — that defeats the point. It should
+-- only move forward to a newer baseline once older databases are genuinely gone.
+
 CREATE TABLE IF NOT EXISTS admin_users (
   id            TEXT PRIMARY KEY,
   email         TEXT NOT NULL UNIQUE,
@@ -40,7 +52,6 @@ CREATE TABLE IF NOT EXISTS photos (
   id           TEXT PRIMARY KEY,
   community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
   home_id      TEXT REFERENCES homes(id) ON DELETE CASCADE,
-  highlight_id TEXT,
   kind         TEXT NOT NULL DEFAULT 'home',
   content_type TEXT,
   data         TEXT,
@@ -48,29 +59,8 @@ CREATE TABLE IF NOT EXISTS photos (
   position     INTEGER NOT NULL DEFAULT 0,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- photos predates highlights, so an existing database skips the CREATE TABLE above
--- and never gets the column from it. This ALTER must stay directly under the table
--- and ABOVE the index on that column: CREATE INDEX has no IF NOT EXISTS escape for a
--- missing column, so the wrong order takes the server down on every existing database
--- while passing on every fresh one.
-ALTER TABLE photos ADD COLUMN IF NOT EXISTS highlight_id TEXT;
-
 CREATE INDEX IF NOT EXISTS photos_home_idx ON photos(home_id);
 CREATE INDEX IF NOT EXISTS photos_community_idx ON photos(community_id, kind);
-CREATE INDEX IF NOT EXISTS photos_highlight_idx ON photos(highlight_id);
-
--- What is around the community: schools, parks, shops, commute notes.
-CREATE TABLE IF NOT EXISTS highlights (
-  id           TEXT PRIMARY KEY,
-  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
-  category     TEXT NOT NULL DEFAULT 'other',
-  name         TEXT NOT NULL,
-  description  TEXT NOT NULL DEFAULT '',
-  detail       TEXT NOT NULL DEFAULT '',
-  position     INTEGER NOT NULL DEFAULT 0,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
 
 CREATE TABLE IF NOT EXISTS leads (
   id             TEXT PRIMARY KEY,
