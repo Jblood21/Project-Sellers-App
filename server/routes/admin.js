@@ -333,11 +333,17 @@ export function adminRouter() {
     res.json(await store.listLeads(req.params.id));
   });
 
+  /**
+   * Reading a lead is what marks it read — there is no other caller, and the
+   * only way to reach this is an admin opening that lead's screen. Stamped once
+   * and never moved, so "unread" cannot come back and the badge stays honest.
+   */
   router.get('/leads/:id', async (req, res) => {
     const store = await getStore();
     const lead = await store.getLead(req.params.id);
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
-    res.json(lead);
+    if (lead.openedAt) return res.json(lead);
+    res.json(await store.updateLead(lead.id, { openedAt: new Date().toISOString() }));
   });
 
   router.patch('/leads/:id', async (req, res) => {
@@ -349,6 +355,11 @@ export function adminRouter() {
       patch.status = req.body.status;
     }
     if (req.body?.notes !== undefined) patch.notes = String(req.body.notes).slice(0, 4000);
+    // Archiving is reversible and never deletes: a buyer who went quiet this
+    // spring is the same buyer who calls back in the autumn.
+    if (req.body?.archived !== undefined) {
+      patch.archivedAt = req.body.archived ? new Date().toISOString() : null;
+    }
     // Clearing the call request is what keeps the badge meaningful: handled
     // requests stop counting, but the request itself stays on the record.
     if (req.body?.tourHandled !== undefined && lead.tour) {

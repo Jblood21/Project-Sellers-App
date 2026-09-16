@@ -107,9 +107,17 @@ CREATE TABLE IF NOT EXISTS leads (
   notes          TEXT NOT NULL DEFAULT '',
   tour           JSONB,
   saved_home_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  opened_at      TIMESTAMPTZ,
+  archived_at    TIMESTAMPTZ,
   first_visit_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Stamps, not flags: null means never opened / not archived. Existing databases
+-- skip the CREATE TABLE above, so these have to arrive by ALTER, and they sit
+-- above the index for the reason the last migration bug taught us.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+
 CREATE UNIQUE INDEX IF NOT EXISTS leads_community_email_idx ON leads(community_id, lower(email));
 
 CREATE TABLE IF NOT EXISTS lead_plan_items (

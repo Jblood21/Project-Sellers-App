@@ -61,6 +61,8 @@ export function shapeLead(row, { plan = {}, activity = [] } = {}) {
     notes: row.notes || '',
     tour: row.tour ?? null,
     savedHomeIds: row.saved_home_ids ?? row.savedHomeIds ?? [],
+    openedAt: row.opened_at ?? row.openedAt ?? null,
+    archivedAt: row.archived_at ?? row.archivedAt ?? null,
     firstVisitAt: row.first_visit_at ?? row.firstVisitAt ?? null,
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
     plan,

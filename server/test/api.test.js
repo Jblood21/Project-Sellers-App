@@ -704,3 +704,115 @@ test('slots: deleting a community takes its slots with it', async () => {
   await api(`/api/admin/communities/${cid}`, { method: 'DELETE', token });
   assert.deepEqual(await (await api(`/api/admin/communities/${cid}/slots`, { token })).body, []);
 });
+
+test('a lead is unread until an admin opens it, and never goes back', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Unread Test' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Unseen Person', email: 'unseen@test.co', phone: '(801) 555-0210' },
+  });
+  const leadId = entered.body.lead.id;
+
+  // Appearing in the list is not the same as being read.
+  let listed = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(listed.body[0].openedAt, null, 'still unread after merely listing it');
+
+  const opened = await api(`/api/admin/leads/${leadId}`, { token });
+  assert.ok(opened.body.openedAt, 'opening the lead marks it read');
+
+  listed = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.ok(listed.body[0].openedAt, 'and the list agrees');
+
+  // Re-opening must not move the stamp — otherwise "unread" would mean
+  // "not open right now", which is useless.
+  const firstStamp = opened.body.openedAt;
+  const reopened = await api(`/api/admin/leads/${leadId}`, { token });
+  assert.equal(reopened.body.openedAt, firstStamp, 'the stamp is set once and left alone');
+
+  // Buyer activity does not make it unread again either.
+  await api('/api/me/plan/afford', {
+    method: 'PUT', token: entered.body.token, body: { summary: 'Looking at $300k' },
+  });
+  const after = await api(`/api/admin/leads/${leadId}`, { token });
+  assert.equal(after.body.openedAt, firstStamp);
+});
+
+test('marking contacted sticks, and the list reflects it', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Status Test' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Status Person', email: 'status@test.co', phone: '(801) 555-0211' },
+  });
+  const leadId = entered.body.lead.id;
+
+  const marked = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { status: 'contacted' },
+  });
+  assert.equal(marked.body.status, 'contacted');
+
+  // This is the assertion that matters: a fresh read of the LIST, not the lead.
+  // The reported bug was the list still showing the old value.
+  const listed = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(listed.body[0].status, 'contacted', 'the list carries the change');
+
+  const back = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { status: 'new' },
+  });
+  assert.equal(back.body.status, 'new', 'and it can be undone');
+  assert.equal(
+    (await api(`/api/admin/communities/${cid}/leads`, { token })).body[0].status, 'new',
+  );
+});
+
+test('archiving files a lead away without deleting it, and retires its call request', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Archive Test' } });
+  const cid = community.body.id;
+  const slots = await publishSlots(token, cid, ['09:00']);
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Gone Quiet', email: 'quiet@test.co', phone: '(801) 555-0212' },
+  });
+  const leadId = entered.body.lead.id;
+  await api('/api/me/tour', { method: 'POST', token: entered.body.token, body: { slotId: slots[0].id } });
+
+  let list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 1, 'they are waiting for a call');
+
+  const archived = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { archived: true },
+  });
+  assert.ok(archived.body.archivedAt, 'archived');
+
+  // Someone you are done with must stop nagging you from the call queue, even
+  // though their request was never explicitly marked handled.
+  list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 0, 'and stop counting as waiting');
+  assert.ok(archived.body.tour, 'the request itself is still on the record');
+
+  // Nothing is deleted — the lead is still there, still readable.
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(leads.body.length, 1, 'the lead still exists');
+  assert.ok(leads.body[0].archivedAt);
+  assert.equal(leads.body[0].name, 'Gone Quiet');
+
+  const restored = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { archived: false },
+  });
+  assert.equal(restored.body.archivedAt, null, 'and they come back');
+  list = await api('/api/admin/communities', { token });
+  assert.equal(
+    list.body.find((c) => c.id === cid).pendingTours, 1,
+    'with their unanswered request intact',
+  );
+});

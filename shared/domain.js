@@ -445,7 +445,18 @@ export function planProgress(lead) {
  * and the signal worthless.
  */
 export function isTourPending(lead) {
-  return Boolean(lead?.tour && !lead.tour.handledAt);
+  // An archived lead is one the builder is done with, so it must stop counting
+  // against the queue even if its request was never marked handled.
+  return Boolean(lead?.tour && !lead.tour.handledAt && !lead.archivedAt);
+}
+
+/** Never opened by an admin. This is what "new" should have meant all along. */
+export function isUnread(lead) {
+  return !lead?.openedAt;
+}
+
+export function isArchived(lead) {
+  return Boolean(lead?.archivedAt);
 }
 
 export function countPendingTours(leads = []) {

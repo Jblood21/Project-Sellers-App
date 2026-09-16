@@ -106,7 +106,8 @@ export function createFileStore(path) {
           homesCount: db.homes.filter((h) => h.communityId === c.id).length,
           leadsCount: db.leads.filter((l) => l.communityId === c.id).length,
           pendingTours: db.leads.filter(
-            (l) => l.communityId === c.id && l.tour && !l.tour.handledAt,
+            // Archiving a lead retires its call request too — see isTourPending.
+            (l) => l.communityId === c.id && l.tour && !l.tour.handledAt && !l.archivedAt,
           ).length,
         }),
       );
@@ -374,7 +375,9 @@ export function createFileStore(path) {
     async updateLead(id, patch) {
       const row = db.leads.find((l) => l.id === id);
       if (!row) return null;
-      for (const key of ['name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds']) {
+      for (const key of [
+        'name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds', 'openedAt', 'archivedAt',
+      ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       row.updatedAt = now();

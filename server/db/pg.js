@@ -99,7 +99,8 @@ export function createPostgresStore(connectionString) {
                (SELECT count(*)::int FROM leads l
                  WHERE l.community_id = c.id
                    AND l.tour IS NOT NULL
-                   AND (l.tour->>'handledAt') IS NULL) AS pending_tours
+                   AND (l.tour->>'handledAt') IS NULL
+                   AND l.archived_at IS NULL) AS pending_tours
         FROM communities c ORDER BY c.created_at`);
       return rows.map((r) =>
         shapeCommunity(r, {
@@ -435,6 +436,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', phone: 'phone', status: 'status', notes: 'notes',
         tour: 'tour', savedHomeIds: 'saved_home_ids',
+        openedAt: 'opened_at', archivedAt: 'archived_at',
       };
       const sets = [];
       const params = [];

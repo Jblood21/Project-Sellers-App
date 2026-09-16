@@ -84,7 +84,10 @@ test('the schema applies to a database created by an older release', opts, async
     assert.equal(table.rowCount, 1, 'and the highlights table exists');
 
     // Every column added by ALTER since the baseline has to land here too.
-    for (const [tableName, columnName] of [['homes', 'lot_number'], ['communities', 'features']]) {
+    for (const [tableName, columnName] of [
+      ['homes', 'lot_number'], ['communities', 'features'],
+      ['leads', 'opened_at'], ['leads', 'archived_at'],
+    ]) {
       const added = await client.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
         [tableName, columnName],

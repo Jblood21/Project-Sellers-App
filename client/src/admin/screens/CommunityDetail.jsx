@@ -55,7 +55,7 @@ export default function CommunityDetail() {
   return (
     <Routes>
       <Route index element={<CommunityTabs community={community} leads={leads} reload={reload} />} />
-      <Route path="leads/:leadId" element={<LeadDetail community={community} />} />
+      <Route path="leads/:leadId" element={<LeadDetail community={community} reload={reload} />} />
       <Route path="flyer" element={<Flyer community={community} />} />
     </Routes>
   );

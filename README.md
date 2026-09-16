@@ -143,6 +143,28 @@ republishes it — the toggle governs publication, not storage, and the admin al
 everything. Each also stays hidden while it has no content, so switching one on never shows an
 empty space.
 
+## Working the leads
+
+The Leads tab separates two things that used to share one field:
+
+- **Unread** is automatic. A lead reads Unread until an admin opens it, and the stamp is set
+  once and never moved — so "unread" always means "nobody has looked at this", not "not open
+  right now". Buyer activity afterwards does not make it unread again.
+- **Contacted** is yours to set, and the change is pushed back to the list you came from. That
+  was previously broken: the list is loaded once, and the lead screen updated only its own copy,
+  so marking somebody contacted and going back showed them unchanged. The save had worked; the
+  list was showing a snapshot.
+
+**Archive** is how a lead leaves without being deleted. Archived leads drop out of every view
+except **Closed**, and stop counting as waiting for a call even if their request was never marked
+handled — somebody you are done with should not keep nagging the queue. Nothing is removed, and
+restoring brings back the unanswered request intact. A buyer who went quiet in spring is the same
+buyer who calls in autumn.
+
+Filters are **Active** (the default), **Unread**, the call queue, and **Closed**. The last three
+only appear when they would show something, because a pill that always reads zero is one more
+thing to scan past.
+
 ## Booking a time
 
 Buyers no longer pick from vague options ("this weekend", "a phone call first"). They pick a
