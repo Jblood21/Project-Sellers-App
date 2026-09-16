@@ -15,9 +15,14 @@ CREATE TABLE IF NOT EXISTS communities (
   builder     TEXT NOT NULL DEFAULT '',
   settings    JSONB NOT NULL DEFAULT '{}'::jsonb,
   tools       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  features    JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Existing databases skip the CREATE TABLE above, so every column added since has
+-- to arrive by ALTER. Keep these directly under their table and above any index
+-- or constraint that names them.
+ALTER TABLE communities ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS homes (
   id           TEXT PRIMARY KEY,
@@ -29,9 +34,12 @@ CREATE TABLE IF NOT EXISTS homes (
   sqft         NUMERIC NOT NULL DEFAULT 0,
   description  TEXT NOT NULL DEFAULT '',
   availability TEXT NOT NULL DEFAULT 'Planning',
+  lot_number   TEXT NOT NULL DEFAULT '',
   position     INTEGER NOT NULL DEFAULT 0,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS lot_number TEXT NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS homes_community_idx ON homes(community_id);
 
 -- Photos live in the database so a Render service with an ephemeral disk keeps them
@@ -71,6 +79,23 @@ CREATE TABLE IF NOT EXISTS highlights (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
+
+-- Appointment slots the builder publishes. slot_date and slot_time are literal
+-- values in the community's own local time, never converted: see the note on
+-- SLOT_TIMES in shared/domain.js for why.
+--
+-- lead_id is the booking. NULL means open; the unique index means two buyers
+-- cannot be sold the same slot even if they tap at the same moment.
+CREATE TABLE IF NOT EXISTS slots (
+  id           TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  slot_date    DATE NOT NULL,
+  slot_time    TEXT NOT NULL,
+  lead_id      TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS slots_unique_idx ON slots(community_id, slot_date, slot_time);
+CREATE INDEX IF NOT EXISTS slots_open_idx ON slots(community_id, slot_date, slot_time) WHERE lead_id IS NULL;
 
 CREATE TABLE IF NOT EXISTS leads (
   id             TEXT PRIMARY KEY,

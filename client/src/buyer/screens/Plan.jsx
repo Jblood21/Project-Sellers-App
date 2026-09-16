@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PLAN_LABELS, TOOL_KEYS } from '@shared/domain.js';
+import { PLAN_LABELS, TOOL_KEYS, describeTour } from '@shared/domain.js';
+import { buyerApi } from '../../lib/api.js';
 import { money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { planProgress } from '../progress.js';
@@ -81,15 +83,67 @@ export default function Plan({ onOpenTour }) {
           >
             Download My Home Plan
           </button>
-          <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 14px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 10px', lineHeight: 1.5 }}>
             Your saved homes, estimated payments, loan options, savings goal and move-in plan — all in one place.
           </p>
+          <EmailPlanButton />
         </>
       )}
 
       <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>
-        {lead?.tour ? 'Request sent ✓ — change it' : 'Talk to the team · tour or call'}
+        {lead?.tour ? `Booked ✓ ${describeTour(lead.tour)} — change it` : 'Talk to the team · book a time'}
       </button>
     </div>
+  );
+}
+
+/**
+ * Sends the buyer their own plan, only when they ask. The app already has their
+ * address from the entry gate, which is exactly why this has to stay a button
+ * and never become something that fires on its own.
+ */
+function EmailPlanButton() {
+  const { lead, token, track } = useBuyer();
+  const [state, setState] = useState('idle'); // idle | sending | sent | error
+  const [error, setError] = useState('');
+
+  const send = async () => {
+    setState('sending');
+    setError('');
+    try {
+      await buyerApi.emailPlan(token);
+      track('Emailed their home plan to themselves');
+      setState('sent');
+    } catch (err) {
+      setError(err.message);
+      setState('error');
+    }
+  };
+
+  if (state === 'sent') {
+    return (
+      <p style={{ fontSize: 12.5, color: 'var(--t-acc2)', textAlign: 'center', margin: '0 0 14px', fontWeight: 600 }}>
+        Sent to {lead?.email} ✓
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="b-btn b-btn-outline"
+        onClick={send}
+        disabled={state === 'sending'}
+        style={{ marginBottom: error ? 6 : 14 }}
+      >
+        {state === 'sending' ? 'Sending…' : 'Email this plan to me'}
+      </button>
+      {error ? (
+        <p style={{ fontSize: 12, color: 'var(--t-mut)', textAlign: 'center', margin: '0 0 14px', lineHeight: 1.45 }}>
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }

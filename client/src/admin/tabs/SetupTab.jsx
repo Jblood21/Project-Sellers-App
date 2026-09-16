@@ -130,6 +130,21 @@ export default function SetupTab({ community, reload }) {
       </div>
 
       <div className="card elev-sm" style={{ gap: 10 }}>
+        <span className="card-kicker">Call request alerts</span>
+        <TextField
+          label="Send call requests to"
+          value={settings.notifyEmail}
+          onChange={set('notifyEmail')}
+          inputMode="email"
+          placeholder="sales@yourcompany.com"
+        />
+        <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
+          Leave blank to use the account you sign in with. A buyer asking for a call is
+          time-sensitive, so this is the one thing the app will email you about.
+        </span>
+      </div>
+
+      <div className="card elev-sm" style={{ gap: 10 }}>
         <span className="card-kicker">Credit range cutoffs</span>
         <div className="grid-3">
           <TextField label="Excellent ≥" value={settings.creditExcellentMin} onChange={set('creditExcellentMin')} inputMode="numeric" />
@@ -158,6 +173,7 @@ function CommunityArtwork({ community, reload }) {
   const { token } = useAdmin();
   const heroInput = useRef(null);
   const iconInput = useRef(null);
+  const mapInput = useRef(null);
   const [error, setError] = useState('');
 
   const upload = (kind) => async (event) => {
@@ -195,6 +211,7 @@ function CommunityArtwork({ community, reload }) {
       <span className="card-kicker">Community artwork</span>
       {slot('hero', 'Hero photo (QR landing)', 'Tap to upload the community photo', heroInput, community.heroPhoto, 140)}
       {slot('icon', 'App icon (Add to Home Screen)', 'Tap to upload a square icon', iconInput, community.iconPhoto, 90)}
+      {slot('sitemap', 'Site map (the plat buyers tap)', 'Tap to upload the community site map', mapInput, community.siteMap, 140)}
       <ErrorNote>{error}</ErrorNote>
     </div>
   );

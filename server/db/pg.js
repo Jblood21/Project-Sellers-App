@@ -5,7 +5,9 @@ import pg from 'pg';
 
 import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
-import { shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto } from './shape.js';
+import {
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto, shapeSlot,
+} from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -19,16 +21,26 @@ export function createPostgresStore(connectionString) {
   });
   const q = (text, params) => pool.query(text, params);
 
+  /**
+   * A home's images, split by kind: the gallery buyers swipe through, and the
+   * floor plans. Both hang off home_id, so anything reading photos has to say
+   * which it wants or it gets plan drawings in the photo carousel.
+   */
   const photosFor = async (homeIds) => {
-    const byHome = new Map(homeIds.map((id) => [id, []]));
+    const byHome = new Map(homeIds.map((id) => [id, { photos: [], floorPlans: [] }]));
     if (!homeIds.length) return byHome;
     const { rows } = await q(
       `SELECT * FROM photos WHERE home_id = ANY($1::text[]) ORDER BY position, created_at`,
       [homeIds],
     );
-    for (const row of rows) byHome.get(row.home_id)?.push(shapePhoto(row));
+    for (const row of rows) {
+      const entry = byHome.get(row.home_id);
+      if (!entry) continue;
+      (row.kind === 'floorplan' ? entry.floorPlans : entry.photos).push(shapePhoto(row));
+    }
     return byHome;
   };
+  const EMPTY_IMAGES = { photos: [], floorPlans: [] };
 
   const planFor = async (leadId) => {
     const { rows } = await q(`SELECT key, summary FROM lead_plan_items WHERE lead_id = $1`, [leadId]);
@@ -59,6 +71,11 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`SELECT count(*)::int AS n FROM admin_users`);
       return rows[0].n;
     },
+    async firstAdminEmail() {
+      const { rows } = await q(`SELECT email FROM admin_users ORDER BY created_at LIMIT 1`);
+      return rows[0]?.email ?? null;
+    },
+
     async getAdminByEmail(email) {
       const { rows } = await q(`SELECT * FROM admin_users WHERE lower(email) = lower($1)`, [email]);
       return rows[0] || null;
@@ -112,6 +129,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', location: 'location', status: 'status', theme: 'theme',
         websiteUrl: 'website_url', builder: 'builder', settings: 'settings', tools: 'tools',
+        features: 'features',
       };
       const sets = [];
       const params = [];
@@ -139,14 +157,17 @@ export function createPostgresStore(connectionString) {
         `SELECT * FROM homes WHERE community_id = $1 ORDER BY position, created_at`, [communityId],
       );
       const byHome = await photosFor(rows.map((r) => r.id));
-      return rows.map((r) => shapeHome(r, byHome.get(r.id) || []));
+      return rows.map((r) => {
+        const images = byHome.get(r.id) || EMPTY_IMAGES;
+        return shapeHome(r, images.photos, images.floorPlans);
+      });
     },
 
     async getHome(id) {
       const { rows } = await q(`SELECT * FROM homes WHERE id = $1`, [id]);
       if (!rows[0]) return null;
-      const byHome = await photosFor([id]);
-      return shapeHome(rows[0], byHome.get(id) || []);
+      const images = (await photosFor([id])).get(id) || EMPTY_IMAGES;
+      return shapeHome(rows[0], images.photos, images.floorPlans);
     },
 
     async createHome(communityId, data) {
@@ -154,18 +175,20 @@ export function createPostgresStore(connectionString) {
         `SELECT coalesce(max(position), -1) + 1 AS pos FROM homes WHERE community_id = $1`, [communityId],
       );
       const { rows } = await q(
-        `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description, availability, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description,
+                            availability, lot_number, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
         [`h_${shortId(10)}`, communityId, data.name, data.price, data.beds, data.baths, data.sqft,
-          data.description, data.availability, posRows[0].pos],
+          data.description, data.availability, data.lotNumber ?? '', posRows[0].pos],
       );
-      return shapeHome(rows[0], []);
+      return shapeHome(rows[0], [], []);
     },
 
     async updateHome(id, patch) {
       const map = {
         name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'sqft',
-        description: 'description', availability: 'availability', position: 'position',
+        description: 'description', availability: 'availability', lotNumber: 'lot_number',
+        position: 'position',
       };
       const sets = [];
       const params = [];
@@ -186,7 +209,10 @@ export function createPostgresStore(connectionString) {
 
     // ── photos ───────────────────────────────────────────────────────────
     async countHomePhotos(homeId) {
-      const { rows } = await q(`SELECT count(*)::int AS n FROM photos WHERE home_id = $1`, [homeId]);
+      // Gallery photos only — floor plans are not part of the per-home photo limit.
+      const { rows } = await q(
+        `SELECT count(*)::int AS n FROM photos WHERE home_id = $1 AND kind <> 'floorplan'`, [homeId],
+      );
       return rows[0].n;
     },
 
@@ -213,6 +239,14 @@ export function createPostgresStore(connectionString) {
 
     async deletePhoto(id) {
       await q(`DELETE FROM photos WHERE id = $1`, [id]);
+    },
+
+    async listHomePhotosOfKind(homeId, kind) {
+      const { rows } = await q(
+        `SELECT * FROM photos WHERE home_id = $1 AND kind = $2 ORDER BY position, created_at`,
+        [homeId, kind],
+      );
+      return rows.map(shapePhoto);
     },
 
     async listHighlightPhotos(highlightId) {
@@ -288,6 +322,78 @@ export function createPostgresStore(connectionString) {
     async deleteHighlight(id) {
       await q(`DELETE FROM photos WHERE highlight_id = $1`, [id]);
       await q(`DELETE FROM highlights WHERE id = $1`, [id]);
+    },
+
+    // ── appointment slots ────────────────────────────────────────────────
+    async listSlots(communityId) {
+      const { rows } = await q(
+        `SELECT * FROM slots WHERE community_id = $1 ORDER BY slot_date, slot_time`, [communityId],
+      );
+      return rows.map(shapeSlot);
+    },
+
+    /** What a buyer may choose: unbooked, and not in the past. */
+    async listOpenSlots(communityId) {
+      const { rows } = await q(
+        `SELECT * FROM slots
+          WHERE community_id = $1 AND lead_id IS NULL AND slot_date >= CURRENT_DATE
+          ORDER BY slot_date, slot_time`,
+        [communityId],
+      );
+      return rows.map(shapeSlot);
+    },
+
+    /** Every date x time combination at once. Re-adding an existing one is a no-op. */
+    async createSlots(communityId, dates, times) {
+      const values = [];
+      const params = [communityId];
+      for (const date of dates) {
+        for (const time of times) {
+          params.push(`s_${shortId(10)}`, date, time);
+          values.push(`($${params.length - 2}, $1, $${params.length - 1}, $${params.length})`);
+        }
+      }
+      if (!values.length) return [];
+      const { rows } = await q(
+        `INSERT INTO slots (id, community_id, slot_date, slot_time)
+         VALUES ${values.join(', ')}
+         ON CONFLICT (community_id, slot_date, slot_time) DO NOTHING
+         RETURNING *`,
+        params,
+      );
+      return rows.map(shapeSlot);
+    },
+
+    async getSlot(id) {
+      const { rows } = await q(`SELECT * FROM slots WHERE id = $1`, [id]);
+      return rows[0] ? shapeSlot(rows[0]) : null;
+    },
+
+    async deleteSlot(id) {
+      await q(`DELETE FROM slots WHERE id = $1`, [id]);
+    },
+
+    /**
+     * Claims a slot for a lead, or returns null if somebody got there first.
+     * The `lead_id IS NULL` guard is inside the UPDATE on purpose: checking and
+     * then writing would leave a window for two buyers to book the same time.
+     */
+    async bookSlot(slotId, leadId) {
+      const { rows } = await q(
+        `UPDATE slots SET lead_id = $2
+          WHERE id = $1 AND (lead_id IS NULL OR lead_id = $2)
+          RETURNING *`,
+        [slotId, leadId],
+      );
+      return rows[0] ? shapeSlot(rows[0]) : null;
+    },
+
+    /** Frees whatever this lead held, so changing an appointment reopens the old one. */
+    async releaseSlotsForLead(leadId, exceptSlotId = null) {
+      await q(
+        `UPDATE slots SET lead_id = NULL WHERE lead_id = $1 AND ($2::text IS NULL OR id <> $2)`,
+        [leadId, exceptSlotId],
+      );
     },
 
     // ── leads ────────────────────────────────────────────────────────────

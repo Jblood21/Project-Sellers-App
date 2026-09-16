@@ -82,6 +82,15 @@ test('the schema applies to a database created by an older release', opts, async
     assert.equal(index.rowCount, 1, 'and the index on it was created');
     const table = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = 'highlights'`);
     assert.equal(table.rowCount, 1, 'and the highlights table exists');
+
+    // Every column added by ALTER since the baseline has to land here too.
+    for (const [tableName, columnName] of [['homes', 'lot_number'], ['communities', 'features']]) {
+      const added = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+        [tableName, columnName],
+      );
+      assert.equal(added.rowCount, 1, `${tableName}.${columnName} was added`);
+    }
     await client.end();
   });
 });
@@ -127,5 +136,69 @@ test('existing rows survive the upgrade', opts, async () => {
     const community = await after.query(`SELECT name FROM communities WHERE id = 'c1'`);
     assert.equal(community.rows[0].name, 'Willow Creek');
     await after.end();
+  });
+});
+
+test('a slot date survives Postgres unchanged', opts, async () => {
+  await withDatabase('schema_slot_test', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Slot Round Trip' });
+      const [made] = await store.createSlots(community.id, ['2026-09-20'], ['14:00']);
+
+      // The literal the builder picked, not a timestamp re-rendered in whatever
+      // zone the reader happens to be in. pg hands DATE back as a Date object,
+      // which is exactly where a day can slip.
+      assert.equal(made.date, '2026-09-20', 'the date comes back as written');
+      assert.equal(made.time, '14:00');
+
+      const [listed] = await store.listSlots(community.id);
+      assert.equal(listed.date, '2026-09-20', 'and again when read back');
+
+      const [open] = await store.listOpenSlots(community.id);
+      assert.equal(open?.date, '2026-09-20');
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('booking a slot is atomic under Postgres', opts, async () => {
+  await withDatabase('schema_book_test', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Booking Race' });
+      const [slot] = await store.createSlots(community.id, ['2026-09-20'], ['14:00']);
+
+      // Both buyers reach for the same slot at once. Exactly one may win — the
+      // guard lives inside the UPDATE rather than in a read-then-write.
+      const [a, b] = await Promise.all([
+        store.bookSlot(slot.id, 'lead-a'),
+        store.bookSlot(slot.id, 'lead-b'),
+      ]);
+      const winners = [a, b].filter(Boolean);
+      assert.equal(winners.length, 1, 'one booking, not two');
+      assert.equal((await store.listOpenSlots(community.id)).length, 0, 'and it leaves the menu');
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('publishing the same availability twice does not duplicate it', opts, async () => {
+  await withDatabase('schema_dupe_test', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Dupes' });
+      await store.createSlots(community.id, ['2026-09-20'], ['14:00', '15:00']);
+      const second = await store.createSlots(community.id, ['2026-09-20'], ['14:00', '16:00']);
+      assert.equal(second.length, 1, 'only the genuinely new time is added');
+      assert.equal((await store.listSlots(community.id)).length, 3);
+    } finally {
+      await store.close();
+    }
   });
 });

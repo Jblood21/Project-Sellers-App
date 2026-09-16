@@ -1,14 +1,16 @@
 import { Router } from 'express';
 
 import {
-  AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED,
-  HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME, THEMES, TOOL_KEYS,
+  AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS,
+  DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME,
+  SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+const MAX_FLOOR_PLANS = 4;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 const str = (v, fallback = '') => (v === undefined || v === null ? fallback : String(v).trim());
@@ -62,15 +64,16 @@ export function adminRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
-    const [homes, highlights, heroes, icons] = await Promise.all([
+    const [homes, highlights, heroes, icons, maps] = await Promise.all([
       store.listHomes(community.id),
       store.listHighlights(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
+      store.listCommunityPhotos(community.id, 'sitemap'),
     ]);
     res.json({
       ...community, homes, highlights,
-      heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null,
+      heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null, siteMap: maps[0] ?? null,
     });
   });
 
@@ -100,6 +103,13 @@ export function adminRouter() {
         if (req.body.tools[key] !== undefined) tools[key] = Boolean(req.body.tools[key]);
       }
       patch.tools = tools;
+    }
+    if (req.body?.features) {
+      const features = { ...DEFAULT_FEATURES, ...community.features };
+      for (const key of FEATURE_KEYS) {
+        if (req.body.features[key] !== undefined) features[key] = Boolean(req.body.features[key]);
+      }
+      patch.features = features;
     }
     res.json(await store.updateCommunity(community.id, patch));
   });
@@ -139,6 +149,7 @@ export function adminRouter() {
       sqft: numOr(req.body?.sqft, 2000),
       description: str(req.body?.description) || 'New home — add a description.',
       availability: AVAILABILITY.includes(req.body?.availability) ? req.body.availability : 'Planning',
+      lotNumber: str(req.body?.lotNumber),
     });
     res.status(201).json(home);
   });
@@ -157,6 +168,7 @@ export function adminRouter() {
     if (req.body?.availability !== undefined && AVAILABILITY.includes(req.body.availability)) {
       patch.availability = req.body.availability;
     }
+    if (req.body?.lotNumber !== undefined) patch.lotNumber = str(req.body.lotNumber);
     res.json(await store.updateHome(home.id, patch));
   });
 
@@ -235,10 +247,25 @@ export function adminRouter() {
     res.status(201).json(await store.addPhoto({ communityId: home.communityId, homeId: home.id, kind: 'home', ...image }));
   });
 
-  /** Community-level artwork: `hero` for the QR landing, `icon` for the PWA. */
+  /** Floor plans hang off the home like photos but under their own kind. */
+  router.post('/homes/:id/floorplans', async (req, res) => {
+    const store = await getStore();
+    const home = await store.getHome(req.params.id);
+    if (!home) return res.status(404).json({ error: 'Home not found' });
+    if ((await store.listHomePhotosOfKind(home.id, 'floorplan')).length >= MAX_FLOOR_PLANS) {
+      return res.status(400).json({ error: `Up to ${MAX_FLOOR_PLANS} floor plans per home.` });
+    }
+    const image = readImage(req.body);
+    if (image.error) return res.status(400).json({ error: image.error });
+    res.status(201).json(await store.addPhoto({
+      communityId: home.communityId, homeId: home.id, kind: 'floorplan', ...image,
+    }));
+  });
+
+  /** Community-level artwork: `hero` for the QR landing, `icon` for the PWA, `sitemap` for the plat. */
   router.post('/communities/:id/photos/:kind', async (req, res) => {
     const kind = req.params.kind;
-    if (!['hero', 'icon'].includes(kind)) return res.status(400).json({ error: 'Unknown photo slot' });
+    if (!['hero', 'icon', 'sitemap'].includes(kind)) return res.status(400).json({ error: 'Unknown photo slot' });
     const store = await getStore();
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
@@ -265,6 +292,38 @@ export function adminRouter() {
   router.delete('/photos/:id', async (req, res) => {
     const store = await getStore();
     await store.deletePhoto(req.params.id);
+    res.status(204).end();
+  });
+
+  // ── appointment slots ────────────────────────────────────────────────────
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+  router.get('/communities/:id/slots', async (req, res) => {
+    const store = await getStore();
+    res.json(await store.listSlots(req.params.id));
+  });
+
+  /** Publishes every date x time the builder ticked, in one call. */
+  router.post('/communities/:id/slots', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+
+    const dates = [...new Set((req.body?.dates ?? []).filter((d) => ISO_DATE.test(String(d))))];
+    const times = [...new Set((req.body?.times ?? []).filter((t) => SLOT_TIMES.includes(String(t))))];
+    if (!dates.length) return res.status(400).json({ error: 'Pick at least one date.' });
+    if (!times.length) return res.status(400).json({ error: 'Pick at least one time.' });
+    if (dates.length * times.length > 400) {
+      return res.status(400).json({ error: 'That is more than 400 slots at once — add them in smaller batches.' });
+    }
+
+    const created = await store.createSlots(community.id, dates.sort(), times.sort());
+    res.status(201).json({ created: created.length, slots: await store.listSlots(community.id) });
+  });
+
+  router.delete('/slots/:id', async (req, res) => {
+    const store = await getStore();
+    await store.deleteSlot(req.params.id);
     res.status(204).end();
   });
 

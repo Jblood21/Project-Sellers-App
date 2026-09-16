@@ -67,6 +67,8 @@ See [`.env.example`](.env.example).
 | `SESSION_SECRET` | Signs admin and buyer session tokens. **Set this in production.** |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Bootstraps (or resets) the admin account on boot. |
 | `RATES_WEBHOOK_SECRET` | Shared secret for the inbound rate webhook. |
+| `RESEND_API_KEY` | Enables outbound email. Omit and the app sends nothing, breaking nothing. |
+| `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
 | `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
 | `PORT` | Defaults to 3000; Render sets this. |
 
@@ -97,6 +99,20 @@ after 30 days.
 For pure pre-launch testing where nobody is scanning a real sign, change both `plan:` values to
 `free` — everything works, with those two caveats.
 
+### Deploying on merge
+
+Render's own auto-deploy fires on push, before CI has said anything — which is how a
+crash-looping schema reached production once. `ci.yml` instead deploys only what has
+already gone green:
+
+1. Render dashboard → your service → **Settings → Deploy Hook**, copy the URL.
+2. GitHub → **Settings → Secrets and variables → Actions → New repository secret**,
+   named `RENDER_DEPLOY_HOOK_URL`.
+3. Turn Render's own **Auto-Deploy** off, so the two do not race.
+
+Merges to `main` now deploy once tests pass. Without the secret the step skips with a
+note, so nothing breaks if you would rather deploy by hand.
+
 ### Live rates via Zapier
 
 Point an email-parser Zap at:
@@ -108,6 +124,68 @@ x-webhook-secret: <RATES_WEBHOOK_SECRET>
 ```
 
 Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
+
+## Lot numbers, floor plans and the site map
+
+Three things a buyer standing at a sign asks before they ask about financing:
+*which lot is that, what does it look like inside, and where does it sit?*
+
+- **Lot numbers** — a field on each home, shown beside the beds/baths line.
+- **Floor plans** — up to four drawings per home, stored under their own photo kind so
+  they never appear in the photo carousel and never count against the 12-photo gallery limit.
+- **Site map** — the community plat, uploaded under **Setup**, with a tap-to-enlarge view and a
+  list of the lots that have a home on them.
+
+Each is switched on or off per community under **Tools → What buyers see**. A feature that is
+switched off is **stripped from the buyer payload on the server**, not merely hidden in the
+client, so an unpublished lot number never reaches a buyer's browser. Switching it back on
+republishes it — the toggle governs publication, not storage, and the admin always sees
+everything. Each also stays hidden while it has no content, so switching one on never shows an
+empty space.
+
+## Booking a time
+
+Buyers no longer pick from vague options ("this weekend", "a phone call first"). They pick a
+real time the builder has published, and say how they want to be reached.
+
+**Admin → a community → Times.** Tap the days you are around on the calendar, tick the times
+you can do, and every combination is published at once — *"Tuesday, Wednesday and Thursday at
+10, 2 and 4"* is six taps. Published times are the **only** times buyers are offered, so an
+empty list means nobody can book. Re-publishing the same availability adds nothing rather than
+duplicating it, and past dates are kept but never offered.
+
+Buyers see those times grouped by day, choose one, and choose **a call** or **an email**. The
+choice leads the alert the builder receives, because it decides what they do next.
+
+A booked time leaves the menu immediately. Two buyers reaching for the same slot is settled in
+the database rather than by a read-then-write, so exactly one wins and the other is told plainly
+to pick again. Rescheduling books the new time **before** releasing the old one — the other order
+would leave someone who tried to move their appointment with none at all.
+
+**Dates and times are stored and shown as literal values** (`2026-09-20`, `14:00`), never as
+timestamps. A builder publishing 2:00 PM means 2pm at the community. A timestamp would be
+re-rendered in each viewer's timezone, so the dashboard, the buyer's phone and the alert email
+could show three different hours for one appointment. There is a test that round-trips a slot
+through Postgres under UTC−6, UTC+12 and UTC and asserts the date never moves.
+
+## Email
+
+Two messages, and only two — the app is deliberately quiet.
+
+- **A buyer asks for a call** → the builder is emailed straight away, with the phone
+  number first and the buyer's saved homes and figures underneath. Reply-to is the buyer,
+  so hitting reply reaches them. It goes to **Setup → Call request alerts**, falling back
+  to the signed-in account so a builder who never sets it still gets told.
+- **A buyer presses "Email this plan to me"** → they get their own plan and a link back
+  into the app. Explicit only. Nothing is sent for entering the app, saving a home or
+  running a tool: the gate already took their address, which is exactly why this stays a
+  button.
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` to turn it on. Without them the app sends nothing
+and everything else works unchanged — a call request is still recorded and still shows in
+the builder's queue. **Sending never breaks the thing that triggered it:** if the provider
+is down or slow, the buyer's request is still saved, the send is logged and abandoned
+after five seconds. There is a test for exactly that.
 
 ## The area guide
 
@@ -133,6 +211,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, the seven tools
   admin/             the admin app: communities, 6 tabs, lead detail, QR + flyer
+                     (Tools carries both the buyer-tool and display-feature switches)
   lib/               API client, formatting, photo downscaling, storage
 ```
 

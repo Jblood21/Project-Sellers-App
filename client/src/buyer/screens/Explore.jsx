@@ -65,6 +65,7 @@ export default function Explore() {
                 </div>
                 <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>
                   {homeMeta(home)} · {home.availability}
+                  {home.lotNumber ? ` · ${home.lotNumber}` : ''}
                 </span>
                 {home.photos.length > 1 ? (
                   <span style={{ fontSize: 11, color: 'var(--t-mut)' }}>{home.photos.length} photos</span>

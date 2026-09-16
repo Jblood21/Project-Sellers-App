@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { TOOLS } from '@shared/domain.js';
+import { CONTACT_METHODS, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
+import { buyerApi } from '../lib/api.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
 import { useBuyer } from './BuyerContext.jsx';
 
@@ -24,7 +25,6 @@ const TUTORIAL = [
   },
 ];
 
-export const TOUR_TIMES = ['This weekend', 'Weekday evening', 'A phone call first'];
 
 /** Sticky, translucent, never scrolls away — the buyer must always be able to leave a tool. */
 export function BuyerHeader({ onOpenMenu }) {
@@ -109,6 +109,9 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
     { label: 'All Tools', to: `/c/${communityId}/tools` },
     { label: 'Explore Homes', to: `/c/${communityId}/explore` },
     ...(community?.highlights?.length ? [{ label: 'Around Here', to: `/c/${communityId}/area` }] : []),
+    ...(community?.features?.siteMap && community?.siteMap
+      ? [{ label: 'Site Map', to: `/c/${communityId}/map` }]
+      : []),
     ...enabled.map((tool) => ({
       label: tool.name,
       to: `/c/${communityId}/tool/${tool.k}`,
@@ -256,46 +259,123 @@ export function TutorialSheet({ open, onClose }) {
 }
 
 export function TourDialog({ open, onClose }) {
-  const { community, requestTour } = useBuyer();
-  const [time, setTime] = useState(TOUR_TIMES[0]);
+  const { community, communityId, requestTour, lead } = useBuyer();
+  const [slots, setSlots] = useState(community?.slots ?? []);
+  const [picked, setPicked] = useState(null);
+  const [contact, setContact] = useState('phone');
+  const [busy, setBusy] = useState(false);
+
+  // Re-read on open: the community payload was fetched when they arrived, and
+  // somebody else may have taken a time since.
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    buyerApi.openSlots(communityId)
+      .then((fresh) => { if (live) setSlots(fresh); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [open, communityId]);
+
+  useEffect(() => {
+    if (open) setPicked(lead?.tour?.slotId ?? null);
+  }, [open, lead?.tour?.slotId]);
+
   if (!open) return null;
+
+  const byDate = [];
+  for (const slot of slots) {
+    const last = byDate[byDate.length - 1];
+    if (last && last[0] === slot.date) last[1].push(slot);
+    else byDate.push([slot.date, [slot]]);
+  }
+
+  const send = async () => {
+    if (!picked) return;
+    setBusy(true);
+    const done = await requestTour(picked, contact);
+    setBusy(false);
+    if (done) onClose();
+    // On a clash the dialog stays open with a fresh list, so they can pick again.
+    else buyerApi.openSlots(communityId).then(setSlots).catch(() => {});
+  };
 
   return (
     <div className="b-sheet-backdrop" role="dialog" aria-label="Talk to the team">
-      <div className="b-sheet">
+      <div className="b-sheet" style={{ maxHeight: '86vh', overflowY: 'auto' }}>
         <span className="b-head" style={{ fontSize: 20 }}>Talk to the team</span>
-        <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-          Pick what works — the {community?.name} team will text you to set it up.
-        </span>
-        <div className="b-stack" style={{ gap: 8, margin: '6px 0' }}>
-          {TOUR_TIMES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className="b-pill"
-              data-on={time === option}
-              onClick={() => setTime(option)}
-            >
-              {option}
+
+        {byDate.length === 0 ? (
+          <>
+            <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
+              The {community?.name} team has not published any times yet. Check back shortly —
+              or reach them through the community website.
+            </span>
+            <button type="button" className="b-btn" onClick={onClose} style={{ marginTop: 8 }}>
+              Close
             </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button type="button" className="b-btn b-btn-outline" onClick={onClose} style={{ flex: 1 }}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="b-btn"
-            style={{ flex: 1 }}
-            onClick={async () => {
-              await requestTour(time);
-              onClose();
-            }}
-          >
-            Send request
-          </button>
-        </div>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
+              Pick a time that suits you. These are the times the {community?.name} team is free.
+            </span>
+
+            <div className="b-stack" style={{ gap: 12, margin: '10px 0 4px' }}>
+              {byDate.map(([date, daySlots]) => (
+                <div key={date} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span className="b-lbl">{formatSlotDate(date)}</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {daySlots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        className="b-pill"
+                        data-on={picked === slot.id}
+                        aria-pressed={picked === slot.id}
+                        onClick={() => setPicked(slot.id)}
+                        style={{ flex: 'none', padding: '0 14px' }}
+                      >
+                        {formatSlotTime(slot.time)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <span className="b-lbl" style={{ marginTop: 6 }}>How should they reach you?</span>
+            <div style={{ display: 'flex', gap: 6, margin: '4px 0 8px' }}>
+              {CONTACT_METHODS.map((method) => (
+                <button
+                  key={method.k}
+                  type="button"
+                  className="b-pill"
+                  data-on={contact === method.k}
+                  aria-pressed={contact === method.k}
+                  onClick={() => setContact(method.k)}
+                  style={{ flex: 1 }}
+                >
+                  {method.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" className="b-btn b-btn-outline" onClick={onClose} style={{ flex: 1 }}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="b-btn"
+                style={{ flex: 1 }}
+                disabled={!picked || busy}
+                onClick={send}
+              >
+                {busy ? 'Booking…' : 'Book it'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

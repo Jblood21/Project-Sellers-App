@@ -1,13 +1,17 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
+import {
+  DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, isoDate,
+} from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
-import { shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto } from './shape.js';
+import {
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto, shapeSlot,
+} from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [],
-  leads: [], planItems: [], activity: [],
+  slots: [], leads: [], planItems: [], activity: [],
 };
 
 /**
@@ -40,8 +44,15 @@ export function createFileStore(path) {
   };
 
   const now = () => new Date().toISOString();
-  const photosOf = (homeId) =>
-    db.photos.filter((p) => p.homeId === homeId).sort((a, b) => a.position - b.position).map(shapePhoto);
+  // A home's gallery and its floor plans both hang off homeId, so every read has
+  // to say which kind it wants or plan drawings land in the photo carousel.
+  const imagesOf = (homeId, kind) =>
+    db.photos
+      .filter((p) => p.homeId === homeId && (kind === 'floorplan' ? p.kind === 'floorplan' : p.kind !== 'floorplan'))
+      .sort((a, b) => a.position - b.position)
+      .map(shapePhoto);
+  const photosOf = (homeId) => imagesOf(homeId, 'home');
+  const plansOf = (homeId) => imagesOf(homeId, 'floorplan');
   // A highlight carries at most one photo, so take the first rather than a gallery.
   const photoOf = (highlightId) => {
     const row = db.photos.find((p) => p.highlightId === highlightId);
@@ -69,6 +80,10 @@ export function createFileStore(path) {
     async countAdmins() {
       return db.admins.length;
     },
+    async firstAdminEmail() {
+      return db.admins[0]?.email ?? null;
+    },
+
     async getAdminByEmail(email) {
       return db.admins.find((a) => a.email.toLowerCase() === String(email).toLowerCase()) || null;
     },
@@ -107,6 +122,7 @@ export function createFileStore(path) {
         websiteUrl: null,
         settings: { ...DEFAULT_SETTINGS },
         tools: { ...DEFAULT_TOOLS_ENABLED },
+        features: { ...DEFAULT_FEATURES },
         createdAt: now(), updatedAt: now(),
       };
       db.communities.push(row);
@@ -117,7 +133,9 @@ export function createFileStore(path) {
     async updateCommunity(id, patch) {
       const row = db.communities.find((c) => c.id === id);
       if (!row) return null;
-      for (const key of ['name', 'location', 'status', 'theme', 'websiteUrl', 'builder', 'settings', 'tools']) {
+      for (const key of [
+        'name', 'location', 'status', 'theme', 'websiteUrl', 'builder', 'settings', 'tools', 'features',
+      ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       row.updatedAt = now();
@@ -131,6 +149,7 @@ export function createFileStore(path) {
       db.communities = db.communities.filter((c) => c.id !== id);
       db.homes = db.homes.filter((h) => h.communityId !== id);
       db.highlights = db.highlights.filter((h) => h.communityId !== id);
+      db.slots = db.slots.filter((s) => s.communityId !== id);
       db.photos = db.photos.filter((p) => p.communityId !== id);
       db.leads = db.leads.filter((l) => l.communityId !== id);
       db.planItems = db.planItems.filter((p) => !leadIds.includes(p.leadId));
@@ -143,12 +162,12 @@ export function createFileStore(path) {
       return db.homes
         .filter((h) => h.communityId === communityId)
         .sort((a, b) => a.position - b.position)
-        .map((h) => shapeHome(h, photosOf(h.id)));
+        .map((h) => shapeHome(h, photosOf(h.id), plansOf(h.id)));
     },
 
     async getHome(id) {
       const row = db.homes.find((h) => h.id === id);
-      return row ? shapeHome(row, photosOf(id)) : null;
+      return row ? shapeHome(row, photosOf(id), plansOf(id)) : null;
     },
 
     async createHome(communityId, data) {
@@ -156,17 +175,20 @@ export function createFileStore(path) {
       const row = { id: `h_${shortId(10)}`, communityId, ...data, position, createdAt: now() };
       db.homes.push(row);
       save();
-      return shapeHome(row, []);
+      return shapeHome(row, [], []);
     },
 
     async updateHome(id, patch) {
       const row = db.homes.find((h) => h.id === id);
       if (!row) return null;
-      for (const key of ['name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability', 'position']) {
+      for (const key of [
+        'name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability',
+        'lotNumber', 'position',
+      ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       save();
-      return shapeHome(row, photosOf(id));
+      return shapeHome(row, photosOf(id), plansOf(id));
     },
 
     async deleteHome(id) {
@@ -211,12 +233,19 @@ export function createFileStore(path) {
       save();
     },
 
+    async listHomePhotosOfKind(homeId, kind) {
+      return db.photos
+        .filter((p) => p.homeId === homeId && p.kind === kind)
+        .sort((a, b) => a.position - b.position)
+        .map(shapePhoto);
+    },
+
     async listHighlightPhotos(highlightId) {
       return db.photos.filter((p) => p.highlightId === highlightId).map(shapePhoto);
     },
 
     async countHomePhotos(homeId) {
-      return db.photos.filter((p) => p.homeId === homeId).length;
+      return db.photos.filter((p) => p.homeId === homeId && p.kind !== 'floorplan').length;
     },
 
     async addPhoto({
@@ -247,6 +276,67 @@ export function createFileStore(path) {
         .filter((p) => p.communityId === communityId && p.kind === kind)
         .sort((a, b) => a.position - b.position)
         .map(shapePhoto);
+    },
+
+    async listSlots(communityId) {
+      return db.slots
+        .filter((s) => s.communityId === communityId)
+        .sort((a, b) => `${a.slotDate}${a.slotTime}`.localeCompare(`${b.slotDate}${b.slotTime}`))
+        .map(shapeSlot);
+    },
+
+    async listOpenSlots(communityId) {
+      const today = isoDate(new Date());
+      return db.slots
+        .filter((s) => s.communityId === communityId && !s.leadId && s.slotDate >= today)
+        .sort((a, b) => `${a.slotDate}${a.slotTime}`.localeCompare(`${b.slotDate}${b.slotTime}`))
+        .map(shapeSlot);
+    },
+
+    async createSlots(communityId, dates, times) {
+      const made = [];
+      for (const date of dates) {
+        for (const time of times) {
+          const exists = db.slots.some(
+            (s) => s.communityId === communityId && s.slotDate === date && s.slotTime === time,
+          );
+          if (exists) continue;
+          const row = {
+            id: `s_${shortId(10)}`, communityId, slotDate: date, slotTime: time,
+            leadId: null, createdAt: now(),
+          };
+          db.slots.push(row);
+          made.push(shapeSlot(row));
+        }
+      }
+      save();
+      return made;
+    },
+
+    async getSlot(id) {
+      const row = db.slots.find((s) => s.id === id);
+      return row ? shapeSlot(row) : null;
+    },
+
+    async deleteSlot(id) {
+      db.slots = db.slots.filter((s) => s.id !== id);
+      save();
+    },
+
+    async bookSlot(slotId, leadId) {
+      const row = db.slots.find((s) => s.id === slotId);
+      // Re-confirming the slot you already hold is not a clash.
+      if (!row || (row.leadId && row.leadId !== leadId)) return null;
+      row.leadId = leadId;
+      save();
+      return shapeSlot(row);
+    },
+
+    async releaseSlotsForLead(leadId, exceptSlotId = null) {
+      for (const row of db.slots) {
+        if (row.leadId === leadId && row.id !== exceptSlotId) row.leadId = null;
+      }
+      save();
     },
 
     async listLeads(communityId) {

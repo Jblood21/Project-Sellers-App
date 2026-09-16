@@ -1,13 +1,33 @@
 import { Router } from 'express';
 
-import { PLAN_LABELS, TOOL_KEYS } from '../../shared/domain.js';
+import { CONTACT_METHOD_KEYS, describeTour, PLAN_LABELS, TOOL_KEYS } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
+import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Absolute URL of this deployment, so emails can link back into the app. */
+const baseUrlOf = (req) => {
+  const host = req.get('x-forwarded-host') || req.get('host');
+  if (!host) return '';
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+  return `${proto}://${host}`;
+};
 const PLAN_KEYS = new Set([...TOOL_KEYS, 'homes']);
 
-const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto) => ({
+/**
+ * A feature the builder switched off is stripped here rather than hidden in the
+ * client, so an unpublished lot number never reaches a buyer's browser at all.
+ */
+const applyFeatures = (homes, features) =>
+  homes.map((home) => ({
+    ...home,
+    lotNumber: features.lotNumbers ? home.lotNumber : '',
+    floorPlans: features.floorPlans ? home.floorPlans : [],
+  }));
+
+const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto, siteMap, slots) => ({
   id: community.id,
   name: community.name,
   location: community.location,
@@ -17,10 +37,13 @@ const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto) => 
   websiteUrl: community.websiteUrl,
   settings: community.settings,
   tools: community.tools,
+  features: community.features,
   heroPhoto: heroPhoto?.url ?? null,
   iconPhoto: iconPhoto?.url ?? null,
-  homes,
+  siteMap: community.features.siteMap ? (siteMap?.url ?? null) : null,
+  homes: applyFeatures(homes, community.features),
   highlights,
+  slots,
 });
 
 export function publicRouter() {
@@ -31,13 +54,15 @@ export function publicRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
     if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
-    const [homes, highlights, heroes, icons] = await Promise.all([
+    const [homes, highlights, heroes, icons, maps, slots] = await Promise.all([
       store.listHomes(community.id),
       store.listHighlights(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
+      store.listCommunityPhotos(community.id, 'sitemap'),
+      store.listOpenSlots(community.id),
     ]);
-    res.json(publicCommunity(community, homes, highlights, heroes[0], icons[0]));
+    res.json(publicCommunity(community, homes, highlights, heroes[0], icons[0], maps[0], slots));
   });
 
   /**
@@ -120,12 +145,74 @@ export function publicRouter() {
     res.status(204).end();
   });
 
-  router.post('/me/tour', requireLead, async (req, res) => {
-    const time = String(req.body?.time ?? '').trim();
-    if (!time) return res.status(400).json({ error: 'Pick a time that works' });
+  /** The buyer asks for their own plan. Never sent unprompted. */
+  router.post('/me/plan/email', requireLead, async (req, res) => {
     const store = await getStore();
-    const lead = await store.updateLead(req.leadId, { tour: { time, requestedAt: new Date().toISOString() } });
-    await store.addActivity(req.leadId, `Requested to talk: ${time}`);
+    const lead = await store.getLead(req.leadId);
+    if (!lead) return res.status(404).json({ error: 'We could not find your plan.' });
+    const community = await store.getCommunity(lead.communityId);
+    if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
+
+    const homes = await store.listHomes(community.id);
+    const result = await sendPlanToBuyer({
+      community: { ...community, homes }, lead, baseUrl: baseUrlOf(req),
+    });
+    if (!result.sent) {
+      return res.status(503).json({
+        error: 'We could not send that right now. You can still download it as a PDF.',
+      });
+    }
+    await store.addActivity(req.leadId, 'Emailed their home plan to themselves');
+    res.json({ sent: true, to: lead.email });
+  });
+
+  /** Live open slots, so a buyer with the dialog open does not book a stale one. */
+  router.get('/c/:communityId/slots', async (req, res) => {
+    const store = await getStore();
+    res.json(await store.listOpenSlots(req.params.communityId));
+  });
+
+  router.post('/me/tour', requireLead, async (req, res) => {
+    const store = await getStore();
+    const slotId = String(req.body?.slotId ?? '').trim();
+    const contact = CONTACT_METHOD_KEYS.includes(req.body?.contact) ? req.body.contact : 'phone';
+    if (!slotId) return res.status(400).json({ error: 'Pick a time that works' });
+
+    const slot = await store.getSlot(slotId);
+    if (!slot) return res.status(404).json({ error: 'That time is no longer available.' });
+
+    // Book first, release afterwards. The other order would hand back the
+    // appointment they already had and then fail to get them a new one, leaving
+    // a buyer who tried to reschedule with nothing at all.
+    const booked = await store.bookSlot(slotId, req.leadId);
+    if (!booked) {
+      return res.status(409).json({ error: 'Somebody just took that time — please pick another.' });
+    }
+    await store.releaseSlotsForLead(req.leadId, booked.id);
+
+    const tour = {
+      slotId: booked.id,
+      date: booked.date,
+      time: booked.time,
+      contact,
+      requestedAt: new Date().toISOString(),
+    };
+    const lead = await store.updateLead(req.leadId, { tour });
+    await store.addActivity(
+      req.leadId,
+      `Booked ${describeTour(tour)}`,
+    );
+
+    // The request is already saved. Telling the builder is best-effort on top of
+    // that — sendEmail never throws, so a mail outage cannot cost them the lead.
+    const community = await store.getCommunity(lead.communityId);
+    if (community) {
+      const homes = await store.listHomes(community.id);
+      const result = await notifyCallRequest({
+        store, community: { ...community, homes }, lead, baseUrl: baseUrlOf(req),
+      });
+      if (result.sent) await store.addActivity(req.leadId, 'Builder emailed about the call request');
+    }
     res.json(lead);
   });
 

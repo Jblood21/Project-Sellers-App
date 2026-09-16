@@ -34,7 +34,10 @@ export const buyerApi = {
   savePlan: (token, key, summary) =>
     request(`/api/me/plan/${encodeURIComponent(key)}`, { method: 'PUT', body: { summary }, token }),
   track: (token, text) => request('/api/me/activity', { method: 'POST', body: { text }, token }),
-  requestTour: (token, time) => request('/api/me/tour', { method: 'POST', body: { time }, token }),
+  openSlots: (communityId) => request(`/api/c/${encodeURIComponent(communityId)}/slots`),
+  requestTour: (token, slotId, contact) =>
+    request('/api/me/tour', { method: 'POST', body: { slotId, contact }, token }),
+  emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
 };
 
 // ── admin ─────────────────────────────────────────────────────────────────
@@ -64,11 +67,18 @@ export const adminApi = {
     request(`/api/admin/highlights/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   addHighlightPhoto: (token, highlightId, body) =>
     request(`/api/admin/highlights/${encodeURIComponent(highlightId)}/photos`, { method: 'POST', body, token }),
+  addFloorPlan: (token, homeId, body) =>
+    request(`/api/admin/homes/${encodeURIComponent(homeId)}/floorplans`, { method: 'POST', body, token }),
   addCommunityPhoto: (token, communityId, kind, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/photos/${kind}`, {
       method: 'POST', body, token,
     }),
   deletePhoto: (token, id) => request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  slots: (token, communityId) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/slots`, { token }),
+  createSlots: (token, communityId, body) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/slots`, { method: 'POST', body, token }),
+  deleteSlot: (token, id) => request(`/api/admin/slots/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   leads: (token, communityId) => request(`/api/admin/communities/${encodeURIComponent(communityId)}/leads`, { token }),
   lead: (token, id) => request(`/api/admin/leads/${encodeURIComponent(id)}`, { token }),
   updateLead: (token, id, body) => request(`/api/admin/leads/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),

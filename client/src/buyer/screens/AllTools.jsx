@@ -106,6 +106,31 @@ export default function AllTools() {
         </button>
       ) : null}
 
+      {community?.features?.siteMap && community?.siteMap ? (
+        <button
+          type="button"
+          onClick={() => {
+            track('Opened the site map');
+            navigate(`/c/${communityId}/map`);
+          }}
+          style={{
+            width: '100%', cursor: 'pointer', marginBottom: 12, textAlign: 'left',
+            background: 'var(--t-tint)', border: '1px solid var(--t-line)',
+            borderRadius: 'var(--t-radlg)', padding: '14px 16px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+            color: 'var(--t-ink)', fontFamily: 'var(--t-font)',
+          }}
+        >
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span className="b-head" style={{ fontSize: 16 }}>Site Map</span>
+            <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>
+              See where each home sits
+            </span>
+          </span>
+          <span style={{ flex: 'none', color: 'var(--t-acc)', fontSize: 18 }}>›</span>
+        </button>
+      ) : null}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
         {enabled.map((tool) => (
           <button
