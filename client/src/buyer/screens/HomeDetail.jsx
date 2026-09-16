@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import ImageViewer from '../ImageViewer.jsx';
 
 export default function HomeDetail({ onOpenTour }) {
+  // Which plan the viewer is showing; null means closed.
+  const [planIndex, setPlanIndex] = useState(null);
   const { homes, lead, toggleSave, track, setTool } = useBuyer();
   const { communityId, homeId } = useParams();
   const navigate = useNavigate();
@@ -57,23 +61,22 @@ export default function HomeDetail({ onOpenTour }) {
           <span className="b-lbl" style={{ display: 'block', marginBottom: 8 }}>Floor plans</span>
           <div className="scroll-x" style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
             {home.floorPlans.map((plan, index) => (
-              <a
+              <button
                 key={plan.id}
-                href={plan.url}
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                onClick={() => setPlanIndex(index)}
                 aria-label={`Open ${home.name} floor plan ${index + 1}`}
                 style={{
                   flex: 'none', width: 150, height: 150, borderRadius: 'var(--t-rad)',
                   overflow: 'hidden', border: '1px solid var(--t-line)', background: '#fff',
-                  display: 'block',
+                  display: 'block', padding: 0, cursor: 'pointer',
                 }}
               >
                 <Photo photo={plan} alt={`${home.name} floor plan ${index + 1}`} fit="contain" />
-              </a>
+              </button>
             ))}
           </div>
-          <span style={{ fontSize: 11.5, color: 'var(--t-mut)' }}>Tap a plan to open it full size.</span>
+          <span style={{ fontSize: 11.5, color: 'var(--t-mut)' }}>Tap a plan to see it full size.</span>
         </div>
       ) : null}
 
@@ -105,6 +108,13 @@ export default function HomeDetail({ onOpenTour }) {
       <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>
         Saving a home adds it to Homes I Like and tells the team you&apos;re interested.
       </p>
+    <ImageViewer
+        images={home.floorPlans ?? []}
+        index={planIndex}
+        onIndex={setPlanIndex}
+        onClose={() => setPlanIndex(null)}
+        label={`${home.name} floor plan`}
+      />
     </div>
   );
 }
