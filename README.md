@@ -143,6 +143,31 @@ republishes it — the toggle governs publication, not storage, and the admin al
 everything. Each also stays hidden while it has no content, so switching one on never shows an
 empty space.
 
+## Booking a time
+
+Buyers no longer pick from vague options ("this weekend", "a phone call first"). They pick a
+real time the builder has published, and say how they want to be reached.
+
+**Admin → a community → Times.** Tap the days you are around on the calendar, tick the times
+you can do, and every combination is published at once — *"Tuesday, Wednesday and Thursday at
+10, 2 and 4"* is six taps. Published times are the **only** times buyers are offered, so an
+empty list means nobody can book. Re-publishing the same availability adds nothing rather than
+duplicating it, and past dates are kept but never offered.
+
+Buyers see those times grouped by day, choose one, and choose **a call** or **an email**. The
+choice leads the alert the builder receives, because it decides what they do next.
+
+A booked time leaves the menu immediately. Two buyers reaching for the same slot is settled in
+the database rather than by a read-then-write, so exactly one wins and the other is told plainly
+to pick again. Rescheduling books the new time **before** releasing the old one — the other order
+would leave someone who tried to move their appointment with none at all.
+
+**Dates and times are stored and shown as literal values** (`2026-09-20`, `14:00`), never as
+timestamps. A builder publishing 2:00 PM means 2pm at the community. A timestamp would be
+re-rendered in each viewer's timezone, so the dashboard, the buyer's phone and the alert email
+could show three different hours for one appointment. There is a test that round-trips a slot
+through Postgres under UTC−6, UTC+12 and UTC and asserts the date never moves.
+
 ## Email
 
 Two messages, and only two — the app is deliberately quiet.

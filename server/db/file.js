@@ -1,13 +1,17 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
+import {
+  DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, isoDate,
+} from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
-import { shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto } from './shape.js';
+import {
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto, shapeSlot,
+} from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [],
-  leads: [], planItems: [], activity: [],
+  slots: [], leads: [], planItems: [], activity: [],
 };
 
 /**
@@ -145,6 +149,7 @@ export function createFileStore(path) {
       db.communities = db.communities.filter((c) => c.id !== id);
       db.homes = db.homes.filter((h) => h.communityId !== id);
       db.highlights = db.highlights.filter((h) => h.communityId !== id);
+      db.slots = db.slots.filter((s) => s.communityId !== id);
       db.photos = db.photos.filter((p) => p.communityId !== id);
       db.leads = db.leads.filter((l) => l.communityId !== id);
       db.planItems = db.planItems.filter((p) => !leadIds.includes(p.leadId));
@@ -271,6 +276,67 @@ export function createFileStore(path) {
         .filter((p) => p.communityId === communityId && p.kind === kind)
         .sort((a, b) => a.position - b.position)
         .map(shapePhoto);
+    },
+
+    async listSlots(communityId) {
+      return db.slots
+        .filter((s) => s.communityId === communityId)
+        .sort((a, b) => `${a.slotDate}${a.slotTime}`.localeCompare(`${b.slotDate}${b.slotTime}`))
+        .map(shapeSlot);
+    },
+
+    async listOpenSlots(communityId) {
+      const today = isoDate(new Date());
+      return db.slots
+        .filter((s) => s.communityId === communityId && !s.leadId && s.slotDate >= today)
+        .sort((a, b) => `${a.slotDate}${a.slotTime}`.localeCompare(`${b.slotDate}${b.slotTime}`))
+        .map(shapeSlot);
+    },
+
+    async createSlots(communityId, dates, times) {
+      const made = [];
+      for (const date of dates) {
+        for (const time of times) {
+          const exists = db.slots.some(
+            (s) => s.communityId === communityId && s.slotDate === date && s.slotTime === time,
+          );
+          if (exists) continue;
+          const row = {
+            id: `s_${shortId(10)}`, communityId, slotDate: date, slotTime: time,
+            leadId: null, createdAt: now(),
+          };
+          db.slots.push(row);
+          made.push(shapeSlot(row));
+        }
+      }
+      save();
+      return made;
+    },
+
+    async getSlot(id) {
+      const row = db.slots.find((s) => s.id === id);
+      return row ? shapeSlot(row) : null;
+    },
+
+    async deleteSlot(id) {
+      db.slots = db.slots.filter((s) => s.id !== id);
+      save();
+    },
+
+    async bookSlot(slotId, leadId) {
+      const row = db.slots.find((s) => s.id === slotId);
+      // Re-confirming the slot you already hold is not a clash.
+      if (!row || (row.leadId && row.leadId !== leadId)) return null;
+      row.leadId = leadId;
+      save();
+      return shapeSlot(row);
+    },
+
+    async releaseSlotsForLead(leadId, exceptSlotId = null) {
+      for (const row of db.slots) {
+        if (row.leadId === leadId && row.id !== exceptSlotId) row.leadId = null;
+      }
+      save();
     },
 
     async listLeads(communityId) {

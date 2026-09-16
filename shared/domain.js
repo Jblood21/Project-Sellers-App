@@ -136,6 +136,70 @@ export const DEFAULT_SETTINGS = {
   notifyEmail: '',
 };
 
+/**
+ * Appointment slots.
+ *
+ * Dates and times are stored and shown as literal values — '2026-09-20' and
+ * '14:00' — never as timestamps. A builder who publishes 2:00 PM means 2pm at
+ * the community. A timestamp would be re-rendered in the viewer's timezone, so
+ * the admin dashboard, the buyer's phone and the alert email could each show a
+ * different hour for the same appointment. Literal values cannot drift.
+ */
+export const SLOT_TIMES = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00',
+];
+
+export const CONTACT_METHODS = [
+  { k: 'phone', label: 'Give me a call', short: 'Phone' },
+  { k: 'email', label: 'Send me an email', short: 'Email' },
+];
+export const CONTACT_METHOD_KEYS = CONTACT_METHODS.map((m) => m.k);
+
+export function contactMethodLabel(key) {
+  return CONTACT_METHODS.find((m) => m.k === key)?.short ?? 'Phone';
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** 'YYYY-MM-DD' for a Date, in the viewer's own calendar rather than UTC. */
+export function isoDate(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** '2026-09-20' -> 'Sat, Sep 20'. Parsed by parts, so no UTC shift. */
+export function formatSlotDate(value) {
+  const [y, m, d] = String(value ?? '').split('-').map(Number);
+  if (!y || !m || !d) return String(value ?? '');
+  const date = new Date(y, m - 1, d);
+  return `${DAYS[date.getDay()]}, ${MONTHS[m - 1]} ${d}`;
+}
+
+/** '14:00' -> '2:00 PM'. */
+export function formatSlotTime(value) {
+  const [h, min] = String(value ?? '').split(':').map(Number);
+  if (Number.isNaN(h)) return String(value ?? '');
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(min ?? 0).padStart(2, '0')} ${suffix}`;
+}
+
+/**
+ * One line describing a request, for the admin list and the alert email.
+ * Handles requests made before slots existed, which carry free text instead.
+ */
+export function describeTour(tour) {
+  if (!tour) return '';
+  if (tour.date && tour.time) {
+    const how = contactMethodLabel(tour.contact).toLowerCase();
+    return `${formatSlotDate(tour.date)} at ${formatSlotTime(tour.time)} · by ${how}`;
+  }
+  return tour.time || 'No time given';
+}
+
 export const MAX_PHOTOS_PER_HOME = 8;
 
 // ── numbers ────────────────────────────────────────────────────────────────

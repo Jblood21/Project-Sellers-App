@@ -3,7 +3,7 @@ import { Router } from 'express';
 import {
   AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS,
   DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME,
-  THEMES, TOOL_KEYS,
+  SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
@@ -292,6 +292,38 @@ export function adminRouter() {
   router.delete('/photos/:id', async (req, res) => {
     const store = await getStore();
     await store.deletePhoto(req.params.id);
+    res.status(204).end();
+  });
+
+  // ── appointment slots ────────────────────────────────────────────────────
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+  router.get('/communities/:id/slots', async (req, res) => {
+    const store = await getStore();
+    res.json(await store.listSlots(req.params.id));
+  });
+
+  /** Publishes every date x time the builder ticked, in one call. */
+  router.post('/communities/:id/slots', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+
+    const dates = [...new Set((req.body?.dates ?? []).filter((d) => ISO_DATE.test(String(d))))];
+    const times = [...new Set((req.body?.times ?? []).filter((t) => SLOT_TIMES.includes(String(t))))];
+    if (!dates.length) return res.status(400).json({ error: 'Pick at least one date.' });
+    if (!times.length) return res.status(400).json({ error: 'Pick at least one time.' });
+    if (dates.length * times.length > 400) {
+      return res.status(400).json({ error: 'That is more than 400 slots at once — add them in smaller batches.' });
+    }
+
+    const created = await store.createSlots(community.id, dates.sort(), times.sort());
+    res.status(201).json({ created: created.length, slots: await store.listSlots(community.id) });
+  });
+
+  router.delete('/slots/:id', async (req, res) => {
+    const store = await getStore();
+    await store.deleteSlot(req.params.id);
     res.status(204).end();
   });
 

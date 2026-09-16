@@ -81,3 +81,19 @@ export function shapeHighlight(row, photo = null) {
     photo,
   };
 }
+
+export function shapeSlot(row) {
+  if (!row) return null;
+  const raw = row.slot_date ?? row.slotDate;
+  return {
+    id: row.id,
+    communityId: row.community_id ?? row.communityId,
+    // pg returns DATE as a Date object; the buyer and admin both want the
+    // literal 'YYYY-MM-DD' the builder chose, with no timezone applied.
+    date: raw instanceof Date
+      ? `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, '0')}-${String(raw.getDate()).padStart(2, '0')}`
+      : String(raw).slice(0, 10),
+    time: row.slot_time ?? row.slotTime,
+    leadId: row.lead_id ?? row.leadId ?? null,
+  };
+}

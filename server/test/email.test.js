@@ -30,7 +30,10 @@ const COMMUNITY = {
 const LEAD = {
   id: 'l1', name: 'Dana Cruz', email: 'dana@test.co', phone: '(801) 555-0123',
   savedHomeIds: ['h1'], plan: { afford: 'Looking at $350,049–$418,115' },
-  tour: { time: 'This weekend', requestedAt: '2026-09-16T17:00:00.000Z' },
+  tour: {
+    slotId: 's1', date: '2026-09-20', time: '14:00', contact: 'phone',
+    requestedAt: '2026-09-16T17:00:00.000Z',
+  },
 };
 const store = { firstAdminEmail: async () => 'owner@builder.co' };
 
@@ -62,11 +65,12 @@ test('the call alert leads with what the builder needs to act on', async () => {
   const [mail] = sent;
   assert.deepEqual(mail.to, ['sales@builder.co'], 'goes to the community address');
   assert.equal(mail.reply_to, 'dana@test.co', 'replying reaches the buyer');
-  assert.match(mail.subject, /Dana Cruz wants a call/);
+  assert.match(mail.subject, /Dana Cruz booked Sun, Sep 20 at 2:00 PM/);
   assert.match(mail.subject, /Willow Creek/);
 
   // The first line has to carry the whole message, for a phone lock screen.
-  assert.match(mail.text.split('\n')[0], /Dana Cruz asked to talk — This weekend\./);
+  assert.match(mail.text.split('\n')[0], /Dana Cruz booked Sun, Sep 20 at 2:00 PM · by phone\./);
+  assert.match(mail.text, /Reach them by: Phone/, 'the chosen contact method leads');
   assert.match(mail.text, /\(801\) 555-0123/, 'the phone number is present');
   assert.match(mail.text, /The Aspen/, 'the homes they saved');
   assert.match(mail.text, /\$350,049/, 'and what they worked out');
@@ -119,4 +123,29 @@ test('a buyer with an empty plan still gets a coherent email', async () => {
   assert.match(text, /Hi Dana,/);
   assert.doesNotMatch(text, /What you worked out:/, 'no empty heading');
   assert.doesNotMatch(text, /Homes you liked:/);
+});
+
+test('a request made before slots existed still renders', async () => {
+  const sent = captureTransport();
+  // Leads captured by the old free-text flow keep their wording rather than
+  // rendering as a blank appointment.
+  await notifyCallRequest({
+    store,
+    community: COMMUNITY,
+    lead: { ...LEAD, tour: { time: 'This weekend', requestedAt: '2026-09-16T17:00:00.000Z' } },
+  });
+  assert.match(sent[0].subject, /Dana Cruz wants a call — Willow Creek/);
+  assert.match(sent[0].text.split('\n')[0], /Dana Cruz booked This weekend\./);
+});
+
+test('the email preference puts the email address first', async () => {
+  const sent = captureTransport();
+  await notifyCallRequest({
+    store, community: COMMUNITY,
+    lead: { ...LEAD, tour: { ...LEAD.tour, contact: 'email' } },
+  });
+  const lines = sent[0].text.split('\n');
+  const reach = lines.findIndex((l) => /Reach them by: Email/.test(l));
+  assert.ok(reach > 0, 'it says how to reach them');
+  assert.match(lines[reach + 1], /Email:\s+dana@test\.co/, 'and leads with the address, not the phone');
 });

@@ -7,6 +7,7 @@ import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import PhotoPicker from '../PhotoPicker.jsx';
 import AreaTab from '../tabs/AreaTab.jsx';
+import AvailabilityTab from '../tabs/AvailabilityTab.jsx';
 import HomesTab from '../tabs/HomesTab.jsx';
 import LeadsTab from '../tabs/LeadsTab.jsx';
 import SetupTab from '../tabs/SetupTab.jsx';
@@ -20,6 +21,7 @@ import QrDialog from './QrDialog.jsx';
 const TABS = [
   ['homes', 'Homes'],
   ['area', 'Area'],
+  ['times', 'Times'],
   ['tools', 'Tools'],
   ['leads', 'Leads'],
   ['stats', 'Stats'],
@@ -112,6 +114,7 @@ function CommunityTabs({ community, leads, reload }) {
 
       {tab === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
       {tab === 'area' ? <AreaTab community={community} reload={reload} /> : null}
+      {tab === 'times' ? <AvailabilityTab community={community} /> : null}
       {tab === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
       {tab === 'leads' ? <LeadsTab community={community} leads={leads} /> : null}
       {tab === 'stats' ? <StatsTab community={community} leads={leads} /> : null}

@@ -1,4 +1,4 @@
-import { money } from '../../shared/domain.js';
+import { contactMethodLabel, describeTour, money } from '../../shared/domain.js';
 import { sendEmail } from './email.js';
 
 /** Where a community's call requests go: its own address, else the dashboard account. */
@@ -31,13 +31,16 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     .filter(Boolean);
   const planLines = Object.entries(lead.plan ?? {}).map(([, summary]) => `  · ${summary}`);
 
+  const prefersEmail = lead.tour?.contact === 'email';
   const text = [
-    `${lead.name} asked to talk — ${lead.tour?.time ?? 'no time given'}.`,
+    `${lead.name} booked ${describeTour(lead.tour)}.`,
     '',
-    `Phone:     ${lead.phone || 'not given'}`,
-    `Email:     ${lead.email}`,
+    // The contact they chose leads, because it decides what the builder does next.
+    `Reach them by: ${contactMethodLabel(lead.tour?.contact)}`,
+    prefersEmail ? `Email:     ${lead.email}` : `Phone:     ${lead.phone || 'not given'}`,
+    prefersEmail ? `Phone:     ${lead.phone || 'not given'}` : `Email:     ${lead.email}`,
     `Community: ${community.name}`,
-    `Asked at:  ${when(lead.tour?.requestedAt)}`,
+    `Booked at: ${when(lead.tour?.requestedAt)}`,
     '',
     saved.length ? `Homes they saved: ${saved.join(', ')}` : 'They have not saved a home yet.',
     '',
@@ -46,12 +49,14 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     '',
     baseUrl ? `Open the lead: ${baseUrl}/admin/leads/${lead.id}` : '',
     '',
-    'Mark it handled in the dashboard once you have called, so it leaves the queue.',
+    `Mark it handled in the dashboard once you have ${prefersEmail ? 'emailed' : 'called'} them, so it leaves the queue.`,
   ].filter((line) => line !== undefined).join('\n');
 
   return sendEmail({
     to,
-    subject: `${lead.name} wants a call — ${community.name}`,
+    subject: lead.tour?.date
+      ? `${lead.name} booked ${describeTour(lead.tour)} — ${community.name}`
+      : `${lead.name} wants a call — ${community.name}`,
     text,
     // So hitting reply in a mail client reaches the buyer, not the app.
     replyTo: lead.email,

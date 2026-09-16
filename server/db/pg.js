@@ -5,7 +5,9 @@ import pg from 'pg';
 
 import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
-import { shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto } from './shape.js';
+import {
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto, shapeSlot,
+} from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -320,6 +322,78 @@ export function createPostgresStore(connectionString) {
     async deleteHighlight(id) {
       await q(`DELETE FROM photos WHERE highlight_id = $1`, [id]);
       await q(`DELETE FROM highlights WHERE id = $1`, [id]);
+    },
+
+    // ── appointment slots ────────────────────────────────────────────────
+    async listSlots(communityId) {
+      const { rows } = await q(
+        `SELECT * FROM slots WHERE community_id = $1 ORDER BY slot_date, slot_time`, [communityId],
+      );
+      return rows.map(shapeSlot);
+    },
+
+    /** What a buyer may choose: unbooked, and not in the past. */
+    async listOpenSlots(communityId) {
+      const { rows } = await q(
+        `SELECT * FROM slots
+          WHERE community_id = $1 AND lead_id IS NULL AND slot_date >= CURRENT_DATE
+          ORDER BY slot_date, slot_time`,
+        [communityId],
+      );
+      return rows.map(shapeSlot);
+    },
+
+    /** Every date x time combination at once. Re-adding an existing one is a no-op. */
+    async createSlots(communityId, dates, times) {
+      const values = [];
+      const params = [communityId];
+      for (const date of dates) {
+        for (const time of times) {
+          params.push(`s_${shortId(10)}`, date, time);
+          values.push(`($${params.length - 2}, $1, $${params.length - 1}, $${params.length})`);
+        }
+      }
+      if (!values.length) return [];
+      const { rows } = await q(
+        `INSERT INTO slots (id, community_id, slot_date, slot_time)
+         VALUES ${values.join(', ')}
+         ON CONFLICT (community_id, slot_date, slot_time) DO NOTHING
+         RETURNING *`,
+        params,
+      );
+      return rows.map(shapeSlot);
+    },
+
+    async getSlot(id) {
+      const { rows } = await q(`SELECT * FROM slots WHERE id = $1`, [id]);
+      return rows[0] ? shapeSlot(rows[0]) : null;
+    },
+
+    async deleteSlot(id) {
+      await q(`DELETE FROM slots WHERE id = $1`, [id]);
+    },
+
+    /**
+     * Claims a slot for a lead, or returns null if somebody got there first.
+     * The `lead_id IS NULL` guard is inside the UPDATE on purpose: checking and
+     * then writing would leave a window for two buyers to book the same time.
+     */
+    async bookSlot(slotId, leadId) {
+      const { rows } = await q(
+        `UPDATE slots SET lead_id = $2
+          WHERE id = $1 AND (lead_id IS NULL OR lead_id = $2)
+          RETURNING *`,
+        [slotId, leadId],
+      );
+      return rows[0] ? shapeSlot(rows[0]) : null;
+    },
+
+    /** Frees whatever this lead held, so changing an appointment reopens the old one. */
+    async releaseSlotsForLead(leadId, exceptSlotId = null) {
+      await q(
+        `UPDATE slots SET lead_id = NULL WHERE lead_id = $1 AND ($2::text IS NULL OR id <> $2)`,
+        [leadId, exceptSlotId],
+      );
     },
 
     // ── leads ────────────────────────────────────────────────────────────

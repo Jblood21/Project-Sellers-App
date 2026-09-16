@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PLAN_LABELS, TOOL_KEYS, isTourPending, planProgress } from '@shared/domain.js';
+import { PLAN_LABELS, TOOL_KEYS, describeTour, isTourPending, planProgress } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { money, shortDate } from '../../lib/format.js';
@@ -85,7 +85,7 @@ export default function LeadDetail({ community }) {
           <span className="card-kicker">
             {isTourPending(lead) ? '📞 Waiting for a call' : 'Call request — handled'}
           </span>
-          <span style={{ fontWeight: 600 }}>{lead.tour.time}</span>
+          <span style={{ fontWeight: 600 }}>{describeTour(lead.tour)}</span>
           {lead.tour.requestedAt ? (
             <span className="text-muted" style={{ fontSize: 12 }}>Asked {shortDate(lead.tour.requestedAt)}</span>
           ) : null}

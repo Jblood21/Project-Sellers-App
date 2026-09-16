@@ -141,15 +141,20 @@ export function BuyerProvider({ communityId, children }) {
     [showToast, token],
   );
 
+  /** Returns true when the booking took, so the dialog knows whether to close. */
   const requestTour = useCallback(
-    async (time) => {
-      if (!token) return;
+    async (slotId, contact) => {
+      if (!token) return false;
       try {
-        const updated = await buyerApi.requestTour(token, time);
+        const updated = await buyerApi.requestTour(token, slotId, contact);
         setLead(updated);
-        showToast('Request sent — the team will text you');
+        showToast(contact === 'email' ? 'Booked — the team will email you' : 'Booked — the team will call you');
+        return true;
       } catch (err) {
+        // A clash is the interesting case: the dialog stays open so they can
+        // pick again rather than being dropped back with nothing booked.
         showToast(err.message);
+        return false;
       }
     },
     [showToast, token],

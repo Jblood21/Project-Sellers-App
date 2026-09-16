@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PLAN_LABELS, TOOL_KEYS } from '@shared/domain.js';
+import { PLAN_LABELS, TOOL_KEYS, describeTour } from '@shared/domain.js';
 import { buyerApi } from '../../lib/api.js';
 import { money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
@@ -91,7 +91,7 @@ export default function Plan({ onOpenTour }) {
       )}
 
       <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>
-        {lead?.tour ? 'Request sent ✓ — change it' : 'Talk to the team · tour or call'}
+        {lead?.tour ? `Booked ✓ ${describeTour(lead.tour)} — change it` : 'Talk to the team · book a time'}
       </button>
     </div>
   );

@@ -80,6 +80,23 @@ CREATE TABLE IF NOT EXISTS highlights (
 );
 CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
 
+-- Appointment slots the builder publishes. slot_date and slot_time are literal
+-- values in the community's own local time, never converted: see the note on
+-- SLOT_TIMES in shared/domain.js for why.
+--
+-- lead_id is the booking. NULL means open; the unique index means two buyers
+-- cannot be sold the same slot even if they tap at the same moment.
+CREATE TABLE IF NOT EXISTS slots (
+  id           TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  slot_date    DATE NOT NULL,
+  slot_time    TEXT NOT NULL,
+  lead_id      TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS slots_unique_idx ON slots(community_id, slot_date, slot_time);
+CREATE INDEX IF NOT EXISTS slots_open_idx ON slots(community_id, slot_date, slot_time) WHERE lead_id IS NULL;
+
 CREATE TABLE IF NOT EXISTS leads (
   id             TEXT PRIMARY KEY,
   community_id   TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
