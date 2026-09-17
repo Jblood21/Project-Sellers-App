@@ -107,10 +107,23 @@ CREATE TABLE IF NOT EXISTS leads (
   notes          TEXT NOT NULL DEFAULT '',
   tour           JSONB,
   saved_home_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  opened_at      TIMESTAMPTZ,
+  archived_at    TIMESTAMPTZ,
   first_visit_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS leads_community_email_idx ON leads(community_id, lower(email));
+-- Stamps, not flags: null means never opened / not archived. Existing databases
+-- skip the CREATE TABLE above, so these have to arrive by ALTER, and they sit
+-- above the index for the reason the last migration bug taught us.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+
+-- Email alone no longer identifies a person: two people who share an address are
+-- two leads, and only name + email + phone together mean "the same buyer" (see
+-- isSameLead in shared/domain.js). So this index can no longer be unique, and
+-- identity is decided by the application rather than the database.
+DROP INDEX IF EXISTS leads_community_email_idx;
+CREATE INDEX IF NOT EXISTS leads_community_email_lookup_idx ON leads(community_id, lower(email));
 
 CREATE TABLE IF NOT EXISTS lead_plan_items (
   lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,

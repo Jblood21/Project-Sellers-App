@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
-import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED } from '../../shared/domain.js';
+import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, isSameLead } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto, shapeSlot,
@@ -99,7 +99,8 @@ export function createPostgresStore(connectionString) {
                (SELECT count(*)::int FROM leads l
                  WHERE l.community_id = c.id
                    AND l.tour IS NOT NULL
-                   AND (l.tour->>'handledAt') IS NULL) AS pending_tours
+                   AND (l.tour->>'handledAt') IS NULL
+                   AND l.archived_at IS NULL) AS pending_tours
         FROM communities c ORDER BY c.created_at`);
       return rows.map((r) =>
         shapeCommunity(r, {
@@ -415,12 +416,19 @@ export function createPostgresStore(connectionString) {
       return shapeLead(rows[0], { plan: await planFor(id), activity: await activityFor(id) });
     },
 
-    async findLeadByEmail(communityId, email) {
+    /**
+     * The lead matching these exact details, or null. Candidates are narrowed by
+     * email in SQL because that is what is indexed, then compared with the one
+     * JS definition of identity so the rule cannot drift between here and there.
+     */
+    async findLeadByIdentity(communityId, input) {
       const { rows } = await q(
-        `SELECT * FROM leads WHERE community_id = $1 AND lower(email) = lower($2)`, [communityId, email],
+        `SELECT * FROM leads WHERE community_id = $1 AND lower(btrim(email)) = lower(btrim($2))`,
+        [communityId, input.email],
       );
-      if (!rows[0]) return null;
-      return shapeLead(rows[0], { plan: await planFor(rows[0].id), activity: await activityFor(rows[0].id) });
+      const row = rows.find((candidate) => isSameLead(candidate, input));
+      if (!row) return null;
+      return shapeLead(row, { plan: await planFor(row.id), activity: await activityFor(row.id) });
     },
 
     async createLead(communityId, { name, email, phone }) {
@@ -435,6 +443,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', phone: 'phone', status: 'status', notes: 'notes',
         tour: 'tour', savedHomeIds: 'saved_home_ids',
+        openedAt: 'opened_at', archivedAt: 'archived_at',
       };
       const sets = [];
       const params = [];

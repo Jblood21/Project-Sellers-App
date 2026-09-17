@@ -143,6 +143,55 @@ republishes it — the toggle governs publication, not storage, and the admin al
 everything. Each also stays hidden while it has no content, so switching one on never shows an
 empty space.
 
+## Who counts as the same buyer
+
+The entry gate signs a returning buyer back into their own record — their saved homes, their
+plan, their history — when **name, email and phone all match**. Any one of them different is a
+different person, who gets their own lead.
+
+Matching compares the **information, not the keystrokes**. `(801) 555-0111`, `801-555-0111` and
+`8015550111` are one phone number; `Sam  Rivera` is `sam rivera`. Without that a buyer who came
+back and typed their number without brackets would be handed a duplicate, which is the thing
+this is meant to prevent.
+
+Two consequences worth knowing:
+
+- **Two people can share an email address.** A couple who both scan the sign with one household
+  address are two leads, as they should be. Email alone used to decide identity, which silently
+  merged the second person into the first and lost a lead. That also means
+  `leads(community_id, lower(email))` can no longer be UNIQUE — `schema.sql` drops it and
+  replaces it with a plain lookup index, and identity is now the application's decision rather
+  than the database's.
+- **A different name on the same contact details is a new lead.** Somebody entering "Sam Rivera
+  Jr" having previously entered "Sam Rivera" gets a second record. That is the deliberate cost of
+  requiring all three: strictness that separates two real people also separates one person who
+  typed their name differently. Merging duplicates by hand is not built yet.
+
+Identity is scoped per community — the same person at two developments is two leads, because they
+are two separate conversations.
+
+## Working the leads
+
+The Leads tab separates two things that used to share one field:
+
+- **Unread** is automatic. A lead reads Unread until an admin opens it, and the stamp is set
+  once and never moved — so "unread" always means "nobody has looked at this", not "not open
+  right now". Buyer activity afterwards does not make it unread again.
+- **Contacted** is yours to set, and the change is pushed back to the list you came from. That
+  was previously broken: the list is loaded once, and the lead screen updated only its own copy,
+  so marking somebody contacted and going back showed them unchanged. The save had worked; the
+  list was showing a snapshot.
+
+**Archive** is how a lead leaves without being deleted. Archived leads drop out of every view
+except **Closed**, and stop counting as waiting for a call even if their request was never marked
+handled — somebody you are done with should not keep nagging the queue. Nothing is removed, and
+restoring brings back the unanswered request intact. A buyer who went quiet in spring is the same
+buyer who calls in autumn.
+
+Filters are **Active** (the default), **Unread**, the call queue, and **Closed**. The last three
+only appear when they would show something, because a pill that always reads zero is one more
+thing to scan past.
+
 ## Booking a time
 
 Buyers no longer pick from vague options ("this weekend", "a phone call first"). They pick a
@@ -195,7 +244,7 @@ has a category (schools, parks, shopping, healthcare, getting around, or good to
 optional distance or hours note, a description and an optional photo — one photo per place, stored
 in the database like every other image.
 
-Entries show up for buyers under **Around Here**, grouped by category and in the order the admin
+Entries show up for buyers under **Local Spots**, grouped by category and in the order the admin
 created them, with a card on the buyer home screen and an entry in the menu. Both disappear when a
 community has no entries, so a builder who skips this never ships an empty screen.
 

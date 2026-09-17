@@ -8,7 +8,7 @@ import { money, shortDate } from '../../lib/format.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { ErrorNote, Spinner } from '../ui.jsx';
 
-export default function LeadDetail({ community }) {
+export default function LeadDetail({ community, reload }) {
   const { token } = useAdmin();
   const { communityId, leadId } = useParams();
   const navigate = useNavigate();
@@ -33,19 +33,31 @@ export default function LeadDetail({ community }) {
   const savedHomes = lead.savedHomeIds.map((id) => community.homes.find((h) => h.id === id)).filter(Boolean);
   const planItems = TOOL_KEYS.filter((key) => lead.plan[key]).map((key) => ({ key, summary: lead.plan[key] }));
 
-  const toggleTourHandled = async () => {
-    setLead(await adminApi.updateLead(token, lead.id, { tourHandled: !lead.tour?.handledAt }));
+  /**
+   * Every change here has to be pushed back to the list this screen was opened
+   * from. That list is loaded once by CommunityDetail, so without this you mark
+   * somebody contacted, go back, and they still look untouched — the save
+   * worked, the list was just showing a snapshot.
+   */
+  const apply = async (patch) => {
+    setLead(await adminApi.updateLead(token, lead.id, patch));
+    await reload?.();
   };
 
-  const toggleStatus = async () => {
-    const next = lead.status === 'new' ? 'contacted' : 'new';
-    setLead(await adminApi.updateLead(token, lead.id, { status: next }));
+  const toggleTourHandled = () => apply({ tourHandled: !lead.tour?.handledAt });
+
+  const toggleStatus = () => apply({ status: lead.status === 'new' ? 'contacted' : 'new' });
+
+  const toggleArchived = async () => {
+    if (!lead.archivedAt && !window.confirm(`Archive ${lead.name}? They leave your active list but nothing is deleted.`)) return;
+    await apply({ archived: !lead.archivedAt });
   };
 
   const saveNotes = async () => {
     setError('');
     try {
       await adminApi.updateLead(token, lead.id, { notes });
+      await reload?.();
       setNotesSaved(true);
       window.setTimeout(() => setNotesSaved(false), 1800);
     } catch (err) {
@@ -103,6 +115,22 @@ export default function LeadDetail({ community }) {
         </div>
       ) : null}
 
+      {lead.archivedAt ? (
+        <div
+          className="card elev-sm"
+          style={{ gap: 6, marginBottom: 12, borderColor: 'var(--color-divider)' }}
+        >
+          <span className="card-kicker">Archived</span>
+          <span className="text-muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
+            Filed away {shortDate(lead.archivedAt)}. They are out of your active list and no longer
+            counted as waiting for a call. Nothing has been deleted.
+          </span>
+          <button type="button" className="btn btn-primary" onClick={toggleArchived} style={{ alignSelf: 'flex-start' }}>
+            Bring back to active
+          </button>
+        </div>
+      ) : null}
+
       <div className="card elev-sm" style={{ gap: 8, marginBottom: 12 }}>
         <span className="card-kicker">Contact</span>
         <div style={{ fontSize: 14 }}>{lead.email}</div>
@@ -111,7 +139,7 @@ export default function LeadDetail({ community }) {
           <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a>
           <a className="btn btn-secondary" href={`mailto:${lead.email}`}>Email</a>
           <button type="button" className="btn btn-ghost" onClick={toggleStatus}>
-            {lead.status === 'new' ? 'Mark contacted' : 'Mark new'}
+            {lead.status === 'new' ? 'Mark contacted' : 'Mark not contacted'}
           </button>
         </div>
       </div>
@@ -172,6 +200,16 @@ export default function LeadDetail({ community }) {
           {notesSaved ? 'Saved ✓' : 'Save notes'}
         </button>
       </div>
+    {!lead.archivedAt ? (
+        <button
+          type="button"
+          className="btn btn-ghost btn-block"
+          onClick={toggleArchived}
+          style={{ marginTop: 4, color: 'var(--color-neutral-700)' }}
+        >
+          Archive this lead
+        </button>
+      ) : null}
     </div>
   );
 }

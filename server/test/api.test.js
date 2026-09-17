@@ -704,3 +704,205 @@ test('slots: deleting a community takes its slots with it', async () => {
   await api(`/api/admin/communities/${cid}`, { method: 'DELETE', token });
   assert.deepEqual(await (await api(`/api/admin/communities/${cid}/slots`, { token })).body, []);
 });
+
+test('a lead is unread until an admin opens it, and never goes back', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Unread Test' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Unseen Person', email: 'unseen@test.co', phone: '(801) 555-0210' },
+  });
+  const leadId = entered.body.lead.id;
+
+  // Appearing in the list is not the same as being read.
+  let listed = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(listed.body[0].openedAt, null, 'still unread after merely listing it');
+
+  const opened = await api(`/api/admin/leads/${leadId}`, { token });
+  assert.ok(opened.body.openedAt, 'opening the lead marks it read');
+
+  listed = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.ok(listed.body[0].openedAt, 'and the list agrees');
+
+  // Re-opening must not move the stamp — otherwise "unread" would mean
+  // "not open right now", which is useless.
+  const firstStamp = opened.body.openedAt;
+  const reopened = await api(`/api/admin/leads/${leadId}`, { token });
+  assert.equal(reopened.body.openedAt, firstStamp, 'the stamp is set once and left alone');
+
+  // Buyer activity does not make it unread again either.
+  await api('/api/me/plan/afford', {
+    method: 'PUT', token: entered.body.token, body: { summary: 'Looking at $300k' },
+  });
+  const after = await api(`/api/admin/leads/${leadId}`, { token });
+  assert.equal(after.body.openedAt, firstStamp);
+});
+
+test('marking contacted sticks, and the list reflects it', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Status Test' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Status Person', email: 'status@test.co', phone: '(801) 555-0211' },
+  });
+  const leadId = entered.body.lead.id;
+
+  const marked = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { status: 'contacted' },
+  });
+  assert.equal(marked.body.status, 'contacted');
+
+  // This is the assertion that matters: a fresh read of the LIST, not the lead.
+  // The reported bug was the list still showing the old value.
+  const listed = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(listed.body[0].status, 'contacted', 'the list carries the change');
+
+  const back = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { status: 'new' },
+  });
+  assert.equal(back.body.status, 'new', 'and it can be undone');
+  assert.equal(
+    (await api(`/api/admin/communities/${cid}/leads`, { token })).body[0].status, 'new',
+  );
+});
+
+test('archiving files a lead away without deleting it, and retires its call request', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Archive Test' } });
+  const cid = community.body.id;
+  const slots = await publishSlots(token, cid, ['09:00']);
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Gone Quiet', email: 'quiet@test.co', phone: '(801) 555-0212' },
+  });
+  const leadId = entered.body.lead.id;
+  await api('/api/me/tour', { method: 'POST', token: entered.body.token, body: { slotId: slots[0].id } });
+
+  let list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 1, 'they are waiting for a call');
+
+  const archived = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { archived: true },
+  });
+  assert.ok(archived.body.archivedAt, 'archived');
+
+  // Someone you are done with must stop nagging you from the call queue, even
+  // though their request was never explicitly marked handled.
+  list = await api('/api/admin/communities', { token });
+  assert.equal(list.body.find((c) => c.id === cid).pendingTours, 0, 'and stop counting as waiting');
+  assert.ok(archived.body.tour, 'the request itself is still on the record');
+
+  // Nothing is deleted — the lead is still there, still readable.
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(leads.body.length, 1, 'the lead still exists');
+  assert.ok(leads.body[0].archivedAt);
+  assert.equal(leads.body[0].name, 'Gone Quiet');
+
+  const restored = await api(`/api/admin/leads/${leadId}`, {
+    method: 'PATCH', token, body: { archived: false },
+  });
+  assert.equal(restored.body.archivedAt, null, 'and they come back');
+  list = await api('/api/admin/communities', { token });
+  assert.equal(
+    list.body.find((c) => c.id === cid).pendingTours, 1,
+    'with their unanswered request intact',
+  );
+});
+
+test('the gate signs a returning buyer back in, and only when everything matches', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Identity Test' } });
+  const cid = community.body.id;
+
+  const first = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Sam Rivera', email: 'sam@test.co', phone: '(801) 555-0111' },
+  });
+  assert.equal(first.status, 201);
+  assert.equal(first.body.returning, false);
+  const samId = first.body.lead.id;
+
+  // Give them something to lose, so "signed back in" can be proved rather than assumed.
+  await api('/api/me/plan/afford', {
+    method: 'PUT', token: first.body.token, body: { summary: 'Looking at $420k' },
+  });
+
+  const again = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Sam Rivera', email: 'sam@test.co', phone: '(801) 555-0111' },
+  });
+  assert.equal(again.body.returning, true);
+  assert.equal(again.body.lead.id, samId);
+  assert.equal(again.body.lead.plan.afford, 'Looking at $420k', 'their plan comes back with them');
+
+  // Same information, typed differently. This is the case that decides whether
+  // the feature works: a buyer who omits the brackets must not get a duplicate.
+  for (const [label, body] of [
+    ['casing and spacing', { name: 'sam  rivera', email: 'SAM@Test.co', phone: '(801) 555-0111' }],
+    ['bare digits', { name: 'Sam Rivera', email: 'sam@test.co', phone: '8015550111' }],
+    ['dashes', { name: 'Sam Rivera', email: 'sam@test.co', phone: '801-555-0111' }],
+    ['surrounding space', { name: '  Sam Rivera  ', email: '  sam@test.co  ', phone: ' (801) 555-0111 ' }],
+  ]) {
+    const res = await api(`/api/c/${cid}/leads`, { method: 'POST', body });
+    assert.equal(res.body.returning, true, `${label} should be the same buyer`);
+    assert.equal(res.body.lead.id, samId, `${label} should not create a duplicate`);
+  }
+
+  // Any detail genuinely different is somebody else — including someone who
+  // shares the email, which is why email alone can no longer decide identity.
+  const partner = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Jo Rivera', email: 'sam@test.co', phone: '(801) 555-0222' },
+  });
+  assert.equal(partner.status, 201);
+  assert.equal(partner.body.returning, false, 'a different person on a shared email is a new lead');
+  assert.notEqual(partner.body.lead.id, samId);
+
+  const sameNameNewPhone = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Sam Rivera', email: 'sam@test.co', phone: '(801) 555-0333' },
+  });
+  assert.equal(sameNameNewPhone.body.returning, false, 'a different phone is a new lead');
+
+  const sameNewEmail = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Sam Rivera', email: 'sam2@test.co', phone: '(801) 555-0111' },
+  });
+  assert.equal(sameNewEmail.body.returning, false, 'a different email is a new lead');
+
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(leads.body.length, 4, 'one returning buyer, three distinct people');
+  assert.equal(
+    leads.body.filter((l) => l.email.toLowerCase() === 'sam@test.co').length, 3,
+    'three leads share the one email, which is now allowed',
+  );
+
+  // Coming back does not overwrite the plan of whoever matched.
+  const reread = await api(`/api/admin/leads/${samId}`, { token });
+  assert.equal(reread.body.plan.afford, 'Looking at $420k');
+  assert.ok(
+    reread.body.activity.some((a) => a.text === 'Return visit'),
+    'return visits are logged on the original record',
+  );
+});
+
+test('a buyer in another community is a separate lead', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const a = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Community A' } });
+  const b = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Community B' } });
+  const details = { name: 'Kit Shaw', email: 'kit@test.co', phone: '(801) 555-0444' };
+
+  const inA = await api(`/api/c/${a.body.id}/leads`, { method: 'POST', body: details });
+  const inB = await api(`/api/c/${b.body.id}/leads`, { method: 'POST', body: details });
+  assert.equal(inB.body.returning, false, 'identity is scoped to the community');
+  assert.notEqual(inB.body.lead.id, inA.body.lead.id);
+});

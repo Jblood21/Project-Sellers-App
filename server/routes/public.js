@@ -82,7 +82,10 @@ export function publicRouter() {
       return res.status(400).json({ error: 'Please add your full name, a valid email and a cell number.' });
     }
 
-    const existing = await store.findLeadByEmail(community.id, email);
+    // All three have to match. A buyer coming back gets their own record and
+    // everything in it; anyone whose details differ is a different person and
+    // gets their own, even if they share an email with somebody here.
+    const existing = await store.findLeadByIdentity(community.id, { name, email, phone });
     if (existing) {
       await store.addActivity(existing.id, 'Return visit');
       const lead = await store.getLead(existing.id);

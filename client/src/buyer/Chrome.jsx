@@ -108,7 +108,7 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
   const items = [
     { label: 'All Tools', to: `/c/${communityId}/tools` },
     { label: 'Explore Homes', to: `/c/${communityId}/explore` },
-    ...(community?.highlights?.length ? [{ label: 'Around Here', to: `/c/${communityId}/area` }] : []),
+    ...(community?.highlights?.length ? [{ label: 'Local Spots', to: `/c/${communityId}/area` }] : []),
     ...(community?.features?.siteMap && community?.siteMap
       ? [{ label: 'Site Map', to: `/c/${communityId}/map` }]
       : []),

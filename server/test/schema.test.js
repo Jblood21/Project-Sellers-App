@@ -84,7 +84,10 @@ test('the schema applies to a database created by an older release', opts, async
     assert.equal(table.rowCount, 1, 'and the highlights table exists');
 
     // Every column added by ALTER since the baseline has to land here too.
-    for (const [tableName, columnName] of [['homes', 'lot_number'], ['communities', 'features']]) {
+    for (const [tableName, columnName] of [
+      ['homes', 'lot_number'], ['communities', 'features'],
+      ['leads', 'opened_at'], ['leads', 'archived_at'],
+    ]) {
       const added = await client.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
         [tableName, columnName],
@@ -197,6 +200,48 @@ test('publishing the same availability twice does not duplicate it', opts, async
       const second = await store.createSlots(community.id, ['2026-09-20'], ['14:00', '16:00']);
       assert.equal(second.length, 1, 'only the genuinely new time is added');
       assert.equal((await store.listSlots(community.id)).length, 3);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('two people can share an email once the unique index is gone', opts, async () => {
+  await withDatabase('schema_identity_test', async (url) => {
+    // Start from the old schema, where leads(community_id, lower(email)) was
+    // UNIQUE. That constraint lives only in Postgres, so the file-store API
+    // tests cannot see it — exactly the blind spot that broke production once.
+    await applyLegacy(url);
+
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Shared Email' });
+
+      const sam = await store.createLead(community.id, {
+        name: 'Sam Rivera', email: 'shared@test.co', phone: '(801) 555-0111',
+      });
+      // Before the migration this line threw a unique violation.
+      const jo = await store.createLead(community.id, {
+        name: 'Jo Rivera', email: 'shared@test.co', phone: '(801) 555-0222',
+      });
+      assert.notEqual(jo.id, sam.id, 'both people exist');
+
+      // And identity still picks the right one out of the pair.
+      const foundSam = await store.findLeadByIdentity(community.id, {
+        name: 'sam  rivera', email: 'SHARED@test.co', phone: '8015550111',
+      });
+      assert.equal(foundSam?.id, sam.id, 'matched Sam despite the formatting');
+
+      const foundJo = await store.findLeadByIdentity(community.id, {
+        name: 'Jo Rivera', email: 'shared@test.co', phone: '801-555-0222',
+      });
+      assert.equal(foundJo?.id, jo.id, 'and Jo, who shares the address');
+
+      const stranger = await store.findLeadByIdentity(community.id, {
+        name: 'Al Rivera', email: 'shared@test.co', phone: '(801) 555-0999',
+      });
+      assert.equal(stranger, null, 'and nobody for details that match neither');
     } finally {
       await store.close();
     }

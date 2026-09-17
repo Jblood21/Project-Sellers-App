@@ -85,7 +85,7 @@ export default function AllTools() {
         <button
           type="button"
           onClick={() => {
-            track('Browsed Around Here');
+            track('Browsed Local Spots');
             navigate(`/c/${communityId}/area`);
           }}
           style={{
@@ -97,7 +97,7 @@ export default function AllTools() {
           }}
         >
           <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span className="b-head" style={{ fontSize: 16 }}>Around Here</span>
+            <span className="b-head" style={{ fontSize: 16 }}>Local Spots</span>
             <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>
               Schools, parks and everyday places nearby
             </span>
