@@ -133,8 +133,13 @@ Three things a buyer standing at a sign asks before they ask about financing:
 - **Lot numbers** — a field on each home, shown beside the beds/baths line.
 - **Floor plans** — up to four drawings per home, stored under their own photo kind so
   they never appear in the photo carousel and never count against the 12-photo gallery limit.
-- **Site map** — the community plat, uploaded under **Setup**, with a tap-to-enlarge view and a
-  list of the lots that have a home on them.
+- **Site map** — the community plat, uploaded under **Setup**, with a list of the lots that have
+  a home on them.
+
+Both open in the same full-screen viewer, **inside the app**. They used to open with
+`target="_blank"`, which on a phone with the app added to the home screen is a window with no
+back button and no tabs — a buyer could not get out without killing the app. The viewer closes
+four ways: the ✕, a Done button, tapping outside, and Escape.
 
 Each is switched on or off per community under **Tools → What buyers see**. A feature that is
 switched off is **stripped from the buyer payload on the server**, not merely hidden in the

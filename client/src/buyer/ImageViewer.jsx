@@ -36,7 +36,8 @@ export default function ImageViewer({ images = [], index = 0, onIndex, onClose, 
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${label} ${index + 1} of ${images.length}`}
+      // "1 of 1" is noise read aloud; a position only means something among several.
+      aria-label={many ? `${label} ${index + 1} of ${images.length}` : label}
       onClick={onClose}
       style={{
         // Solid, not translucent: a plan is there to be read, and the page bleeding
