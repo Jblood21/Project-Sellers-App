@@ -33,11 +33,12 @@ export function Dialog({ title, children, actions, onClose }) {
   );
 }
 
-export function Field({ label, children }) {
+export function Field({ label, hint, children }) {
   return (
     <label className="field">
       <span>{label}</span>
       {children}
+      {hint ? <span className="field-hint">{hint}</span> : null}
     </label>
   );
 }

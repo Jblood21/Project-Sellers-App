@@ -1,6 +1,10 @@
 import { Router } from 'express';
 
-import { CONTACT_METHOD_KEYS, describeTour, PLAN_LABELS, TOOL_KEYS } from '../../shared/domain.js';
+import {
+  CONTACT_METHOD_KEYS, describeTour, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
+  MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
+  PLAN_LABELS, TOOL_KEYS,
+} from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
 import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
@@ -15,6 +19,46 @@ const baseUrlOf = (req) => {
   return `${proto}://${host}`;
 };
 const PLAN_KEYS = new Set([...TOOL_KEYS, 'homes']);
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DRIVER_STEP_KEYS = new Set(MOVE_IN_DRIVER_STEP_KEYS);
+
+/** A literal date or nothing. Anything else is dropped rather than half-trusted. */
+const cleanDate = (value) => {
+  const text = String(value ?? '').trim();
+  return DATE_RE.test(text) ? text : '';
+};
+
+/**
+ * The buyer's own move-in plan, trimmed to what we will store. Their own steps
+ * are free text, so they are the part that needs bounding; everything else is a
+ * date or a key from a fixed list.
+ */
+const cleanMoveIn = (body, homeIds) => {
+  const ownSteps = (Array.isArray(body?.ownSteps) ? body.ownSteps : [])
+    .map((step) => ({
+      id: String(step?.id ?? '').trim().slice(0, 40),
+      label: String(step?.label ?? '').trim().slice(0, 80),
+      date: cleanDate(step?.date),
+    }))
+    .filter((step) => step.id && step.label)
+    .slice(0, 20);
+  const ownKeys = new Set(ownSteps.map((step) => `own:${step.id}`));
+  const homeId = String(body?.homeId ?? '').trim();
+
+  return {
+    homeId: homeIds.has(homeId) ? homeId : null,
+    targetDate: cleanDate(body?.targetDate),
+    leaseEnd: cleanDate(body?.leaseEnd),
+    payMethod: PAY_METHOD_KEYS.includes(body?.payMethod) ? body.payMethod : 'loan',
+    drivers: (Array.isArray(body?.drivers) ? body.drivers : []).filter((d) => MOVE_IN_DRIVER_KEYS.includes(d)),
+    // A step can be ticked only if it still exists -- deleting one of their own
+    // items should not leave a tick behind that nothing can ever untick.
+    done: (Array.isArray(body?.done) ? body.done : [])
+      .filter((k) => MOVE_IN_STEP_KEYS.includes(k) || ownKeys.has(k) || DRIVER_STEP_KEYS.has(k))
+      .slice(0, 60),
+    ownSteps,
+  };
+};
 
 /**
  * A feature the builder switched off is stripped here rather than hidden in the
@@ -136,6 +180,29 @@ export function publicRouter() {
     const store = await getStore();
     await store.upsertPlanItem(req.leadId, key, summary);
     await store.addActivity(req.leadId, `${PLAN_LABELS[key] || key} saved: ${summary}`);
+    res.json(await store.getLead(req.leadId));
+  });
+
+  /**
+   * The buyer's move-in plan. Saved whole and on the lead rather than in the
+   * browser, so it is still theirs when they come back on a different phone --
+   * and so the builder can see what they are actually working towards.
+   */
+  router.put('/me/movein', requireLead, async (req, res) => {
+    const store = await getStore();
+    const lead = await store.getLead(req.leadId);
+    if (!lead) return res.status(404).json({ error: 'We could not find your plan.' });
+
+    const homes = await store.listHomes(lead.communityId);
+    const plan = cleanMoveIn(req.body, new Set(homes.map((h) => h.id)));
+    const before = lead.moveIn;
+    await store.saveMoveIn(req.leadId, plan);
+
+    // Log the date, not every tick -- a checkbox each way would bury the
+    // activity feed the builder actually reads.
+    if (plan.targetDate && plan.targetDate !== before?.targetDate) {
+      await store.addActivity(req.leadId, `Wants to be moved in by ${plan.targetDate}`);
+    }
     res.json(await store.getLead(req.leadId));
   });
 

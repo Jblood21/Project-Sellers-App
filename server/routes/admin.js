@@ -19,6 +19,16 @@ const numOr = (v, fallback) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+/**
+ * A completion date is 'YYYY-MM-DD' or nothing. Stored literally, like slots:
+ * a buyer plans their lease notice around this, so it must not shift a day for
+ * someone in another timezone.
+ */
+const readyDate = (value) => {
+  const text = String(value ?? '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+};
+
 export function adminRouter() {
   const router = Router();
 
@@ -150,6 +160,7 @@ export function adminRouter() {
       description: str(req.body?.description) || 'New home — add a description.',
       availability: AVAILABILITY.includes(req.body?.availability) ? req.body.availability : 'Planning',
       lotNumber: str(req.body?.lotNumber),
+      readyOn: readyDate(req.body?.readyOn),
     });
     res.status(201).json(home);
   });
@@ -169,6 +180,7 @@ export function adminRouter() {
       patch.availability = req.body.availability;
     }
     if (req.body?.lotNumber !== undefined) patch.lotNumber = str(req.body.lotNumber);
+    if (req.body?.readyOn !== undefined) patch.readyOn = readyDate(req.body.readyOn);
     res.json(await store.updateHome(home.id, patch));
   });
 

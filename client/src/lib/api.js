@@ -38,6 +38,7 @@ export const buyerApi = {
   requestTour: (token, slotId, contact) =>
     request('/api/me/tour', { method: 'POST', body: { slotId, contact }, token }),
   emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
+  saveMoveIn: (token, plan) => request('/api/me/movein', { method: 'PUT', body: plan, token }),
 };
 
 // ── admin ─────────────────────────────────────────────────────────────────
