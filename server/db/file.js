@@ -6,12 +6,12 @@ import {
 } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto, shapeSlot,
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto, shapeSlot,
 } from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [],
-  slots: [], leads: [], planItems: [], activity: [],
+  slots: [], leads: [], planItems: [], moveIn: [], activity: [],
 };
 
 /**
@@ -60,6 +60,7 @@ export function createFileStore(path) {
   };
   const planOf = (leadId) =>
     Object.fromEntries(db.planItems.filter((p) => p.leadId === leadId).map((p) => [p.key, p.summary]));
+  const moveInOf = (leadId) => shapeMoveIn(db.moveIn.find((m) => m.leadId === leadId));
   const activityOf = (leadId, limit = 200) =>
     db.activity
       .filter((a) => a.leadId === leadId)
@@ -154,6 +155,7 @@ export function createFileStore(path) {
       db.photos = db.photos.filter((p) => p.communityId !== id);
       db.leads = db.leads.filter((l) => l.communityId !== id);
       db.planItems = db.planItems.filter((p) => !leadIds.includes(p.leadId));
+      db.moveIn = db.moveIn.filter((m) => !leadIds.includes(m.leadId));
       db.activity = db.activity.filter((a) => !leadIds.includes(a.leadId));
       void homeIds;
       save();
@@ -184,7 +186,7 @@ export function createFileStore(path) {
       if (!row) return null;
       for (const key of [
         'name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability',
-        'lotNumber', 'position',
+        'lotNumber', 'readyOn', 'position',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
@@ -344,19 +346,19 @@ export function createFileStore(path) {
       return db.leads
         .filter((l) => l.communityId === communityId)
         .map((l) => ({
-          ...shapeLead(l, { plan: planOf(l.id) }),
+          ...shapeLead(l, { plan: planOf(l.id), moveIn: moveInOf(l.id) }),
           activityCount: db.activity.filter((a) => a.leadId === l.id).length,
         }));
     },
 
     async getLead(id) {
       const row = db.leads.find((l) => l.id === id);
-      return row ? shapeLead(row, { plan: planOf(id), activity: activityOf(id) }) : null;
+      return row ? shapeLead(row, { plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id) }) : null;
     },
 
     async findLeadByIdentity(communityId, input) {
       const row = db.leads.find((l) => l.communityId === communityId && isSameLead(l, input));
-      return row ? shapeLead(row, { plan: planOf(row.id), activity: activityOf(row.id) }) : null;
+      return row ? shapeLead(row, { plan: planOf(row.id), activity: activityOf(row.id), moveIn: moveInOf(row.id) }) : null;
     },
 
     async createLead(communityId, { name, email, phone }) {
@@ -380,7 +382,7 @@ export function createFileStore(path) {
       }
       row.updatedAt = now();
       save();
-      return shapeLead(row, { plan: planOf(id), activity: activityOf(id) });
+      return shapeLead(row, { plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id) });
     },
 
     async upsertPlanItem(leadId, key, summary) {
@@ -388,6 +390,26 @@ export function createFileStore(path) {
       if (existing) existing.summary = summary;
       else db.planItems.push({ leadId, key, summary, updatedAt: now() });
       save();
+    },
+
+    /** The whole move-in plan at once -- the buyer edits it as one thing. */
+    async saveMoveIn(leadId, plan) {
+      const next = {
+        leadId,
+        homeId: plan.homeId ?? null,
+        targetDate: plan.targetDate ?? '',
+        leaseEnd: plan.leaseEnd ?? '',
+        payMethod: plan.payMethod ?? 'loan',
+        drivers: plan.drivers ?? [],
+        done: plan.done ?? [],
+        ownSteps: plan.ownSteps ?? [],
+        updatedAt: now(),
+      };
+      const index = db.moveIn.findIndex((m) => m.leadId === leadId);
+      if (index === -1) db.moveIn.push(next);
+      else db.moveIn[index] = next;
+      save();
+      return shapeMoveIn(next);
     },
 
     async addActivity(leadId, text) {

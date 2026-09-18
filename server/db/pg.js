@@ -6,7 +6,7 @@ import pg from 'pg';
 import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, isSameLead } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapePhoto, shapeSlot,
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto, shapeSlot,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -45,6 +45,11 @@ export function createPostgresStore(connectionString) {
   const planFor = async (leadId) => {
     const { rows } = await q(`SELECT key, summary FROM lead_plan_items WHERE lead_id = $1`, [leadId]);
     return Object.fromEntries(rows.map((r) => [r.key, r.summary]));
+  };
+
+  const moveInFor = async (leadId) => {
+    const { rows } = await q(`SELECT * FROM lead_movein WHERE lead_id = $1`, [leadId]);
+    return shapeMoveIn(rows[0]);
   };
 
   const activityFor = async (leadId, limit = 200) => {
@@ -177,10 +182,10 @@ export function createPostgresStore(connectionString) {
       );
       const { rows } = await q(
         `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description,
-                            availability, lot_number, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+                            availability, lot_number, ready_on, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
         [`h_${shortId(10)}`, communityId, data.name, data.price, data.beds, data.baths, data.sqft,
-          data.description, data.availability, data.lotNumber ?? '', posRows[0].pos],
+          data.description, data.availability, data.lotNumber ?? '', data.readyOn ?? '', posRows[0].pos],
       );
       return shapeHome(rows[0], [], []);
     },
@@ -189,7 +194,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'sqft',
         description: 'description', availability: 'availability', lotNumber: 'lot_number',
-        position: 'position',
+        readyOn: 'ready_on', position: 'position',
       };
       const sets = [];
       const params = [];
@@ -403,17 +408,23 @@ export function createPostgresStore(connectionString) {
         `SELECT l.*,
                 (SELECT count(*)::int FROM lead_activity a WHERE a.lead_id = l.id) AS activity_count,
                 (SELECT coalesce(json_object_agg(key, summary), '{}'::json)
-                   FROM lead_plan_items p WHERE p.lead_id = l.id) AS plan
+                   FROM lead_plan_items p WHERE p.lead_id = l.id) AS plan,
+                (SELECT row_to_json(m) FROM lead_movein m WHERE m.lead_id = l.id) AS movein
          FROM leads l WHERE l.community_id = $1 ORDER BY l.first_visit_at`,
         [communityId],
       );
-      return rows.map((r) => ({ ...shapeLead(r, { plan: r.plan || {} }), activityCount: r.activity_count }));
+      return rows.map((r) => ({
+        ...shapeLead(r, { plan: r.plan || {}, moveIn: shapeMoveIn(r.movein) }),
+        activityCount: r.activity_count,
+      }));
     },
 
     async getLead(id) {
       const { rows } = await q(`SELECT * FROM leads WHERE id = $1`, [id]);
       if (!rows[0]) return null;
-      return shapeLead(rows[0], { plan: await planFor(id), activity: await activityFor(id) });
+      return shapeLead(rows[0], {
+        plan: await planFor(id), activity: await activityFor(id), moveIn: await moveInFor(id),
+      });
     },
 
     /**
@@ -464,6 +475,24 @@ export function createPostgresStore(connectionString) {
          ON CONFLICT (lead_id, key) DO UPDATE SET summary = EXCLUDED.summary, updated_at = now()`,
         [leadId, key, summary],
       );
+    },
+
+    /** The whole move-in plan at once -- the buyer edits it as one thing. */
+    async saveMoveIn(leadId, plan) {
+      const { rows } = await q(
+        `INSERT INTO lead_movein (lead_id, home_id, target_date, lease_end, pay_method, drivers, done, own_steps)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb)
+         ON CONFLICT (lead_id) DO UPDATE SET
+           home_id = EXCLUDED.home_id, target_date = EXCLUDED.target_date,
+           lease_end = EXCLUDED.lease_end, pay_method = EXCLUDED.pay_method,
+           drivers = EXCLUDED.drivers, done = EXCLUDED.done,
+           own_steps = EXCLUDED.own_steps, updated_at = now()
+         RETURNING *`,
+        [leadId, plan.homeId ?? null, plan.targetDate ?? '', plan.leaseEnd ?? '', plan.payMethod ?? 'loan',
+          JSON.stringify(plan.drivers ?? []), JSON.stringify(plan.done ?? []),
+          JSON.stringify(plan.ownSteps ?? [])],
+      );
+      return shapeMoveIn(rows[0]);
     },
 
     async addActivity(leadId, text) {

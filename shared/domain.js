@@ -420,15 +420,183 @@ export function suggestPrograms({ veteran, downPct, credit }) {
   return out.slice(0, 2);
 }
 
-/** The six move-in phases, offset in weeks from the offer date. */
-export const MOVE_IN_PHASES = [
-  ['Offer accepted & earnest money', 0],
-  ['Home inspection', 1],
-  ['Appraisal ordered', 2],
-  ['Loan underwriting & approval', 4],
-  ['Final walkthrough', 5],
-  ['Closing day — keys', 6],
+// ── the move-in plan ───────────────────────────────────────────────────────
+
+/**
+ * How the buyer is paying decides the shape of the timeline. Cash and a loan
+ * are genuinely different: no appraisal, no underwriting, and keys weeks
+ * sooner. The three loan programs are not — conventional, FHA and VA all run
+ * the same sequence, so asking which one here would imply a difference the
+ * dates do not actually make.
+ */
+export const PAY_METHODS = [
+  { k: 'loan', label: 'With a loan' },
+  { k: 'cash', label: 'Paying cash' },
 ];
+export const PAY_METHOD_KEYS = PAY_METHODS.map((m) => m.k);
+
+/**
+ * Every step of the purchase, offset in weeks from the offer. A null week means
+ * the method skips that step entirely. `who` answers the question buyers are
+ * really sitting with — "is this one mine?" — because most of the waiting is
+ * somebody else's work and nobody tells them that.
+ */
+export const MOVE_IN_STEPS = [
+  { key: 'preapproval', label: 'Get pre-approved', who: 'you', weeks: { loan: -3, cash: null } },
+  { key: 'proof', label: 'Gather proof of funds', who: 'you', weeks: { loan: null, cash: -1 } },
+  { key: 'offer', label: 'Offer accepted & earnest money', who: 'you', weeks: { loan: 0, cash: 0 } },
+  { key: 'inspection', label: 'Home inspection', who: 'you', weeks: { loan: 1, cash: 1 } },
+  { key: 'appraisal', label: 'Appraisal ordered', who: 'lender', weeks: { loan: 2, cash: null } },
+  { key: 'underwriting', label: 'Loan underwriting & approval', who: 'lender', weeks: { loan: 4, cash: null } },
+  { key: 'walkthrough', label: 'Final walkthrough', who: 'you', weeks: { loan: 5, cash: 2 } },
+  { key: 'closing', label: 'Closing day — keys', who: 'you', weeks: { loan: 6, cash: 3 } },
+];
+
+export const MOVE_IN_STEP_KEYS = MOVE_IN_STEPS.map((s) => s.key);
+export const WHO_LABELS = { you: 'You', lender: 'Your lender', builder: 'The builder' };
+
+/** Optional prompts for what is driving the date, each adding steps of its own. */
+export const MOVE_IN_DRIVERS = [
+  {
+    k: 'lease',
+    label: 'My lease is ending',
+    steps: [{ key: 'notice', label: 'Give notice to your landlord', who: 'you', beforeKeys: 60 }],
+  },
+  {
+    k: 'selling',
+    label: 'I need to sell first',
+    steps: [{ key: 'list', label: 'List your current home', who: 'you', beforeKeys: 120 }],
+  },
+  {
+    k: 'school',
+    label: 'Before the school year',
+    steps: [{ key: 'school', label: 'Register for school', who: 'you', beforeKeys: 30 }],
+  },
+  {
+    k: 'movers',
+    label: 'I need to book movers',
+    steps: [{ key: 'movers', label: 'Book movers', who: 'you', beforeKeys: 21 }],
+  },
+];
+export const MOVE_IN_DRIVER_KEYS = MOVE_IN_DRIVERS.map((d) => d.k);
+export const MOVE_IN_DRIVER_STEP_KEYS = MOVE_IN_DRIVERS.flatMap((d) => d.steps.map((s) => s.key));
+
+/** Weeks from offer to keys, by method. */
+export const closingWeeks = (payMethod) =>
+  MOVE_IN_STEPS.find((s) => s.key === 'closing')?.weeks[payMethod] ?? 6;
+
+/**
+ * When a home could hand over keys. A finished home is limited only by the
+ * paperwork. Anything still being built is limited by the build, and we do not
+ * guess at that: either the builder set a date or the buyer is told plainly
+ * that nobody has. Inventing a date here would have someone giving notice on
+ * their lease around a number we made up.
+ */
+export function homeReadiness(home) {
+  if (!home || home.availability === 'Move-in ready') return { built: true, on: '' };
+  return { built: false, on: home.readyOn || '' };
+}
+
+/** Literal date arithmetic: 'YYYY-MM-DD' shifted by whole days, no timezone in the way. */
+export function shiftDate(value, days) {
+  const [y, m, d] = String(value ?? '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  return isoDate(date);
+}
+
+/** Whole days from `from` to `to`. Negative when `to` is the earlier date. */
+export function daysBetween(from, to) {
+  const parse = (value) => {
+    const [y, m, d] = String(value ?? '').split('-').map(Number);
+    return y && m && d ? new Date(y, m - 1, d) : null;
+  };
+  const a = parse(from);
+  const b = parse(to);
+  if (!a || !b) return null;
+  return Math.round((b - a) / 86400000);
+}
+
+/**
+ * The buyer's timeline, worked backwards from the date they want to be living
+ * there — the question they have an answer to, unlike "when would you make an
+ * offer?". Everything else falls out of it, including the date they would have
+ * to start.
+ */
+export function moveInSchedule({ target, payMethod = 'loan', home = null, drivers = [], today = isoDate(new Date()) }) {
+  const method = PAY_METHOD_KEYS.includes(payMethod) ? payMethod : 'loan';
+  const span = closingWeeks(method) * 7;
+  const ready = homeReadiness(home);
+
+  // Keys can come no sooner than the paperwork allows, and never before the
+  // home itself is finished.
+  const soonestPaperwork = shiftDate(today, span);
+  const unknownReady = !ready.built && !ready.on;
+  const earliest = unknownReady
+    ? ''
+    : !ready.built && ready.on > soonestPaperwork
+      ? ready.on
+      : soonestPaperwork;
+
+  const keys = target || earliest;
+  const feasible = Boolean(keys) && (!earliest || keys >= earliest);
+  const offerBy = keys ? shiftDate(keys, -span) : '';
+
+  const steps = MOVE_IN_STEPS.filter((step) => step.weeks[method] !== null).map((step) => ({
+    key: step.key,
+    label: step.label,
+    who: step.who,
+    date: offerBy ? shiftDate(offerBy, step.weeks[method] * 7) : '',
+  }));
+
+  // A driver's steps hang off the keys date, not the offer — "give notice 60
+  // days before you move" is about the move, not the paperwork.
+  const driverSteps = MOVE_IN_DRIVERS.filter((d) => drivers.includes(d.k)).flatMap((d) =>
+    d.steps.map((step) => ({
+      key: step.key,
+      label: step.label,
+      who: step.who,
+      date: keys ? shiftDate(keys, -step.beforeKeys) : '',
+    })),
+  );
+
+  return { payMethod: method, span, keys, offerBy, earliest, feasible, unknownReady, steps: [...steps, ...driverSteps] };
+}
+
+/**
+ * The gap a renter actually loses sleep over. Positive days mean the lease runs
+ * past the keys — paying for two places. Negative means it ends first, with
+ * nowhere to live in between.
+ */
+export function leaseOverlap(leaseEnd, keys) {
+  const days = daysBetween(keys, leaseEnd);
+  if (days === null) return null;
+  return { days, kind: days > 0 ? 'overlap' : days < 0 ? 'gap' : 'same' };
+}
+
+/** Everything the buyer built, ordered by date, with their own items folded in. */
+export function moveInTimeline(plan, { home = null, today } = {}) {
+  const schedule = moveInSchedule({
+    target: plan?.targetDate || '',
+    payMethod: plan?.payMethod || 'loan',
+    drivers: plan?.drivers || [],
+    home,
+    ...(today ? { today } : {}),
+  });
+  const own = (plan?.ownSteps || []).map((step) => ({
+    key: `own:${step.id}`,
+    label: step.label,
+    who: 'you',
+    date: step.date || '',
+    own: true,
+  }));
+  const done = new Set(plan?.done || []);
+  const items = [...schedule.steps, ...own]
+    .map((step) => ({ ...step, done: done.has(step.key) }))
+    .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  return { ...schedule, items };
+}
 
 /** Percent of the 8-item home plan a lead has completed. */
 export function planProgress(lead) {

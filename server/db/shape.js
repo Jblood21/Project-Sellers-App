@@ -34,6 +34,7 @@ export function shapeHome(row, photos = [], floorPlans = []) {
     description: row.description || '',
     availability: row.availability,
     lotNumber: row.lot_number ?? row.lotNumber ?? '',
+    readyOn: row.ready_on ?? row.readyOn ?? '',
     position: Number(row.position) || 0,
     photos,
     floorPlans,
@@ -49,7 +50,7 @@ export function shapePhoto(row) {
   };
 }
 
-export function shapeLead(row, { plan = {}, activity = [] } = {}) {
+export function shapeLead(row, { plan = {}, activity = [], moveIn = null } = {}) {
   if (!row) return null;
   return {
     id: row.id,
@@ -67,6 +68,22 @@ export function shapeLead(row, { plan = {}, activity = [] } = {}) {
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
     plan,
     activity,
+    moveIn,
+  };
+}
+
+/** The buyer's own move-in plan. Absent simply means they have not started one. */
+export function shapeMoveIn(row) {
+  if (!row) return null;
+  return {
+    homeId: row.home_id ?? row.homeId ?? null,
+    targetDate: row.target_date ?? row.targetDate ?? '',
+    leaseEnd: row.lease_end ?? row.leaseEnd ?? '',
+    payMethod: row.pay_method ?? row.payMethod ?? 'loan',
+    drivers: row.drivers ?? [],
+    done: row.done ?? [],
+    ownSteps: row.own_steps ?? row.ownSteps ?? [],
+    updatedAt: row.updated_at ?? row.updatedAt ?? null,
   };
 }
 
