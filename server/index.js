@@ -19,10 +19,15 @@ export function createApp() {
   // Photo uploads arrive as data URLs, so the JSON body limit has to clear 3 MB.
   app.use(express.json({ limit: '6mb' }));
 
+  // `commit` answers the question the deploy hook exists to make answerable: is
+  // what is live the code that was merged? Render sets RENDER_GIT_COMMIT on every
+  // build; elsewhere it is empty rather than invented, because a wrong sha here
+  // would be worse than none — it is the thing you check before believing a fix
+  // shipped.
   app.get('/api/health', async (_req, res) => {
     try {
       const store = await getStore();
-      res.json({ ok: true, store: store.kind });
+      res.json({ ok: true, store: store.kind, commit: process.env.RENDER_GIT_COMMIT || '' });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }

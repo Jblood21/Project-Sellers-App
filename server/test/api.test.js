@@ -1012,3 +1012,20 @@ test('the move-in plan drops what it cannot trust', async () => {
   assert.equal(plan.ownSteps[0].label.length, 80, 'and a bounded label');
   assert.equal(plan.ownSteps[0].date, '');
 });
+
+test('health reports the commit that is running, and nothing when there is none', async () => {
+  const before = await api('/api/health');
+  assert.equal(before.status, 200);
+  assert.equal(before.body.ok, true);
+  assert.equal(before.body.commit, '', 'off Render there is no commit to report');
+
+  // Render sets this on every build. Without it the only way to tell whether a
+  // merge reached the site is to go looking for the change by hand.
+  process.env.RENDER_GIT_COMMIT = 'deadbeefcafe';
+  try {
+    const live = await api('/api/health');
+    assert.equal(live.body.commit, 'deadbeefcafe', 'health says what is deployed');
+  } finally {
+    delete process.env.RENDER_GIT_COMMIT;
+  }
+});

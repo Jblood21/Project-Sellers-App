@@ -108,10 +108,24 @@ already gone green:
 1. Render dashboard → your service → **Settings → Deploy Hook**, copy the URL.
 2. GitHub → **Settings → Secrets and variables → Actions → New repository secret**,
    named `RENDER_DEPLOY_HOOK_URL`.
-3. Turn Render's own **Auto-Deploy** off, so the two do not race.
+3. Check **Auto-Deploy** reads *No* on the service. `render.yaml` sets `autoDeploy: false`
+   so a blueprint sync does not turn it back on, but a service created before that needs
+   the dashboard switched by hand once.
+4. Render dashboard → **Manual Deploy → Deploy latest commit**, once, to catch the service
+   up to whatever merged while the hook was missing.
 
 Merges to `main` now deploy once tests pass. Without the secret the step skips with a
 note, so nothing breaks if you would rather deploy by hand.
+
+To check what is actually live:
+
+```
+curl https://<your-domain>/api/health
+{"ok":true,"store":"postgres","commit":"8cbf655…"}
+```
+
+`commit` is the sha Render built, so it answers "did my merge reach the site?" without
+going looking for the change by hand. It is empty off Render, where there is no build.
 
 ### Live rates via Zapier
 

@@ -25,6 +25,19 @@ const LEGACY = readFileSync(join(here, 'fixtures/schema-legacy.sql'), 'utf8');
 const URL_ = process.env.TEST_DATABASE_URL;
 const opts = URL_ ? {} : { skip: 'set TEST_DATABASE_URL to run the Postgres schema tests' };
 
+/**
+ * 'YYYY-MM-DD' a few days out. listOpenSlots only returns slots that have not
+ * happened yet, so a hardcoded date stops exercising it the day it goes past —
+ * this test was pinned to '2026-09-20' and went red on the 21st, in a suite
+ * that had been green the evening before.
+ */
+const futureDate = (daysAhead) => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 /** Each case gets its own database so one failure cannot poison the next. */
 async function withDatabase(name, fn) {
   const admin = new pg.Client({ connectionString: URL_ });
@@ -148,19 +161,20 @@ test('a slot date survives Postgres unchanged', opts, async () => {
     try {
       await store.init();
       const community = await store.createCommunity({ name: 'Slot Round Trip' });
-      const [made] = await store.createSlots(community.id, ['2026-09-20'], ['14:00']);
+      const date = futureDate(3);
+      const [made] = await store.createSlots(community.id, [date], ['14:00']);
 
       // The literal the builder picked, not a timestamp re-rendered in whatever
       // zone the reader happens to be in. pg hands DATE back as a Date object,
       // which is exactly where a day can slip.
-      assert.equal(made.date, '2026-09-20', 'the date comes back as written');
+      assert.equal(made.date, date, 'the date comes back as written');
       assert.equal(made.time, '14:00');
 
       const [listed] = await store.listSlots(community.id);
-      assert.equal(listed.date, '2026-09-20', 'and again when read back');
+      assert.equal(listed.date, date, 'and again when read back');
 
       const [open] = await store.listOpenSlots(community.id);
-      assert.equal(open?.date, '2026-09-20');
+      assert.equal(open?.date, date, 'and it is still a slot a buyer could book');
     } finally {
       await store.close();
     }
