@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS communities (
 -- to arrive by ALTER. Keep these directly under their table and above any index
 -- or constraint that names them.
 ALTER TABLE communities ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}'::jsonb;
+-- The column default still named 'classic', a theme retired two palettes ago.
+-- Nothing reads it (both stores pass a theme explicitly) but a default that
+-- names a dead theme is a trap for the next person who inserts a row by hand.
+ALTER TABLE communities ALTER COLUMN theme SET DEFAULT 'navy';
 
 CREATE TABLE IF NOT EXISTS homes (
   id           TEXT PRIMARY KEY,

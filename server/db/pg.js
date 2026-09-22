@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
-import { DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, isSameLead } from '../../shared/domain.js';
+import { DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto, shapeSlot,
@@ -121,7 +121,7 @@ export function createPostgresStore(connectionString) {
       return shapeCommunity(rows[0]);
     },
 
-    async createCommunity({ name, location = '', status = 'Pre-sale', theme = 'modern', builder = '' }) {
+    async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '' }) {
       const id = slugId(name);
       const { rows } = await q(
         `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools)

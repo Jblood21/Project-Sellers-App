@@ -104,7 +104,7 @@ export default function Payment() {
           <span
             style={{
               width: 22, height: 22, flex: 'none', borderRadius: 6, border: '1.5px solid var(--t-acc2)',
-              background: state.dpaOn ? 'var(--t-acc2)' : 'transparent', color: 'var(--t-onacc)',
+              background: state.dpaOn ? 'var(--t-acc2)' : 'transparent', color: 'var(--t-onacc2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14,
             }}
           >

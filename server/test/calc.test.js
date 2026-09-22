@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  DEFAULT_SETTINGS, THEMES, affordabilityLevers, calcAffordability, calcPayment, creditRanges,
+  DEFAULT_SETTINGS, DEFAULT_THEME, THEMES, THEME_CHIPS, THEME_COLORS, affordabilityLevers,
+  calcAffordability, calcPayment, creditRanges,
   daysBetween, leaseOverlap, moveInSchedule, moveInTimeline, normalizeTheme, pay30, planProgress,
   screenDpa, shiftDate, suggestPrograms,
 } from '../../shared/domain.js';
@@ -163,13 +164,37 @@ test('the debt lever matches what clearing the debt actually produces', () => {
 });
 
 test('retired themes still resolve so old communities keep rendering', () => {
-  assert.equal(normalizeTheme('classic'), 'forest', 'the retired theme maps to its replacement');
-  assert.equal(normalizeTheme('forest'), 'forest');
-  assert.equal(normalizeTheme('nonsense'), 'modern', 'an unknown theme falls back, never undefined');
-  assert.equal(normalizeTheme(undefined), 'modern');
+  // Every palette that has ever shipped. A community carrying one of these
+  // renders with no colour variables at all if it resolves to nothing — white
+  // text on a white page — so each retired key has to land somewhere real.
+  for (const retired of ['classic', 'modern', 'lux', 'blueprint', 'slate', 'estate']) {
+    const now = normalizeTheme(retired);
+    assert.ok(THEMES[now], `${retired} maps to a theme that exists, got ${now}`);
+  }
+  assert.equal(normalizeTheme('slate'), 'ice', 'Midnight Blue becomes the nearest dark navy');
+  assert.equal(normalizeTheme('estate'), 'clay', 'Warm Umber becomes the warm real-estate palette');
+
+  assert.equal(normalizeTheme('nonsense'), DEFAULT_THEME, 'an unknown theme falls back, never undefined');
+  assert.equal(normalizeTheme(undefined), DEFAULT_THEME);
   for (const key of Object.keys(THEMES)) {
     assert.equal(normalizeTheme(key), key, `${key} survives normalization`);
   }
+});
+
+test('every theme carries the five colours its stylesheet is built from', () => {
+  const hex = /^#[0-9A-Fa-f]{6}$/;
+  assert.equal(Object.keys(THEMES).length, 10);
+  for (const [key, t] of Object.entries(THEMES)) {
+    assert.ok(t.name && t.note, `${key} is labelled for the admin picker`);
+    for (const field of ['primary', 'secondary', 'accent', 'background', 'text']) {
+      assert.match(t[field], hex, `${key}.${field} is a full hex colour`);
+    }
+    // The swatch and the phone's status bar are derived, not hand-kept lists —
+    // three copies of the same palette is how they drift apart.
+    assert.deepEqual(THEME_CHIPS[key], [t.primary, t.accent, t.background]);
+    assert.equal(THEME_COLORS[key], t.primary);
+  }
+  assert.ok(THEMES[DEFAULT_THEME], 'the default names a theme that exists');
 });
 
 // ── the move-in plan ───────────────────────────────────────────────────────

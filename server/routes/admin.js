@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS,
+  AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_THEME,
   DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME,
   SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
@@ -64,7 +64,7 @@ export function adminRouter() {
       name,
       location: str(req.body?.location) || 'Location TBD',
       status: COMMUNITY_STATUSES.includes(req.body?.status) ? req.body.status : 'Pre-sale',
-      theme: THEMES[req.body?.theme] ? req.body.theme : 'modern',
+      theme: THEMES[req.body?.theme] ? req.body.theme : DEFAULT_THEME,
       builder: str(req.body?.builder),
     });
     res.status(201).json(community);

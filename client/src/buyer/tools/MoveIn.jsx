@@ -385,7 +385,7 @@ function Notices({ timeline, home, thisYear, onUseEarliest }) {
           type="button"
           onClick={() => onUseEarliest(timeline.earliest)}
           style={{
-            border: 'none', background: 'none', padding: 0, color: 'var(--t-acc)',
+            border: 'none', background: 'none', padding: 0, color: 'var(--t-accT)',
             font: 'inherit', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline',
           }}
         >

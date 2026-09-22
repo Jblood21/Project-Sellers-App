@@ -59,7 +59,7 @@ export default function SiteMap() {
                 }}
               >
                 <span>
-                  <strong style={{ color: 'var(--t-acc)' }}>{home.lotNumber}</strong>
+                  <strong style={{ color: 'var(--t-accT)' }}>{home.lotNumber}</strong>
                   <span style={{ color: 'var(--t-mut)' }}> · {home.name}</span>
                 </span>
                 <span style={{ flex: 'none', fontWeight: 700 }}>{money(home.price)}</span>

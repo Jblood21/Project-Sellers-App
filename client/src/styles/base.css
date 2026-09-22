@@ -27,57 +27,118 @@
 /* ───────────────────────────────────────────────────────────────────────────
    Buyer themes. Every buyer-side style references only these variables, so
    switching the theme in admin re-skins the whole app.
+
+   Generated from the five colours each palette specifies (primary, secondary,
+   accent, background, text); everything else is derived and contrast-checked.
+   Two pairs are easy to get wrong and are split on purpose:
+
+   --t-acc is the FILL (buttons, pills) and keeps the designed hue — gold stays
+   gold. --t-accT is the same accent darkened until it clears 4.5:1 as TEXT on
+   the page, the card and the tint, because the accent is painted as a label in
+   a dozen screens and raw gold on white reads at 2.1:1.
+
+   --t-onacc sits on --t-acc, --t-onacc2 on --t-acc2. One value cannot serve
+   both: a light-gold accent wants dark text, a navy secondary wants white.
    ─────────────────────────────────────────────────────────────────────────── */
-/* Modern Green — bright and clean, green where it used to be blue. */
-.t-modern {
-  --t-bg: #ffffff; --t-sur: #f1f6f2; --t-ink: #10281a; --t-mut: #56705f;
-  --t-acc: #147a4a; --t-accD: #0e5c37; --t-acc2: #4d7c0f; --t-onacc: #ffffff;
-  --t-line: rgba(16, 40, 26, 0.13); --t-tint: #e2f2e8; --t-tint2: #eef6df;
+/* Navy & Gold — Trustworthy, premium, financial */
+.t-navy {
+  --t-bg: #F7F9FC; --t-sur: #ffffff; --t-ink: #172B4D; --t-mut: #637188;
+  --t-acc: #D4A72C; --t-accD: #ae8924; --t-accT: #8c6e1d; --t-acc2: #102A43;
+  --t-onacc: #0f1c32; --t-onacc2: #ffffff;
+  --t-line: rgba(23, 43, 77, 0.14); --t-tint: #fcf9f0; --t-tint2: #eef0f2;
+  --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 999px;
+  --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
+  --t-headwt: 800; --t-track: 0; --t-up: none;
+}
+/* Forest Green & Cream — Wealth, stability, natural, sophisticated */
+.t-forest {
+  --t-bg: #F8F5ED; --t-sur: #ffffff; --t-ink: #26352E; --t-mut: #69726b;
+  --t-acc: #D8B56A; --t-accD: #b19457; --t-accT: #826d40; --t-acc2: #1F4D3A;
+  --t-onacc: #19221e; --t-onacc2: #ffffff;
+  --t-line: rgba(38, 53, 46, 0.14); --t-tint: #fcfaf5; --t-tint2: #eff3f1;
+  --t-rad: 10px; --t-radlg: 16px; --t-radbtn: 8px;
+  --t-head: 'Lora', Georgia, serif; --t-font: 'Jost', system-ui, sans-serif;
+  --t-headwt: 600; --t-track: 0.01em; --t-up: none;
+}
+/* Modern Blue & White — Clean, modern, trustworthy, tech-oriented */
+.t-azure {
+  --t-bg: #F8FAFC; --t-sur: #ffffff; --t-ink: #172033; --t-mut: #6c737f;
+  --t-acc: #2563EB; --t-accD: #1e51c1; --t-accT: #2563eb; --t-acc2: #1E40AF;
+  --t-onacc: #ffffff; --t-onacc2: #ffffff;
+  --t-line: rgba(23, 32, 51, 0.14); --t-tint: #f0f4fe; --t-tint2: #eff2f9;
+  --t-rad: 12px; --t-radlg: 18px; --t-radbtn: 10px;
+  --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
+  --t-headwt: 800; --t-track: 0; --t-up: none;
+}
+/* Black, White & Orange — Bold, modern, energetic */
+.t-ember {
+  --t-bg: #F5F5F5; --t-sur: #ffffff; --t-ink: #171717; --t-mut: #707070;
+  --t-acc: #F97316; --t-accD: #cc5e12; --t-accT: #b65410; --t-acc2: #111111;
+  --t-onacc: #0f0f0f; --t-onacc2: #ffffff;
+  --t-line: rgba(23, 23, 23, 0.14); --t-tint: #fff5ef; --t-tint2: #eeeeee;
+  --t-rad: 4px; --t-radlg: 8px; --t-radbtn: 6px;
+  --t-head: 'Space Grotesk', system-ui, sans-serif; --t-font: 'Space Grotesk', system-ui, sans-serif;
+  --t-headwt: 700; --t-track: 0.02em; --t-up: none;
+}
+/* Deep Purple & Lavender — Modern startup, technology, innovative */
+.t-violet {
+  --t-bg: #F7F5FF; --t-sur: #ffffff; --t-ink: #211A2E; --t-mut: #726d7d;
+  --t-acc: #6D28D9; --t-accD: #5921b2; --t-accT: #6d28d9; --t-acc2: #4C1D95;
+  --t-onacc: #ffffff; --t-onacc2: #ffffff;
+  --t-line: rgba(33, 26, 46, 0.14); --t-tint: #f5f0fc; --t-tint2: #f2eff8;
   --t-rad: 16px; --t-radlg: 22px; --t-radbtn: 999px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 800; --t-track: 0; --t-up: none;
 }
-/* Deep Forest — dark evergreen with a bright green accent. Replaces Classic.
-   Kept clearly distinct from Emerald & Gold, which is dark green with gold. */
-.t-forest {
-  --t-bg: #0b1d13; --t-sur: #142a1d; --t-ink: #e9f2ea; --t-mut: #9db3a4;
-  --t-acc: #5fbf82; --t-accD: #8ad6a3; --t-acc2: #b8d98f; --t-onacc: #06150d;
-  --t-line: rgba(233, 242, 234, 0.16); --t-tint: #1b3a27; --t-tint2: #17311f;
-  --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 999px;
+/* Teal & Navy — Professional but less traditional than financial blue */
+.t-teal {
+  --t-bg: #F0FDFA; --t-sur: #ffffff; --t-ink: #183B43; --t-mut: #59757a;
+  --t-acc: #0F766E; --t-accD: #0c615a; --t-accT: #0f766e; --t-acc2: #164E63;
+  --t-onacc: #ffffff; --t-onacc2: #ffffff;
+  --t-line: rgba(24, 59, 67, 0.14); --t-tint: #eef5f5; --t-tint2: #eff3f4;
+  --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 10px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 700; --t-track: 0; --t-up: none;
 }
-.t-lux {
-  --t-bg: #0f231b; --t-sur: #1a3428; --t-ink: #f3ecdd; --t-mut: #b3a98f;
-  --t-acc: #cdb37e; --t-accD: #e0cb9e; --t-acc2: #8fae9e; --t-onacc: #231a08;
-  --t-line: rgba(243, 236, 221, 0.2); --t-tint: #234434; --t-tint2: #20372c;
-  --t-rad: 6px; --t-radlg: 10px; --t-radbtn: 4px;
-  --t-head: 'Cormorant Garamond', serif; --t-font: 'Jost', system-ui, sans-serif;
+/* Charcoal & Bronze — Luxury, established, high-end real estate */
+.t-bronze {
+  --t-bg: #FAF8F5; --t-sur: #ffffff; --t-ink: #292929; --t-mut: #706f6e;
+  --t-acc: #B68A52; --t-accD: #957143; --t-accT: #8e6c40; --t-acc2: #242224;
+  --t-onacc: #1b1b1b; --t-onacc2: #ffffff;
+  --t-line: rgba(41, 41, 41, 0.14); --t-tint: #faf7f3; --t-tint2: #f0f0f0;
+  --t-rad: 4px; --t-radlg: 8px; --t-radbtn: 4px;
+  --t-head: 'Cormorant Garamond', Georgia, serif; --t-font: 'Jost', system-ui, sans-serif;
   --t-headwt: 600; --t-track: 0.12em; --t-up: uppercase;
 }
-.t-blueprint {
-  --t-bg: #eef3f8; --t-sur: #ffffff; --t-ink: #14304a; --t-mut: #54718c;
-  --t-acc: #1553b5; --t-accD: #0e3d88; --t-acc2: #0e7c66; --t-onacc: #ffffff;
-  --t-line: rgba(20, 48, 74, 0.22); --t-tint: #dbe7f5; --t-tint2: #d9ede8;
-  --t-rad: 4px; --t-radlg: 6px; --t-radbtn: 6px;
-  --t-head: 'Space Grotesk', system-ui, sans-serif; --t-font: 'Space Grotesk', system-ui, sans-serif;
-  --t-headwt: 700; --t-track: 0.05em; --t-up: uppercase;
-}
-.t-slate {
-  --t-bg: #171c23; --t-sur: #212932; --t-ink: #e8ecf1; --t-mut: #9aa7b5;
-  --t-acc: #4f8fde; --t-accD: #79ace8; --t-acc2: #5aa88a; --t-onacc: #0d1319;
-  --t-line: rgba(232, 236, 241, 0.14); --t-tint: #26364a; --t-tint2: #22382f;
-  --t-rad: 12px; --t-radlg: 16px; --t-radbtn: 10px;
+/* Slate Blue & Soft Green — Friendly, approachable, professional */
+.t-sage {
+  --t-bg: #F8FAFC; --t-sur: #ffffff; --t-ink: #1E293B; --t-mut: #6c7480;
+  --t-acc: #65A30D; --t-accD: #53860b; --t-accT: #4e7e0a; --t-acc2: #475569;
+  --t-onacc: #141b26; --t-onacc2: #ffffff;
+  --t-line: rgba(30, 41, 59, 0.14); --t-tint: #f4f9ee; --t-tint2: #f2f3f4;
+  --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 12px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
-  --t-headwt: 800; --t-track: 0; --t-up: none;
+  --t-headwt: 700; --t-track: 0; --t-up: none;
 }
-.t-estate {
-  --t-bg: #1c1916; --t-sur: #272320; --t-ink: #efe9df; --t-mut: #b0a595;
-  --t-acc: #b3762e; --t-accD: #cf9450; --t-acc2: #7d8a6a; --t-onacc: #191512;
-  --t-line: rgba(239, 233, 223, 0.16); --t-tint: #38302a; --t-tint2: #2e3229;
-  --t-rad: 8px; --t-radlg: 12px; --t-radbtn: 6px;
+/* Ice Blue & Dark Navy — Fintech / SaaS, clean, modern */
+.t-ice {
+  --t-bg: #F1F5F9; --t-sur: #ffffff; --t-ink: #0F172A; --t-mut: #69707d;
+  --t-acc: #06B6D4; --t-accD: #0595ae; --t-accT: #047a8e; --t-acc2: #0F172A;
+  --t-onacc: #0a0f1b; --t-onacc2: #ffffff;
+  --t-line: rgba(15, 23, 42, 0.14); --t-tint: #eefafc; --t-tint2: #eeeff0;
+  --t-rad: 8px; --t-radlg: 12px; --t-radbtn: 8px;
+  --t-head: 'Space Grotesk', system-ui, sans-serif; --t-font: 'Space Grotesk', system-ui, sans-serif;
+  --t-headwt: 700; --t-track: 0.01em; --t-up: none;
+}
+/* Warm Modern Real Estate — Modern homes, real estate, approachable, upscale */
+.t-clay {
+  --t-bg: #F4EFE8; --t-sur: #ffffff; --t-ink: #292621; --t-mut: #6e6a65;
+  --t-acc: #C48A5A; --t-accD: #a1714a; --t-accT: #8d6341; --t-acc2: #3F3A34;
+  --t-onacc: #1b1915; --t-onacc2: #ffffff;
+  --t-line: rgba(41, 38, 33, 0.14); --t-tint: #fbf7f3; --t-tint2: #f2f1f1;
+  --t-rad: 10px; --t-radlg: 16px; --t-radbtn: 8px;
   --t-head: 'Lora', Georgia, serif; --t-font: 'Jost', system-ui, sans-serif;
-  --t-headwt: 600; --t-track: 0.04em; --t-up: none;
+  --t-headwt: 600; --t-track: 0.02em; --t-up: none;
 }
 
 * { box-sizing: border-box; }
@@ -160,7 +221,7 @@ a { color: inherit; }
 .b-btn:disabled { opacity: 0.55; cursor: default; }
 .b-btn-outline {
   background: transparent;
-  color: var(--t-acc);
+  color: var(--t-accT);
   border: 1.5px solid var(--t-acc);
 }
 .b-pill {

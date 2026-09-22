@@ -31,7 +31,7 @@ export default function AllTools() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
           <span className="b-head" style={{ fontSize: 15 }}>Your home plan</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t-acc)' }}>{progress.percent}% complete</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t-accT)' }}>{progress.percent}% complete</span>
         </div>
         <div className="b-bar"><span style={{ width: `${progress.percent}%` }} /></div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -102,7 +102,7 @@ export default function AllTools() {
               Schools, parks and everyday places nearby
             </span>
           </span>
-          <span style={{ flex: 'none', color: 'var(--t-acc)', fontSize: 18 }}>›</span>
+          <span style={{ flex: 'none', color: 'var(--t-accT)', fontSize: 18 }}>›</span>
         </button>
       ) : null}
 
@@ -127,7 +127,7 @@ export default function AllTools() {
               See where each home sits
             </span>
           </span>
-          <span style={{ flex: 'none', color: 'var(--t-acc)', fontSize: 18 }}>›</span>
+          <span style={{ flex: 'none', color: 'var(--t-accT)', fontSize: 18 }}>›</span>
         </button>
       ) : null}
 

@@ -35,7 +35,7 @@ export default function Compare() {
 
   const side = (tag, programKey, downKey) => (
     <div className="b-stack" style={{ flex: 1, gap: 8, minWidth: 0 }}>
-      <span className="b-lbl" style={{ color: 'var(--t-acc)' }}>Option {tag}</span>
+      <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>Option {tag}</span>
       <Field label="Loan type">
         <PillGroup
           label={`Option ${tag} loan type`}
