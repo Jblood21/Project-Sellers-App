@@ -64,6 +64,8 @@ export default function HomesTab({ community, reload }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <SiteMapCard community={community} reload={reload} />
+
       {community.homes.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 13 }}>
           No homes yet. Add the plans buyers will see when they scan the sign.
@@ -232,6 +234,150 @@ function FloorPlanStrip({ home, reload }) {
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
       <ErrorNote>{error}</ErrorNote>
     </>
+  );
+}
+
+/**
+ * The community plat, and the lot numbers that place homes on it.
+ *
+ * It lives here rather than with the hero photo and app icon because it is not
+ * branding — it is the drawing a buyer holds next to the home list, and the lot
+ * number on each home below is what ties the two together. A builder setting up
+ * lots and a builder uploading the plat are the same person doing one job.
+ */
+function SiteMapCard({ community, reload }) {
+  const { token } = useAdmin();
+  const inputRef = useRef(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const map = community.siteMap ?? null;
+  const shown = Boolean(community.features?.siteMap);
+  const placed = community.homes.filter((home) => home.lotNumber).length;
+
+  const upload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      await adminApi.addCommunityPhoto(token, community.id, 'sitemap', {
+        dataUrl: await fileToDataUrl(file),
+      });
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm('Remove the site map? Buyers will stop seeing it.')) return;
+    setError('');
+    try {
+      await adminApi.deletePhoto(token, map.id);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const show = async () => {
+    setError('');
+    try {
+      await adminApi.updateCommunity(token, community.id, { features: { siteMap: true } });
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="card elev-sm" style={{ gap: 10 }}>
+      <span className="card-kicker">Site map</span>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        aria-label={map ? 'Replace the site map' : 'Upload the site map'}
+        style={{
+          position: 'relative', width: '100%', height: 150, borderRadius: 12, overflow: 'hidden',
+          cursor: 'pointer', padding: 0,
+          border: `1.5px dashed ${map ? 'transparent' : 'var(--color-neutral-400)'}`,
+          background: map ? 'var(--color-neutral-200)' : 'transparent',
+        }}
+      >
+        {map ? (
+          <>
+            <Photo photo={map} alt="The community site map" />
+            <span
+              style={{
+                position: 'absolute', right: 8, bottom: 8, padding: '5px 12px', borderRadius: 999,
+                background: 'rgba(20,22,19,.72)', color: '#fff', fontSize: 12, fontWeight: 600,
+              }}
+            >
+              {busy ? 'Uploading…' : 'Replace'}
+            </span>
+          </>
+        ) : (
+          <span className="text-muted" style={{ fontSize: 12.5 }}>
+            {busy ? 'Uploading…' : 'Tap to upload the plat buyers tap'}
+          </span>
+        )}
+      </button>
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+
+      {/*
+        A map with no lot numbers on the homes is a picture, not a map: the buyer
+        can see the plat but cannot tell which shape is the home they are standing
+        in front of. Say so with the count rather than leaving them to notice.
+      */}
+      <span className="text-muted" style={{ fontSize: 12 }}>
+        {map
+          ? placed === 0
+            ? 'No home has a lot number yet, so buyers cannot tell which shape is which. Add one when you edit a home.'
+            : `${placed} of ${community.homes.length} homes carry a lot number, so buyers can place them on it.`
+          : 'The plat drawing. Buyers open it full screen and match it to the lot numbers on your homes.'}
+      </span>
+
+      {/*
+        Uploading is not publishing: the buyer app hides the map unless the Site
+        map feature is on, which is a switch on another tab. Silently doing
+        nothing is the worst version of this, so offer the switch here.
+      */}
+      {map && !shown ? (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+            borderRadius: 10, background: 'var(--color-neutral-200)',
+          }}
+        >
+          <span style={{ flex: 1, fontSize: 12.5, lineHeight: 1.45 }}>
+            Buyers are not seeing this — <strong>Site map</strong> is switched off under Tools.
+          </span>
+          <button
+            type="button" className="btn btn-secondary" onClick={show}
+            style={{ flex: 'none', minHeight: 34, padding: '0 14px', fontSize: 12.5 }}
+          >
+            Show it
+          </button>
+        </div>
+      ) : null}
+
+      {map ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button" className="btn btn-ghost" onClick={remove}
+            style={{ minHeight: 34, padding: '0 14px', fontSize: 12.5 }}
+          >
+            Remove
+          </button>
+        </div>
+      ) : null}
+
+      <ErrorNote>{error}</ErrorNote>
+    </div>
   );
 }
 

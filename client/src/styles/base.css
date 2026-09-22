@@ -42,100 +42,100 @@
    ─────────────────────────────────────────────────────────────────────────── */
 /* Navy & Gold — Trustworthy, premium, financial */
 .t-navy {
-  --t-bg: #b4d0eb; --t-sur: #deeaf5; --t-ink: #172B4D; --t-mut: #405676;
-  --t-acc: #D4A72C; --t-accT: #6a5416; --t-acc2: #102A43;
+  --t-bg: #F7F9FC; --t-sur: #ffffff; --t-ink: #172B4D; --t-mut: #637188;
+  --t-acc: #D4A72C; --t-accT: #8c6e1d; --t-acc2: #102A43;
   --t-onacc: #0f1c32; --t-onacc2: #ffffff;
-  --t-line: rgba(23, 43, 77, 0.14); --t-tint: #dcdbc9; --t-tint2: #b1c0ce;
+  --t-line: rgba(23, 43, 77, 0.14); --t-tint: #fcf9f0; --t-tint2: #eef0f2;
   --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 999px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 800; --t-track: 0; --t-up: none;
 }
 /* Forest Green & Cream — Wealth, stability, natural, sophisticated */
 .t-forest {
-  --t-bg: #bce4d3; --t-sur: #e0f3eb; --t-ink: #26352E; --t-mut: #4d6259;
-  --t-acc: #D8B56A; --t-accT: #705e37; --t-acc2: #1F4D3A;
+  --t-bg: #F8F5ED; --t-sur: #ffffff; --t-ink: #26352E; --t-mut: #69726b;
+  --t-acc: #D8B56A; --t-accT: #826d40; --t-acc2: #1F4D3A;
   --t-onacc: #19221e; --t-onacc2: #ffffff;
-  --t-line: rgba(38, 53, 46, 0.14); --t-tint: #dee5cf; --t-tint2: #b6cec4;
+  --t-line: rgba(38, 53, 46, 0.14); --t-tint: #fcfaf5; --t-tint2: #eff3f1;
   --t-rad: 10px; --t-radlg: 16px; --t-radbtn: 8px;
   --t-head: 'Lora', Georgia, serif; --t-font: 'Jost', system-ui, sans-serif;
   --t-headwt: 600; --t-track: 0.01em; --t-up: none;
 }
 /* Modern Blue & White — Clean, modern, trustworthy, tech-oriented */
 .t-azure {
-  --t-bg: #b4c6eb; --t-sur: #dee5f5; --t-ink: #172033; --t-mut: #46526a;
-  --t-acc: #2563EB; --t-accT: #1c4bb3; --t-acc2: #1E40AF;
+  --t-bg: #F8FAFC; --t-sur: #ffffff; --t-ink: #172033; --t-mut: #6c737f;
+  --t-acc: #2563EB; --t-accT: #2563eb; --t-acc2: #1E40AF;
   --t-onacc: #ffffff; --t-onacc2: #ffffff;
-  --t-line: rgba(23, 32, 51, 0.14); --t-tint: #b5c8f3; --t-tint2: #b4c1e6;
+  --t-line: rgba(23, 32, 51, 0.14); --t-tint: #f0f4fe; --t-tint2: #eff2f9;
   --t-rad: 12px; --t-radlg: 18px; --t-radbtn: 10px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 800; --t-track: 0; --t-up: none;
 }
 /* Black, White & Orange — Bold, modern, energetic */
 .t-ember {
-  --t-bg: #ebcbb4; --t-sur: #f5e7de; --t-ink: #171717; --t-mut: #635850;
-  --t-acc: #F97316; --t-accT: #90430d; --t-acc2: #111111;
+  --t-bg: #F5F5F5; --t-sur: #ffffff; --t-ink: #171717; --t-mut: #707070;
+  --t-acc: #F97316; --t-accT: #b65410; --t-acc2: #111111;
   --t-onacc: #0f0f0f; --t-onacc2: #ffffff;
-  --t-line: rgba(23, 23, 23, 0.14); --t-tint: #f6cdb2; --t-tint2: #c3b8b1;
+  --t-line: rgba(23, 23, 23, 0.14); --t-tint: #fff5ef; --t-tint2: #eeeeee;
   --t-rad: 4px; --t-radlg: 8px; --t-radbtn: 6px;
   --t-head: 'Space Grotesk', system-ui, sans-serif; --t-font: 'Space Grotesk', system-ui, sans-serif;
   --t-headwt: 700; --t-track: 0.02em; --t-up: none;
 }
 /* Deep Purple & Lavender — Modern startup, technology, innovative */
 .t-violet {
-  --t-bg: #cab4eb; --t-sur: #e7def5; --t-ink: #211A2E; --t-mut: #504563;
-  --t-acc: #6D28D9; --t-accT: #6023bf; --t-acc2: #4C1D95;
+  --t-bg: #F7F5FF; --t-sur: #ffffff; --t-ink: #211A2E; --t-mut: #726d7d;
+  --t-acc: #6D28D9; --t-accT: #6d28d9; --t-acc2: #4C1D95;
   --t-onacc: #ffffff; --t-onacc2: #ffffff;
-  --t-line: rgba(33, 26, 46, 0.14); --t-tint: #ccb6ef; --t-tint2: #c5b4e0;
+  --t-line: rgba(33, 26, 46, 0.14); --t-tint: #f5f0fc; --t-tint2: #f2eff8;
   --t-rad: 16px; --t-radlg: 22px; --t-radbtn: 999px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 800; --t-track: 0; --t-up: none;
 }
 /* Teal & Navy — Professional but less traditional than financial blue */
 .t-teal {
-  --t-bg: #b4ebe7; --t-sur: #def5f3; --t-ink: #183B43; --t-mut: #41696e;
-  --t-acc: #0F766E; --t-accT: #0d655f; --t-acc2: #164E63;
+  --t-bg: #F0FDFA; --t-sur: #ffffff; --t-ink: #183B43; --t-mut: #59757a;
+  --t-acc: #0F766E; --t-accT: #0f766e; --t-acc2: #164E63;
   --t-onacc: #ffffff; --t-onacc2: #ffffff;
-  --t-line: rgba(24, 59, 67, 0.14); --t-tint: #b0d9d6; --t-tint2: #b2d0d3;
+  --t-line: rgba(24, 59, 67, 0.14); --t-tint: #eef5f5; --t-tint2: #eff3f4;
   --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 10px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 700; --t-track: 0; --t-up: none;
 }
 /* Charcoal & Bronze — Luxury, established, high-end real estate */
 .t-bronze {
-  --t-bg: #e3d2bd; --t-sur: #f2eae1; --t-ink: #292929; --t-mut: #5d5852;
-  --t-acc: #B68A52; --t-accT: #735734; --t-acc2: #242224;
+  --t-bg: #FAF8F5; --t-sur: #ffffff; --t-ink: #292929; --t-mut: #706f6e;
+  --t-acc: #B68A52; --t-accT: #8e6c40; --t-acc2: #242224;
   --t-onacc: #1b1b1b; --t-onacc2: #ffffff;
-  --t-line: rgba(41, 41, 41, 0.14); --t-tint: #e5d5c2; --t-tint2: #c5beb7;
+  --t-line: rgba(41, 41, 41, 0.14); --t-tint: #faf7f3; --t-tint2: #f0f0f0;
   --t-rad: 4px; --t-radlg: 8px; --t-radbtn: 4px;
   --t-head: 'Cormorant Garamond', Georgia, serif; --t-font: 'Jost', system-ui, sans-serif;
   --t-headwt: 600; --t-track: 0.12em; --t-up: uppercase;
 }
 /* Slate Blue & Soft Green — Friendly, approachable, professional */
 .t-sage {
-  --t-bg: #c7ced9; --t-sur: #e5e9ee; --t-ink: #1E293B; --t-mut: #4d5767;
-  --t-acc: #65A30D; --t-accT: #3c6008; --t-acc2: #475569;
+  --t-bg: #F8FAFC; --t-sur: #ffffff; --t-ink: #1E293B; --t-mut: #6c7480;
+  --t-acc: #65A30D; --t-accT: #4e7e0a; --t-acc2: #475569;
   --t-onacc: #141b26; --t-onacc2: #ffffff;
-  --t-line: rgba(30, 41, 59, 0.14); --t-tint: #c9dabc; --t-tint2: #c2c8d1;
+  --t-line: rgba(30, 41, 59, 0.14); --t-tint: #f4f9ee; --t-tint2: #f2f3f4;
   --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 12px;
   --t-head: 'Manrope', system-ui, sans-serif; --t-font: 'Manrope', system-ui, sans-serif;
   --t-headwt: 700; --t-track: 0; --t-up: none;
 }
 /* Ice Blue & Dark Navy — Fintech / SaaS, clean, modern */
 .t-ice {
-  --t-bg: #b9c7e6; --t-sur: #dfe5f4; --t-ink: #0F172A; --t-mut: #49536a;
-  --t-acc: #06B6D4; --t-accT: #035b6a; --t-acc2: #0F172A;
+  --t-bg: #F1F5F9; --t-sur: #ffffff; --t-ink: #0F172A; --t-mut: #69707d;
+  --t-acc: #06B6D4; --t-accT: #047a8e; --t-acc2: #0F172A;
   --t-onacc: #0a0f1b; --t-onacc2: #ffffff;
-  --t-line: rgba(15, 23, 42, 0.14); --t-tint: #afdbed; --t-tint2: #b1b8c8;
+  --t-line: rgba(15, 23, 42, 0.14); --t-tint: #eefafc; --t-tint2: #eeeff0;
   --t-rad: 8px; --t-radlg: 12px; --t-radbtn: 8px;
   --t-head: 'Space Grotesk', system-ui, sans-serif; --t-font: 'Space Grotesk', system-ui, sans-serif;
   --t-headwt: 700; --t-track: 0.01em; --t-up: none;
 }
 /* Warm Modern Real Estate — Modern homes, real estate, approachable, upscale */
 .t-clay {
-  --t-bg: #e6ceba; --t-sur: #f4e8df; --t-ink: #292621; --t-mut: #62584f;
-  --t-acc: #C48A5A; --t-accT: #765336; --t-acc2: #3F3A34;
+  --t-bg: #F4EFE8; --t-sur: #ffffff; --t-ink: #292621; --t-mut: #6e6a65;
+  --t-acc: #C48A5A; --t-accT: #8d6341; --t-acc2: #3F3A34;
   --t-onacc: #1b1915; --t-onacc2: #ffffff;
-  --t-line: rgba(41, 38, 33, 0.14); --t-tint: #e9d3c2; --t-tint2: #ccc2b9;
+  --t-line: rgba(41, 38, 33, 0.14); --t-tint: #fbf7f3; --t-tint2: #f2f1f1;
   --t-rad: 10px; --t-radlg: 16px; --t-radbtn: 8px;
   --t-head: 'Lora', Georgia, serif; --t-font: 'Jost', system-ui, sans-serif;
   --t-headwt: 600; --t-track: 0.02em; --t-up: none;
