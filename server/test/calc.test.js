@@ -4,8 +4,8 @@ import test from 'node:test';
 import {
   DEFAULT_SETTINGS, DEFAULT_THEME, THEMES, THEME_CHIPS, THEME_COLORS, affordabilityLevers,
   calcAffordability, calcPayment, creditRanges,
-  daysBetween, leaseOverlap, moveInSchedule, moveInTimeline, normalizeTheme, pay30, planProgress,
-  screenDpa, shiftDate, suggestPrograms,
+  daysBetween, leaseOverlap, mapsUrl, moveInSchedule, moveInTimeline, normalizeTheme, pay30,
+  planProgress, screenDpa, shiftDate, suggestPrograms,
 } from '../../shared/domain.js';
 
 const settings = DEFAULT_SETTINGS;
@@ -289,4 +289,25 @@ test('literal date arithmetic does not drift across a month or a year', () => {
   assert.equal(shiftDate('2028-03-01', -1), '2028-02-29', 'leap year');
   assert.equal(shiftDate('', 5), '');
   assert.equal(daysBetween('2026-09-18', '2026-09-18'), 0);
+});
+
+test('a place with an address becomes a map link, and one without does not', () => {
+  assert.equal(
+    mapsUrl('1234 N Center St, Lehi, UT 84043'),
+    'https://www.google.com/maps/search/?api=1&query=1234%20N%20Center%20St%2C%20Lehi%2C%20UT%2084043',
+  );
+
+  // The builder types this by hand, so the characters that would break the URL
+  // — the ampersand above all — have to survive as part of the query.
+  assert.equal(
+    mapsUrl('Smith & Jones Park'),
+    'https://www.google.com/maps/search/?api=1&query=Smith%20%26%20Jones%20Park',
+  );
+
+  // Nothing to search means no link rather than a link to nowhere: the buyer
+  // screen renders the row only when this returns a URL.
+  assert.equal(mapsUrl(''), null);
+  assert.equal(mapsUrl('   '), null, 'whitespace is not an address');
+  assert.equal(mapsUrl(undefined), null, 'a highlight saved before addresses existed');
+  assert.equal(mapsUrl(null), null);
 });

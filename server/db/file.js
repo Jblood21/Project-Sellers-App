@@ -223,7 +223,7 @@ export function createFileStore(path) {
     async updateHighlight(id, patch) {
       const row = db.highlights.find((h) => h.id === id);
       if (!row) return null;
-      for (const key of ['category', 'name', 'description', 'detail', 'position']) {
+      for (const key of ['category', 'name', 'description', 'detail', 'address', 'position']) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       save();

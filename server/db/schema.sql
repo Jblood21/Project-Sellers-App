@@ -84,9 +84,13 @@ CREATE TABLE IF NOT EXISTS highlights (
   name         TEXT NOT NULL,
   description  TEXT NOT NULL DEFAULT '',
   detail       TEXT NOT NULL DEFAULT '',
+  address      TEXT NOT NULL DEFAULT '',
   position     INTEGER NOT NULL DEFAULT 0,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- highlights predate addresses, so an existing database needs the explicit ALTER:
+-- CREATE TABLE IF NOT EXISTS above is a no-op once the table is there.
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
 
 -- Appointment slots the builder publishes. slot_date and slot_time are literal

@@ -96,6 +96,7 @@ export function shapeHighlight(row, photo = null) {
     name: row.name,
     description: row.description || '',
     detail: row.detail || '',
+    address: row.address || '',
     position: Number(row.position) || 0,
     photo,
   };

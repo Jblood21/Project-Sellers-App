@@ -166,6 +166,24 @@ export function highlightCategoryLabel(key) {
   return HIGHLIGHT_CATEGORIES.find((c) => c.k === key)?.label ?? 'Good to Know';
 }
 
+/**
+ * A link to this place on a map. Google's cross-platform URL rather than a
+ * maps.google.com search: on a phone it hands off to the installed Maps app
+ * and on a desktop it opens the web map, which is the whole point — a buyer
+ * standing in the model home taps the school and gets directions to it.
+ *
+ * The address is whatever the builder typed, so it is searched rather than
+ * geocoded here: Google resolves "Oakridge Elementary, Lehi UT" as readily as
+ * a street address, and an address we could not parse is still a better query
+ * than no link at all. Returns null when there is nothing to search, which is
+ * how callers know not to render the link.
+ */
+export function mapsUrl(address) {
+  const query = String(address ?? '').trim();
+  if (!query) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 export const AVAILABILITY = ['Planning', 'Under Construction', 'Move-in ready'];
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 

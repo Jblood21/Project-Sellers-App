@@ -294,17 +294,20 @@ test('area highlights: the admin writes them, the buyer reads them', async () =>
     body: {
       category: 'schools', name: 'Oakridge Elementary', detail: '4 min drive',
       description: 'K–6, bus stops at the entrance.',
+      address: ' 1234 N Center St, Lehi, UT 84043 ',
     },
   });
   assert.equal(school.status, 201);
   assert.equal(school.body.category, 'schools');
   assert.equal(school.body.photo, null);
+  assert.equal(school.body.address, '1234 N Center St, Lehi, UT 84043', 'trimmed on the way in');
 
   // An unknown category falls back rather than being stored as-is.
   const odd = await api(`/api/admin/communities/${cid}/highlights`, {
     method: 'POST', token, body: { category: 'nightlife', name: 'The Creamery' },
   });
   assert.equal(odd.body.category, 'other');
+  assert.equal(odd.body.address, '', 'a place without an address gets a blank one, never null');
 
   // A 1×1 GIF — enough to prove the photo round-trips onto the highlight.
   const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -321,6 +324,10 @@ test('area highlights: the admin writes them, the buyer reads them', async () =>
   assert.equal(buyerView.body.highlights.length, 2);
   const seen = buyerView.body.highlights.find((h) => h.name === 'Oakridge Elementary');
   assert.equal(seen.detail, '4 min drive');
+  assert.equal(
+    seen.address, '1234 N Center St, Lehi, UT 84043',
+    'the address reaches the buyer — it is what their map link is built from',
+  );
   assert.ok(seen.photo?.url, 'the photo reaches the buyer');
   assert.equal(seen.photo.url, `/api/photos/${seen.photo.id}`, 'served from the database, not the disk');
 
@@ -331,10 +338,19 @@ test('area highlights: the admin writes them, the buyer reads them', async () =>
   );
 
   const edited = await api(`/api/admin/highlights/${school.body.id}`, {
-    method: 'PATCH', token, body: { detail: '6 min drive', category: 'other' },
+    method: 'PATCH', token, body: { detail: '6 min drive', category: 'other', address: '99 Main St' },
   });
   assert.equal(edited.body.detail, '6 min drive');
   assert.equal(edited.body.category, 'other');
+  assert.equal(edited.body.address, '99 Main St');
+
+  // Clearing the address is a real edit, not a no-op: the builder took down a
+  // link that was sending buyers to the wrong place.
+  const cleared = await api(`/api/admin/highlights/${school.body.id}`, {
+    method: 'PATCH', token, body: { address: '' },
+  });
+  assert.equal(cleared.body.address, '');
+  assert.equal(cleared.body.detail, '6 min drive', 'and it leaves the rest alone');
   assert.ok(edited.body.photo, 'editing the text keeps the photo');
 
   // Deleting takes the photo with it.

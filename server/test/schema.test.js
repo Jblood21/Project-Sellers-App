@@ -111,6 +111,48 @@ test('the schema applies to a database created by an older release', opts, async
   });
 });
 
+/**
+ * The legacy fixture predates the highlights table, so on that path `address`
+ * arrives with the CREATE TABLE and the ALTER is never exercised. The database
+ * that actually needs the ALTER is the one that already has highlights from
+ * before addresses existed — which is production. So build exactly that.
+ */
+test('a database whose highlights predate addresses gains the column', opts, async () => {
+  await withDatabase('schema_address_test', async (url) => {
+    await applyLegacy(url);
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    await client.query(`
+      CREATE TABLE highlights (
+        id           TEXT PRIMARY KEY,
+        community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        category     TEXT NOT NULL DEFAULT 'other',
+        name         TEXT NOT NULL,
+        description  TEXT NOT NULL DEFAULT '',
+        detail       TEXT NOT NULL DEFAULT '',
+        position     INTEGER NOT NULL DEFAULT 0,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`);
+    await client.query(
+      `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools)
+       VALUES ('c1', 'Willow Creek', 'Lehi, Utah', 'Now selling', 'navy', 'Hearthside', '{}', '{}')`,
+    );
+    await client.query(
+      `INSERT INTO highlights (id, community_id, category, name) VALUES ('g1', 'c1', 'schools', 'Oakridge')`,
+    );
+    await client.end();
+
+    await boot(url);
+
+    const after = new pg.Client({ connectionString: url });
+    await after.connect();
+    const row = await after.query(`SELECT name, address FROM highlights WHERE id = 'g1'`);
+    assert.equal(row.rows[0].name, 'Oakridge', 'the place the builder already wrote is untouched');
+    assert.equal(row.rows[0].address, '', 'and it gains a blank address rather than a null one');
+    await after.end();
+  });
+});
+
 test('the schema applies to an empty database', opts, async () => {
   await withDatabase('schema_fresh_test', async (url) => {
     await boot(url);
@@ -291,6 +333,46 @@ test('an older database gains the move-in plan without losing its homes', opts, 
     );
     assert.ok(table.rows[0].t, 'the move-in table exists after the upgrade');
     await after.end();
+  });
+});
+
+/**
+ * The API tests run against the JSON file store, so the Postgres INSERT and
+ * UPDATE for a highlight are not covered there — and Postgres is what
+ * production runs. A column left out of the INSERT list is silent: the write
+ * succeeds and the address is simply never stored.
+ */
+test('a highlight address round-trips through Postgres', opts, async () => {
+  await withDatabase('schema_address_rt', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Address Round Trip' });
+      const made = await store.createHighlight(community.id, {
+        category: 'schools', name: 'Oakridge Elementary', description: 'K–6',
+        detail: '4 min drive', address: '1234 N Center St, Lehi, UT 84043',
+      });
+      assert.equal(made.address, '1234 N Center St, Lehi, UT 84043');
+
+      const [listed] = await store.listHighlights(community.id);
+      assert.equal(listed.address, '1234 N Center St, Lehi, UT 84043', 'and it survives the read back');
+
+      const moved = await store.updateHighlight(made.id, { address: '99 Main St' });
+      assert.equal(moved.address, '99 Main St');
+      assert.equal(moved.name, 'Oakridge Elementary', 'the rest of the place is untouched');
+
+      const cleared = await store.updateHighlight(made.id, { address: '' });
+      assert.equal(cleared.address, '', 'clearing it is stored, not ignored as falsy');
+
+      // A place added without one must not come back null: the buyer screen
+      // reads it straight into a URL builder.
+      const bare = await store.createHighlight(community.id, {
+        category: 'other', name: 'The Creamery', description: '', detail: '',
+      });
+      assert.equal(bare.address, '');
+    } finally {
+      await store.close();
+    }
   });
 });
 
