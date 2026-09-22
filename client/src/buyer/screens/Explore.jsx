@@ -1,18 +1,58 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { Star } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import ImageViewer from '../ImageViewer.jsx';
 
 export default function Explore() {
-  const { homes, lead, toggleSave, track } = useBuyer();
+  const { community, homes, lead, toggleSave, track } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
+
+  // The server already withholds this when the builder has the site map
+  // switched off, so its presence is the only condition worth checking.
+  const map = community?.siteMap ? [{ id: 'map', url: community.siteMap }] : [];
+  const [mapOpen, setMapOpen] = useState(false);
+  const placed = homes.filter((home) => home.lotNumber).length;
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h3 className="b-head" style={{ margin: '0 0 12px', fontSize: 22 }}>Explore Homes</h3>
+
+      {/*
+        The plat, above the list rather than on a screen of its own. A buyer
+        standing at a sign asks "which one is that?" before anything else, and
+        the homes underneath carry the lot numbers that answer it — so the
+        drawing belongs next to them, not one tap away.
+      */}
+      {map.length ? (
+        <div style={{ marginBottom: 16 }}>
+          <button
+            type="button"
+            onClick={() => {
+              track('Opened the site map from Explore Homes');
+              setMapOpen(true);
+            }}
+            aria-label={`Open the ${community?.name} site map full screen`}
+            style={{
+              width: '100%', padding: 0, cursor: 'zoom-in', background: 'var(--t-sur)',
+              border: '1px solid var(--t-line)', borderRadius: 'var(--t-radlg)', overflow: 'hidden',
+            }}
+          >
+            <div style={{ height: 170 }}>
+              <Photo photo={map[0]} label="" alt={`${community?.name} site map`} />
+            </div>
+          </button>
+          <span style={{ display: 'block', marginTop: 7, fontSize: 12, color: 'var(--t-mut)' }}>
+            {placed
+              ? 'Tap the site map to open it full screen, then match a lot number below.'
+              : 'Tap the site map to open it full screen.'}
+          </span>
+        </div>
+      ) : null}
       {homes.length === 0 ? (
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>
           Homes for this community are being added — check back soon.
@@ -75,6 +115,13 @@ export default function Explore() {
           );
         })}
       </div>
+
+      <ImageViewer
+        images={map}
+        index={mapOpen ? 0 : null}
+        onClose={() => setMapOpen(false)}
+        label={`${community?.name} site map`}
+      />
     </div>
   );
 }
