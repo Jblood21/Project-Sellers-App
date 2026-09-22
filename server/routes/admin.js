@@ -203,6 +203,7 @@ export function adminRouter() {
       name,
       description: str(req.body?.description),
       detail: str(req.body?.detail),
+      address: str(req.body?.address),
     });
     res.status(201).json(highlight);
   });
@@ -215,6 +216,7 @@ export function adminRouter() {
     if (req.body?.name !== undefined) patch.name = str(req.body.name) || highlight.name;
     if (req.body?.description !== undefined) patch.description = str(req.body.description);
     if (req.body?.detail !== undefined) patch.detail = str(req.body.detail);
+    if (req.body?.address !== undefined) patch.address = str(req.body.address);
     if (req.body?.category !== undefined && HIGHLIGHT_CATEGORY_KEYS.includes(req.body.category)) {
       patch.category = req.body.category;
     }

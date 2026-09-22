@@ -42,6 +42,13 @@ export const QrIcon = ({ size = 18 }) => (
   </svg>
 );
 
+export const Pin = ({ size = 14 }) => (
+  <svg {...base} width={size} height={size}>
+    <path d="M12 22s7-6.13 7-11a7 7 0 1 0-14 0c0 4.87 7 11 7 11z" />
+    <circle cx="12" cy="11" r="2.5" />
+  </svg>
+);
+
 export const Trash = ({ size = 15 }) => (
   <svg {...base} width={size} height={size}>
     <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />

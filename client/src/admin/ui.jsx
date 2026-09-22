@@ -43,9 +43,9 @@ export function Field({ label, hint, children }) {
   );
 }
 
-export function TextField({ label, value, onChange, ...rest }) {
+export function TextField({ label, hint, value, onChange, ...rest }) {
   return (
-    <Field label={label}>
+    <Field label={label} hint={hint}>
       <input className="input" value={value} onChange={(event) => onChange(event.target.value)} {...rest} />
     </Field>
   );

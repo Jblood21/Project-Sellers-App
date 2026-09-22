@@ -1,14 +1,14 @@
 import { useState } from 'react';
 
 import { HIGHLIGHT_CATEGORIES, highlightCategoryLabel } from '@shared/domain.js';
-import { Trash } from '../../components/Icons.jsx';
+import { Pin, Trash } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import PhotoPicker from '../PhotoPicker.jsx';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
-const BLANK = { category: 'schools', name: '', description: '', detail: '' };
+const BLANK = { category: 'schools', name: '', description: '', detail: '', address: '' };
 
 /**
  * "What's around here" — the answer buyers ask a sales agent on every visit.
@@ -41,6 +41,7 @@ export default function AreaTab({ community, reload }) {
       name: highlight.name,
       description: highlight.description,
       detail: highlight.detail,
+      address: highlight.address ?? '',
     });
     setPhoto(null);
     setError('');
@@ -104,6 +105,15 @@ export default function AreaTab({ community, reload }) {
               {highlight.description ? (
                 <p className="card-body" style={{ margin: 0 }}>{highlight.description}</p>
               ) : null}
+              {highlight.address ? (
+                <span
+                  className="text-muted"
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+                >
+                  <Pin />
+                  {highlight.address}
+                </span>
+              ) : null}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                 <button
                   type="button" className="btn btn-ghost" onClick={() => openEdit(highlight)}
@@ -157,6 +167,12 @@ export default function AreaTab({ community, reload }) {
           <TextField
             label="Distance or hours" value={form.detail} onChange={(detail) => setForm((f) => ({ ...f, detail }))}
             placeholder="e.g. 4 min drive"
+          />
+          <TextField
+            label="Address (optional)" value={form.address}
+            onChange={(address) => setForm((f) => ({ ...f, address }))}
+            placeholder="e.g. 1234 N Center St, Lehi, UT 84043"
+            hint="Buyers tap this to open directions in Google Maps. A place name works too."
           />
           <Field label="What buyers should know">
             <textarea

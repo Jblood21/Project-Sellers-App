@@ -300,9 +300,10 @@ export function createPostgresStore(connectionString) {
         [communityId],
       );
       const { rows } = await q(
-        `INSERT INTO highlights (id, community_id, category, name, description, detail, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [`g_${shortId(10)}`, communityId, data.category, data.name, data.description, data.detail, pos[0].pos],
+        `INSERT INTO highlights (id, community_id, category, name, description, detail, address, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [`g_${shortId(10)}`, communityId, data.category, data.name, data.description, data.detail,
+          data.address ?? '', pos[0].pos],
       );
       return shapeHighlight(rows[0], null);
     },
@@ -310,7 +311,7 @@ export function createPostgresStore(connectionString) {
     async updateHighlight(id, patch) {
       const map = {
         category: 'category', name: 'name', description: 'description',
-        detail: 'detail', position: 'position',
+        detail: 'detail', address: 'address', position: 'position',
       };
       const sets = [];
       const params = [];
