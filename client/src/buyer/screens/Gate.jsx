@@ -42,7 +42,7 @@ export default function Gate({ onEntered }) {
 
   return (
     <form className="b-shell" onSubmit={submit} style={{ paddingTop: 'calc(28px + env(safe-area-inset-top))' }}>
-      <span className="b-lbl" style={{ color: 'var(--t-acc)' }}>Almost there</span>
+      <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>Almost there</span>
       <h2 className="b-head" style={{ margin: '4px 0 8px', fontSize: 27 }}>Let&apos;s introduce you</h2>
       <p style={{ margin: '0 0 18px', color: 'var(--t-mut)', fontSize: 13.5, lineHeight: 1.5 }}>
         Tell us who you are to open the {community?.name} app. The team may reach out to help with anything you save.
@@ -67,7 +67,7 @@ export default function Gate({ onEntered }) {
           />
         </label>
       </div>
-      {error ? <p style={{ color: 'var(--t-acc)', fontSize: 12.5, margin: '10px 0 0' }}>{error}</p> : null}
+      {error ? <p style={{ color: 'var(--t-accT)', fontSize: 12.5, margin: '10px 0 0' }}>{error}</p> : null}
       <button type="submit" className="b-btn" disabled={busy} style={{ marginTop: 16, minHeight: 50 }}>
         {busy ? 'One moment…' : `Start exploring ${community?.name}`}
       </button>

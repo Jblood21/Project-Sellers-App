@@ -10,7 +10,11 @@ services:
     buildCommand: npm install && npm run build
     startCommand: node server/index.js
     healthCheckPath: /api/health
-    autoDeploy: true
+    # Off on purpose. Render's own auto-deploy fires on push, before CI has
+    # said anything — which is how a crash-looping schema reached production.
+    # ci.yml fires the deploy hook instead, once tests are green on main. Left
+    # on, the two race and the unverified one usually wins.
+    autoDeploy: false
     envVars:
       - key: NODE_ENV
         value: production

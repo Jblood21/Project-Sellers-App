@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PLAN_LABELS, TOOL_KEYS, describeTour, isTourPending, planProgress } from '@shared/domain.js';
+import {
+  formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS, TOOL_KEYS,
+  describeTour, isTourPending, planProgress,
+} from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { money, shortDate } from '../../lib/format.js';
@@ -170,6 +173,8 @@ export default function LeadDetail({ community, reload }) {
         ))}
       </div>
 
+      <MoveInCard lead={lead} homes={community.homes} />
+
       <div className="card" style={{ gap: 8, marginBottom: 12 }}>
         <span className="card-kicker">Activity log</span>
         {lead.activity.length === 0 ? (
@@ -209,6 +214,61 @@ export default function LeadDetail({ community, reload }) {
         >
           Archive this lead
         </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * What the buyer is actually working towards. Worth its own card: "you want to
+ * be in before the school year and your lease ends in March" is a different
+ * sales call from "here are some homes".
+ */
+function MoveInCard({ lead, homes }) {
+  const plan = lead.moveIn;
+  if (!plan?.targetDate && !plan?.ownSteps?.length) return null;
+
+  const home = homes.find((h) => h.id === plan.homeId) || null;
+  const timeline = moveInTimeline(plan, { home });
+  const overlap = plan.leaseEnd ? leaseOverlap(plan.leaseEnd, timeline.keys) : null;
+  const drivers = MOVE_IN_DRIVERS.filter((d) => (plan.drivers || []).includes(d.k));
+  const done = timeline.items.filter((i) => i.done).length;
+
+  return (
+    <div className="card" style={{ gap: 10, marginBottom: 12 }}>
+      <span className="card-kicker">Their move-in plan</span>
+      {plan.targetDate ? (
+        <div style={{ fontSize: 14 }}>
+          Wants to be in by <strong>{formatSlotDate(plan.targetDate)}</strong>
+          {home ? ` · ${home.name}` : ''}
+          {plan.payMethod === 'cash' ? ' · paying cash' : ''}
+        </div>
+      ) : null}
+      {timeline.keys && !timeline.feasible ? (
+        <div style={{ fontSize: 13, fontWeight: 700 }}>
+          That is earlier than this home can close — earliest is {formatSlotDate(timeline.earliest)}.
+        </div>
+      ) : null}
+      {overlap && overlap.kind !== 'same' ? (
+        <div className="text-muted" style={{ fontSize: 13 }}>
+          Lease ends {formatSlotDate(plan.leaseEnd)} — {Math.abs(overlap.days)} days{' '}
+          {overlap.kind === 'overlap' ? 'of overlap' : 'short'}.
+        </div>
+      ) : null}
+      {drivers.length ? (
+        <div className="text-muted" style={{ fontSize: 13 }}>
+          Driving it: {drivers.map((d) => d.label).join(', ')}
+        </div>
+      ) : null}
+      {plan.ownSteps?.length ? (
+        <div className="text-muted" style={{ fontSize: 13 }}>
+          Added themselves: {plan.ownSteps.map((s) => s.label).join(', ')}
+        </div>
+      ) : null}
+      {timeline.items.length ? (
+        <div className="text-muted" style={{ fontSize: 13 }}>
+          {done} of {timeline.items.length} steps ticked off.
+        </div>
       ) : null}
     </div>
   );

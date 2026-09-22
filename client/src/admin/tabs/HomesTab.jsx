@@ -11,7 +11,7 @@ import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
 const BLANK = {
   name: '', price: '', beds: '', baths: '', sqft: '', description: '',
-  availability: 'Planning', lotNumber: '',
+  availability: 'Planning', lotNumber: '', readyOn: '',
 };
 
 export default function HomesTab({ community, reload }) {
@@ -36,6 +36,7 @@ export default function HomesTab({ community, reload }) {
       description: home.description,
       availability: AVAILABILITY.includes(home.availability) ? home.availability : 'Planning',
       lotNumber: home.lotNumber ?? '',
+      readyOn: home.readyOn ?? '',
     });
     setDialog({ mode: 'edit', home });
   };
@@ -146,6 +147,17 @@ export default function HomesTab({ community, reload }) {
               ))}
             </select>
           </Field>
+          {form.availability === 'Move-in ready' ? null : (
+            <Field
+              label="Ready for keys"
+              hint="Buyers plan their move — and their lease notice — around this. Left blank, their timeline says nobody has set a date rather than guessing one."
+            >
+              <input
+                className="input" type="date" value={form.readyOn}
+                onChange={(event) => setForm((f) => ({ ...f, readyOn: event.target.value }))}
+              />
+            </Field>
+          )}
           <ErrorNote>{error}</ErrorNote>
         </Dialog>
       ) : null}

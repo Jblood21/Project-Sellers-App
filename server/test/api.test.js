@@ -906,3 +906,126 @@ test('a buyer in another community is a separate lead', async () => {
   assert.equal(inB.body.returning, false, 'identity is scoped to the community');
   assert.notEqual(inB.body.lead.id, inA.body.lead.id);
 });
+
+test('the move-in plan is stored on the lead, not the browser', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Move-In Test' } });
+  const cid = community.body.id;
+
+  const home = await api(`/api/admin/communities/${cid}/homes`, {
+    method: 'POST', token,
+    body: { name: 'The Birch', price: 480000, availability: 'Under Construction', readyOn: '2027-06-01' },
+  });
+  assert.equal(home.status, 201);
+  assert.equal(home.body.readyOn, '2027-06-01', 'the builder can say when an unfinished home is ready');
+
+  // The buyer needs that date to plan around, so it reaches the public view.
+  const publicHome = (await api(`/api/c/${cid}`)).body.homes[0];
+  assert.equal(publicHome.readyOn, '2027-06-01');
+
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Dana Reyes', email: 'dana@example.com', phone: '801-555-0114' },
+  });
+  assert.equal(entered.status, 201);
+  const buyer = entered.body.token;
+  assert.equal(entered.body.lead.moveIn, null, 'nothing until they build one');
+
+  const saved = await api('/api/me/movein', {
+    method: 'PUT', token: buyer,
+    body: {
+      homeId: publicHome.id,
+      targetDate: '2027-08-01',
+      leaseEnd: '2027-08-15',
+      payMethod: 'cash',
+      drivers: ['lease', 'school'],
+      done: ['offer'],
+      ownSteps: [{ id: 'own1', label: 'Transfer utilities', date: '2027-07-28' }],
+    },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.moveIn.targetDate, '2027-08-01');
+  assert.equal(saved.body.moveIn.payMethod, 'cash');
+  assert.deepEqual(saved.body.moveIn.drivers, ['lease', 'school']);
+  assert.deepEqual(saved.body.moveIn.done, ['offer']);
+  assert.equal(saved.body.moveIn.ownSteps[0].label, 'Transfer utilities');
+
+  // The point of storing it server-side: a fresh device gets the plan back.
+  const fresh = await api('/api/me', { token: buyer });
+  assert.equal(fresh.body.moveIn.targetDate, '2027-08-01');
+  assert.equal(fresh.body.moveIn.ownSteps.length, 1);
+
+  // And the builder can see what they are working towards.
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  assert.equal(leads.body[0].moveIn.targetDate, '2027-08-01');
+  const detail = await api(`/api/admin/leads/${leads.body[0].id}`, { token });
+  assert.ok(
+    detail.body.activity.some((a) => a.text.includes('2027-08-01')),
+    'the date they want lands in the activity log',
+  );
+});
+
+test('the move-in plan drops what it cannot trust', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Move-In Junk' } });
+  const cid = community.body.id;
+  const other = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Somewhere Else' } });
+  const foreign = await api(`/api/admin/communities/${other.body.id}/homes`, {
+    method: 'POST', token, body: { name: 'Not Yours' },
+  });
+
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Junk Tester', email: 'junk@example.com', phone: '801-555-0115' },
+  });
+  const buyer = entered.body.token;
+
+  const saved = await api('/api/me/movein', {
+    method: 'PUT', token: buyer,
+    body: {
+      homeId: foreign.body.id,
+      targetDate: 'whenever',
+      leaseEnd: '15/08/2027',
+      payMethod: 'barter',
+      drivers: ['lease', 'astrology'],
+      done: ['offer', 'made-up-step', 'own:ghost'],
+      ownSteps: [
+        { id: 'ok1', label: 'x'.repeat(200), date: 'nope' },
+        { id: '', label: 'no id' },
+        { label: 'no id either' },
+      ],
+    },
+  });
+  assert.equal(saved.status, 200);
+  const plan = saved.body.moveIn;
+  assert.equal(plan.homeId, null, "another community's home is not theirs to plan around");
+  assert.equal(plan.targetDate, '', 'a date that is not a date is dropped');
+  assert.equal(plan.leaseEnd, '', 'and so is one in the wrong format');
+  assert.equal(plan.payMethod, 'loan', 'an unknown way of paying falls back');
+  assert.deepEqual(plan.drivers, ['lease'], 'unknown drivers are dropped');
+  assert.deepEqual(plan.done, ['offer'], 'ticks for steps that do not exist are dropped');
+  assert.equal(plan.ownSteps.length, 1, 'their own steps need an id and a label');
+  assert.equal(plan.ownSteps[0].label.length, 80, 'and a bounded label');
+  assert.equal(plan.ownSteps[0].date, '');
+});
+
+test('health reports the commit that is running, and nothing when there is none', async () => {
+  const before = await api('/api/health');
+  assert.equal(before.status, 200);
+  assert.equal(before.body.ok, true);
+  assert.equal(before.body.commit, '', 'off Render there is no commit to report');
+
+  // Render sets this on every build. Without it the only way to tell whether a
+  // merge reached the site is to go looking for the change by hand.
+  process.env.RENDER_GIT_COMMIT = 'deadbeefcafe';
+  try {
+    const live = await api('/api/health');
+    assert.equal(live.body.commit, 'deadbeefcafe', 'health says what is deployed');
+  } finally {
+    delete process.env.RENDER_GIT_COMMIT;
+  }
+});

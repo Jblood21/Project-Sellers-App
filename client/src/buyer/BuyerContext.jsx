@@ -12,7 +12,6 @@ export const DEFAULT_TOOL_STATE = {
   compare: { aProgram: 'fha', aDown: 3.5, bProgram: 'conv', bDown: 5 },
   dpa: { income: '', savings: '', firstTime: 'yes', military: 'no', credit: 'good' },
   savings: { cash: '', current: '', months: 12 },
-  movein: { startMonths: 0 },
 };
 
 const sessionKey = (communityId) => `psa:session:${communityId}`;
@@ -141,6 +140,24 @@ export function BuyerProvider({ communityId, children }) {
     [showToast, token],
   );
 
+  /**
+   * The move-in plan saves to the lead, not localStorage: a plan the buyer built
+   * themselves should still be there when they come back on another phone.
+   * Silent on failure -- this fires as they type, and a toast per keystroke
+   * would be worse than a save that retries on the next edit.
+   */
+  const saveMoveIn = useCallback(
+    async (plan) => {
+      if (!token) return;
+      try {
+        setLead(await buyerApi.saveMoveIn(token, plan));
+      } catch {
+        /* keep their edits on screen; the next change tries again */
+      }
+    },
+    [token],
+  );
+
   /** Returns true when the booking took, so the dialog knows whether to close. */
   const requestTour = useCallback(
     async (slotId, contact) => {
@@ -178,13 +195,14 @@ export function BuyerProvider({ communityId, children }) {
       enter,
       toggleSave,
       savePlan,
+      saveMoveIn,
       requestTour,
       tutorialSeen: () => Boolean(readJson(tutorialKey(communityId))),
       markTutorialSeen: () => writeJson(tutorialKey(communityId), true),
     }),
     [
       community, communityId, enter, lead, loadError, loading, requestTour, savePlan,
-      setTool, showToast, toast, toggleSave, token, tools, track,
+      saveMoveIn, setTool, showToast, toast, toggleSave, token, tools, track,
     ],
   );
 

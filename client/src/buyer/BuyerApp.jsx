@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 
+import { DEFAULT_THEME, THEME_COLORS } from '@shared/domain.js';
 import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialSheet } from './Chrome.jsx';
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
 import AllTools from './screens/AllTools.jsx';
@@ -14,11 +15,6 @@ import PlanPrint from './screens/PlanPrint.jsx';
 import Saved from './screens/Saved.jsx';
 import SiteMap from './screens/SiteMap.jsx';
 import ToolScreen from './tools/index.jsx';
-
-const THEME_COLORS = {
-  modern: '#147a4a', forest: '#0b1d13', lux: '#0f231b',
-  blueprint: '#1553b5', slate: '#171c23', estate: '#1c1916',
-};
 
 /** Points the document at this community's manifest so Add-to-Home-Screen works. */
 function useCommunityChrome(community, communityId) {
@@ -35,7 +31,7 @@ function useCommunityChrome(community, communityId) {
     link.href = `/c/${communityId}/manifest.webmanifest`;
 
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = THEME_COLORS[community.theme] ?? '#1d63e0';
+    if (meta) meta.content = THEME_COLORS[community.theme] ?? THEME_COLORS[DEFAULT_THEME];
 
     return () => {
       link?.remove();

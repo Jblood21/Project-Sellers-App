@@ -90,7 +90,7 @@ export default function Communities() {
               </div>
               <span className="text-muted" style={{ fontSize: 13 }}>{community.location}</span>
               <div className="card-meta">
-                {community.homesCount} homes · {community.leadsCount} leads · {THEMES[community.theme]} theme
+                {community.homesCount} homes · {community.leadsCount} leads · {THEMES[community.theme]?.name} theme
               </div>
               {community.pendingTours > 0 ? (
                 <div

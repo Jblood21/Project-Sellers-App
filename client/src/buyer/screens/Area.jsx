@@ -47,7 +47,7 @@ export default function Area() {
                       <span
                         style={{
                           flex: 'none', fontSize: 11, fontWeight: 700, padding: '4px 10px',
-                          borderRadius: 999, background: 'var(--t-tint)', color: 'var(--t-acc)',
+                          borderRadius: 999, background: 'var(--t-tint)', color: 'var(--t-accT)',
                         }}
                       >
                         {highlight.detail}

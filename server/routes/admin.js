@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS,
+  AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_THEME,
   DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME,
   SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
@@ -17,6 +17,16 @@ const str = (v, fallback = '') => (v === undefined || v === null ? fallback : St
 const numOr = (v, fallback) => {
   const n = Number.parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
   return Number.isFinite(n) ? n : fallback;
+};
+
+/**
+ * A completion date is 'YYYY-MM-DD' or nothing. Stored literally, like slots:
+ * a buyer plans their lease notice around this, so it must not shift a day for
+ * someone in another timezone.
+ */
+const readyDate = (value) => {
+  const text = String(value ?? '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
 };
 
 export function adminRouter() {
@@ -54,7 +64,7 @@ export function adminRouter() {
       name,
       location: str(req.body?.location) || 'Location TBD',
       status: COMMUNITY_STATUSES.includes(req.body?.status) ? req.body.status : 'Pre-sale',
-      theme: THEMES[req.body?.theme] ? req.body.theme : 'modern',
+      theme: THEMES[req.body?.theme] ? req.body.theme : DEFAULT_THEME,
       builder: str(req.body?.builder),
     });
     res.status(201).json(community);
@@ -150,6 +160,7 @@ export function adminRouter() {
       description: str(req.body?.description) || 'New home — add a description.',
       availability: AVAILABILITY.includes(req.body?.availability) ? req.body.availability : 'Planning',
       lotNumber: str(req.body?.lotNumber),
+      readyOn: readyDate(req.body?.readyOn),
     });
     res.status(201).json(home);
   });
@@ -169,6 +180,7 @@ export function adminRouter() {
       patch.availability = req.body.availability;
     }
     if (req.body?.lotNumber !== undefined) patch.lotNumber = str(req.body.lotNumber);
+    if (req.body?.readyOn !== undefined) patch.readyOn = readyDate(req.body.readyOn);
     res.json(await store.updateHome(home.id, patch));
   });
 

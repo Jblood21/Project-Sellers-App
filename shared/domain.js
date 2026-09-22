@@ -3,34 +3,104 @@
  * Every number in here traces back to the design handoff — keep the two in step.
  */
 
+/**
+ * Buyer app themes. Each one carries the five colours its palette is defined by;
+ * the CSS in base.css derives the rest (muted ink, tints, on-accent text) and is
+ * contrast-checked against them. These five are the source of truth for the
+ * admin swatches and the PWA chrome, so there is one list to keep in step
+ * rather than three.
+ */
 export const THEMES = {
-  modern: 'Modern Green',
-  forest: 'Deep Forest',
-  lux: 'Emerald & Gold',
-  blueprint: 'Blueprint Blue',
-  slate: 'Midnight Blue',
-  estate: 'Warm Umber',
+  navy: {
+    name: 'Navy & Gold', note: 'Trustworthy, premium, financial',
+    primary: '#102A43', secondary: '#243B53', accent: '#D4A72C',
+    background: '#F7F9FC', text: '#172B4D',
+  },
+  forest: {
+    name: 'Forest Green & Cream', note: 'Wealth, stability, natural, sophisticated',
+    primary: '#1F4D3A', secondary: '#356859', accent: '#D8B56A',
+    background: '#F8F5ED', text: '#26352E',
+  },
+  azure: {
+    name: 'Modern Blue & White', note: 'Clean, modern, trustworthy, tech-oriented',
+    primary: '#2563EB', secondary: '#1E40AF', accent: '#38BDF8',
+    background: '#F8FAFC', text: '#172033',
+  },
+  ember: {
+    name: 'Black, White & Orange', note: 'Bold, modern, energetic',
+    primary: '#111111', secondary: '#262626', accent: '#F97316',
+    background: '#F5F5F5', text: '#171717',
+  },
+  violet: {
+    name: 'Deep Purple & Lavender', note: 'Modern startup, technology, innovative',
+    primary: '#4C1D95', secondary: '#6D28D9', accent: '#A78BFA',
+    background: '#F7F5FF', text: '#211A2E',
+  },
+  teal: {
+    name: 'Teal & Navy', note: 'Professional but less traditional than financial blue',
+    primary: '#0F766E', secondary: '#164E63', accent: '#2DD4BF',
+    background: '#F0FDFA', text: '#183B43',
+  },
+  bronze: {
+    name: 'Charcoal & Bronze', note: 'Luxury, established, high-end real estate',
+    primary: '#242224', secondary: '#3A3A3A', accent: '#B68A52',
+    background: '#FAF8F5', text: '#292929',
+  },
+  sage: {
+    name: 'Slate Blue & Soft Green', note: 'Friendly, approachable, professional',
+    primary: '#475569', secondary: '#64748B', accent: '#65A30D',
+    background: '#F8FAFC', text: '#1E293B',
+  },
+  ice: {
+    name: 'Ice Blue & Dark Navy', note: 'Fintech / SaaS, clean, modern',
+    primary: '#0F172A', secondary: '#1E293B', accent: '#06B6D4',
+    background: '#F1F5F9', text: '#0F172A',
+  },
+  clay: {
+    name: 'Warm Modern Real Estate', note: 'Modern homes, real estate, approachable, upscale',
+    primary: '#3F3A34', secondary: '#6B6258', accent: '#C48A5A',
+    background: '#F4EFE8', text: '#292621',
+  },
 };
+
+export const DEFAULT_THEME = 'navy';
 
 /**
- * 'classic' (cream and brown) was retired in favour of 'forest'. Communities
- * created before that still carry the old value, so every read normalizes —
- * an unknown theme would render with no colour variables at all.
+ * The palette that shipped before this set is still on live communities, and a
+ * theme key that resolves to nothing renders the buyer app with no colour
+ * variables at all — white text on white. Each retired key maps to its nearest
+ * survivor rather than being dropped.
+ *
+ * 'forest' is deliberately reused: it was Deep Forest (dark evergreen) and is
+ * now Forest Green & Cream. Same family, lighter surface.
  */
+const RETIRED_THEMES = {
+  classic: 'forest',   // cream and brown, retired before this set
+  modern: 'teal',      // Modern Green — bright green on white
+  lux: 'forest',       // Emerald & Gold — green with a gold accent
+  blueprint: 'azure',  // Blueprint Blue
+  slate: 'ice',        // Midnight Blue
+  estate: 'clay',      // Warm Umber
+};
+
 export function normalizeTheme(theme) {
-  if (theme === 'classic') return 'forest';
-  return THEMES[theme] ? theme : 'modern';
+  if (RETIRED_THEMES[theme]) return RETIRED_THEMES[theme];
+  return THEMES[theme] ? theme : DEFAULT_THEME;
 }
 
-/** [accent, background] swatch pairs for the admin theme picker. */
-export const THEME_CHIPS = {
-  modern: ['#147a4a', '#ffffff'],
-  forest: ['#5fbf82', '#0b1d13'],
-  lux: ['#cdb37e', '#0f231b'],
-  blueprint: ['#1553b5', '#eef3f8'],
-  slate: ['#4f8fde', '#171c23'],
-  estate: ['#b3762e', '#1c1916'],
-};
+/** Swatch stops for the admin theme picker: brand, accent, page. */
+export const THEME_CHIPS = Object.fromEntries(
+  Object.entries(THEMES).map(([key, t]) => [key, [t.primary, t.accent, t.background]]),
+);
+
+/**
+ * The colour the phone paints its status bar with. The primary is the darkest
+ * of the five, which is what the chrome should match — these are light themes,
+ * so the background would wash the bar out.
+ */
+export const THEME_COLORS = Object.fromEntries(
+  Object.entries(THEMES).map(([key, t]) => [key, t.primary]),
+);
 
 export const TOOLS = [
   { k: 'payment', name: 'See My Payment', q: 'What would a home cost me each month?' },
@@ -420,15 +490,183 @@ export function suggestPrograms({ veteran, downPct, credit }) {
   return out.slice(0, 2);
 }
 
-/** The six move-in phases, offset in weeks from the offer date. */
-export const MOVE_IN_PHASES = [
-  ['Offer accepted & earnest money', 0],
-  ['Home inspection', 1],
-  ['Appraisal ordered', 2],
-  ['Loan underwriting & approval', 4],
-  ['Final walkthrough', 5],
-  ['Closing day — keys', 6],
+// ── the move-in plan ───────────────────────────────────────────────────────
+
+/**
+ * How the buyer is paying decides the shape of the timeline. Cash and a loan
+ * are genuinely different: no appraisal, no underwriting, and keys weeks
+ * sooner. The three loan programs are not — conventional, FHA and VA all run
+ * the same sequence, so asking which one here would imply a difference the
+ * dates do not actually make.
+ */
+export const PAY_METHODS = [
+  { k: 'loan', label: 'With a loan' },
+  { k: 'cash', label: 'Paying cash' },
 ];
+export const PAY_METHOD_KEYS = PAY_METHODS.map((m) => m.k);
+
+/**
+ * Every step of the purchase, offset in weeks from the offer. A null week means
+ * the method skips that step entirely. `who` answers the question buyers are
+ * really sitting with — "is this one mine?" — because most of the waiting is
+ * somebody else's work and nobody tells them that.
+ */
+export const MOVE_IN_STEPS = [
+  { key: 'preapproval', label: 'Get pre-approved', who: 'you', weeks: { loan: -3, cash: null } },
+  { key: 'proof', label: 'Gather proof of funds', who: 'you', weeks: { loan: null, cash: -1 } },
+  { key: 'offer', label: 'Offer accepted & earnest money', who: 'you', weeks: { loan: 0, cash: 0 } },
+  { key: 'inspection', label: 'Home inspection', who: 'you', weeks: { loan: 1, cash: 1 } },
+  { key: 'appraisal', label: 'Appraisal ordered', who: 'lender', weeks: { loan: 2, cash: null } },
+  { key: 'underwriting', label: 'Loan underwriting & approval', who: 'lender', weeks: { loan: 4, cash: null } },
+  { key: 'walkthrough', label: 'Final walkthrough', who: 'you', weeks: { loan: 5, cash: 2 } },
+  { key: 'closing', label: 'Closing day — keys', who: 'you', weeks: { loan: 6, cash: 3 } },
+];
+
+export const MOVE_IN_STEP_KEYS = MOVE_IN_STEPS.map((s) => s.key);
+export const WHO_LABELS = { you: 'You', lender: 'Your lender', builder: 'The builder' };
+
+/** Optional prompts for what is driving the date, each adding steps of its own. */
+export const MOVE_IN_DRIVERS = [
+  {
+    k: 'lease',
+    label: 'My lease is ending',
+    steps: [{ key: 'notice', label: 'Give notice to your landlord', who: 'you', beforeKeys: 60 }],
+  },
+  {
+    k: 'selling',
+    label: 'I need to sell first',
+    steps: [{ key: 'list', label: 'List your current home', who: 'you', beforeKeys: 120 }],
+  },
+  {
+    k: 'school',
+    label: 'Before the school year',
+    steps: [{ key: 'school', label: 'Register for school', who: 'you', beforeKeys: 30 }],
+  },
+  {
+    k: 'movers',
+    label: 'I need to book movers',
+    steps: [{ key: 'movers', label: 'Book movers', who: 'you', beforeKeys: 21 }],
+  },
+];
+export const MOVE_IN_DRIVER_KEYS = MOVE_IN_DRIVERS.map((d) => d.k);
+export const MOVE_IN_DRIVER_STEP_KEYS = MOVE_IN_DRIVERS.flatMap((d) => d.steps.map((s) => s.key));
+
+/** Weeks from offer to keys, by method. */
+export const closingWeeks = (payMethod) =>
+  MOVE_IN_STEPS.find((s) => s.key === 'closing')?.weeks[payMethod] ?? 6;
+
+/**
+ * When a home could hand over keys. A finished home is limited only by the
+ * paperwork. Anything still being built is limited by the build, and we do not
+ * guess at that: either the builder set a date or the buyer is told plainly
+ * that nobody has. Inventing a date here would have someone giving notice on
+ * their lease around a number we made up.
+ */
+export function homeReadiness(home) {
+  if (!home || home.availability === 'Move-in ready') return { built: true, on: '' };
+  return { built: false, on: home.readyOn || '' };
+}
+
+/** Literal date arithmetic: 'YYYY-MM-DD' shifted by whole days, no timezone in the way. */
+export function shiftDate(value, days) {
+  const [y, m, d] = String(value ?? '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  return isoDate(date);
+}
+
+/** Whole days from `from` to `to`. Negative when `to` is the earlier date. */
+export function daysBetween(from, to) {
+  const parse = (value) => {
+    const [y, m, d] = String(value ?? '').split('-').map(Number);
+    return y && m && d ? new Date(y, m - 1, d) : null;
+  };
+  const a = parse(from);
+  const b = parse(to);
+  if (!a || !b) return null;
+  return Math.round((b - a) / 86400000);
+}
+
+/**
+ * The buyer's timeline, worked backwards from the date they want to be living
+ * there — the question they have an answer to, unlike "when would you make an
+ * offer?". Everything else falls out of it, including the date they would have
+ * to start.
+ */
+export function moveInSchedule({ target, payMethod = 'loan', home = null, drivers = [], today = isoDate(new Date()) }) {
+  const method = PAY_METHOD_KEYS.includes(payMethod) ? payMethod : 'loan';
+  const span = closingWeeks(method) * 7;
+  const ready = homeReadiness(home);
+
+  // Keys can come no sooner than the paperwork allows, and never before the
+  // home itself is finished.
+  const soonestPaperwork = shiftDate(today, span);
+  const unknownReady = !ready.built && !ready.on;
+  const earliest = unknownReady
+    ? ''
+    : !ready.built && ready.on > soonestPaperwork
+      ? ready.on
+      : soonestPaperwork;
+
+  const keys = target || earliest;
+  const feasible = Boolean(keys) && (!earliest || keys >= earliest);
+  const offerBy = keys ? shiftDate(keys, -span) : '';
+
+  const steps = MOVE_IN_STEPS.filter((step) => step.weeks[method] !== null).map((step) => ({
+    key: step.key,
+    label: step.label,
+    who: step.who,
+    date: offerBy ? shiftDate(offerBy, step.weeks[method] * 7) : '',
+  }));
+
+  // A driver's steps hang off the keys date, not the offer — "give notice 60
+  // days before you move" is about the move, not the paperwork.
+  const driverSteps = MOVE_IN_DRIVERS.filter((d) => drivers.includes(d.k)).flatMap((d) =>
+    d.steps.map((step) => ({
+      key: step.key,
+      label: step.label,
+      who: step.who,
+      date: keys ? shiftDate(keys, -step.beforeKeys) : '',
+    })),
+  );
+
+  return { payMethod: method, span, keys, offerBy, earliest, feasible, unknownReady, steps: [...steps, ...driverSteps] };
+}
+
+/**
+ * The gap a renter actually loses sleep over. Positive days mean the lease runs
+ * past the keys — paying for two places. Negative means it ends first, with
+ * nowhere to live in between.
+ */
+export function leaseOverlap(leaseEnd, keys) {
+  const days = daysBetween(keys, leaseEnd);
+  if (days === null) return null;
+  return { days, kind: days > 0 ? 'overlap' : days < 0 ? 'gap' : 'same' };
+}
+
+/** Everything the buyer built, ordered by date, with their own items folded in. */
+export function moveInTimeline(plan, { home = null, today } = {}) {
+  const schedule = moveInSchedule({
+    target: plan?.targetDate || '',
+    payMethod: plan?.payMethod || 'loan',
+    drivers: plan?.drivers || [],
+    home,
+    ...(today ? { today } : {}),
+  });
+  const own = (plan?.ownSteps || []).map((step) => ({
+    key: `own:${step.id}`,
+    label: step.label,
+    who: 'you',
+    date: step.date || '',
+    own: true,
+  }));
+  const done = new Set(plan?.done || []);
+  const items = [...schedule.steps, ...own]
+    .map((step) => ({ ...step, done: done.has(step.key) }))
+    .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  return { ...schedule, items };
+}
 
 /** Percent of the 8-item home plan a lead has completed. */
 export function planProgress(lead) {

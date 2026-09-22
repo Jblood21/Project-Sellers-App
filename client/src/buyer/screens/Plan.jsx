@@ -61,7 +61,7 @@ export default function Plan({ onOpenTour }) {
               gap: 4, textAlign: 'left', color: 'var(--t-ink)',
             }}
           >
-            <span className="b-lbl" style={{ color: 'var(--t-acc)' }}>{item.label}</span>
+            <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>{item.label}</span>
             <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>{item.summary}</span>
           </button>
         ))}

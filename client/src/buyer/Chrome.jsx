@@ -63,7 +63,7 @@ export function BuyerHeader({ onOpenMenu }) {
           style={{
             display: 'flex', alignItems: 'center', gap: 3, minHeight: 40, padding: '0 10px 0 6px',
             borderRadius: 'var(--t-radbtn)', border: 'none', background: 'transparent',
-            color: 'var(--t-acc)', fontFamily: 'var(--t-font)', fontSize: 13, fontWeight: 600,
+            color: 'var(--t-accT)', fontFamily: 'var(--t-font)', fontSize: 13, fontWeight: 600,
             cursor: 'pointer', flex: 'none',
           }}
         >
@@ -195,7 +195,7 @@ const menuSecondary = {
   borderRadius: 'var(--t-rad)',
   border: 'none',
   background: 'transparent',
-  color: 'var(--t-acc)',
+  color: 'var(--t-accT)',
   fontFamily: 'var(--t-font)',
   fontSize: 14.5,
   fontWeight: 600,
@@ -235,7 +235,7 @@ export function TutorialSheet({ open, onClose }) {
   return (
     <div className="b-sheet-backdrop" role="dialog" aria-label="Show me around">
       <div className="b-sheet">
-        <span className="b-lbl" style={{ color: 'var(--t-acc)' }}>
+        <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>
           Show me around · {step + 1} of {TUTORIAL.length}
         </span>
         <span className="b-head" style={{ fontSize: 21 }}>{TUTORIAL[step].title}</span>

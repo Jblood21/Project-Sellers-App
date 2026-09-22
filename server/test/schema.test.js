@@ -25,6 +25,19 @@ const LEGACY = readFileSync(join(here, 'fixtures/schema-legacy.sql'), 'utf8');
 const URL_ = process.env.TEST_DATABASE_URL;
 const opts = URL_ ? {} : { skip: 'set TEST_DATABASE_URL to run the Postgres schema tests' };
 
+/**
+ * 'YYYY-MM-DD' a few days out. listOpenSlots only returns slots that have not
+ * happened yet, so a hardcoded date stops exercising it the day it goes past —
+ * this test was pinned to '2026-09-20' and went red on the 21st, in a suite
+ * that had been green the evening before.
+ */
+const futureDate = (daysAhead) => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 /** Each case gets its own database so one failure cannot poison the next. */
 async function withDatabase(name, fn) {
   const admin = new pg.Client({ connectionString: URL_ });
@@ -148,19 +161,20 @@ test('a slot date survives Postgres unchanged', opts, async () => {
     try {
       await store.init();
       const community = await store.createCommunity({ name: 'Slot Round Trip' });
-      const [made] = await store.createSlots(community.id, ['2026-09-20'], ['14:00']);
+      const date = futureDate(3);
+      const [made] = await store.createSlots(community.id, [date], ['14:00']);
 
       // The literal the builder picked, not a timestamp re-rendered in whatever
       // zone the reader happens to be in. pg hands DATE back as a Date object,
       // which is exactly where a day can slip.
-      assert.equal(made.date, '2026-09-20', 'the date comes back as written');
+      assert.equal(made.date, date, 'the date comes back as written');
       assert.equal(made.time, '14:00');
 
       const [listed] = await store.listSlots(community.id);
-      assert.equal(listed.date, '2026-09-20', 'and again when read back');
+      assert.equal(listed.date, date, 'and again when read back');
 
       const [open] = await store.listOpenSlots(community.id);
-      assert.equal(open?.date, '2026-09-20');
+      assert.equal(open?.date, date, 'and it is still a slot a buyer could book');
     } finally {
       await store.close();
     }
@@ -242,6 +256,78 @@ test('two people can share an email once the unique index is gone', opts, async 
         name: 'Al Rivera', email: 'shared@test.co', phone: '(801) 555-0999',
       });
       assert.equal(stranger, null, 'and nobody for details that match neither');
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('an older database gains the move-in plan without losing its homes', opts, async () => {
+  await withDatabase('schema_movein_test', async (url) => {
+    await applyLegacy(url);
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    await client.query(
+      `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools)
+       VALUES ('c1', 'Willow Creek', 'Lehi, Utah', 'Now selling', 'estate', 'Hearthside', '{}', '{}')`,
+    );
+    await client.query(
+      `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description, availability)
+       VALUES ('h1', 'c1', 'The Cedar', 520000, 4, 3, 2400, 'Nice', 'Under Construction')`,
+    );
+    await client.end();
+
+    await boot(url);
+
+    const after = new pg.Client({ connectionString: url });
+    await after.connect();
+    // The home is still there, and its new column arrived empty rather than
+    // asserting a completion date nobody set.
+    const home = await after.query(`SELECT name, ready_on FROM homes WHERE id = 'h1'`);
+    assert.equal(home.rows[0].name, 'The Cedar');
+    assert.equal(home.rows[0].ready_on, '', 'no date until the builder sets one');
+    const table = await after.query(
+      `SELECT to_regclass('public.lead_movein') AS t`,
+    );
+    assert.ok(table.rows[0].t, 'the move-in table exists after the upgrade');
+    await after.end();
+  });
+});
+
+test('a move-in plan round-trips through Postgres', opts, async () => {
+  await withDatabase('schema_movein_rt', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Move-In Round Trip' });
+      const home = await store.createHome(community.id, {
+        name: 'The Cedar', price: 520000, beds: 4, baths: 3, sqft: 2400,
+        description: 'Nice', availability: 'Under Construction', readyOn: '2027-06-01',
+      });
+      assert.equal(home.readyOn, '2027-06-01', 'stored as the literal date it was given');
+
+      const lead = await store.createLead(community.id, {
+        name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114',
+      });
+      await store.saveMoveIn(lead.id, {
+        homeId: home.id, targetDate: '2027-08-01', leaseEnd: '2027-08-15', payMethod: 'cash',
+        drivers: ['lease'], done: ['offer'],
+        ownSteps: [{ id: 'own1', label: 'Transfer utilities', date: '2027-07-28' }],
+      });
+
+      const read = await store.getLead(lead.id);
+      assert.equal(read.moveIn.targetDate, '2027-08-01', 'no timezone shifted the date');
+      assert.equal(read.moveIn.payMethod, 'cash');
+      assert.deepEqual(read.moveIn.drivers, ['lease']);
+      assert.deepEqual(read.moveIn.done, ['offer']);
+      assert.equal(read.moveIn.ownSteps[0].label, 'Transfer utilities');
+
+      // Saving again replaces the plan rather than stacking up rows.
+      await store.saveMoveIn(lead.id, { targetDate: '2027-09-01', payMethod: 'loan' });
+      const again = await store.getLead(lead.id);
+      assert.equal(again.moveIn.targetDate, '2027-09-01');
+      assert.deepEqual(again.moveIn.ownSteps, [], 'the replaced plan is the whole plan');
+      assert.equal(again.moveIn.homeId, null);
     } finally {
       await store.close();
     }

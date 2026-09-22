@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS communities (
 -- to arrive by ALTER. Keep these directly under their table and above any index
 -- or constraint that names them.
 ALTER TABLE communities ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}'::jsonb;
+-- The column default still named 'classic', a theme retired two palettes ago.
+-- Nothing reads it (both stores pass a theme explicitly) but a default that
+-- names a dead theme is a trap for the next person who inserts a row by hand.
+ALTER TABLE communities ALTER COLUMN theme SET DEFAULT 'navy';
 
 CREATE TABLE IF NOT EXISTS homes (
   id           TEXT PRIMARY KEY,
@@ -35,10 +39,15 @@ CREATE TABLE IF NOT EXISTS homes (
   description  TEXT NOT NULL DEFAULT '',
   availability TEXT NOT NULL DEFAULT 'Planning',
   lot_number   TEXT NOT NULL DEFAULT '',
+  ready_on     TEXT NOT NULL DEFAULT '',
   position     INTEGER NOT NULL DEFAULT 0,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE homes ADD COLUMN IF NOT EXISTS lot_number TEXT NOT NULL DEFAULT '';
+-- When an unfinished home hands over keys. A literal 'YYYY-MM-DD' like slots,
+-- for the same reason: a timestamp would drift a day for some viewers, and a
+-- buyer gives notice on their lease around this date.
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS ready_on TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS homes_community_idx ON homes(community_id);
 
@@ -131,6 +140,22 @@ CREATE TABLE IF NOT EXISTS lead_plan_items (
   summary    TEXT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (lead_id, key)
+);
+
+-- The buyer's own move-in plan: the date they want to be in, what is driving
+-- it, the steps they ticked off and the ones they added themselves. One row per
+-- lead, so it survives them coming back on a different phone -- localStorage
+-- would lose the whole thing, and a plan you rebuild every visit is not yours.
+CREATE TABLE IF NOT EXISTS lead_movein (
+  lead_id     TEXT PRIMARY KEY REFERENCES leads(id) ON DELETE CASCADE,
+  home_id     TEXT,
+  target_date TEXT NOT NULL DEFAULT '',
+  lease_end   TEXT NOT NULL DEFAULT '',
+  pay_method  TEXT NOT NULL DEFAULT 'loan',
+  drivers     JSONB NOT NULL DEFAULT '[]'::jsonb,
+  done        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  own_steps   JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS lead_activity (

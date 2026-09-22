@@ -65,12 +65,13 @@ export default function SetupTab({ community, reload }) {
       <div className="card elev-sm" style={{ gap: 10 }}>
         <span className="card-kicker">Buyer app theme</span>
         <div className="grid-3">
-          {Object.entries(THEMES).map(([key, label]) => (
+          {Object.entries(THEMES).map(([key, theme]) => (
             <button
               key={key}
               type="button"
               onClick={() => setTheme(key)}
               aria-pressed={community.theme === key}
+              title={theme.note}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 6px',
                 borderRadius: 12, cursor: 'pointer', background: 'transparent',
@@ -80,11 +81,16 @@ export default function SetupTab({ community, reload }) {
               <span
                 style={{
                   width: 34, height: 34, borderRadius: '50%',
-                  background: `linear-gradient(135deg, ${THEME_CHIPS[key][0]} 50%, ${THEME_CHIPS[key][1]} 50%)`,
+                  background: `conic-gradient(${THEME_CHIPS[key][0]} 0 33%, ${THEME_CHIPS[key][1]} 33% 66%, ${THEME_CHIPS[key][2]} 66% 100%)`,
                   border: '1px solid var(--color-divider)',
                 }}
               />
-              <span style={{ fontSize: 11.5, fontWeight: 600, textAlign: 'center' }}>{label}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.25 }}>
+                {theme.name}
+              </span>
+              <span className="text-muted" style={{ fontSize: 10, textAlign: 'center', lineHeight: 1.3 }}>
+                {theme.note}
+              </span>
             </button>
           ))}
         </div>

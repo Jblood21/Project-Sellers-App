@@ -21,7 +21,7 @@ export default function Landing({ onAddToPhone }) {
       <div style={{ height: 190, borderRadius: 'var(--t-radlg)', overflow: 'hidden', marginBottom: 20 }}>
         <Photo photo={community?.heroPhoto ? { url: community.heroPhoto } : null} label={`${community?.name} community photo`} />
       </div>
-      <span className="b-lbl" style={{ color: 'var(--t-acc)' }}>You scanned the sign at</span>
+      <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>You scanned the sign at</span>
       <h1 className="b-head" style={{ margin: '4px 0 2px', fontSize: 34 }}>{community?.name}</h1>
       <p style={{ margin: '0 0 22px', color: 'var(--t-mut)', fontSize: 14 }}>
         {community?.location}

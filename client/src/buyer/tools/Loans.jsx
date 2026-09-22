@@ -56,7 +56,7 @@ export default function Loans() {
             >
               <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                 <span className="b-head" style={{ fontSize: 16 }}>{name}</span>
-                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--t-acc)' }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--t-accT)' }}>
                   {rates[key].toFixed(2)}%
                 </span>
               </span>
@@ -105,7 +105,7 @@ export default function Loans() {
               <div key={item.k} className="b-stack" style={{ gap: 4 }}>
                 <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <span className="b-head" style={{ fontSize: 16 }}>{PROGRAMS[item.k]}</span>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--t-acc)' }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--t-accT)' }}>
                     {rates[item.k].toFixed(2)}%
                   </span>
                 </span>

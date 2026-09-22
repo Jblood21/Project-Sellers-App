@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  DEFAULT_SETTINGS, THEMES, affordabilityLevers, calcAffordability, calcPayment, creditRanges,
-  normalizeTheme, pay30, planProgress, screenDpa, suggestPrograms,
+  DEFAULT_SETTINGS, DEFAULT_THEME, THEMES, THEME_CHIPS, THEME_COLORS, affordabilityLevers,
+  calcAffordability, calcPayment, creditRanges,
+  daysBetween, leaseOverlap, moveInSchedule, moveInTimeline, normalizeTheme, pay30, planProgress,
+  screenDpa, shiftDate, suggestPrograms,
 } from '../../shared/domain.js';
 
 const settings = DEFAULT_SETTINGS;
@@ -162,11 +164,129 @@ test('the debt lever matches what clearing the debt actually produces', () => {
 });
 
 test('retired themes still resolve so old communities keep rendering', () => {
-  assert.equal(normalizeTheme('classic'), 'forest', 'the retired theme maps to its replacement');
-  assert.equal(normalizeTheme('forest'), 'forest');
-  assert.equal(normalizeTheme('nonsense'), 'modern', 'an unknown theme falls back, never undefined');
-  assert.equal(normalizeTheme(undefined), 'modern');
+  // Every palette that has ever shipped. A community carrying one of these
+  // renders with no colour variables at all if it resolves to nothing — white
+  // text on a white page — so each retired key has to land somewhere real.
+  for (const retired of ['classic', 'modern', 'lux', 'blueprint', 'slate', 'estate']) {
+    const now = normalizeTheme(retired);
+    assert.ok(THEMES[now], `${retired} maps to a theme that exists, got ${now}`);
+  }
+  assert.equal(normalizeTheme('slate'), 'ice', 'Midnight Blue becomes the nearest dark navy');
+  assert.equal(normalizeTheme('estate'), 'clay', 'Warm Umber becomes the warm real-estate palette');
+
+  assert.equal(normalizeTheme('nonsense'), DEFAULT_THEME, 'an unknown theme falls back, never undefined');
+  assert.equal(normalizeTheme(undefined), DEFAULT_THEME);
   for (const key of Object.keys(THEMES)) {
     assert.equal(normalizeTheme(key), key, `${key} survives normalization`);
   }
+});
+
+test('every theme carries the five colours its stylesheet is built from', () => {
+  const hex = /^#[0-9A-Fa-f]{6}$/;
+  assert.equal(Object.keys(THEMES).length, 10);
+  for (const [key, t] of Object.entries(THEMES)) {
+    assert.ok(t.name && t.note, `${key} is labelled for the admin picker`);
+    for (const field of ['primary', 'secondary', 'accent', 'background', 'text']) {
+      assert.match(t[field], hex, `${key}.${field} is a full hex colour`);
+    }
+    // The swatch and the phone's status bar are derived, not hand-kept lists —
+    // three copies of the same palette is how they drift apart.
+    assert.deepEqual(THEME_CHIPS[key], [t.primary, t.accent, t.background]);
+    assert.equal(THEME_COLORS[key], t.primary);
+  }
+  assert.ok(THEMES[DEFAULT_THEME], 'the default names a theme that exists');
+});
+
+// ── the move-in plan ───────────────────────────────────────────────────────
+
+test('the timeline works backwards from the date the buyer wants to be in', () => {
+  const s = moveInSchedule({
+    target: '2027-03-01', payMethod: 'loan', home: { availability: 'Move-in ready' }, today: '2026-09-18',
+  });
+  // Six weeks of paperwork before the keys, so the offer has to be in by then.
+  assert.equal(s.keys, '2027-03-01');
+  assert.equal(s.offerBy, '2027-01-18');
+  assert.equal(daysBetween(s.offerBy, s.keys), 42);
+  const closing = s.steps.find((step) => step.key === 'closing');
+  assert.equal(closing.date, '2027-03-01', 'the last step lands on the date they asked for');
+});
+
+test('paying cash drops the lender steps and pulls the keys forward', () => {
+  const loan = moveInSchedule({ target: '', payMethod: 'loan', home: null, today: '2026-09-18' });
+  const cash = moveInSchedule({ target: '', payMethod: 'cash', home: null, today: '2026-09-18' });
+
+  const keys = (s) => s.steps.map((step) => step.key);
+  assert.ok(keys(loan).includes('underwriting') && keys(loan).includes('appraisal'));
+  assert.ok(!keys(cash).includes('underwriting'), 'cash has nothing to underwrite');
+  assert.ok(!keys(cash).includes('appraisal'), 'cash needs no lender appraisal');
+  assert.ok(cash.keys < loan.keys, 'and gets keys sooner');
+  assert.equal(daysBetween(cash.keys, loan.keys), 21);
+});
+
+test('an unfinished home is not told six weeks', () => {
+  const today = '2026-09-18';
+  // The bug this replaces: every home got the same six-week schedule, so a home
+  // that is still being built told the buyer they would have keys by November.
+  const built = moveInSchedule({ target: '', home: { availability: 'Move-in ready' }, today });
+  const later = moveInSchedule({
+    target: '', home: { availability: 'Under Construction', readyOn: '2027-06-01' }, today,
+  });
+  assert.equal(built.earliest, '2026-10-30');
+  assert.equal(later.earliest, '2027-06-01', 'the build, not the paperwork, sets the earliest date');
+  assert.ok(later.earliest > built.earliest);
+});
+
+test('a target the home cannot meet is reported, not quietly accepted', () => {
+  const s = moveInSchedule({
+    target: '2027-01-15', home: { availability: 'Under Construction', readyOn: '2027-02-01' }, today: '2026-09-18',
+  });
+  assert.equal(s.feasible, false);
+  assert.equal(s.earliest, '2027-02-01');
+
+  const ok = moveInSchedule({
+    target: '2027-04-01', home: { availability: 'Under Construction', readyOn: '2027-02-01' }, today: '2026-09-18',
+  });
+  assert.equal(ok.feasible, true);
+});
+
+test('a home with no completion date says so rather than inventing one', () => {
+  const s = moveInSchedule({
+    target: '2027-01-15', home: { availability: 'Under Construction' }, today: '2026-09-18',
+  });
+  assert.equal(s.unknownReady, true);
+  assert.equal(s.earliest, '', 'no date is better than a made-up one');
+});
+
+test('the lease overlap is the number a renter actually needs', () => {
+  assert.deepEqual(leaseOverlap('2027-03-31', '2027-03-01'), { days: 30, kind: 'overlap' });
+  assert.deepEqual(leaseOverlap('2027-02-01', '2027-03-01'), { days: -28, kind: 'gap' });
+  assert.deepEqual(leaseOverlap('2027-03-01', '2027-03-01'), { days: 0, kind: 'same' });
+  assert.equal(leaseOverlap('', '2027-03-01'), null);
+});
+
+test('drivers and the buyer\'s own steps land in date order with the rest', () => {
+  const plan = {
+    targetDate: '2027-03-01', payMethod: 'loan', drivers: ['lease'],
+    done: ['preapproval'],
+    ownSteps: [{ id: 'x1', label: 'Transfer utilities', date: '2027-02-27' }],
+  };
+  const t = moveInTimeline(plan, { home: { availability: 'Move-in ready' }, today: '2026-09-18' });
+
+  const labels = t.items.map((i) => i.label);
+  assert.ok(labels.includes('Give notice to your landlord'), 'the lease driver added its step');
+  assert.ok(labels.includes('Transfer utilities'), 'their own step is in the list');
+
+  const dates = t.items.map((i) => i.date);
+  assert.deepEqual(dates, [...dates].sort(), 'everything is in date order');
+
+  assert.equal(t.items.find((i) => i.key === 'preapproval').done, true);
+  assert.equal(t.items.find((i) => i.key === 'own:x1').done, false);
+});
+
+test('literal date arithmetic does not drift across a month or a year', () => {
+  assert.equal(shiftDate('2026-12-31', 1), '2027-01-01');
+  assert.equal(shiftDate('2027-03-01', -1), '2027-02-28');
+  assert.equal(shiftDate('2028-03-01', -1), '2028-02-29', 'leap year');
+  assert.equal(shiftDate('', 5), '');
+  assert.equal(daysBetween('2026-09-18', '2026-09-18'), 0);
 });

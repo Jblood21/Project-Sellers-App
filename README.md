@@ -108,10 +108,24 @@ already gone green:
 1. Render dashboard → your service → **Settings → Deploy Hook**, copy the URL.
 2. GitHub → **Settings → Secrets and variables → Actions → New repository secret**,
    named `RENDER_DEPLOY_HOOK_URL`.
-3. Turn Render's own **Auto-Deploy** off, so the two do not race.
+3. Check **Auto-Deploy** reads *No* on the service. `render.yaml` sets `autoDeploy: false`
+   so a blueprint sync does not turn it back on, but a service created before that needs
+   the dashboard switched by hand once.
+4. Render dashboard → **Manual Deploy → Deploy latest commit**, once, to catch the service
+   up to whatever merged while the hook was missing.
 
 Merges to `main` now deploy once tests pass. Without the secret the step skips with a
 note, so nothing breaks if you would rather deploy by hand.
+
+To check what is actually live:
+
+```
+curl https://<your-domain>/api/health
+{"ok":true,"store":"postgres","commit":"8cbf655…"}
+```
+
+`commit` is the sha Render built, so it answers "did my merge reach the site?" without
+going looking for the change by hand. It is empty off Render, where there is no build.
 
 ### Live rates via Zapier
 
@@ -133,8 +147,13 @@ Three things a buyer standing at a sign asks before they ask about financing:
 - **Lot numbers** — a field on each home, shown beside the beds/baths line.
 - **Floor plans** — up to four drawings per home, stored under their own photo kind so
   they never appear in the photo carousel and never count against the 12-photo gallery limit.
-- **Site map** — the community plat, uploaded under **Setup**, with a tap-to-enlarge view and a
-  list of the lots that have a home on them.
+- **Site map** — the community plat, uploaded under **Setup**, with a list of the lots that have
+  a home on them.
+
+Both open in the same full-screen viewer, **inside the app**. They used to open with
+`target="_blank"`, which on a phone with the app added to the home screen is a window with no
+back button and no tabs — a buyer could not get out without killing the app. The viewer closes
+four ways: the ✕, a Done button, tapping outside, and Escape.
 
 Each is switched on or off per community under **Tools → What buyers see**. A feature that is
 switched off is **stripped from the buyer payload on the server**, not merely hidden in the
