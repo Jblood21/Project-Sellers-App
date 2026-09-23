@@ -74,6 +74,28 @@ export const adminApi = {
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/photos/${kind}`, {
       method: 'POST', body, token,
     }),
+  /**
+   * The lead's MISMO 3.4 file. Fetched rather than linked because the admin API
+   * is Bearer-authenticated and an <a href> cannot carry the header — so the
+   * bytes come back here and the browser is handed a blob to save.
+   */
+  downloadLeadMismo: async (token, leadId) => {
+    const res = await fetch(`/api/admin/leads/${encodeURIComponent(leadId)}/mismo`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`Could not build the file (${res.status})`);
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const name = /filename="([^"]+)"/.exec(disposition)?.[1] || 'lead-mismo34.xml';
+    const url = URL.createObjectURL(await res.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    return name;
+  },
   deletePhoto: (token, id) => request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   slots: (token, communityId) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/slots`, { token }),

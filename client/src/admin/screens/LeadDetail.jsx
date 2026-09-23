@@ -19,6 +19,19 @@ export default function LeadDetail({ community, reload }) {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [notesSaved, setNotesSaved] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadMismo = async () => {
+    setDownloading(true);
+    setError('');
+    try {
+      await adminApi.downloadLeadMismo(token, leadId);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     adminApi
@@ -205,6 +218,21 @@ export default function LeadDetail({ community, reload }) {
           {notesSaved ? 'Saved ✓' : 'Save notes'}
         </button>
       </div>
+      <div className="card elev-sm" style={{ gap: 8 }}>
+        <span className="card-kicker">Hand off to a lender</span>
+        <p className="card-body" style={{ margin: 0 }}>
+          A MISMO 3.4 file your LOS can import, so nobody retypes this buyer.
+          Their name, phone, email, the home they are looking at and their move-in
+          plan — not income, assets or credit, which this app never collects.
+        </p>
+        <button
+          type="button" className="btn btn-secondary" onClick={downloadMismo}
+          disabled={downloading} style={{ alignSelf: 'flex-start' }}
+        >
+          {downloading ? 'Building…' : 'Download 3.4 file'}
+        </button>
+      </div>
+
     {!lead.archivedAt ? (
         <button
           type="button"

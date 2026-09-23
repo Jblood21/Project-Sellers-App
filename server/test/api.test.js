@@ -1045,3 +1045,52 @@ test('health reports the commit that is running, and nothing when there is none'
     delete process.env.RENDER_GIT_COMMIT;
   }
 });
+
+test('a lead comes out as a MISMO 3.4 file a lender can import', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Mismo Test', location: 'Lehi, Utah' },
+  });
+  const cid = community.body.id;
+  const home = await api(`/api/admin/communities/${cid}/homes`, {
+    method: 'POST', token, body: { name: 'The Cedar', price: 519900, lotNumber: 'Lot 14' },
+  });
+
+  const gate = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Dana Reyes', email: 'dana@test.co', phone: '(801) 555-0114' },
+  });
+  const buyerToken = gate.body.token;
+  const saved = await api('/api/me/saves', {
+    method: 'POST', token: buyerToken, body: { homeId: home.body.id },
+  });
+  assert.equal(saved.status, 200, 'the buyer starred the home');
+
+  // The download is not JSON, so it goes through fetch directly.
+  const res = await fetch(`${base}/api/admin/leads/${gate.body.lead.id}/mismo`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /xml/);
+  assert.match(
+    res.headers.get('content-disposition'),
+    /attachment; filename="Reyes-Dana-.*-mismo34\.xml"/,
+    'it downloads under a name a loan officer can find again',
+  );
+
+  const xml = await res.text();
+  assert.match(xml, /MISMOReferenceModelIdentifier="3\.4\.0322"/);
+  assert.match(xml, /<LastName>Reyes<\/LastName>/);
+  assert.match(xml, /<ContactPointTelephoneValue>8015550114<\/ContactPointTelephoneValue>/);
+  assert.match(xml, /<StateCode>UT<\/StateCode>/);
+  // The price comes from the home they actually starred, not from anywhere else.
+  assert.match(xml, /<SalesContractAmount>519900<\/SalesContractAmount>/);
+  assert.match(xml, /<AddressLineText>Lot 14<\/AddressLineText>/);
+
+  assert.equal(
+    (await api('/api/admin/leads/nope/mismo', { token })).status, 404,
+    'a lead that does not exist is a 404, not a file full of blanks',
+  );
+});
