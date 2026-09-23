@@ -22,37 +22,6 @@ export default function Explore() {
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h3 className="b-head" style={{ margin: '0 0 12px', fontSize: 22 }}>Explore Homes</h3>
 
-      {/*
-        The plat, above the list rather than on a screen of its own. A buyer
-        standing at a sign asks "which one is that?" before anything else, and
-        the homes underneath carry the lot numbers that answer it — so the
-        drawing belongs next to them, not one tap away.
-      */}
-      {map.length ? (
-        <div style={{ marginBottom: 16 }}>
-          <button
-            type="button"
-            onClick={() => {
-              track('Opened the site map from Explore Homes');
-              setMapOpen(true);
-            }}
-            aria-label={`Open the ${community?.name} site map full screen`}
-            style={{
-              width: '100%', padding: 0, cursor: 'zoom-in', background: 'var(--t-sur)',
-              border: '1px solid var(--t-line)', borderRadius: 'var(--t-radlg)', overflow: 'hidden',
-            }}
-          >
-            <div style={{ height: 170 }}>
-              <Photo photo={map[0]} label="" alt={`${community?.name} site map`} />
-            </div>
-          </button>
-          <span style={{ display: 'block', marginTop: 7, fontSize: 12, color: 'var(--t-mut)' }}>
-            {placed
-              ? 'Tap the site map to open it full screen, then match a lot number below.'
-              : 'Tap the site map to open it full screen.'}
-          </span>
-        </div>
-      ) : null}
       {homes.length === 0 ? (
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>
           Homes for this community are being added — check back soon.
@@ -115,6 +84,39 @@ export default function Explore() {
           );
         })}
       </div>
+
+      {/*
+        The plat, under the list rather than on a screen of its own. A buyer
+        scrolling for a home wants the homes first; the map is what they reach
+        for once they have one in mind and want to know where it sits. The lot
+        numbers on the cards above are the other half of that answer, so it
+        still belongs on this screen — just after them, not before.
+      */}
+      {map.length ? (
+        <div style={{ marginTop: 20 }}>
+          <button
+            type="button"
+            onClick={() => {
+              track('Opened the site map from Explore Homes');
+              setMapOpen(true);
+            }}
+            aria-label={`Open the ${community?.name} site map full screen`}
+            style={{
+              width: '100%', padding: 0, cursor: 'zoom-in', background: 'var(--t-sur)',
+              border: '1px solid var(--t-line)', borderRadius: 'var(--t-radlg)', overflow: 'hidden',
+            }}
+          >
+            <div style={{ height: 170 }}>
+              <Photo photo={map[0]} label="" alt={`${community?.name} site map`} />
+            </div>
+          </button>
+          <span style={{ display: 'block', marginTop: 7, fontSize: 12, color: 'var(--t-mut)' }}>
+            {placed
+              ? 'Tap the site map to open it full screen, then match a lot number below.'
+              : 'Tap the site map to open it full screen.'}
+          </span>
+        </div>
+      ) : null}
 
       <ImageViewer
         images={map}
