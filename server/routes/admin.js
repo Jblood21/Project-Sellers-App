@@ -6,6 +6,7 @@ import {
   SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
+import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
@@ -358,6 +359,28 @@ export function adminRouter() {
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
     if (lead.openedAt) return res.json(lead);
     res.json(await store.updateLead(lead.id, { openedAt: new Date().toISOString() }));
+  });
+
+  /**
+   * The lead as a MISMO 3.4 file, so a loan officer can import them rather than
+   * retype them. Contact and plan only — see server/lib/mismo.js for why.
+   */
+  router.get('/leads/:id/mismo', async (req, res) => {
+    const store = await getStore();
+    const lead = await store.getLead(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    const community = await store.getCommunity(lead.communityId);
+    // The home their plan names, or the first one they starred: either way a
+    // home they chose, which is what makes its price the sales price.
+    const homes = await store.listHomes(lead.communityId);
+    const home =
+      homes.find((h) => h.id === lead.moveIn?.homeId) ??
+      homes.find((h) => lead.savedHomeIds?.includes(h.id)) ??
+      null;
+
+    res.type('application/xml');
+    res.set('Content-Disposition', `attachment; filename="${mismoFilename(lead)}"`);
+    res.send(buildMismo34({ lead, community, home }));
   });
 
   router.patch('/leads/:id', async (req, res) => {
