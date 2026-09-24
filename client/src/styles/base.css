@@ -264,6 +264,10 @@ a { color: inherit; }
   gap: 10px;
 }
 
+/* A sheet holding a whole tool rather than a paragraph: it has to scroll, and
+   stop short of the top so the screen behind stays visible as context. */
+.b-sheet-tall { max-height: 88vh; overflow-y: auto; padding-top: 12px; }
+
 /* ── admin atoms ────────────────────────────────────────────────────────── */
 .a-shell { max-width: 900px; margin: 0 auto; padding: 24px 20px 80px; }
 .card {

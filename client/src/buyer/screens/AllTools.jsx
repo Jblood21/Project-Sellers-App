@@ -4,15 +4,27 @@ import { TOOLS } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { firstName } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
-import { planProgress } from '../progress.js';
 
-/** The buyer's home screen: progress, the homes banner, and the enabled tools. */
+/**
+ * The two questions a buyer asks before any other, so they lead rather than
+ * sitting in a grid of seven: what can I afford, and can I get help with the
+ * down payment. Everything else is a follow-up to one of these.
+ */
+const LEAD_TOOLS = ['afford', 'dpa'];
+
+/** The buyer's home screen: the two lead questions, the homes banner, the tools. */
 export default function AllTools() {
   const { community, homes, lead, track } = useBuyer();
   const { communityId } = useParams();
   const navigate = useNavigate();
-  const progress = planProgress(lead, communityId);
+  const here = { from: `/c/${communityId}/tools` };
+  const openTool = (tool) => {
+    track(`Opened ${tool.name}`);
+    navigate(`/c/${communityId}/tool/${tool.k}`, { state: here });
+  };
   const enabled = TOOLS.filter((tool) => community?.tools?.[tool.k]);
+  const lead2 = enabled.filter((tool) => LEAD_TOOLS.includes(tool.k));
+  const rest = enabled.filter((tool) => !LEAD_TOOLS.includes(tool.k));
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
@@ -23,32 +35,36 @@ export default function AllTools() {
         Answer a few natural questions and find out. Everything you do saves to your home plan.
       </p>
 
-      <div
-        style={{
-          background: 'var(--t-tint)', borderRadius: 'var(--t-radlg)', padding: 16,
-          marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 8,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-          <span className="b-head" style={{ fontSize: 15 }}>Your home plan</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t-accT)' }}>{progress.percent}% complete</span>
+      {lead2.length ? (
+        <div style={{ display: 'grid', gridTemplateColumns: lead2.length > 1 ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 18 }}>
+          {lead2.map((tool) => (
+            <button
+              key={tool.k}
+              type="button"
+              onClick={() => openTool(tool)}
+              style={{
+                cursor: 'pointer', background: 'var(--t-tint)', border: '1px solid var(--t-line)',
+                borderRadius: 'var(--t-radlg)', padding: 16, display: 'flex', flexDirection: 'column',
+                gap: 6, minHeight: 104, textAlign: 'left', color: 'var(--t-ink)',
+                fontFamily: 'var(--t-font)',
+              }}
+            >
+              {lead?.plan?.[tool.k] ? (
+                <span
+                  style={{
+                    alignSelf: 'flex-start', fontSize: 10, fontWeight: 700, letterSpacing: '.05em',
+                    color: 'var(--t-acc2)', textTransform: 'uppercase',
+                  }}
+                >
+                  ✓ In your plan
+                </span>
+              ) : null}
+              <span className="b-head" style={{ fontSize: 16, lineHeight: 1.2 }}>{tool.name}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--t-mut)', lineHeight: 1.4 }}>{tool.q}</span>
+            </button>
+          ))}
         </div>
-        <div className="b-bar"><span style={{ width: `${progress.percent}%` }} /></div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12.5, color: 'var(--t-mut)' }}>Next: {progress.nextLabel}</span>
-          <button
-            type="button"
-            onClick={() => navigate(progress.nextTo)}
-            style={{
-              flex: 'none', minHeight: 36, padding: '0 16px', borderRadius: 'var(--t-radbtn)',
-              border: 'none', background: 'var(--t-acc)', color: 'var(--t-onacc)',
-              fontFamily: 'var(--t-font)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            Go
-          </button>
-        </div>
-      </div>
+      ) : null}
 
       <div
         role="button"
@@ -132,14 +148,11 @@ export default function AllTools() {
       ) : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-        {enabled.map((tool) => (
+        {rest.map((tool) => (
           <button
             key={tool.k}
             type="button"
-            onClick={() => {
-              track(`Opened ${tool.name}`);
-              navigate(`/c/${communityId}/tool/${tool.k}`);
-            }}
+            onClick={() => openTool(tool)}
             style={{
               cursor: 'pointer', background: 'var(--t-sur)', border: '1px solid var(--t-line)',
               borderRadius: 'var(--t-radlg)', padding: 14, display: 'flex', flexDirection: 'column',

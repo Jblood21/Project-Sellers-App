@@ -5,7 +5,6 @@ import { PLAN_LABELS, TOOL_KEYS, describeTour } from '@shared/domain.js';
 import { buyerApi } from '../../lib/api.js';
 import { money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
-import { planProgress } from '../progress.js';
 
 /** The buyer's growing record — and the door to the PDF and the team. */
 export default function Plan({ onOpenTour }) {
@@ -13,7 +12,6 @@ export default function Plan({ onOpenTour }) {
   const navigate = useNavigate();
   const { communityId } = useParams();
 
-  const progress = planProgress(lead, communityId);
   const savedHomes = (lead?.savedHomeIds ?? []).map((id) => homes.find((h) => h.id === id)).filter(Boolean);
   const items = TOOL_KEYS.filter((key) => lead?.plan?.[key]).map((key) => ({
     key,
@@ -29,13 +27,20 @@ export default function Plan({ onOpenTour }) {
         Your personal record of everything so far — it builds as you go.
       </p>
 
-      <div style={{ background: 'var(--t-tint)', borderRadius: 'var(--t-radlg)', padding: 16, marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>{progress.percent}% complete</span>
-          <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>Next: {progress.nextLabel}</span>
+      {/*
+        A count of what they have, not a score against what they have not. The
+        bar and the "next step" read as homework a buyer is behind on, and this
+        is a record of their own thinking — there is nothing here they owe
+        anybody.
+      */}
+      {empty ? null : (
+        <div style={{ background: 'var(--t-tint)', borderRadius: 'var(--t-radlg)', padding: '13px 16px', marginBottom: 14 }}>
+          <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
+            {items.length ? `${items.length} ${items.length === 1 ? 'answer' : 'answers'} saved` : 'Nothing answered yet'}
+            {savedHomes.length ? ` · ${savedHomes.length} ${savedHomes.length === 1 ? 'home' : 'homes'} you like` : ''}
+          </span>
         </div>
-        <div className="b-bar"><span style={{ width: `${progress.percent}%` }} /></div>
-      </div>
+      )}
 
       {savedHomes.length ? (
         <div className="b-card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
@@ -54,7 +59,7 @@ export default function Plan({ onOpenTour }) {
           <button
             key={item.key}
             type="button"
-            onClick={() => navigate(`/c/${communityId}/tool/${item.key}`)}
+            onClick={() => navigate(`/c/${communityId}/tool/${item.key}`, { state: { from: `/c/${communityId}/plan` } })}
             className="b-card"
             style={{
               cursor: 'pointer', padding: '14px 16px', display: 'flex', flexDirection: 'column',
