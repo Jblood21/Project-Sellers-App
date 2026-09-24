@@ -10,6 +10,7 @@ import AreaTab from '../tabs/AreaTab.jsx';
 import AvailabilityTab from '../tabs/AvailabilityTab.jsx';
 import HomesTab from '../tabs/HomesTab.jsx';
 import LeadsTab from '../tabs/LeadsTab.jsx';
+import LearnTab from '../tabs/LearnTab.jsx';
 import SetupTab from '../tabs/SetupTab.jsx';
 import StatsTab from '../tabs/StatsTab.jsx';
 import ToolsTab from '../tabs/ToolsTab.jsx';
@@ -21,6 +22,7 @@ import QrDialog from './QrDialog.jsx';
 const TABS = [
   ['homes', 'Homes'],
   ['area', 'Area'],
+  ['learn', 'Learn'],
   ['times', 'Times'],
   ['tools', 'Tools'],
   ['leads', 'Leads'],
@@ -114,6 +116,7 @@ function CommunityTabs({ community, leads, reload }) {
 
       {tab === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
       {tab === 'area' ? <AreaTab community={community} reload={reload} /> : null}
+      {tab === 'learn' ? <LearnTab community={community} reload={reload} /> : null}
       {tab === 'times' ? <AvailabilityTab community={community} /> : null}
       {tab === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
       {tab === 'leads' ? <LeadsTab community={community} leads={leads} /> : null}

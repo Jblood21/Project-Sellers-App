@@ -71,7 +71,7 @@ const applyFeatures = (homes, features) =>
     floorPlans: features.floorPlans ? home.floorPlans : [],
   }));
 
-const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto, siteMap, slots) => ({
+const publicCommunity = (community, homes, highlights, resources, heroPhoto, iconPhoto, siteMap, slots) => ({
   id: community.id,
   name: community.name,
   location: community.location,
@@ -85,6 +85,9 @@ const publicCommunity = (community, homes, highlights, heroPhoto, iconPhoto, sit
   heroPhoto: heroPhoto?.url ?? null,
   iconPhoto: iconPhoto?.url ?? null,
   siteMap: community.features.siteMap ? (siteMap?.url ?? null) : null,
+  // Same rule as the site map: switched off means the buyer is not served it
+  // at all, rather than being served it and told not to look.
+  resources: community.features.resources ? resources : [],
   homes: applyFeatures(homes, community.features),
   highlights,
   slots,
@@ -98,15 +101,16 @@ export function publicRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
     if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
-    const [homes, highlights, heroes, icons, maps, slots] = await Promise.all([
+    const [homes, highlights, resources, heroes, icons, maps, slots] = await Promise.all([
       store.listHomes(community.id),
       store.listHighlights(community.id),
+      store.listResources(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
       store.listCommunityPhotos(community.id, 'sitemap'),
       store.listOpenSlots(community.id),
     ]);
-    res.json(publicCommunity(community, homes, highlights, heroes[0], icons[0], maps[0], slots));
+    res.json(publicCommunity(community, homes, highlights, resources, heroes[0], icons[0], maps[0], slots));
   });
 
   /**

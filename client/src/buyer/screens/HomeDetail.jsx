@@ -4,11 +4,13 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
 
 export default function HomeDetail({ onOpenTour }) {
   // Which plan the viewer is showing; null means closed.
   const [planIndex, setPlanIndex] = useState(null);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const { homes, lead, toggleSave, track, setTool } = useBuyer();
   const { communityId, homeId } = useParams();
   const navigate = useNavigate();
@@ -88,7 +90,7 @@ export default function HomeDetail({ onOpenTour }) {
           onClick={() => {
             setTool('pay', { homeId: home.id });
             track(`Opened payment for ${home.name}`);
-            navigate(`/c/${communityId}/tool/payment`);
+            setPaymentOpen(true);
           }}
         >
           See My Payment for This Home
@@ -108,6 +110,12 @@ export default function HomeDetail({ onOpenTour }) {
       <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>
         Saving a home adds it to Homes I Like and tells the team you&apos;re interested.
       </p>
+    <ToolSheet
+      open={paymentOpen}
+      toolKey="payment"
+      label="See My Payment"
+      onClose={() => setPaymentOpen(false)}
+    />
     <ImageViewer
         images={home.floorPlans ?? []}
         index={planIndex}

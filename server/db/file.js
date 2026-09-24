@@ -6,11 +6,12 @@ import {
 } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto, shapeSlot,
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
+  shapeResource, shapeSlot,
 } from './shape.js';
 
 const EMPTY = {
-  admins: [], communities: [], homes: [], highlights: [], photos: [],
+  admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   slots: [], leads: [], planItems: [], moveIn: [], activity: [],
 };
 
@@ -228,6 +229,50 @@ export function createFileStore(path) {
       }
       save();
       return shapeHighlight(row, photoOf(id));
+    },
+
+    // ── videos and articles ────────────────────────────────────────────────
+    async listResources(communityId) {
+      return (db.resources ?? [])
+        .filter((r) => r.communityId === communityId)
+        .sort((a, b) => a.position - b.position)
+        .map(shapeResource);
+    },
+
+    async getResource(id) {
+      return shapeResource((db.resources ?? []).find((r) => r.id === id) ?? null);
+    },
+
+    async countResourcesOfKind(communityId, kind) {
+      return (db.resources ?? []).filter((r) => r.communityId === communityId && r.kind === kind).length;
+    },
+
+    async createResource(communityId, data) {
+      db.resources = db.resources ?? [];
+      const position = db.resources.filter((r) => r.communityId === communityId).length;
+      const row = {
+        id: `r_${shortId(10)}`, communityId, kind: data.kind,
+        title: data.title ?? '', body: data.body ?? '', url: data.url ?? '',
+        position, createdAt: now(),
+      };
+      db.resources.push(row);
+      save();
+      return shapeResource(row);
+    },
+
+    async updateResource(id, patch) {
+      const row = (db.resources ?? []).find((r) => r.id === id);
+      if (!row) return null;
+      for (const key of ['kind', 'title', 'body', 'url', 'position']) {
+        if (patch[key] !== undefined) row[key] = patch[key];
+      }
+      save();
+      return shapeResource(row);
+    },
+
+    async deleteResource(id) {
+      db.resources = (db.resources ?? []).filter((r) => r.id !== id);
+      save();
     },
 
     async deleteHighlight(id) {

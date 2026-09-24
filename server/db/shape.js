@@ -102,6 +102,19 @@ export function shapeHighlight(row, photo = null) {
   };
 }
 
+export function shapeResource(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    communityId: row.community_id ?? row.communityId,
+    kind: row.kind,
+    title: row.title || '',
+    body: row.body || '',
+    url: row.url || '',
+    position: Number(row.position) || 0,
+  };
+}
+
 export function shapeSlot(row) {
   if (!row) return null;
   const raw = row.slot_date ?? row.slotDate;

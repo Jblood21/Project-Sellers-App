@@ -126,6 +126,15 @@ export function BuyerProvider({ communityId, children }) {
     [lead, showToast, token],
   );
 
+  /**
+   * Counts successful plan saves. Whatever opened the tool watches this and
+   * takes the buyer back where they came from — a screen navigates, a sheet
+   * closes. Doing it here rather than in each of the seven tools means every
+   * tool behaves the same way without seven copies of the same navigation,
+   * and the tools stay unaware of how they were opened.
+   */
+  const [planSaves, setPlanSaves] = useState(0);
+
   const savePlan = useCallback(
     async (key, summary, toastMessage = 'Added to your home plan') => {
       if (!token) return;
@@ -133,6 +142,7 @@ export function BuyerProvider({ communityId, children }) {
         const updated = await buyerApi.savePlan(token, key, summary);
         setLead(updated);
         showToast(toastMessage);
+        setPlanSaves((n) => n + 1);
       } catch (err) {
         showToast(err.message);
       }
@@ -191,6 +201,7 @@ export function BuyerProvider({ communityId, children }) {
       tools,
       setTool,
       showToast,
+      planSaves,
       track,
       enter,
       toggleSave,
@@ -202,7 +213,7 @@ export function BuyerProvider({ communityId, children }) {
     }),
     [
       community, communityId, enter, lead, loadError, loading, requestTour, savePlan,
-      saveMoveIn, setTool, showToast, toast, toggleSave, token, tools, track,
+      planSaves, saveMoveIn, setTool, showToast, toast, toggleSave, token, tools, track,
     ],
   );
 

@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_THEME,
   DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME,
+  MAX_VIDEOS, RESOURCE_KINDS, videoEmbed,
   SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
@@ -75,15 +76,16 @@ export function adminRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
-    const [homes, highlights, heroes, icons, maps] = await Promise.all([
+    const [homes, highlights, resources, heroes, icons, maps] = await Promise.all([
       store.listHomes(community.id),
       store.listHighlights(community.id),
+      store.listResources(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
       store.listCommunityPhotos(community.id, 'sitemap'),
     ]);
     res.json({
-      ...community, homes, highlights,
+      ...community, homes, highlights, resources,
       heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null, siteMap: maps[0] ?? null,
     });
   });
@@ -227,6 +229,56 @@ export function adminRouter() {
   router.delete('/highlights/:id', async (req, res) => {
     const store = await getStore();
     await store.deleteHighlight(req.params.id);
+    res.status(204).end();
+  });
+
+  // ── videos and articles ──────────────────────────────────────────────────
+  /** What the builder has written and filmed, shown below the tools. */
+  router.post('/communities/:id/resources', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+
+    const kind = RESOURCE_KINDS.includes(req.body?.kind) ? req.body.kind : 'article';
+    const title = str(req.body?.title);
+    if (!title) return res.status(400).json({ error: 'Give this a title.' });
+
+    if (kind === 'video') {
+      // Checked here rather than only in the browser: the cap is the product
+      // decision, and a request that skips the form should not get past it.
+      if (await store.countResourcesOfKind(community.id, 'video') >= MAX_VIDEOS) {
+        return res.status(400).json({ error: `You can add up to ${MAX_VIDEOS} videos.` });
+      }
+      if (!videoEmbed(req.body?.url)) {
+        return res.status(400).json({ error: 'That link is not a YouTube or Vimeo video.' });
+      }
+    }
+
+    res.status(201).json(await store.createResource(community.id, {
+      kind, title, body: kind === 'article' ? str(req.body?.body) : '',
+      url: kind === 'video' ? str(req.body?.url) : '',
+    }));
+  });
+
+  router.patch('/resources/:id', async (req, res) => {
+    const store = await getStore();
+    const resource = await store.getResource(req.params.id);
+    if (!resource) return res.status(404).json({ error: 'Not found' });
+    const patch = {};
+    if (req.body?.title !== undefined) patch.title = str(req.body.title) || resource.title;
+    if (req.body?.body !== undefined && resource.kind === 'article') patch.body = str(req.body.body);
+    if (req.body?.url !== undefined && resource.kind === 'video') {
+      if (!videoEmbed(req.body.url)) {
+        return res.status(400).json({ error: 'That link is not a YouTube or Vimeo video.' });
+      }
+      patch.url = str(req.body.url);
+    }
+    res.json(await store.updateResource(resource.id, patch));
+  });
+
+  router.delete('/resources/:id', async (req, res) => {
+    const store = await getStore();
+    await store.deleteResource(req.params.id);
     res.status(204).end();
   });
 
