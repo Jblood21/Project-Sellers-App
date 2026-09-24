@@ -184,6 +184,58 @@ export function mapsUrl(address) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+/**
+ * A builder pastes whatever their browser's address bar had. That is a watch
+ * link, a share link, a shorts link or an embed link, and only the last one
+ * works in an iframe — so turn any of them into the embeddable form.
+ *
+ * Returns null for anything it does not recognise, which is how the caller
+ * knows to say "that link did not work" instead of rendering a blank frame.
+ * Only YouTube and Vimeo: an arbitrary URL in an iframe is somebody else's
+ * page running inside the buyer app, and these two are what builders use.
+ */
+export function videoEmbed(url) {
+  const raw = String(url ?? '').trim();
+  if (!raw) return null;
+  let parsed;
+  try {
+    parsed = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+  const host = parsed.hostname.replace(/^www\./, '');
+
+  if (host === 'youtu.be') {
+    const id = parsed.pathname.slice(1).split('/')[0];
+    return id ? `https://www.youtube.com/embed/${id}` : null;
+  }
+  if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+    if (parsed.pathname === '/watch') {
+      const id = parsed.searchParams.get('v');
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    const [, kind, id] = parsed.pathname.split('/');
+    if ((kind === 'embed' || kind === 'shorts' || kind === 'live' || kind === 'v') && id) {
+      return `https://www.youtube.com/embed/${id}`;
+    }
+    return null;
+  }
+  if (host === 'vimeo.com') {
+    const id = parsed.pathname.split('/').filter(Boolean)[0];
+    return /^\d+$/.test(id ?? '') ? `https://player.vimeo.com/video/${id}` : null;
+  }
+  if (host === 'player.vimeo.com') {
+    const id = parsed.pathname.split('/').filter(Boolean)[1];
+    return /^\d+$/.test(id ?? '') ? `https://player.vimeo.com/video/${id}` : null;
+  }
+  return null;
+}
+
+/** Four is a section a buyer scrolls past, not a library they have to dig through. */
+export const MAX_VIDEOS = 4;
+
+export const RESOURCE_KINDS = ['article', 'video'];
+
 export const AVAILABILITY = ['Planning', 'Under Construction', 'Move-in ready'];
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 
@@ -196,10 +248,11 @@ export const FEATURES = [
   { k: 'lotNumbers', name: 'Lot numbers', q: 'Show which lot each home sits on' },
   { k: 'floorPlans', name: 'Floor plans', q: 'Let buyers open the plan drawing for a home' },
   { k: 'siteMap', name: 'Site map', q: 'Show the community plat so buyers can place a home' },
+  { k: 'resources', name: 'Videos & articles', q: 'Show what you have written and filmed, below the tools' },
 ];
 export const FEATURE_KEYS = FEATURES.map((f) => f.k);
 
-export const DEFAULT_FEATURES = { lotNumbers: true, floorPlans: true, siteMap: true };
+export const DEFAULT_FEATURES = { lotNumbers: true, floorPlans: true, siteMap: true, resources: true };
 
 export const DEFAULT_TOOLS_ENABLED = {
   payment: true, afford: true, loans: true, compare: true, dpa: true, savings: true, movein: true,

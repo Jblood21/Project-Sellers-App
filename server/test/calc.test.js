@@ -5,6 +5,7 @@ import {
   DEFAULT_SETTINGS, DEFAULT_THEME, THEMES, THEME_CHIPS, THEME_COLORS, affordabilityLevers,
   calcAffordability, calcPayment, creditRanges,
   daysBetween, leaseOverlap, mapsUrl, moveInSchedule, moveInTimeline, normalizeTheme, pay30,
+  videoEmbed,
   planProgress, screenDpa, shiftDate, suggestPrograms,
 } from '../../shared/domain.js';
 
@@ -310,4 +311,29 @@ test('a place with an address becomes a map link, and one without does not', () 
   assert.equal(mapsUrl('   '), null, 'whitespace is not an address');
   assert.equal(mapsUrl(undefined), null, 'a highlight saved before addresses existed');
   assert.equal(mapsUrl(null), null);
+});
+
+test('a video link becomes an embeddable one, whatever shape it was pasted in', () => {
+  const yt = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+  // All four are the same video; a builder pastes whichever their browser gave.
+  assert.equal(videoEmbed('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), yt);
+  assert.equal(videoEmbed('https://youtu.be/dQw4w9WgXcQ'), yt, 'the share link');
+  assert.equal(videoEmbed('https://youtube.com/shorts/dQw4w9WgXcQ'), yt, 'a short');
+  assert.equal(videoEmbed('https://www.youtube.com/embed/dQw4w9WgXcQ'), yt, 'already an embed');
+  // A watch link carries a playlist and a timestamp; only the id matters.
+  assert.equal(videoEmbed('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLx&t=42s'), yt);
+  assert.equal(videoEmbed('youtube.com/watch?v=dQw4w9WgXcQ'), yt, 'no scheme typed');
+
+  assert.equal(videoEmbed('https://vimeo.com/76979871'), 'https://player.vimeo.com/video/76979871');
+  assert.equal(videoEmbed('https://player.vimeo.com/video/76979871'), 'https://player.vimeo.com/video/76979871');
+
+  // Anything else is null, and null is what stops an iframe being pointed at
+  // an arbitrary page inside the buyer app.
+  assert.equal(videoEmbed('https://example.com/video.mp4'), null);
+  assert.equal(videoEmbed('https://youtube.evil.com/watch?v=x'), null, 'a lookalike host');
+  assert.equal(videoEmbed('javascript:alert(1)'), null);
+  assert.equal(videoEmbed('https://vimeo.com/channels/staffpicks'), null, 'not a video id');
+  assert.equal(videoEmbed('https://www.youtube.com/watch?v='), null, 'no id');
+  assert.equal(videoEmbed(''), null);
+  assert.equal(videoEmbed(undefined), null);
 });

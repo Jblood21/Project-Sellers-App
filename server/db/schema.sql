@@ -93,6 +93,21 @@ CREATE TABLE IF NOT EXISTS highlights (
 ALTER TABLE highlights ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
 
+-- What the builder has written and filmed: an article is a title and a
+-- paragraph, a video is a title and a link. One table because they are one
+-- section to the buyer, ordered together and shown together.
+CREATE TABLE IF NOT EXISTS resources (
+  id           TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL DEFAULT 'article',
+  title        TEXT NOT NULL DEFAULT '',
+  body         TEXT NOT NULL DEFAULT '',
+  url          TEXT NOT NULL DEFAULT '',
+  position     INTEGER NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS resources_community_idx ON resources(community_id, position);
+
 -- Appointment slots the builder publishes. slot_date and slot_time are literal
 -- values in the community's own local time, never converted: see the note on
 -- SLOT_TIMES in shared/domain.js for why.

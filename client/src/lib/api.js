@@ -96,6 +96,12 @@ export const adminApi = {
     URL.revokeObjectURL(url);
     return name;
   },
+  createResource: (token, communityId, body) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/resources`, { method: 'POST', body, token }),
+  updateResource: (token, id, body) =>
+    request(`/api/admin/resources/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
+  deleteResource: (token, id) =>
+    request(`/api/admin/resources/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   deletePhoto: (token, id) => request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   slots: (token, communityId) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/slots`, { token }),

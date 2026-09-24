@@ -6,7 +6,8 @@ import pg from 'pg';
 import { DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead } from '../../shared/domain.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto, shapeSlot,
+  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
+  shapeResource, shapeSlot,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -324,6 +325,64 @@ export function createPostgresStore(connectionString) {
       params.push(id);
       await q(`UPDATE highlights SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
       return this.getHighlight(id);
+    },
+
+    // ── videos and articles ────────────────────────────────────────────────
+    async listResources(communityId) {
+      const { rows } = await q(
+        `SELECT * FROM resources WHERE community_id = $1 ORDER BY position, created_at`,
+        [communityId],
+      );
+      return rows.map(shapeResource);
+    },
+
+    async getResource(id) {
+      const { rows } = await q(`SELECT * FROM resources WHERE id = $1`, [id]);
+      return shapeResource(rows[0] ?? null);
+    },
+
+    async countResourcesOfKind(communityId, kind) {
+      const { rows } = await q(
+        `SELECT count(*)::int AS n FROM resources WHERE community_id = $1 AND kind = $2`,
+        [communityId, kind],
+      );
+      return rows[0].n;
+    },
+
+    async createResource(communityId, data) {
+      const { rows: pos } = await q(
+        `SELECT coalesce(max(position), -1) + 1 AS pos FROM resources WHERE community_id = $1`,
+        [communityId],
+      );
+      const { rows } = await q(
+        `INSERT INTO resources (id, community_id, kind, title, body, url, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [`r_${shortId(10)}`, communityId, data.kind, data.title ?? '', data.body ?? '',
+          data.url ?? '', pos[0].pos],
+      );
+      return shapeResource(rows[0]);
+    },
+
+    async updateResource(id, patch) {
+      const map = { kind: 'kind', title: 'title', body: 'body', url: 'url', position: 'position' };
+      const sets = [];
+      const values = [];
+      for (const [key, column] of Object.entries(map)) {
+        if (patch[key] !== undefined) {
+          values.push(patch[key]);
+          sets.push(`${column} = $${values.length}`);
+        }
+      }
+      if (!sets.length) return this.getResource(id);
+      values.push(id);
+      const { rows } = await q(
+        `UPDATE resources SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING *`, values,
+      );
+      return shapeResource(rows[0] ?? null);
+    },
+
+    async deleteResource(id) {
+      await q(`DELETE FROM resources WHERE id = $1`, [id]);
     },
 
     async deleteHighlight(id) {

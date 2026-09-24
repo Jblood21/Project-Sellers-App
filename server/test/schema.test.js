@@ -95,6 +95,8 @@ test('the schema applies to a database created by an older release', opts, async
     assert.equal(index.rowCount, 1, 'and the index on it was created');
     const table = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = 'highlights'`);
     assert.equal(table.rowCount, 1, 'and the highlights table exists');
+    const learn = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = 'resources'`);
+    assert.equal(learn.rowCount, 1, 'and so does the resources table');
 
     // Every column added by ALTER since the baseline has to land here too.
     for (const [tableName, columnName] of [
@@ -370,6 +372,46 @@ test('a highlight address round-trips through Postgres', opts, async () => {
         category: 'other', name: 'The Creamery', description: '', detail: '',
       });
       assert.equal(bare.address, '');
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+/**
+ * The API tests run against the JSON file store, so the Postgres writes for a
+ * video or an article are not covered there — and Postgres is production.
+ */
+test('videos and articles round-trip through Postgres', opts, async () => {
+  await withDatabase('schema_resources_rt', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Resources Round Trip' });
+
+      const article = await store.createResource(community.id, {
+        kind: 'article', title: 'What happens at closing', body: 'Line one.\nLine two.',
+      });
+      assert.equal(article.body, 'Line one.\nLine two.', 'newlines survive the column');
+      assert.equal(article.url, '', 'an article comes back with a blank url, never null');
+
+      const video = await store.createResource(community.id, {
+        kind: 'video', title: 'A walk through', url: 'https://youtu.be/abc',
+      });
+      assert.equal(video.body, '');
+      assert.equal(await store.countResourcesOfKind(community.id, 'video'), 1);
+      assert.equal(await store.countResourcesOfKind(community.id, 'article'), 1);
+
+      const listed = await store.listResources(community.id);
+      assert.deepEqual(listed.map((r) => r.title), ['What happens at closing', 'A walk through'],
+        'they come back in the order they were added');
+
+      const edited = await store.updateResource(article.id, { title: 'Closing day' });
+      assert.equal(edited.title, 'Closing day');
+      assert.equal(edited.body, 'Line one.\nLine two.', 'and the rest is untouched');
+
+      await store.deleteResource(video.id);
+      assert.equal(await store.countResourcesOfKind(community.id, 'video'), 0);
     } finally {
       await store.close();
     }

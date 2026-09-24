@@ -1094,3 +1094,69 @@ test('a lead comes out as a MISMO 3.4 file a lender can import', async () => {
     'a lead that does not exist is a 404, not a file full of blanks',
   );
 });
+
+test('videos and articles: the builder writes them, the buyer reads them below the tools', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Learn Test' } });
+  const cid = community.body.id;
+  const post = (body) => api(`/api/admin/communities/${cid}/resources`, { method: 'POST', token, body });
+
+  assert.equal((await post({ kind: 'article', title: '  ' })).status, 400, 'a nameless piece is not a piece');
+
+  const article = await post({
+    kind: 'article', title: 'What happens at closing', body: 'Line one.\nLine two.',
+  });
+  assert.equal(article.status, 201);
+  assert.equal(article.body.kind, 'article');
+  assert.equal(article.body.body, 'Line one.\nLine two.', 'line breaks survive');
+  assert.equal(article.body.url, '', 'an article carries no url');
+
+  const video = await post({ kind: 'video', title: 'A walk through', url: 'https://youtu.be/abc12345678' });
+  assert.equal(video.status, 201);
+  assert.equal(video.body.body, '', 'a video carries no body');
+
+  // A link that will not play is refused at the API, not just in the form.
+  assert.equal((await post({ kind: 'video', title: 'Nope', url: 'https://example.com/x.mp4' })).status, 400);
+
+  // Four videos is the cap, and the server holds it even if the form is bypassed.
+  for (const n of [2, 3, 4]) {
+    assert.equal((await post({ kind: 'video', title: `V${n}`, url: `https://youtu.be/vid${n}` })).status, 201);
+  }
+  const overflow = await post({ kind: 'video', title: 'Fifth', url: 'https://youtu.be/vid5' });
+  assert.equal(overflow.status, 400);
+  assert.match(overflow.body.error, /up to 4 videos/);
+
+  const buyer = await api(`/api/c/${cid}`);
+  assert.equal(buyer.body.resources.length, 5, 'one article and four videos');
+  assert.equal(buyer.body.resources[0].title, 'What happens at closing', 'in the order they were added');
+
+  // Switching the feature off withholds them rather than sending them to be hidden.
+  await api(`/api/admin/communities/${cid}`, {
+    method: 'PATCH', token, body: { features: { resources: false } },
+  });
+  assert.deepEqual((await api(`/api/c/${cid}`)).body.resources, [], 'off means the buyer is not served them');
+  // The builder still sees their own work.
+  const adminView = await api(`/api/admin/communities/${cid}`, { token });
+  assert.equal(adminView.body.resources.length, 5, 'and the builder has not lost anything');
+
+  const edited = await api(`/api/admin/resources/${article.body.id}`, {
+    method: 'PATCH', token, body: { title: 'Closing day' },
+  });
+  assert.equal(edited.body.title, 'Closing day');
+  assert.equal(
+    (await api(`/api/admin/resources/${video.body.id}`, {
+      method: 'PATCH', token, body: { url: 'not-a-video' },
+    })).status,
+    400,
+    'a bad link cannot be edited in either',
+  );
+
+  assert.equal((await api(`/api/admin/resources/${article.body.id}`, { method: 'DELETE', token })).status, 204);
+  await api(`/api/admin/communities/${cid}`, {
+    method: 'PATCH', token, body: { features: { resources: true } },
+  });
+  assert.equal((await api(`/api/c/${cid}`)).body.resources.length, 4);
+});

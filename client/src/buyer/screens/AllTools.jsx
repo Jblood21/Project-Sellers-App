@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { TOOLS } from '@shared/domain.js';
+import { TOOLS, videoEmbed } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { firstName } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
@@ -23,6 +23,9 @@ export default function AllTools() {
     navigate(`/c/${communityId}/tool/${tool.k}`, { state: here });
   };
   const enabled = TOOLS.filter((tool) => community?.tools?.[tool.k]);
+  // The server sends an empty list when the builder has this switched off, so
+  // its length is the only condition worth checking.
+  const resources = community?.resources ?? [];
   const lead2 = enabled.filter((tool) => LEAD_TOOLS.includes(tool.k));
   const rest = enabled.filter((tool) => !LEAD_TOOLS.includes(tool.k));
 
@@ -174,6 +177,58 @@ export default function AllTools() {
           </button>
         ))}
       </div>
+
+      {/*
+        Below the tools on purpose. A buyer came here to find out what they can
+        afford; this answers what comes after that, so it sits after it. Videos
+        are lazy so a section nobody scrolls to costs nobody anything.
+      */}
+      {resources.length ? (
+        <section style={{ marginTop: 20, marginBottom: 14 }}>
+          <span className="b-lbl" style={{ display: 'block', marginBottom: 10 }}>Worth knowing</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {resources.map((item) => {
+              const embed = item.kind === 'video' ? videoEmbed(item.url) : null;
+              if (item.kind === 'video' && !embed) return null;
+              return (
+                <article
+                  key={item.id}
+                  style={{
+                    background: 'var(--t-sur)', border: '1px solid var(--t-line)',
+                    borderRadius: 'var(--t-radlg)', overflow: 'hidden',
+                  }}
+                >
+                  {embed ? (
+                    <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+                      <iframe
+                        src={embed}
+                        title={item.title}
+                        loading="lazy"
+                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+                      />
+                    </div>
+                  ) : null}
+                  <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span className="b-head" style={{ fontSize: 16, lineHeight: 1.25 }}>{item.title}</span>
+                    {item.kind === 'article' && item.body ? (
+                      <p
+                        style={{
+                          margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--t-mut)',
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {item.body}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <div style={{ display: 'flex', gap: 10 }}>
         <Link
