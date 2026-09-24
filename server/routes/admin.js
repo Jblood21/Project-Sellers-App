@@ -3,7 +3,8 @@ import { Router } from 'express';
 import {
   AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_THEME,
   DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME,
-  MAX_VIDEOS, RESOURCE_KINDS, videoEmbed,
+  MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS, VIDEO_TYPES, base64Bytes, megabytes,
+  videoEmbed,
   SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
@@ -29,6 +30,30 @@ const numOr = (v, fallback) => {
 const readyDate = (value) => {
   const text = String(value ?? '').trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+};
+
+/**
+ * A video file arriving as a data URL, or an explanation of why it cannot be
+ * stored. The cap is enforced on the decoded size, not the encoded string: the
+ * builder picked a 24MB file and that is the number to hold them to.
+ */
+const readVideo = (body) => {
+  const dataUrl = String(body?.dataUrl ?? '');
+  const match = /^data:([^;,]+);base64,(.+)$/s.exec(dataUrl);
+  if (!match) return { error: 'That file could not be read. Try picking it again.' };
+
+  const [, contentType, base64] = match;
+  if (!VIDEO_TYPES.has(contentType)) {
+    return { error: 'That is not a video file. MP4 works everywhere; WebM and MOV also play.' };
+  }
+  const sizeBytes = base64Bytes(base64);
+  if (sizeBytes > MAX_VIDEO_BYTES) {
+    return {
+      error: `That video is ${megabytes(sizeBytes)}. Uploads stop at ${megabytes(MAX_VIDEO_BYTES)} `
+        + '— for a longer one, paste a YouTube or Vimeo link instead.',
+    };
+  }
+  return { contentType, data: base64, sizeBytes };
 };
 
 export function adminRouter() {
@@ -243,20 +268,36 @@ export function adminRouter() {
     const title = str(req.body?.title);
     if (!title) return res.status(400).json({ error: 'Give this a title.' });
 
+    const file = {};
     if (kind === 'video') {
       // Checked here rather than only in the browser: the cap is the product
       // decision, and a request that skips the form should not get past it.
       if (await store.countResourcesOfKind(community.id, 'video') >= MAX_VIDEOS) {
         return res.status(400).json({ error: `You can add up to ${MAX_VIDEOS} videos.` });
       }
-      if (!videoEmbed(req.body?.url)) {
+      // An uploaded file or a link, and exactly one of them: two sources for one
+      // player is a question about which wins that nobody should have to answer.
+      const hasFile = Boolean(req.body?.dataUrl);
+      const hasLink = Boolean(str(req.body?.url));
+      if (hasFile && hasLink) {
+        return res.status(400).json({ error: 'Upload a file or paste a link, not both.' });
+      }
+      if (!hasFile && !hasLink) {
+        return res.status(400).json({ error: 'Choose a video file, or paste a link to one.' });
+      }
+      if (hasFile) {
+        const read = readVideo(req.body);
+        if (read.error) return res.status(400).json({ error: read.error });
+        Object.assign(file, read);
+      } else if (!videoEmbed(req.body?.url)) {
         return res.status(400).json({ error: 'That link is not a YouTube or Vimeo video.' });
       }
     }
 
     res.status(201).json(await store.createResource(community.id, {
       kind, title, body: kind === 'article' ? str(req.body?.body) : '',
-      url: kind === 'video' ? str(req.body?.url) : '',
+      url: kind === 'video' && !file.data ? str(req.body?.url) : '',
+      ...file,
     }));
   });
 
@@ -267,11 +308,17 @@ export function adminRouter() {
     const patch = {};
     if (req.body?.title !== undefined) patch.title = str(req.body.title) || resource.title;
     if (req.body?.body !== undefined && resource.kind === 'article') patch.body = str(req.body.body);
-    if (req.body?.url !== undefined && resource.kind === 'video') {
+    if (req.body?.dataUrl && resource.kind === 'video') {
+      const read = readVideo(req.body);
+      if (read.error) return res.status(400).json({ error: read.error });
+      // Replacing a link with a file clears the link, and the other way round,
+      // so a resource never carries two sources at once.
+      Object.assign(patch, read, { url: '' });
+    } else if (req.body?.url !== undefined && resource.kind === 'video') {
       if (!videoEmbed(req.body.url)) {
         return res.status(400).json({ error: 'That link is not a YouTube or Vimeo video.' });
       }
-      patch.url = str(req.body.url);
+      Object.assign(patch, { url: str(req.body.url), data: null, contentType: '', sizeBytes: 0 });
     }
     res.json(await store.updateResource(resource.id, patch));
   });

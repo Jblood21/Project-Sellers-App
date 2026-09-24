@@ -234,6 +234,33 @@ export function videoEmbed(url) {
 /** Four is a section a buyer scrolls past, not a library they have to dig through. */
 export const MAX_VIDEOS = 4;
 
+/**
+ * An uploaded video is stored in the database, so the cap is a storage decision
+ * rather than a technical ceiling: 25MB is roughly a minute of phone video, and
+ * every one of them is a minute of database that never shrinks. Anything longer
+ * belongs behind a link, which is why the link field is still there.
+ */
+export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+
+export const VIDEO_TYPES = new Set(['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg']);
+
+/**
+ * How many bytes a base64 string decodes to, without decoding it: 4 characters
+ * carry 3 bytes, less whatever padding ends the string. Worth computing rather
+ * than materialising 30MB to find out it is too big to keep.
+ */
+export function base64Bytes(base64) {
+  const text = String(base64 ?? '');
+  if (!text) return 0;
+  const padding = text.endsWith('==') ? 2 : text.endsWith('=') ? 1 : 0;
+  return Math.floor((text.length * 3) / 4) - padding;
+}
+
+/** '24.3 MB' — for telling somebody why their file was refused. */
+export function megabytes(bytes) {
+  return `${(Number(bytes || 0) / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export const RESOURCE_KINDS = ['article', 'video'];
 
 export const AVAILABILITY = ['Planning', 'Under Construction', 'Move-in ready'];

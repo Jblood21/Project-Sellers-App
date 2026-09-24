@@ -102,6 +102,14 @@ export function shapeHighlight(row, photo = null) {
   };
 }
 
+/**
+ * Whether this row has an uploaded file behind it. The list queries deliberately
+ * do not SELECT the data column — a base64 video is megabytes — so they report
+ * `has_video` instead, and either answer means the same thing here.
+ */
+const hasVideo = (row) =>
+  row.has_video ?? row.hasVideo ?? Boolean(row.data);
+
 export function shapeResource(row) {
   if (!row) return null;
   return {
@@ -111,6 +119,13 @@ export function shapeResource(row) {
     title: row.title || '',
     body: row.body || '',
     url: row.url || '',
+    // The bytes are deliberately absent: a list of resources is sent to every
+    // buyer on every page load, and a base64 video in that payload would be
+    // megabytes of JSON nobody asked for. Callers that want the file fetch it
+    // from its own route, where it can stream.
+    videoUrl: hasVideo(row) ? `/api/resources/${row.id}/video` : '',
+    contentType: row.content_type ?? row.contentType ?? '',
+    sizeBytes: Number(row.size_bytes ?? row.sizeBytes) || 0,
     position: Number(row.position) || 0,
   };
 }

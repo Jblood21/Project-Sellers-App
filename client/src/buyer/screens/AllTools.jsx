@@ -188,8 +188,11 @@ export default function AllTools() {
           <span className="b-lbl" style={{ display: 'block', marginBottom: 10 }}>Worth knowing</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {resources.map((item) => {
-              const embed = item.kind === 'video' ? videoEmbed(item.url) : null;
-              if (item.kind === 'video' && !embed) return null;
+              // An uploaded file plays in the page; a link plays in its frame.
+              // A video row with neither is a builder's half-finished edit, and
+              // an empty black box is worse than nothing.
+              const embed = item.kind === 'video' && !item.videoUrl ? videoEmbed(item.url) : null;
+              if (item.kind === 'video' && !embed && !item.videoUrl) return null;
               return (
                 <article
                   key={item.id}
@@ -198,7 +201,19 @@ export default function AllTools() {
                     borderRadius: 'var(--t-radlg)', overflow: 'hidden',
                   }}
                 >
-                  {embed ? (
+                  {item.videoUrl ? (
+                    /* eslint-disable-next-line jsx-a11y/media-has-caption */
+                    <video
+                      src={item.videoUrl}
+                      controls
+                      playsInline
+                      // metadata, not auto: the poster frame and the duration
+                      // are enough to decide to watch, and a buyer on mobile
+                      // data should not pay for a clip they scroll past.
+                      preload="metadata"
+                      style={{ width: '100%', display: 'block', background: '#000' }}
+                    />
+                  ) : embed ? (
                     <div style={{ position: 'relative', paddingTop: '56.25%' }}>
                       <iframe
                         src={embed}

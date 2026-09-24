@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
-import { MAX_VIDEOS, videoEmbed } from '@shared/domain.js';
+import { MAX_VIDEO_BYTES, MAX_VIDEOS, megabytes, videoEmbed } from '@shared/domain.js';
 import { Trash } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
+import { videoToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
 const BLANK_ARTICLE = { kind: 'article', title: '', body: '' };
-const BLANK_VIDEO = { kind: 'video', title: '', url: '' };
+const BLANK_VIDEO = { kind: 'video', title: '', url: '', dataUrl: '', fileName: '' };
 
 /**
  * What the builder has written and filmed.
@@ -23,6 +24,26 @@ export default function LearnTab({ community, reload }) {
   const [form, setForm] = useState(BLANK_ARTICLE);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reading, setReading] = useState(false);
+  const fileInput = useRef(null);
+
+  const pickVideo = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setReading(true);
+    setError('');
+    try {
+      // Picking a file clears any link: one source per video, decided here
+      // rather than left for the server to arbitrate.
+      const dataUrl = await videoToDataUrl(file, MAX_VIDEO_BYTES);
+      setForm((f) => ({ ...f, dataUrl, fileName: file.name, url: '' }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setReading(false);
+    }
+  };
 
   const resources = community.resources ?? [];
   const articles = resources.filter((r) => r.kind === 'article');
@@ -37,7 +58,10 @@ export default function LearnTab({ community, reload }) {
   };
 
   const openEdit = (resource) => {
-    setForm({ kind: resource.kind, title: resource.title, body: resource.body, url: resource.url });
+    setForm({
+      kind: resource.kind, title: resource.title, body: resource.body, url: resource.url,
+      dataUrl: '', fileName: '',
+    });
     setError('');
     setDialog({ mode: 'edit', kind: resource.kind, resource });
   };
@@ -47,15 +71,34 @@ export default function LearnTab({ community, reload }) {
       setError('Give this a title.');
       return;
     }
-    if (form.kind === 'video' && !videoEmbed(form.url)) {
-      setError('Paste a YouTube or Vimeo link — that one will not play.');
-      return;
+    if (form.kind === 'video') {
+      const hasFile = Boolean(form.dataUrl);
+      const hasLink = Boolean(form.url.trim());
+      // On an edit, leaving both blank means "keep what is already there".
+      const keeping = dialog.mode === 'edit' && !hasFile && !hasLink;
+      if (!keeping) {
+        if (!hasFile && !hasLink) {
+          setError('Choose a video file, or paste a link to one.');
+          return;
+        }
+        if (hasLink && !hasFile && !videoEmbed(form.url)) {
+          setError('Paste a YouTube or Vimeo link — that one will not play.');
+          return;
+        }
+      }
     }
     setBusy(true);
     setError('');
     try {
-      if (dialog.mode === 'new') await adminApi.createResource(token, community.id, form);
-      else await adminApi.updateResource(token, dialog.resource.id, form);
+      const payload = form.kind !== 'video'
+        ? { kind: form.kind, title: form.title, body: form.body }
+        : form.dataUrl
+          ? { kind: 'video', title: form.title, dataUrl: form.dataUrl }
+          : form.url.trim()
+            ? { kind: 'video', title: form.title, url: form.url }
+            : { kind: 'video', title: form.title };
+      if (dialog.mode === 'new') await adminApi.createResource(token, community.id, payload);
+      else await adminApi.updateResource(token, dialog.resource.id, payload);
       setDialog(null);
       await reload();
     } catch (err) {
@@ -93,7 +136,11 @@ export default function LearnTab({ community, reload }) {
         <p className="card-body" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{resource.body}</p>
       ) : null}
       {resource.kind === 'video' ? (
-        <span className="text-muted" style={{ fontSize: 12, wordBreak: 'break-all' }}>{resource.url}</span>
+        <span className="text-muted" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+          {resource.videoUrl
+            ? `Uploaded file · ${megabytes(resource.sizeBytes)}`
+            : resource.url}
+        </span>
       ) : null}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
         <button
@@ -210,25 +257,65 @@ export default function LearnTab({ community, reload }) {
             </Field>
           ) : (
             <>
-              <TextField
-                label="YouTube or Vimeo link" value={form.url}
-                onChange={(url) => setForm((f) => ({ ...f, url }))}
-                placeholder="https://www.youtube.com/watch?v=…"
-                hint="Paste the link from the address bar — a share link or a shorts link works too."
-              />
-              {videoEmbed(form.url) ? (
+              <Field label="Video file">
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  style={{
+                    width: '100%', minHeight: 92, borderRadius: 12, cursor: 'pointer',
+                    border: '1.5px dashed var(--color-neutral-400)', background: 'transparent',
+                    padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', gap: 4, color: 'var(--color-ink)',
+                  }}
+                >
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>
+                    {reading ? 'Reading…' : form.fileName || 'Choose a video from this device'}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: 11.5 }}>
+                    {form.fileName ? 'Tap to pick a different one' : `MP4, WebM or MOV · up to ${megabytes(MAX_VIDEO_BYTES)}`}
+                  </span>
+                </button>
+                <input
+                  ref={fileInput} type="file" accept="video/*" hidden
+                  onChange={pickVideo}
+                />
+              </Field>
+
+              {form.dataUrl ? (
                 <Field label="Preview">
-                  <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden' }}>
-                    <iframe
-                      src={videoEmbed(form.url)}
-                      title="Video preview"
-                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-                    />
-                  </div>
+                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                  <video
+                    src={form.dataUrl}
+                    controls
+                    style={{ width: '100%', borderRadius: 12, background: '#000' }}
+                  />
                 </Field>
-              ) : null}
+              ) : (
+                <>
+                  <span className="text-muted" style={{ fontSize: 12, textAlign: 'center' }}>
+                    — or, for anything longer —
+                  </span>
+                  <TextField
+                    label="YouTube or Vimeo link" value={form.url}
+                    onChange={(url) => setForm((f) => ({ ...f, url }))}
+                    placeholder="https://www.youtube.com/watch?v=…"
+                    hint="Use this for a full tour. Nothing to upload and no size limit."
+                  />
+                  {videoEmbed(form.url) ? (
+                    <Field label="Preview">
+                      <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden' }}>
+                        <iframe
+                          src={videoEmbed(form.url)}
+                          title="Video preview"
+                          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+                        />
+                      </div>
+                    </Field>
+                  ) : null}
+                </>
+              )}
             </>
           )}
           <ErrorNote>{error}</ErrorNote>
