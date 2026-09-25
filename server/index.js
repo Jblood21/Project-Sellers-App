@@ -17,7 +17,10 @@ export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
   // Photo uploads arrive as data URLs, so the JSON body limit has to clear 3 MB.
-  app.use(express.json({ limit: '6mb' }));
+  // 6mb covered photos. A 25MB video arrives base64-encoded, which is a third
+  // bigger again, so the ceiling has to clear 34MB for the cap in shared/domain
+  // to be the thing that refuses an oversized file rather than the parser.
+  app.use(express.json({ limit: '36mb' }));
 
   // `commit` answers the question the deploy hook exists to make answerable: is
   // what is live the code that was merged? Render sets RENDER_GIT_COMMIT on every

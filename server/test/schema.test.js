@@ -406,12 +406,45 @@ test('videos and articles round-trip through Postgres', opts, async () => {
       assert.deepEqual(listed.map((r) => r.title), ['What happens at closing', 'A walk through'],
         'they come back in the order they were added');
 
+      // An uploaded file, and the promise that listing resources never drags
+      // its bytes out of the database — this payload goes to every buyer on
+      // every page load.
+      const uploaded = await store.createResource(community.id, {
+        kind: 'video', title: 'Uploaded clip', contentType: 'video/mp4',
+        data: Buffer.alloc(64 * 1024, 3).toString('base64'), sizeBytes: 64 * 1024,
+      });
+      assert.equal(uploaded.videoUrl, `/api/resources/${uploaded.id}/video`);
+      assert.equal(uploaded.sizeBytes, 64 * 1024);
+
+      // The shaped row never carries the file, whatever the query selected —
+      // shapeResource builds an explicit field list, so this holds by
+      // construction. What it does NOT prove is that the query avoided reading
+      // the bytes out of Postgres in the first place; that is a column list in
+      // pg.js, and its cost is invisible from here. Worth stating rather than
+      // implying a guarantee this assertion cannot give.
+      const withFile = await store.listResources(community.id);
+      const row = withFile.find((r) => r.id === uploaded.id);
+      assert.ok(!('data' in row), 'the listed row carries no file');
+      assert.ok(JSON.stringify(withFile).length < 2000, 'and the list stays small');
+
+      const bytes = await store.getResourceVideo(uploaded.id);
+      assert.equal(bytes.content_type, 'video/mp4');
+      assert.equal(Buffer.from(bytes.data, 'base64').length, 64 * 1024,
+        'the file itself comes back whole from its own call');
+
       const edited = await store.updateResource(article.id, { title: 'Closing day' });
       assert.equal(edited.title, 'Closing day');
       assert.equal(edited.body, 'Line one.\nLine two.', 'and the rest is untouched');
 
+      // Two videos exist by now — the linked one and the uploaded one — so
+      // deleting one leaves the other rather than emptying the kind.
+      assert.equal(await store.countResourcesOfKind(community.id, 'video'), 2);
       await store.deleteResource(video.id);
+      assert.equal(await store.countResourcesOfKind(community.id, 'video'), 1);
+      await store.deleteResource(uploaded.id);
       assert.equal(await store.countResourcesOfKind(community.id, 'video'), 0);
+      assert.equal(await store.getResourceVideo(uploaded.id), null,
+        'and the file goes with the row rather than being orphaned');
     } finally {
       await store.close();
     }

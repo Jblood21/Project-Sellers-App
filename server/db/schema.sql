@@ -103,9 +103,19 @@ CREATE TABLE IF NOT EXISTS resources (
   title        TEXT NOT NULL DEFAULT '',
   body         TEXT NOT NULL DEFAULT '',
   url          TEXT NOT NULL DEFAULT '',
+  content_type TEXT NOT NULL DEFAULT '',
+  data         TEXT,
+  size_bytes   INTEGER NOT NULL DEFAULT 0,
   position     INTEGER NOT NULL DEFAULT 0,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- An uploaded video lives on its own row rather than in photos: the bytes belong
+-- to the thing that plays them, and a table called photos holding video is how
+-- the next person reading this gets surprised. Resources shipped before uploads
+-- existed, so these arrive by ALTER on any database that already has the table.
+ALTER TABLE resources ADD COLUMN IF NOT EXISTS content_type TEXT NOT NULL DEFAULT '';
+ALTER TABLE resources ADD COLUMN IF NOT EXISTS data TEXT;
+ALTER TABLE resources ADD COLUMN IF NOT EXISTS size_bytes INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS resources_community_idx ON resources(community_id, position);
 
 -- Appointment slots the builder publishes. slot_date and slot_time are literal

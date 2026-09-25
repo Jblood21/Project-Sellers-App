@@ -328,17 +328,37 @@ export function createPostgresStore(connectionString) {
     },
 
     // ── videos and articles ────────────────────────────────────────────────
+    // Every column but the file itself. SELECT * here would pull a base64 video
+    // out of Postgres on every page load just to decide whether one exists —
+    // the shaper would discard it, so nothing would look wrong and every buyer
+    // would pay for it. No test can catch that from the shaped output, which is
+    // exactly why the column list is written out rather than left to a star.
     async listResources(communityId) {
       const { rows } = await q(
-        `SELECT * FROM resources WHERE community_id = $1 ORDER BY position, created_at`,
+        `SELECT id, community_id, kind, title, body, url, content_type, size_bytes, position,
+                (data IS NOT NULL) AS has_video
+           FROM resources WHERE community_id = $1 ORDER BY position, created_at`,
         [communityId],
       );
       return rows.map(shapeResource);
     },
 
     async getResource(id) {
-      const { rows } = await q(`SELECT * FROM resources WHERE id = $1`, [id]);
+      const { rows } = await q(
+        `SELECT id, community_id, kind, title, body, url, content_type, size_bytes, position,
+                (data IS NOT NULL) AS has_video
+           FROM resources WHERE id = $1`,
+        [id],
+      );
       return shapeResource(rows[0] ?? null);
+    },
+
+    /** The file itself, asked for only by the route that streams it. */
+    async getResourceVideo(id) {
+      const { rows } = await q(
+        `SELECT content_type, data FROM resources WHERE id = $1 AND data IS NOT NULL`, [id],
+      );
+      return rows[0] ?? null;
     },
 
     async countResourcesOfKind(communityId, kind) {
@@ -355,16 +375,23 @@ export function createPostgresStore(connectionString) {
         [communityId],
       );
       const { rows } = await q(
-        `INSERT INTO resources (id, community_id, kind, title, body, url, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        `INSERT INTO resources (id, community_id, kind, title, body, url, content_type, data,
+                                size_bytes, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING id, community_id, kind, title, body, url, content_type, size_bytes, position,
+                   (data IS NOT NULL) AS has_video`,
         [`r_${shortId(10)}`, communityId, data.kind, data.title ?? '', data.body ?? '',
-          data.url ?? '', pos[0].pos],
+          data.url ?? '', data.contentType ?? '', data.data ?? null, data.sizeBytes ?? 0,
+          pos[0].pos],
       );
       return shapeResource(rows[0]);
     },
 
     async updateResource(id, patch) {
-      const map = { kind: 'kind', title: 'title', body: 'body', url: 'url', position: 'position' };
+      const map = {
+        kind: 'kind', title: 'title', body: 'body', url: 'url', position: 'position',
+        contentType: 'content_type', data: 'data', sizeBytes: 'size_bytes',
+      };
       const sets = [];
       const values = [];
       for (const [key, column] of Object.entries(map)) {
@@ -376,7 +403,10 @@ export function createPostgresStore(connectionString) {
       if (!sets.length) return this.getResource(id);
       values.push(id);
       const { rows } = await q(
-        `UPDATE resources SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING *`, values,
+        `UPDATE resources SET ${sets.join(', ')} WHERE id = $${values.length}
+         RETURNING id, community_id, kind, title, body, url, content_type, size_bytes, position,
+                   (data IS NOT NULL) AS has_video`,
+        values,
       );
       return shapeResource(rows[0] ?? null);
     },

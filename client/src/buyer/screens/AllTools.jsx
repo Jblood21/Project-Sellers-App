@@ -184,46 +184,83 @@ export default function AllTools() {
         are lazy so a section nobody scrolls to costs nobody anything.
       */}
       {resources.length ? (
-        <section style={{ marginTop: 20, marginBottom: 14 }}>
-          <span className="b-lbl" style={{ display: 'block', marginBottom: 10 }}>Worth knowing</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <section style={{ marginTop: 22, marginBottom: 14 }}>
+          {/* The rule is what tells a buyer the tools have ended and something
+              else has begun — the grid above it otherwise runs straight into
+              this list. aria-hidden because the heading already says so. */}
+          <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
+          <span
+            className="b-lbl"
+            style={{ display: 'block', marginBottom: 12, color: 'var(--t-accT)' }}
+          >
+            Worth knowing
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {resources.map((item) => {
-              const embed = item.kind === 'video' ? videoEmbed(item.url) : null;
-              if (item.kind === 'video' && !embed) return null;
+              // An uploaded file plays in the page; a link plays in its frame.
+              // A video row with neither is a builder's half-finished edit, and
+              // an empty black box is worse than nothing.
+              const embed = item.kind === 'video' && !item.videoUrl ? videoEmbed(item.url) : null;
+              if (item.kind === 'video' && !embed && !item.videoUrl) return null;
+              const body = item.kind === 'article' ? (item.body ?? '').trim() : '';
+              // A title the builder never wrote a body under: the bubble would
+              // be an empty box, so the title stands on its own instead.
+              const boxed = Boolean(item.videoUrl || embed || body);
               return (
-                <article
-                  key={item.id}
-                  style={{
-                    background: 'var(--t-sur)', border: '1px solid var(--t-line)',
-                    borderRadius: 'var(--t-radlg)', overflow: 'hidden',
-                  }}
-                >
-                  {embed ? (
-                    <div style={{ position: 'relative', paddingTop: '56.25%' }}>
-                      <iframe
-                        src={embed}
-                        title={item.title}
-                        loading="lazy"
-                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-                      />
-                    </div>
+                <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Outside the bubble and in the accent: the title is what a
+                      buyer scans the section by, and a heading sitting on the
+                      page reads faster than one boxed in with its own text. */}
+                  <h3
+                    className="b-head"
+                    style={{ fontSize: 16.5, lineHeight: 1.25, color: 'var(--t-accT)' }}
+                  >
+                    {item.title}
+                  </h3>
+                  {boxed ? (
+                    <article
+                      style={{
+                        background: 'var(--t-sur)', border: '1px solid var(--t-line)',
+                        borderRadius: 'var(--t-radlg)', overflow: 'hidden',
+                      }}
+                    >
+                      {item.videoUrl ? (
+                        /* eslint-disable-next-line jsx-a11y/media-has-caption */
+                        <video
+                          src={item.videoUrl}
+                          controls
+                          playsInline
+                          // metadata, not auto: the poster frame and the duration
+                          // are enough to decide to watch, and a buyer on mobile
+                          // data should not pay for a clip they scroll past.
+                          preload="metadata"
+                          style={{ width: '100%', display: 'block', background: '#000' }}
+                        />
+                      ) : embed ? (
+                        <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+                          <iframe
+                            src={embed}
+                            title={item.title}
+                            loading="lazy"
+                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+                          />
+                        </div>
+                      ) : null}
+                      {body ? (
+                        <p
+                          style={{
+                            margin: 0, padding: 14, fontSize: 13.5, lineHeight: 1.6,
+                            color: 'var(--t-mut)', whiteSpace: 'pre-wrap',
+                          }}
+                        >
+                          {body}
+                        </p>
+                      ) : null}
+                    </article>
                   ) : null}
-                  <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span className="b-head" style={{ fontSize: 16, lineHeight: 1.25 }}>{item.title}</span>
-                    {item.kind === 'article' && item.body ? (
-                      <p
-                        style={{
-                          margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--t-mut)',
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
-                        {item.body}
-                      </p>
-                    ) : null}
-                  </div>
-                </article>
+                </div>
               );
             })}
           </div>

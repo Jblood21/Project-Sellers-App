@@ -79,3 +79,29 @@ export async function fileToDataUrl(file) {
   }
   return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
 }
+
+/**
+ * Reads a picked video without touching it.
+ *
+ * Unlike an image, there is no downscaling to do here — re-encoding video in a
+ * browser is a different project, and a builder who exported a clip at the size
+ * they wanted should get that clip. So this is a straight read, and the size
+ * limit is enforced before the read rather than after: reading 200MB into a
+ * string to then refuse it is how a phone runs out of memory.
+ */
+export async function videoToDataUrl(file, maxBytes) {
+  if (!file.type.startsWith('video/')) throw new Error('Pick a video file.');
+  if (file.size > maxBytes) {
+    const mb = (n) => `${(n / (1024 * 1024)).toFixed(1)} MB`;
+    throw new Error(
+      `That video is ${mb(file.size)}. Uploads stop at ${mb(maxBytes)} — `
+      + 'for a longer one, paste a YouTube or Vimeo link instead.',
+    );
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('That file could not be read. Try picking it again.'));
+    reader.readAsDataURL(file);
+  });
+}

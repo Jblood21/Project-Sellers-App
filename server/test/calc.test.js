@@ -4,8 +4,8 @@ import test from 'node:test';
 import {
   DEFAULT_SETTINGS, DEFAULT_THEME, THEMES, THEME_CHIPS, THEME_COLORS, affordabilityLevers,
   calcAffordability, calcPayment, creditRanges,
-  daysBetween, leaseOverlap, mapsUrl, moveInSchedule, moveInTimeline, normalizeTheme, pay30,
-  videoEmbed,
+  MAX_VIDEO_BYTES, base64Bytes, daysBetween, leaseOverlap, mapsUrl, megabytes, moveInSchedule,
+  moveInTimeline, normalizeTheme, pay30, videoEmbed,
   planProgress, screenDpa, shiftDate, suggestPrograms,
 } from '../../shared/domain.js';
 
@@ -336,4 +336,19 @@ test('a video link becomes an embeddable one, whatever shape it was pasted in', 
   assert.equal(videoEmbed('https://www.youtube.com/watch?v='), null, 'no id');
   assert.equal(videoEmbed(''), null);
   assert.equal(videoEmbed(undefined), null);
+});
+
+test('a base64 payload reports the size of the file behind it', () => {
+  // 4 characters carry 3 bytes; padding says how many of the last 3 are real.
+  assert.equal(base64Bytes(Buffer.from('abc').toString('base64')), 3, 'no padding');
+  assert.equal(base64Bytes(Buffer.from('ab').toString('base64')), 2, 'one pad character');
+  assert.equal(base64Bytes(Buffer.from('a').toString('base64')), 1, 'two pad characters');
+  assert.equal(base64Bytes(Buffer.alloc(1000).toString('base64')), 1000);
+  assert.equal(base64Bytes(''), 0);
+  assert.equal(base64Bytes(undefined), 0);
+
+  // The number the cap is actually compared against, at the boundary.
+  const atCap = 'A'.repeat(Math.ceil((MAX_VIDEO_BYTES * 4) / 3));
+  assert.ok(base64Bytes(atCap) >= MAX_VIDEO_BYTES, 'a file at the cap is measured as such');
+  assert.equal(megabytes(MAX_VIDEO_BYTES), '25.0 MB', 'and the cap reads the way the UI says it');
 });

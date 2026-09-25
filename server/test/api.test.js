@@ -8,6 +8,7 @@ import { createFileStore } from '../db/file.js';
 import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
+import { MAX_VIDEO_BYTES } from '../../shared/domain.js';
 import { createApp } from '../index.js';
 
 let server;
@@ -1159,4 +1160,101 @@ test('videos and articles: the builder writes them, the buyer reads them below t
     method: 'PATCH', token, body: { features: { resources: true } },
   });
   assert.equal((await api(`/api/c/${cid}`)).body.resources.length, 4);
+});
+
+test('an uploaded video is stored, capped, and served in byte ranges', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Upload Test' } });
+  const cid = community.body.id;
+  const post = (body) => api(`/api/admin/communities/${cid}/resources`, { method: 'POST', token, body });
+
+  // Not a real MP4 — the route stores bytes, it does not decode them, so any
+  // known-length payload proves the storage and range maths.
+  const bytes = Buffer.from(Array.from({ length: 1000 }, (_, i) => i % 256));
+  const dataUrl = `data:video/mp4;base64,${bytes.toString('base64')}`;
+
+  const made = await post({ kind: 'video', title: 'A walk through', dataUrl });
+  assert.equal(made.status, 201);
+  assert.equal(made.body.sizeBytes, 1000, 'the decoded size is what gets recorded');
+  assert.equal(made.body.videoUrl, `/api/resources/${made.body.id}/video`);
+  assert.equal(made.body.url, '', 'an uploaded video carries no link');
+
+  // The bytes never ride along in a list — that payload goes to every buyer.
+  const listed = (await api(`/api/c/${cid}`)).body.resources[0];
+  assert.equal(listed.videoUrl, `/api/resources/${made.body.id}/video`);
+  assert.ok(!('data' in listed), 'the file itself is not in the community payload');
+  assert.ok(JSON.stringify(listed).length < 400, 'and the row stays small');
+
+  // Whole file.
+  const whole = await fetch(`${base}/api/resources/${made.body.id}/video`);
+  assert.equal(whole.status, 200);
+  assert.equal(whole.headers.get('content-type'), 'video/mp4');
+  assert.equal(whole.headers.get('accept-ranges'), 'bytes', 'browsers look for this before seeking');
+  assert.equal(whole.headers.get('content-length'), '1000');
+  assert.deepEqual(Buffer.from(await whole.arrayBuffer()), bytes, 'the bytes come back unchanged');
+
+  // A range: this is what a scrubber asks for, and Safari will not start
+  // playback at all until it gets a 206 back.
+  const slice = await fetch(`${base}/api/resources/${made.body.id}/video`, {
+    headers: { Range: 'bytes=100-199' },
+  });
+  assert.equal(slice.status, 206);
+  assert.equal(slice.headers.get('content-range'), 'bytes 100-199/1000');
+  assert.equal(slice.headers.get('content-length'), '100');
+  assert.deepEqual(Buffer.from(await slice.arrayBuffer()), bytes.subarray(100, 200));
+
+  // An open-ended range, which is what "play from here" actually sends.
+  const tail = await fetch(`${base}/api/resources/${made.body.id}/video`, {
+    headers: { Range: 'bytes=900-' },
+  });
+  assert.equal(tail.status, 206);
+  assert.equal(tail.headers.get('content-range'), 'bytes 900-999/1000');
+
+  // A range past the end is refused with the length, not clamped silently.
+  const past = await fetch(`${base}/api/resources/${made.body.id}/video`, {
+    headers: { Range: 'bytes=5000-6000' },
+  });
+  assert.equal(past.status, 416);
+  assert.equal(past.headers.get('content-range'), 'bytes */1000');
+
+  // Over the cap is refused, and the message says the size and the way out.
+  // A real payload rather than a stubbed size: the cap is a promise to the
+  // builder's database, and nothing else in the suite was holding it.
+  const tooBig = Buffer.alloc(MAX_VIDEO_BYTES + 1024, 7).toString('base64');
+  const refused = await post({ kind: 'video', title: 'Too big', dataUrl: `data:video/mp4;base64,${tooBig}` });
+  assert.equal(refused.status, 400);
+  assert.match(refused.body.error, /25\.0 MB/, 'it names the limit');
+  assert.match(refused.body.error, /YouTube or Vimeo link/, 'and the way round it');
+  assert.equal((await api(`/api/c/${cid}`)).body.resources.length, 1, 'and nothing was stored');
+
+  // A file that is not a video is refused by type, whatever it is named.
+  const wrongType = await post({
+    kind: 'video', title: 'Nope', dataUrl: 'data:application/zip;base64,QUJD',
+  });
+  assert.equal(wrongType.status, 400);
+  assert.match(wrongType.body.error, /not a video file/i);
+
+  // Two sources for one player is a question nobody should have to answer.
+  assert.equal(
+    (await post({ kind: 'video', title: 'Both', dataUrl, url: 'https://youtu.be/abc' })).status,
+    400,
+  );
+  assert.equal((await post({ kind: 'video', title: 'Neither' })).status, 400);
+
+  // Editing to a link drops the file, and the other way round.
+  const toLink = await api(`/api/admin/resources/${made.body.id}`, {
+    method: 'PATCH', token, body: { url: 'https://youtu.be/abc12345678' },
+  });
+  assert.equal(toLink.body.videoUrl, '', 'the uploaded file is gone');
+  assert.equal(toLink.body.url, 'https://youtu.be/abc12345678');
+  assert.equal((await fetch(`${base}/api/resources/${made.body.id}/video`)).status, 404);
+
+  const toFile = await api(`/api/admin/resources/${made.body.id}`, {
+    method: 'PATCH', token, body: { dataUrl },
+  });
+  assert.equal(toFile.body.url, '', 'and the link is gone again');
+  assert.equal(toFile.body.videoUrl, `/api/resources/${made.body.id}/video`);
 });

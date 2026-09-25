@@ -243,6 +243,11 @@ export function createFileStore(path) {
       return shapeResource((db.resources ?? []).find((r) => r.id === id) ?? null);
     },
 
+    async getResourceVideo(id) {
+      const row = (db.resources ?? []).find((r) => r.id === id);
+      return row?.data ? { content_type: row.contentType || '', data: row.data } : null;
+    },
+
     async countResourcesOfKind(communityId, kind) {
       return (db.resources ?? []).filter((r) => r.communityId === communityId && r.kind === kind).length;
     },
@@ -253,6 +258,8 @@ export function createFileStore(path) {
       const row = {
         id: `r_${shortId(10)}`, communityId, kind: data.kind,
         title: data.title ?? '', body: data.body ?? '', url: data.url ?? '',
+        contentType: data.contentType ?? '', data: data.data ?? null,
+        sizeBytes: data.sizeBytes ?? 0,
         position, createdAt: now(),
       };
       db.resources.push(row);
@@ -263,7 +270,7 @@ export function createFileStore(path) {
     async updateResource(id, patch) {
       const row = (db.resources ?? []).find((r) => r.id === id);
       if (!row) return null;
-      for (const key of ['kind', 'title', 'body', 'url', 'position']) {
+      for (const key of ['kind', 'title', 'body', 'url', 'position', 'contentType', 'data', 'sizeBytes']) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       save();
