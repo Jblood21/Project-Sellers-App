@@ -443,15 +443,14 @@ export const LENDER = {
  * The lender's logo, or '' to fall back to their name set in the community's
  * own heading font.
  *
- * The file supplied is 129x65 with a transparent background — fine at the size
- * it is drawn, but it is the artwork's real resolution, so on a 3x phone the
- * browser is upscaling it. If a larger PNG or an SVG turns up in the brand
- * pack, dropping it in beside this and renaming here is the whole change.
- *
- * Drawn no larger than its natural height, so it is only ever scaled down.
+ * The file supplied is 129x65 with a transparent background, which is the
+ * artwork's real resolution. At the height below a 3x phone wants about 156
+ * device pixels of it and there are 65, so the browser is upscaling roughly
+ * 2.4x and the wordmark is a little soft up close. A larger PNG or an SVG from
+ * the brand pack fixes that: drop it in beside this one and rename here.
  */
 export const LENDER_LOGO = '/summit-home-loans.png';
-export const LENDER_LOGO_HEIGHT = 40;
+export const LENDER_LOGO_HEIGHT = 52;
 
 /**
  * Whether there is enough here to advertise. Name and NMLS are the minimum: an
