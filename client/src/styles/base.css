@@ -206,6 +206,16 @@ a { color: inherit; }
   border: 1px solid var(--t-line);
   border-radius: var(--t-radlg);
 }
+/* A rule that opens a section rather than a hairline that closes one. The
+   accent at full strength on the left, fading into the ordinary line colour,
+   so one rule carries every theme's own colour without a second token per
+   palette. Decorative: it marks a change of subject, it does not add one. */
+.b-rule {
+  height: 3px;
+  border: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--t-acc) 0%, var(--t-acc) 24%, var(--t-line) 100%);
+}
 .b-btn {
   min-height: 48px;
   width: 100%;
