@@ -48,6 +48,17 @@ ALTER TABLE homes ADD COLUMN IF NOT EXISTS lot_number TEXT NOT NULL DEFAULT '';
 -- for the same reason: a timestamp would drift a day for some viewers, and a
 -- buyer gives notice on their lease around this date.
 ALTER TABLE homes ADD COLUMN IF NOT EXISTS ready_on TEXT NOT NULL DEFAULT '';
+-- How many of this one are left, or NULL.
+--
+-- Nullable on purpose, and NULL is not zero. A builder's list mixes two things:
+-- a specific house on a lot, which is simply available or sold, and a floor
+-- plan they have several lots of. NULL is the first kind, a number is the
+-- second, and 0 means sold in either case -- so the single sold house and the
+-- plan with nothing left need no separate flag between them.
+--
+-- Anything reading this has to keep NULL and 0 apart: `Number(x) || 0` collapses
+-- them and turns every ordinary home into a sold one.
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS units_available INTEGER;
 
 CREATE INDEX IF NOT EXISTS homes_community_idx ON homes(community_id);
 

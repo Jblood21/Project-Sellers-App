@@ -300,6 +300,31 @@ export function consentText(who) {
 export const RESOURCE_KINDS = ['article', 'video'];
 
 export const AVAILABILITY = ['Planning', 'Under Construction', 'Move-in ready'];
+
+/**
+ * How many of this home are left, as a buyer should read it.
+ *
+ * `unitsAvailable` is null for a one-off house on a lot — nothing to count, so
+ * nothing is said. A number is a plan the builder has several of. Zero means
+ * sold, whether that is the single house or the last lot of a plan, which is
+ * why one field covers both and there is no separate sold flag to keep in step
+ * with it.
+ *
+ * Returns '' when there is nothing to show, so callers can render it directly.
+ */
+export function unitsLabel(home) {
+  const units = home?.unitsAvailable;
+  if (units === null || units === undefined) return '';
+  const n = Number(units);
+  if (!Number.isFinite(n) || n < 0) return '';
+  if (n === 0) return 'Sold';
+  return `${n} available`;
+}
+
+/** Sold is worth saying loudly; a count is just information. */
+export function isSold(home) {
+  return home?.unitsAvailable === 0;
+}
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 
 /**

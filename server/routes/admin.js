@@ -23,6 +23,20 @@ const numOr = (v, fallback) => {
 };
 
 /**
+ * How many of a home are left: a whole number, or null for "this one has no
+ * count". Blank clears it back to null; 0 is a real answer meaning sold, so it
+ * must not be mistaken for blank. A negative or fractional count is nonsense
+ * and clears rather than being stored.
+ */
+const unitCount = (value) => {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isInteger(n) && n >= 0 && n <= 9999 ? n : null;
+};
+
+/**
  * A completion date is 'YYYY-MM-DD' or nothing. Stored literally, like slots:
  * a buyer plans their lease notice around this, so it must not shift a day for
  * someone in another timezone.
@@ -195,6 +209,7 @@ export function adminRouter() {
       availability: AVAILABILITY.includes(req.body?.availability) ? req.body.availability : 'Planning',
       lotNumber: str(req.body?.lotNumber),
       readyOn: readyDate(req.body?.readyOn),
+      unitsAvailable: unitCount(req.body?.unitsAvailable),
     });
     res.status(201).json(home);
   });
@@ -215,6 +230,10 @@ export function adminRouter() {
     }
     if (req.body?.lotNumber !== undefined) patch.lotNumber = str(req.body.lotNumber);
     if (req.body?.readyOn !== undefined) patch.readyOn = readyDate(req.body.readyOn);
+    // Sent explicitly as null or '' to clear the count; both land as null.
+    if (req.body?.unitsAvailable !== undefined) {
+      patch.unitsAvailable = unitCount(req.body.unitsAvailable);
+    }
     res.json(await store.updateHome(home.id, patch));
   });
 

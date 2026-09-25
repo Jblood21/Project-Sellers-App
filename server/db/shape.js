@@ -26,6 +26,13 @@ export function shapeCommunity(row, extra = {}) {
  * the bytes: like a resource video, the file is fetched from its own URL so it
  * can be ranged and cached, and so it never rides along in a JSON payload.
  */
+/** An integer count, or null for "this home does not have a count". */
+const units = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+};
+
 export function shapeHome(row, photos = [], floorPlans = [], video = null) {
   if (!row) return null;
   return {
@@ -40,6 +47,9 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     availability: row.availability,
     lotNumber: row.lot_number ?? row.lotNumber ?? '',
     readyOn: row.ready_on ?? row.readyOn ?? '',
+    // Null and zero mean different things here -- no count at all versus sold
+    // out -- so this cannot fall back through `|| 0` like the numbers above it.
+    unitsAvailable: units(row.units_available ?? row.unitsAvailable),
     position: Number(row.position) || 0,
     photos,
     floorPlans,
