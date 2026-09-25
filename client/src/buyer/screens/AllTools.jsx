@@ -1,6 +1,8 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { LENDER, LENDER_LOGO, lenderReady, TOOLS, videoEmbed } from '@shared/domain.js';
+import {
+  LENDER, LENDER_LOGO, LENDER_LOGO_HEIGHT, lenderReady, TOOLS, videoEmbed,
+} from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { firstName } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
@@ -340,7 +342,10 @@ function LenderCard({ onOpen }) {
           <img
             src={LENDER_LOGO}
             alt={LENDER.name}
-            style={{ height: 34, alignSelf: 'flex-start', objectFit: 'contain' }}
+            // height, not maxHeight: the file is drawn at a fixed size so the
+            // card looks the same whatever artwork is dropped in later, and
+            // width follows the aspect ratio rather than being guessed at.
+            style={{ height: LENDER_LOGO_HEIGHT, width: 'auto', alignSelf: 'flex-start' }}
           />
         ) : (
           <span className="b-head" style={{ fontSize: 18, lineHeight: 1.2 }}>{LENDER.name}</span>

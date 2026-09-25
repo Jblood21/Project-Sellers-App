@@ -440,12 +440,18 @@ export const LENDER = {
 };
 
 /**
- * A logo file, or '' to fall back to the name set in the community's own
- * heading font. Put the file in client/public/ and name it here, e.g.
- * '/summit-home-loans.svg' — from the lender's brand pack, so the rights to
- * use it come with it.
+ * The lender's logo, or '' to fall back to their name set in the community's
+ * own heading font.
+ *
+ * The file supplied is 129x65 with a transparent background — fine at the size
+ * it is drawn, but it is the artwork's real resolution, so on a 3x phone the
+ * browser is upscaling it. If a larger PNG or an SVG turns up in the brand
+ * pack, dropping it in beside this and renaming here is the whole change.
+ *
+ * Drawn no larger than its natural height, so it is only ever scaled down.
  */
-export const LENDER_LOGO = '';
+export const LENDER_LOGO = '/summit-home-loans.png';
+export const LENDER_LOGO_HEIGHT = 40;
 
 /**
  * Whether there is enough here to advertise. Name and NMLS are the minimum: an
