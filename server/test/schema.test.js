@@ -451,6 +451,49 @@ test('videos and articles round-trip through Postgres', opts, async () => {
   });
 });
 
+test('null and zero units stay apart through Postgres', opts, async () => {
+  await withDatabase('schema_units_rt', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Units Round Trip' });
+      const mk = (name, unitsAvailable) => store.createHome(community.id, {
+        name, price: 500000, beds: 3, baths: 2, sqft: 2000, description: '',
+        availability: 'Ready', unitsAvailable,
+      });
+
+      // The column is nullable and NULL is not 0. Postgres will happily return
+      // one as the other through a careless shaper, and a whole community of
+      // ordinary homes reading "Sold" is what that looks like in the app.
+      const uncounted = await mk('Lot 14', null);
+      const sold = await mk('The Aspen', 0);
+      const several = await mk('The Cedar', 4);
+      assert.equal(uncounted.unitsAvailable, null);
+      assert.equal(sold.unitsAvailable, 0);
+      assert.equal(several.unitsAvailable, 4);
+
+      // Through a fresh read rather than the insert's own RETURNING row.
+      assert.equal((await store.getHome(uncounted.id)).unitsAvailable, null);
+      assert.equal((await store.getHome(sold.id)).unitsAvailable, 0);
+
+      const listed = await store.listHomes(community.id);
+      assert.deepEqual(
+        listed.map((h) => h.unitsAvailable),
+        [null, 0, 4],
+        'and the list the buyer is served keeps them apart too',
+      );
+
+      // Setting it and clearing it both work, in both directions.
+      assert.equal((await store.updateHome(uncounted.id, { unitsAvailable: 0 })).unitsAvailable, 0);
+      assert.equal((await store.updateHome(sold.id, { unitsAvailable: null })).unitsAvailable, null);
+      assert.equal((await store.updateHome(several.id, { name: 'Cedar II' })).unitsAvailable, 4,
+        'and an unrelated edit leaves the count alone');
+    } finally {
+      await store.close();
+    }
+  });
+});
+
 test('a home walkthrough round-trips through Postgres', opts, async () => {
   await withDatabase('schema_home_video_rt', async (url) => {
     const store = await createPostgresStore(url);

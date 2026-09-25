@@ -188,7 +188,13 @@ export function createFileStore(path) {
 
     async createHome(communityId, data) {
       const position = db.homes.filter((h) => h.communityId === communityId).length;
-      const row = { id: `h_${shortId(10)}`, communityId, ...data, position, createdAt: now() };
+      const row = {
+        id: `h_${shortId(10)}`, communityId, ...data,
+        // Spelled out so a home created without one has the column rather than
+        // the key simply missing -- null is a value here, not an absence.
+        unitsAvailable: data.unitsAvailable ?? null,
+        position, createdAt: now(),
+      };
       db.homes.push(row);
       save();
       return shapeHome(row, [], []);
@@ -199,7 +205,7 @@ export function createFileStore(path) {
       if (!row) return null;
       for (const key of [
         'name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability',
-        'lotNumber', 'readyOn', 'position',
+        'lotNumber', 'readyOn', 'unitsAvailable', 'position',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }

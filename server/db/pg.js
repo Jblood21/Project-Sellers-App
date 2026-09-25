@@ -215,10 +215,13 @@ export function createPostgresStore(connectionString) {
       );
       const { rows } = await q(
         `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description,
-                            availability, lot_number, ready_on, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+                            availability, lot_number, ready_on, units_available, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
         [`h_${shortId(10)}`, communityId, data.name, data.price, data.beds, data.baths, data.sqft,
-          data.description, data.availability, data.lotNumber ?? '', data.readyOn ?? '', posRows[0].pos],
+          data.description, data.availability, data.lotNumber ?? '', data.readyOn ?? '',
+          // ?? not ||, so a home created as sold out stays at 0 rather than
+          // becoming an uncounted one.
+          data.unitsAvailable ?? null, posRows[0].pos],
       );
       return shapeHome(rows[0], [], []);
     },
@@ -227,7 +230,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'sqft',
         description: 'description', availability: 'availability', lotNumber: 'lot_number',
-        readyOn: 'ready_on', position: 'position',
+        readyOn: 'ready_on', unitsAvailable: 'units_available', position: 'position',
       };
       const sets = [];
       const params = [];
