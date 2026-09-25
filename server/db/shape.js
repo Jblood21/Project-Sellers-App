@@ -21,7 +21,12 @@ export function shapeCommunity(row, extra = {}) {
   };
 }
 
-export function shapeHome(row, photos = [], floorPlans = []) {
+/**
+ * `video` is the home's walkthrough as {sizeBytes, contentType}, or null. Never
+ * the bytes: like a resource video, the file is fetched from its own URL so it
+ * can be ranged and cached, and so it never rides along in a JSON payload.
+ */
+export function shapeHome(row, photos = [], floorPlans = [], video = null) {
   if (!row) return null;
   return {
     id: row.id,
@@ -38,6 +43,8 @@ export function shapeHome(row, photos = [], floorPlans = []) {
     position: Number(row.position) || 0,
     photos,
     floorPlans,
+    videoUrl: video ? `/api/homes/${row.id}/video` : '',
+    videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
   };
 }
 

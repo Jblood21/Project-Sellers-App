@@ -451,6 +451,74 @@ test('videos and articles round-trip through Postgres', opts, async () => {
   });
 });
 
+test('a home walkthrough round-trips through Postgres', opts, async () => {
+  await withDatabase('schema_home_video_rt', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Walkthrough Round Trip' });
+      const mk = (name) => store.createHome(community.id, {
+        name, price: 500000, beds: 3, baths: 2, sqft: 2000, description: '', availability: 'Ready',
+      });
+      const cedar = await mk('The Cedar');
+      const oak = await mk('The Oak');
+
+      assert.equal(cedar.videoUrl, '', 'a home with no video says so with a blank url, not null');
+      assert.equal(cedar.videoSizeBytes, 0);
+
+      const first = Buffer.alloc(48 * 1024, 7);
+      const stored = await store.setHomeVideo(cedar.id, {
+        communityId: community.id, contentType: 'video/mp4',
+        data: first.toString('base64'), sizeBytes: first.length,
+      });
+      assert.equal(stored.videoUrl, `/api/homes/${cedar.id}/video`);
+      assert.equal(stored.videoSizeBytes, first.length);
+
+      // The reason the video lives in its own table: the home list is read on
+      // every buyer page load, so the payload must stay small whether or not a
+      // home has a walkthrough.
+      const listed = await store.listHomes(community.id);
+      const listedCedar = listed.find((h) => h.id === cedar.id);
+      assert.equal(listedCedar.videoUrl, `/api/homes/${cedar.id}/video`);
+      assert.ok(!JSON.stringify(listed).includes(first.toString('base64').slice(0, 64)),
+        'and the file is nowhere in it');
+      assert.equal(listed.find((h) => h.id === oak.id).videoUrl, '',
+        'the home without one is unaffected');
+
+      const bytes = await store.getHomeVideo(cedar.id);
+      assert.equal(bytes.content_type, 'video/mp4');
+      assert.equal(Buffer.from(bytes.data, 'base64').length, first.length,
+        'the file itself comes back whole from its own call');
+
+      // One per home: a second upload replaces rather than stacking, which is
+      // what the primary key on home_id buys.
+      const second = Buffer.alloc(16 * 1024, 9);
+      await store.setHomeVideo(cedar.id, {
+        communityId: community.id, contentType: 'video/webm',
+        data: second.toString('base64'), sizeBytes: second.length,
+      });
+      const replaced = await store.getHome(cedar.id);
+      assert.equal(replaced.videoSizeBytes, second.length);
+      assert.equal((await store.getHomeVideo(cedar.id)).content_type, 'video/webm');
+
+      await store.deleteHomeVideo(cedar.id);
+      assert.equal((await store.getHome(cedar.id)).videoUrl, '');
+      assert.equal(await store.getHomeVideo(cedar.id), null);
+
+      // Deleting a home takes its walkthrough with it rather than orphaning
+      // megabytes in a table nothing points at any more.
+      await store.setHomeVideo(oak.id, {
+        communityId: community.id, contentType: 'video/mp4',
+        data: second.toString('base64'), sizeBytes: second.length,
+      });
+      await store.deleteHome(oak.id);
+      assert.equal(await store.getHomeVideo(oak.id), null);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
 test('a move-in plan round-trips through Postgres', opts, async () => {
   await withDatabase('schema_movein_rt', async (url) => {
     const store = await createPostgresStore(url);

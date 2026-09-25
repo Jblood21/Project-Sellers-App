@@ -51,6 +51,23 @@ ALTER TABLE homes ADD COLUMN IF NOT EXISTS ready_on TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS homes_community_idx ON homes(community_id);
 
+-- One walkthrough per home, held as base64 the way resource videos are.
+--
+-- Its own table rather than a column on homes: every query that lists homes
+-- selects the whole row, so a `data` column there would drag a 25MB video out
+-- of Postgres on every buyer page load. Here the bytes are only ever read by
+-- the route that streams them, and home_id as the primary key is what makes it
+-- one per home -- a second upload replaces the first instead of stacking up.
+CREATE TABLE IF NOT EXISTS home_videos (
+  home_id      TEXT PRIMARY KEY REFERENCES homes(id) ON DELETE CASCADE,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  content_type TEXT NOT NULL DEFAULT '',
+  data         TEXT NOT NULL,
+  size_bytes   INTEGER NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS home_videos_community_idx ON home_videos(community_id);
+
 -- Photos live in the database so a Render service with an ephemeral disk keeps them
 -- across deploys. `data` holds a base64 payload for uploads; `url` an external image.
 CREATE TABLE IF NOT EXISTS photos (

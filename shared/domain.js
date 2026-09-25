@@ -256,9 +256,20 @@ export function base64Bytes(base64) {
   return Math.floor((text.length * 3) / 4) - padding;
 }
 
-/** '24.3 MB' — for telling somebody why their file was refused. */
+/**
+ * '24.3 MB', or '412 KB' for anything under a megabyte.
+ *
+ * Both for refusing a file and for labelling one that was accepted. The KB
+ * branch exists because the MB one alone renders a 33KB clip as '0.0 MB',
+ * which reads like something went wrong rather than like a small file.
+ */
 export function megabytes(bytes) {
-  return `${(Number(bytes || 0) / (1024 * 1024)).toFixed(1)} MB`;
+  const n = Number(bytes) || 0;
+  // Round a sub-kilobyte file up rather than down: '0 KB' next to a video that
+  // plays is a worse lie than '1 KB'. Nothing at all is still nothing.
+  if (n === 0) return '0 KB';
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export const RESOURCE_KINDS = ['article', 'video'];

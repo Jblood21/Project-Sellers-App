@@ -351,4 +351,8 @@ test('a base64 payload reports the size of the file behind it', () => {
   const atCap = 'A'.repeat(Math.ceil((MAX_VIDEO_BYTES * 4) / 3));
   assert.ok(base64Bytes(atCap) >= MAX_VIDEO_BYTES, 'a file at the cap is measured as such');
   assert.equal(megabytes(MAX_VIDEO_BYTES), '25.0 MB', 'and the cap reads the way the UI says it');
+  // A small clip is KB, not '0.0 MB' — a size that reads like a failed upload.
+  assert.equal(megabytes(33 * 1024), '33 KB');
+  assert.equal(megabytes(900), '1 KB', 'a sub-kilobyte file rounds up, never to 0');
+  assert.equal(megabytes(0), '0 KB', 'but nothing at all is still nothing');
 });

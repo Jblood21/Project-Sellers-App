@@ -103,6 +103,11 @@ export const adminApi = {
   deleteResource: (token, id) =>
     request(`/api/admin/resources/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   deletePhoto: (token, id) => request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // PUT, not POST: a home has one walkthrough, so sending another replaces it.
+  setHomeVideo: (token, homeId, body) =>
+    request(`/api/admin/homes/${encodeURIComponent(homeId)}/video`, { method: 'PUT', body, token }),
+  deleteHomeVideo: (token, homeId) =>
+    request(`/api/admin/homes/${encodeURIComponent(homeId)}/video`, { method: 'DELETE', token }),
   slots: (token, communityId) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/slots`, { token }),
   createSlots: (token, communityId, body) =>
