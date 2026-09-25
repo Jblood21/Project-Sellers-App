@@ -180,6 +180,30 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 DROP INDEX IF EXISTS leads_community_email_idx;
 CREATE INDEX IF NOT EXISTS leads_community_email_lookup_idx ON leads(community_id, lower(email));
 
+-- Proof that somebody agreed to be called and texted.
+--
+-- Append-only, and it stores the WORDS rather than a boolean. A row reading
+-- `consented = true` proves nothing once the screen has been reworded; what a
+-- TCPA claim turns on is the exact text in front of the person, the moment they
+-- agreed and where they were. So each row keeps the rendered paragraph, the
+-- version of the wording, the time, the IP and the user agent, and nothing ever
+-- updates a row -- a change of mind is a new row.
+--
+-- `granted` false is a real answer, not an absence: it records that the box was
+-- put in front of somebody and they left it unchecked, which is different from
+-- a lead created before any of this existed and has no row at all.
+CREATE TABLE IF NOT EXISTS lead_consents (
+  id         TEXT PRIMARY KEY,
+  lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  granted    BOOLEAN NOT NULL,
+  consent_text TEXT NOT NULL DEFAULT '',
+  version    TEXT NOT NULL DEFAULT '',
+  ip         TEXT NOT NULL DEFAULT '',
+  user_agent TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS lead_consents_lead_idx ON lead_consents(lead_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS lead_plan_items (
   lead_id    TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
   key        TEXT NOT NULL,

@@ -493,6 +493,20 @@ export function adminRouter() {
   });
 
   /**
+   * Every consent answer this lead has given, newest first.
+   *
+   * Read-only, and there is deliberately no route that writes or edits one from
+   * the admin side: a consent record the business can author is not evidence of
+   * anything. They are written in one place, by the buyer, at the gate.
+   */
+  router.get('/leads/:id/consents', async (req, res) => {
+    const store = await getStore();
+    const lead = await store.getLead(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    res.json(await store.listConsents(lead.id));
+  });
+
+  /**
    * The lead as a MISMO 3.4 file, so a loan officer can import them rather than
    * retype them. Contact and plan only — see server/lib/mismo.js for why.
    */

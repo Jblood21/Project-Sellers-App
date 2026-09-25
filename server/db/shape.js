@@ -57,7 +57,24 @@ export function shapePhoto(row) {
   };
 }
 
-export function shapeLead(row, { plan = {}, activity = [], moveIn = null } = {}) {
+/**
+ * The consent record as the admin needs to read it. `null` means no row at all
+ * — a lead from before the box existed — which is not the same as `granted:
+ * false`, somebody who was asked and said no. Both mean do not call; only one
+ * of them means you asked.
+ */
+export function shapeConsent(row) {
+  if (!row) return null;
+  return {
+    granted: Boolean(row.granted),
+    text: row.consent_text ?? row.consentText ?? '',
+    version: row.version ?? '',
+    at: row.created_at ?? row.createdAt ?? null,
+    ip: row.ip ?? '',
+  };
+}
+
+export function shapeLead(row, { plan = {}, activity = [], moveIn = null, consent = null } = {}) {
   if (!row) return null;
   return {
     id: row.id,
@@ -76,6 +93,7 @@ export function shapeLead(row, { plan = {}, activity = [], moveIn = null } = {})
     plan,
     activity,
     moveIn,
+    consent,
   };
 }
 

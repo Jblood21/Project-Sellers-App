@@ -7,12 +7,13 @@ import {
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
-  shapeResource, shapeSlot,
+  shapeResource, shapeSlot, shapeConsent,
 } from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
+  consents: [],
 };
 
 /**
@@ -54,6 +55,11 @@ export function createFileStore(path) {
       .map(shapePhoto);
   const photosOf = (homeId) => imagesOf(homeId, 'home');
   const plansOf = (homeId) => imagesOf(homeId, 'floorplan');
+  // Newest answer wins; the older rows stay as the audit trail.
+  const consentOf = (leadId) => shapeConsent(
+    db.consents.filter((c) => c.leadId === leadId)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] ?? null,
+  );
   // Presence and size only, so shapeHome never sees the bytes — the same split
   // the Postgres store draws by keeping the file out of its column list.
   const videoOf = (homeId) => {
@@ -424,19 +430,28 @@ export function createFileStore(path) {
       return db.leads
         .filter((l) => l.communityId === communityId)
         .map((l) => ({
-          ...shapeLead(l, { plan: planOf(l.id), moveIn: moveInOf(l.id) }),
+          ...shapeLead(l, { plan: planOf(l.id), moveIn: moveInOf(l.id), consent: consentOf(l.id) }),
           activityCount: db.activity.filter((a) => a.leadId === l.id).length,
         }));
     },
 
     async getLead(id) {
       const row = db.leads.find((l) => l.id === id);
-      return row ? shapeLead(row, { plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id) }) : null;
+      return row
+        ? shapeLead(row, {
+          plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id), consent: consentOf(id),
+        })
+        : null;
     },
 
     async findLeadByIdentity(communityId, input) {
       const row = db.leads.find((l) => l.communityId === communityId && isSameLead(l, input));
-      return row ? shapeLead(row, { plan: planOf(row.id), activity: activityOf(row.id), moveIn: moveInOf(row.id) }) : null;
+      return row
+        ? shapeLead(row, {
+          plan: planOf(row.id), activity: activityOf(row.id), moveIn: moveInOf(row.id),
+          consent: consentOf(row.id),
+        })
+        : null;
     },
 
     async createLead(communityId, { name, email, phone }) {
@@ -448,6 +463,24 @@ export function createFileStore(path) {
       db.leads.push(row);
       save();
       return shapeLead(row, {});
+    },
+
+    async recordConsent(leadId, { granted, text, version, ip, userAgent }) {
+      // Append-only, like the Postgres store: a change of mind is a new row.
+      const row = {
+        id: `cs_${shortId(12)}`, leadId, granted: Boolean(granted), consentText: text ?? '',
+        version: version ?? '', ip: ip ?? '', userAgent: userAgent ?? '', createdAt: now(),
+      };
+      db.consents.push(row);
+      save();
+      return shapeConsent(row);
+    },
+
+    async listConsents(leadId) {
+      return db.consents
+        .filter((c) => c.leadId === leadId)
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .map(shapeConsent);
     },
 
     async updateLead(id, patch) {

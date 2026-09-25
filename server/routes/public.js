@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import {
+  CONSENT_VERSION, consentText,
   CONTACT_METHOD_KEYS, describeTour, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
   PLAN_LABELS, TOOL_KEYS,
@@ -131,18 +132,52 @@ export function publicRouter() {
       return res.status(400).json({ error: 'Please add your full name, a valid email and a cell number.' });
     }
 
+    // The consent paragraph is rendered HERE, from this community's own name,
+    // and never taken from the request. What gets stored has to be the words the
+    // server put on the screen: text supplied by the caller would make the
+    // record say whatever a modified client felt like claiming, which is worth
+    // less than no record at all.
+    const granted = req.body?.consent === true;
+    const consent = {
+      granted,
+      text: consentText(community.builder || community.name),
+      version: CONSENT_VERSION,
+      ip: req.ip ?? '',
+      userAgent: String(req.get('user-agent') ?? '').slice(0, 400),
+    };
+
     // All three have to match. A buyer coming back gets their own record and
     // everything in it; anyone whose details differ is a different person and
     // gets their own, even if they share an email with somebody here.
     const existing = await store.findLeadByIdentity(community.id, { name, email, phone });
     if (existing) {
       await store.addActivity(existing.id, 'Return visit');
+      // A returning buyer is shown the box again, so their answer can change.
+      // Only a real change is written: re-recording an identical answer on
+      // every visit would bury the moment they actually decided under noise.
+      const current = existing.consent;
+      if (!current || current.granted !== granted || current.version !== consent.version) {
+        await store.recordConsent(existing.id, consent);
+        await store.addActivity(
+          existing.id,
+          granted ? 'Agreed to calls and texts' : 'Declined calls and texts',
+        );
+      }
       const lead = await store.getLead(existing.id);
       return res.json({ lead, token: issueLeadToken(lead), returning: true });
     }
 
     const created = await store.createLead(community.id, { name, email, phone });
     await store.addActivity(created.id, 'Scanned QR — entered the app');
+    // Recorded either way: that somebody was asked and left the box unchecked
+    // is the answer, and it is the one that has to be visible before anyone
+    // picks up the phone.
+    //
+    // Not written to the activity feed. Every lead would carry the same line
+    // and it is the feed the builder actually reads; the consent record is the
+    // record, and the lead screen puts it next to the phone number. Only a
+    // CHANGE of mind is news, and that is logged below on a return visit.
+    await store.recordConsent(created.id, consent);
     const lead = await store.getLead(created.id);
     res.status(201).json({ lead, token: issueLeadToken(lead), returning: false });
   });

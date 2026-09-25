@@ -519,6 +519,63 @@ test('a home walkthrough round-trips through Postgres', opts, async () => {
   });
 });
 
+test('consent records round-trip through Postgres and never overwrite', opts, async () => {
+  await withDatabase('schema_consent_rt', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Consent Round Trip' });
+      const lead = await store.createLead(community.id, {
+        name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114',
+      });
+      assert.equal((await store.getLead(lead.id)).consent, null,
+        'no row at all is how a lead from before the box reads');
+
+      await store.recordConsent(lead.id, {
+        granted: false, text: 'The first wording.', version: 'v1',
+        ip: '203.0.113.7', userAgent: 'Mozilla/5.0 (iPhone)',
+      });
+      const declined = (await store.getLead(lead.id)).consent;
+      assert.equal(declined.granted, false);
+      assert.equal(declined.text, 'The first wording.', 'the words are kept, not just the answer');
+      assert.equal(declined.version, 'v1');
+      assert.equal(declined.ip, '203.0.113.7');
+      assert.ok(declined.at);
+
+      // A change of mind is a new row. The first answer has to survive it: the
+      // question a TCPA claim asks is what they had agreed to on the day of the
+      // call, and an overwritten record cannot answer it.
+      await store.recordConsent(lead.id, {
+        granted: true, text: 'The second wording.', version: 'v2', ip: '203.0.113.8',
+      });
+      assert.equal((await store.getLead(lead.id)).consent.granted, true, 'the latest answer wins');
+      assert.equal((await store.getLead(lead.id)).consent.version, 'v2');
+
+      const history = await store.listConsents(lead.id);
+      assert.equal(history.length, 2, 'and nothing was overwritten');
+      assert.deepEqual(history.map((c) => c.version), ['v2', 'v1'], 'newest first');
+      assert.equal(history[1].text, 'The first wording.',
+        'the superseded wording is still readable');
+
+      // The list the builder reads carries the current answer, so nobody has to
+      // open a lead to find out whether they may call it.
+      const listed = await store.listLeads(community.id);
+      assert.equal(listed[0].consent.granted, true);
+      assert.equal(listed[0].consent.version, 'v2');
+
+      // The consent rows cascade with the lead rather than outliving it as a
+      // loose name, IP and timestamp. There is no delete-a-lead call to test
+      // this through -- the app has no way to remove one person -- so the
+      // cascade is exercised through the community, which is the only delete
+      // that exists today.
+      await store.deleteCommunity(community.id);
+      assert.deepEqual(await store.listConsents(lead.id), []);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
 test('a move-in plan round-trips through Postgres', opts, async () => {
   await withDatabase('schema_movein_rt', async (url) => {
     const store = await createPostgresStore(url);

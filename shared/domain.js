@@ -272,6 +272,31 @@ export function megabytes(bytes) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Consent to be called and texted.
+ *
+ * The TCPA is why this is a paragraph and not a sentence: consent to autodialed
+ * or prerecorded marketing calls has to be express, written, and specific about
+ * WHO may call, HOW they may call, and that agreeing is not the price of buying
+ * anything. Damages run $500–$1,500 per call or text with a private right of
+ * action, so the record of what somebody agreed to is the whole defence.
+ *
+ * The version travels with every stored record. When this wording changes, old
+ * records keep the words those people actually saw — a consent record that says
+ * only `true` proves nothing a year later, because nobody can say what the
+ * screen said at the time.
+ */
+export const CONSENT_VERSION = '2026-09-25.1';
+
+export function consentText(who) {
+  const name = String(who || '').trim() || 'this community';
+  return `I agree that ${name} and its home sales team may call and text me at the mobile `
+    + 'number I gave, including using an automatic telephone dialing system or a prerecorded '
+    + 'or artificial voice, about homes, financing and the plan I save here. I understand '
+    + 'that agreeing is not a condition of buying anything, that message and data rates may '
+    + 'apply, and that I can stop at any time by replying STOP or asking the team.';
+}
+
 export const RESOURCE_KINDS = ['article', 'video'];
 
 export const AVAILABILITY = ['Planning', 'Under Construction', 'Move-in ready'];

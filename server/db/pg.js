@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead } fr
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
-  shapeResource, shapeSlot,
+  shapeResource, shapeSlot, shapeConsent,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -71,6 +71,15 @@ export function createPostgresStore(connectionString) {
   const moveInFor = async (leadId) => {
     const { rows } = await q(`SELECT * FROM lead_movein WHERE lead_id = $1`, [leadId]);
     return shapeMoveIn(rows[0]);
+  };
+
+  /** The latest consent row for this lead, or null if they were never asked. */
+  const consentFor = async (leadId) => {
+    const { rows } = await q(
+      `SELECT * FROM lead_consents WHERE lead_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [leadId],
+    );
+    return shapeConsent(rows[0] ?? null);
   };
 
   const activityFor = async (leadId, limit = 200) => {
@@ -550,12 +559,16 @@ export function createPostgresStore(connectionString) {
                 (SELECT count(*)::int FROM lead_activity a WHERE a.lead_id = l.id) AS activity_count,
                 (SELECT coalesce(json_object_agg(key, summary), '{}'::json)
                    FROM lead_plan_items p WHERE p.lead_id = l.id) AS plan,
-                (SELECT row_to_json(m) FROM lead_movein m WHERE m.lead_id = l.id) AS movein
+                (SELECT row_to_json(m) FROM lead_movein m WHERE m.lead_id = l.id) AS movein,
+                (SELECT row_to_json(c) FROM lead_consents c WHERE c.lead_id = l.id
+                  ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS consent
          FROM leads l WHERE l.community_id = $1 ORDER BY l.first_visit_at`,
         [communityId],
       );
       return rows.map((r) => ({
-        ...shapeLead(r, { plan: r.plan || {}, moveIn: shapeMoveIn(r.movein) }),
+        ...shapeLead(r, {
+          plan: r.plan || {}, moveIn: shapeMoveIn(r.movein), consent: shapeConsent(r.consent),
+        }),
         activityCount: r.activity_count,
       }));
     },
@@ -565,6 +578,7 @@ export function createPostgresStore(connectionString) {
       if (!rows[0]) return null;
       return shapeLead(rows[0], {
         plan: await planFor(id), activity: await activityFor(id), moveIn: await moveInFor(id),
+        consent: await consentFor(id),
       });
     },
 
@@ -580,7 +594,10 @@ export function createPostgresStore(connectionString) {
       );
       const row = rows.find((candidate) => isSameLead(candidate, input));
       if (!row) return null;
-      return shapeLead(row, { plan: await planFor(row.id), activity: await activityFor(row.id) });
+      return shapeLead(row, {
+        plan: await planFor(row.id), activity: await activityFor(row.id),
+        consent: await consentFor(row.id),
+      });
     },
 
     async createLead(communityId, { name, email, phone }) {
@@ -589,6 +606,29 @@ export function createPostgresStore(connectionString) {
         [`l_${shortId(12)}`, communityId, name, email, phone],
       );
       return shapeLead(rows[0], {});
+    },
+
+    /**
+     * Write a consent answer. Append-only: nothing here updates a previous row,
+     * because the record of what somebody agreed to on a given day is the point.
+     */
+    async recordConsent(leadId, { granted, text, version, ip, userAgent }) {
+      const { rows } = await q(
+        `INSERT INTO lead_consents (id, lead_id, granted, consent_text, version, ip, user_agent)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [`cs_${shortId(12)}`, leadId, Boolean(granted), text ?? '', version ?? '', ip ?? '',
+          userAgent ?? ''],
+      );
+      return shapeConsent(rows[0]);
+    },
+
+    /** Every answer this lead has given, newest first — the audit trail. */
+    async listConsents(leadId) {
+      const { rows } = await q(
+        `SELECT * FROM lead_consents WHERE lead_id = $1 ORDER BY created_at DESC, id DESC`,
+        [leadId],
+      );
+      return rows.map(shapeConsent);
     },
 
     async updateLead(id, patch) {

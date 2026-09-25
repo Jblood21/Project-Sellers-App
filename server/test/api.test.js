@@ -1352,3 +1352,73 @@ test('a home walkthrough uploads, replaces, serves ranges and is capped', async 
   assert.equal((await fetch(`${base}/api/homes/${cedar.id}/video`)).status, 404);
   assert.equal((await api(`/api/c/${cid}`)).body.homes.find((h) => h.id === cedar.id).videoUrl, '');
 });
+
+test('consent to calls and texts is recorded with the words the buyer saw', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Consent Test', builder: 'Northgate Homes' },
+  });
+  const cid = community.body.id;
+  const enter = (body) => api(`/api/c/${cid}/leads`, { method: 'POST', body });
+
+  // Leaving the box unchecked still gets you into the app: agreeing to be
+  // marketed to is never the price of entry, and that is the whole point.
+  const declined = await enter({ name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114' });
+  assert.equal(declined.status, 201);
+  assert.equal(declined.body.lead.consent.granted, false,
+    'a declined answer is recorded, not left absent');
+  assert.ok(declined.body.lead.consent.at, 'and it is stamped');
+
+  // Consent names who may call, says it is not a condition of buying, and says
+  // how to stop — the three things that make it express written consent rather
+  // than a checkbox.
+  const agreed = await enter({
+    name: 'Sam Lee', email: 'sam@test.co', phone: '801-555-0115', consent: true,
+  });
+  const consent = agreed.body.lead.consent;
+  assert.equal(consent.granted, true);
+  assert.match(consent.text, /Northgate Homes/, 'it names the business that will call');
+  assert.match(consent.text, /automatic telephone dialing system/i);
+  assert.match(consent.text, /not a condition of buying/i);
+  assert.match(consent.text, /STOP/);
+  assert.ok(consent.version, 'and the wording is versioned');
+
+  // The stored text is the server's, never the caller's. A client that sends
+  // its own wording must not be able to put those words in the record.
+  const forged = await enter({
+    name: 'Alex Kim',
+    email: 'alex@test.co',
+    phone: '801-555-0116',
+    consent: true,
+    text: 'I agree to absolutely anything',
+    version: 'forged',
+    consentText: 'I agree to absolutely anything',
+  });
+  assert.ok(!/absolutely anything/.test(forged.body.lead.consent.text),
+    'the caller cannot write the consent record');
+  assert.equal(forged.body.lead.consent.version, consent.version);
+  assert.match(forged.body.lead.consent.text, /Northgate Homes/);
+
+  // Coming back and ticking the box is a change of mind, and it is kept as a
+  // second row rather than overwriting the first: the old answer is evidence too.
+  const returned = await enter({
+    name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114', consent: true,
+  });
+  assert.equal(returned.body.returning, true);
+  assert.equal(returned.body.lead.consent.granted, true, 'the current answer is the new one');
+  const history = await api(`/api/admin/leads/${declined.body.lead.id}/consents`, { token });
+  assert.equal(history.body.length, 2, 'and both answers are on file');
+  assert.deepEqual(history.body.map((c) => c.granted), [true, false], 'newest first');
+
+  // Re-entering with the same answer does not pile up identical rows.
+  await enter({ name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114', consent: true });
+  assert.equal((await api(`/api/admin/leads/${declined.body.lead.id}/consents`, { token })).body.length, 2);
+
+  // What the builder sees before dialling.
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  const sam = leads.body.find((l) => l.email === 'sam@test.co');
+  assert.equal(sam.consent.granted, true, 'the list carries it, not just the detail screen');
+});
