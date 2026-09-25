@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { TOOLS, videoEmbed } from '@shared/domain.js';
+import { LENDER, LENDER_LOGO, lenderReady, TOOLS, videoEmbed } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { firstName } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
@@ -13,7 +13,7 @@ import { useBuyer } from '../BuyerContext.jsx';
 const LEAD_TOOLS = ['afford', 'dpa'];
 
 /** The buyer's home screen: the two lead questions, the homes banner, the tools. */
-export default function AllTools() {
+export default function AllTools({ onOpenLender }) {
   const { community, homes, lead, track } = useBuyer();
   const { communityId } = useParams();
   const navigate = useNavigate();
@@ -283,6 +283,98 @@ export default function AllTools() {
           My Home Plan
         </Link>
       </div>
+
+      <LenderCard
+        onOpen={() => {
+          track(`Tapped ${LENDER.name}`);
+          onOpenLender?.();
+        }}
+      />
     </div>
+  );
+}
+
+/** The Equal Housing Opportunity mark: a house with an equals sign in it. */
+function EqualHousing({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M12 3 2.5 10.2h2.2V20h14.6v-9.8h2.2L12 3Zm0 2.6 6.1 4.6V18H5.9v-7.8L12 5.6Z"
+        fill="currentColor"
+      />
+      <path d="M8.2 11.4h7.6v1.7H8.2zM8.2 14.6h7.6v1.7H8.2z" fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * The lender at the foot of the screen.
+ *
+ * Last on the page, below the buyer's own plan and saved homes, because it is
+ * an advertisement and they came here for the calculators. Tapping it opens the
+ * same appointment sheet everything else uses -- one place to book, and the
+ * request arrives tagged so whoever reads it knows to bring a loan officer.
+ *
+ * Renders nothing at all until LENDER carries a real NMLS ID. A half-filled
+ * block is a non-compliant mortgage ad, and showing nothing is the safe way for
+ * this to fail.
+ */
+function LenderCard({ onOpen }) {
+  if (!lenderReady()) return null;
+
+  return (
+    <section style={{ marginTop: 26 }}>
+      <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
+      <span className="b-lbl" style={{ display: 'block', marginBottom: 10, color: 'var(--t-accT)' }}>
+        Financing
+      </span>
+
+      <div
+        style={{
+          background: 'var(--t-tint)', border: '1px solid var(--t-line)',
+          borderRadius: 'var(--t-radlg)', padding: 16,
+          display: 'flex', flexDirection: 'column', gap: 10,
+        }}
+      >
+        {LENDER_LOGO ? (
+          <img
+            src={LENDER_LOGO}
+            alt={LENDER.name}
+            style={{ height: 34, alignSelf: 'flex-start', objectFit: 'contain' }}
+          />
+        ) : (
+          <span className="b-head" style={{ fontSize: 18, lineHeight: 1.2 }}>{LENDER.name}</span>
+        )}
+
+        {LENDER.tagline ? (
+          <span style={{ fontSize: 13, color: 'var(--t-mut)', lineHeight: 1.5 }}>{LENDER.tagline}</span>
+        ) : null}
+
+        <button type="button" className="b-btn" onClick={onOpen} style={{ minHeight: 46 }}>
+          Set up a time to talk
+        </button>
+
+        {/*
+          The licence number and the Equal Housing mark are part of the
+          advertisement, not decoration under it -- which is why they sit inside
+          the card rather than in a footer somebody might drop later.
+        */}
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2,
+            color: 'var(--t-mut)', fontSize: 10.5, lineHeight: 1.45,
+          }}
+        >
+          <span style={{ flex: 'none', color: 'var(--t-mut)' }}><EqualHousing /></span>
+          <span>
+            {LENDER.name} · NMLS #{LENDER.nmls}
+            {LENDER.loName && LENDER.loNmls ? ` · ${LENDER.loName}, NMLS #${LENDER.loNmls}` : ''}
+            {LENDER.phone ? ` · ${LENDER.phone}` : ''}
+            <br />
+            Equal Housing Lender. Not a commitment to lend. You are free to choose any lender.
+          </span>
+        </div>
+      </div>
+    </section>
   );
 }

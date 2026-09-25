@@ -58,6 +58,33 @@ export default function HomeDetail({ onOpenTour }) {
       </span>
       <p style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
 
+      {/*
+        Under the description rather than in the photo strip: a buyer swiping
+        photos is scanning, and a video is a decision to stop and watch. It sits
+        where they have already decided this home is worth reading about.
+      */}
+      {home.videoUrl ? (
+        <div style={{ marginBottom: 16 }}>
+          <span className="b-lbl" style={{ display: 'block', marginBottom: 8, color: 'var(--t-accT)' }}>
+            Walk through this home
+          </span>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video
+            src={home.videoUrl}
+            controls
+            playsInline
+            // metadata, not auto: the first frame and the length are enough to
+            // decide to watch, and a buyer on mobile data should not pay for a
+            // clip they scrolled past.
+            preload="metadata"
+            style={{
+              width: '100%', display: 'block', background: '#000',
+              borderRadius: 'var(--t-radlg)',
+            }}
+          />
+        </div>
+      ) : null}
+
       {home.floorPlans?.length ? (
         <div style={{ marginBottom: 16 }}>
           <span className="b-lbl" style={{ display: 'block', marginBottom: 8 }}>Floor plans</span>

@@ -89,14 +89,13 @@ export async function fileToDataUrl(file) {
  * limit is enforced before the read rather than after: reading 200MB into a
  * string to then refuse it is how a phone runs out of memory.
  */
-export async function videoToDataUrl(file, maxBytes) {
+export async function videoToDataUrl(file, maxBytes, longerHint = 'for a longer one, paste a YouTube or Vimeo link instead.') {
   if (!file.type.startsWith('video/')) throw new Error('Pick a video file.');
   if (file.size > maxBytes) {
     const mb = (n) => `${(n / (1024 * 1024)).toFixed(1)} MB`;
-    throw new Error(
-      `That video is ${mb(file.size)}. Uploads stop at ${mb(maxBytes)} — `
-      + 'for a longer one, paste a YouTube or Vimeo link instead.',
-    );
+    // The hint depends on where the video is going: a home walkthrough has no
+    // link field to fall back to, so pointing at one would be a dead end.
+    throw new Error(`That video is ${mb(file.size)}. Uploads stop at ${mb(maxBytes)} — ${longerHint}`);
   }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

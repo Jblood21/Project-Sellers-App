@@ -1,13 +1,16 @@
 import { Router } from 'express';
 
 import {
+  CONSENT_VERSION, consentText,
   CONTACT_METHOD_KEYS, describeTour, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
+  TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
   PLAN_LABELS, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
 import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
+import { sendVideo } from '../lib/video.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -130,18 +133,52 @@ export function publicRouter() {
       return res.status(400).json({ error: 'Please add your full name, a valid email and a cell number.' });
     }
 
+    // The consent paragraph is rendered HERE, from this community's own name,
+    // and never taken from the request. What gets stored has to be the words the
+    // server put on the screen: text supplied by the caller would make the
+    // record say whatever a modified client felt like claiming, which is worth
+    // less than no record at all.
+    const granted = req.body?.consent === true;
+    const consent = {
+      granted,
+      text: consentText(community.builder || community.name),
+      version: CONSENT_VERSION,
+      ip: req.ip ?? '',
+      userAgent: String(req.get('user-agent') ?? '').slice(0, 400),
+    };
+
     // All three have to match. A buyer coming back gets their own record and
     // everything in it; anyone whose details differ is a different person and
     // gets their own, even if they share an email with somebody here.
     const existing = await store.findLeadByIdentity(community.id, { name, email, phone });
     if (existing) {
       await store.addActivity(existing.id, 'Return visit');
+      // A returning buyer is shown the box again, so their answer can change.
+      // Only a real change is written: re-recording an identical answer on
+      // every visit would bury the moment they actually decided under noise.
+      const current = existing.consent;
+      if (!current || current.granted !== granted || current.version !== consent.version) {
+        await store.recordConsent(existing.id, consent);
+        await store.addActivity(
+          existing.id,
+          granted ? 'Agreed to calls and texts' : 'Declined calls and texts',
+        );
+      }
       const lead = await store.getLead(existing.id);
       return res.json({ lead, token: issueLeadToken(lead), returning: true });
     }
 
     const created = await store.createLead(community.id, { name, email, phone });
     await store.addActivity(created.id, 'Scanned QR — entered the app');
+    // Recorded either way: that somebody was asked and left the box unchecked
+    // is the answer, and it is the one that has to be visible before anyone
+    // picks up the phone.
+    //
+    // Not written to the activity feed. Every lead would carry the same line
+    // and it is the feed the builder actually reads; the consent record is the
+    // record, and the lead screen puts it next to the phone number. Only a
+    // CHANGE of mind is news, and that is logged below on a return visit.
+    await store.recordConsent(created.id, consent);
     const lead = await store.getLead(created.id);
     res.status(201).json({ lead, token: issueLeadToken(lead), returning: false });
   });
@@ -269,6 +306,10 @@ export function publicRouter() {
       date: booked.date,
       time: booked.time,
       contact,
+      // What they want to talk about. Stored on the tour rather than guessed
+      // from where they tapped, so the person picking it up knows whether to
+      // bring a floor plan or a loan officer.
+      topic: TOUR_TOPICS.includes(req.body?.topic) ? req.body.topic : 'community',
       requestedAt: new Date().toISOString(),
     };
     const lead = await store.updateLead(req.leadId, { tour });
@@ -302,52 +343,23 @@ export function publicRouter() {
     res.send(Buffer.from(photo.data, 'base64'));
   });
 
-  /**
-   * An uploaded video, streamed with byte-range support.
-   *
-   * Range is not a nicety here: without it a browser cannot seek, the scrubber
-   * does nothing, and Safari refuses to start playback at all — it asks for
-   * `bytes=0-1` first and needs a 206 back before it will commit to the file.
-   * So a range request gets the slice it asked for and a 206; everything else
-   * gets the whole file and a 200.
-   */
+  /** A "Worth knowing" video. sendVideo handles the ranges seeking depends on. */
   router.get('/resources/:id/video', async (req, res) => {
     const store = await getStore();
     const video = await store.getResourceVideo(req.params.id);
     if (!video) return res.status(404).end();
+    return sendVideo(req, res, video);
+  });
 
-    const buffer = Buffer.from(video.data, 'base64');
-    const type = video.content_type || 'video/mp4';
-    res.set('Content-Type', type);
-    // The bytes never change once uploaded — a replacement is a new row.
-    res.set('Cache-Control', 'public, max-age=31536000, immutable');
-    res.set('Accept-Ranges', 'bytes');
-
-    const range = req.headers.range;
-    if (!range) {
-      res.set('Content-Length', String(buffer.length));
-      return res.send(buffer);
-    }
-
-    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-    if (!match) {
-      // A range we cannot parse is not a range we should guess at.
-      res.set('Content-Range', `bytes */${buffer.length}`);
-      return res.status(416).end();
-    }
-    const [, rawStart, rawEnd] = match;
-    const start = rawStart === '' ? buffer.length - Number(rawEnd) : Number(rawStart);
-    const end = rawStart === '' || rawEnd === '' ? buffer.length - 1 : Number(rawEnd);
-    if (!Number.isFinite(start) || start < 0 || start >= buffer.length || end < start) {
-      res.set('Content-Range', `bytes */${buffer.length}`);
-      return res.status(416).end();
-    }
-    const last = Math.min(end, buffer.length - 1);
-
-    res.status(206);
-    res.set('Content-Range', `bytes ${start}-${last}/${buffer.length}`);
-    res.set('Content-Length', String(last - start + 1));
-    return res.send(buffer.subarray(start, last + 1));
+  /**
+   * A home's walkthrough. Public like the photos on the same home: the buyer
+   * app is the whole audience, and a lot number is not a secret.
+   */
+  router.get('/homes/:id/video', async (req, res) => {
+    const store = await getStore();
+    const video = await store.getHomeVideo(req.params.id);
+    if (!video) return res.status(404).end();
+    return sendVideo(req, res, video);
   });
 
   return router;

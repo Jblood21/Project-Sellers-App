@@ -35,8 +35,8 @@ export const buyerApi = {
     request(`/api/me/plan/${encodeURIComponent(key)}`, { method: 'PUT', body: { summary }, token }),
   track: (token, text) => request('/api/me/activity', { method: 'POST', body: { text }, token }),
   openSlots: (communityId) => request(`/api/c/${encodeURIComponent(communityId)}/slots`),
-  requestTour: (token, slotId, contact) =>
-    request('/api/me/tour', { method: 'POST', body: { slotId, contact }, token }),
+  requestTour: (token, slotId, contact, topic = 'community') =>
+    request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic }, token }),
   emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
   saveMoveIn: (token, plan) => request('/api/me/movein', { method: 'PUT', body: plan, token }),
 };
@@ -103,6 +103,11 @@ export const adminApi = {
   deleteResource: (token, id) =>
     request(`/api/admin/resources/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   deletePhoto: (token, id) => request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // PUT, not POST: a home has one walkthrough, so sending another replaces it.
+  setHomeVideo: (token, homeId, body) =>
+    request(`/api/admin/homes/${encodeURIComponent(homeId)}/video`, { method: 'PUT', body, token }),
+  deleteHomeVideo: (token, homeId) =>
+    request(`/api/admin/homes/${encodeURIComponent(homeId)}/video`, { method: 'DELETE', token }),
   slots: (token, communityId) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/slots`, { token }),
   createSlots: (token, communityId, body) =>

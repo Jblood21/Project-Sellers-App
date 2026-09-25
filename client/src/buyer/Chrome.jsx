@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { CONTACT_METHODS, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
+import { CONTACT_METHODS, formatSlotDate, formatSlotTime, LENDER, TOOLS } from '@shared/domain.js';
 import { buyerApi } from '../lib/api.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
 import { useBuyer } from './BuyerContext.jsx';
@@ -258,7 +258,9 @@ export function TutorialSheet({ open, onClose }) {
   );
 }
 
-export function TourDialog({ open, onClose }) {
+export function TourDialog({ topic, onClose }) {
+  const open = Boolean(topic);
+  const lender = topic === 'lender';
   const { community, communityId, requestTour, lead } = useBuyer();
   const [slots, setSlots] = useState(community?.slots ?? []);
   const [picked, setPicked] = useState(null);
@@ -292,7 +294,7 @@ export function TourDialog({ open, onClose }) {
   const send = async () => {
     if (!picked) return;
     setBusy(true);
-    const done = await requestTour(picked, contact);
+    const done = await requestTour(picked, contact, lender ? 'lender' : 'community');
     setBusy(false);
     if (done) onClose();
     // On a clash the dialog stays open with a fresh list, so they can pick again.
@@ -300,9 +302,11 @@ export function TourDialog({ open, onClose }) {
   };
 
   return (
-    <div className="b-sheet-backdrop" role="dialog" aria-label="Talk to the team">
+    <div className="b-sheet-backdrop" role="dialog" aria-label={lender ? 'Talk about financing' : 'Talk to the team'}>
       <div className="b-sheet" style={{ maxHeight: '86vh', overflowY: 'auto' }}>
-        <span className="b-head" style={{ fontSize: 20 }}>Talk to the team</span>
+        <span className="b-head" style={{ fontSize: 20 }}>
+          {lender ? 'Talk about financing' : 'Talk to the team'}
+        </span>
 
         {byDate.length === 0 ? (
           <>
@@ -317,7 +321,9 @@ export function TourDialog({ open, onClose }) {
         ) : (
           <>
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-              Pick a time that suits you. These are the times the {community?.name} team is free.
+              {lender
+                ? `Pick a time and the ${community?.name} team will set you up with ${LENDER.name}.`
+                : `Pick a time that suits you. These are the times the ${community?.name} team is free.`}
             </span>
 
             <div className="b-stack" style={{ gap: 12, margin: '10px 0 4px' }}>

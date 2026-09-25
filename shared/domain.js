@@ -256,9 +256,45 @@ export function base64Bytes(base64) {
   return Math.floor((text.length * 3) / 4) - padding;
 }
 
-/** '24.3 MB' — for telling somebody why their file was refused. */
+/**
+ * '24.3 MB', or '412 KB' for anything under a megabyte.
+ *
+ * Both for refusing a file and for labelling one that was accepted. The KB
+ * branch exists because the MB one alone renders a 33KB clip as '0.0 MB',
+ * which reads like something went wrong rather than like a small file.
+ */
 export function megabytes(bytes) {
-  return `${(Number(bytes || 0) / (1024 * 1024)).toFixed(1)} MB`;
+  const n = Number(bytes) || 0;
+  // Round a sub-kilobyte file up rather than down: '0 KB' next to a video that
+  // plays is a worse lie than '1 KB'. Nothing at all is still nothing.
+  if (n === 0) return '0 KB';
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Consent to be called and texted.
+ *
+ * The TCPA is why this is a paragraph and not a sentence: consent to autodialed
+ * or prerecorded marketing calls has to be express, written, and specific about
+ * WHO may call, HOW they may call, and that agreeing is not the price of buying
+ * anything. Damages run $500–$1,500 per call or text with a private right of
+ * action, so the record of what somebody agreed to is the whole defence.
+ *
+ * The version travels with every stored record. When this wording changes, old
+ * records keep the words those people actually saw — a consent record that says
+ * only `true` proves nothing a year later, because nobody can say what the
+ * screen said at the time.
+ */
+export const CONSENT_VERSION = '2026-09-25.1';
+
+export function consentText(who) {
+  const name = String(who || '').trim() || 'this community';
+  return `I agree that ${name} and its home sales team may call and text me at the mobile `
+    + 'number I gave, including using an automatic telephone dialing system or a prerecorded '
+    + 'or artificial voice, about homes, financing and the plan I save here. I understand '
+    + 'that agreeing is not a condition of buying anything, that message and data rates may '
+    + 'apply, and that I can stop at any time by replying STOP or asking the team.';
 }
 
 export const RESOURCE_KINDS = ['article', 'video'];
@@ -361,11 +397,74 @@ export function formatSlotTime(value) {
  */
 export function describeTour(tour) {
   if (!tour) return '';
+  // The topic rides along in the description because this string is what the
+  // admin list, the activity line and the alert email all show. A lender
+  // request that reads like a model-home tour gets handled by the wrong person.
+  const about = tour.topic === 'lender' ? ` · about financing (${LENDER.name})` : '';
   if (tour.date && tour.time) {
     const how = contactMethodLabel(tour.contact).toLowerCase();
-    return `${formatSlotDate(tour.date)} at ${formatSlotTime(tour.time)} · by ${how}`;
+    return `${formatSlotDate(tour.date)} at ${formatSlotTime(tour.time)} · by ${how}${about}`;
   }
-  return tour.time || 'No time given';
+  return `${tour.time || 'No time given'}${about}`;
+}
+
+/**
+ * The lender advertised at the foot of the buyer's home screen.
+ *
+ * ── FILL THIS IN BEFORE IT CAN SHOW ──────────────────────────────────────
+ * `nmls` is blank on purpose and the card does not render while it is. An
+ * advertisement for a mortgage lender without an NMLS ID is not a cosmetic
+ * omission, and a guessed one is worse than none: several businesses trade
+ * under names close to this one, and the wrong six digits on an ad points
+ * buyers at somebody else's licence on NMLS Consumer Access.
+ *
+ * Get these from the lender's own marketing pack, not from a search:
+ *   nmls    — the company NMLS ID (and loNmls, if a named LO is the contact)
+ *   phone   — the number they want on it
+ *   website — their site
+ *   logo    — see LENDER_LOGO below
+ *
+ * Also worth settling before this goes live: a builder advertising a lender is
+ * the arrangement RESPA Section 8 governs. If the placement is paid for, that
+ * is a marketing services agreement; if the two are affiliated, buyers are owed
+ * an Affiliated Business Arrangement disclosure.
+ */
+export const LENDER = {
+  name: 'Summit Home Loans',
+  tagline: 'Financing for buyers at this community.',
+  nmls: '1790749',
+  loName: '',
+  loNmls: '',
+  phone: '801-855-8535',
+  website: '',
+};
+
+/**
+ * A logo file, or '' to fall back to the name set in the community's own
+ * heading font. Put the file in client/public/ and name it here, e.g.
+ * '/summit-home-loans.svg' — from the lender's brand pack, so the rights to
+ * use it come with it.
+ */
+export const LENDER_LOGO = '';
+
+/**
+ * Whether there is enough here to advertise. Name and NMLS are the minimum: an
+ * ad missing the licence number should not go out, so an unfinished block
+ * simply shows nothing rather than shipping a half-built advertisement.
+ */
+export function lenderReady(lender = LENDER) {
+  return Boolean(String(lender?.name ?? '').trim() && String(lender?.nmls ?? '').trim());
+}
+
+/**
+ * What a booked appointment is about. The buyer books through one sheet either
+ * way, but whoever picks the request up needs to know whether they are meeting
+ * about the homes or about the money — those are different people.
+ */
+export const TOUR_TOPICS = ['community', 'lender'];
+
+export function tourTopicLabel(topic) {
+  return topic === 'lender' ? `${LENDER.name}` : 'the community team';
 }
 
 export const MAX_PHOTOS_PER_HOME = 8;

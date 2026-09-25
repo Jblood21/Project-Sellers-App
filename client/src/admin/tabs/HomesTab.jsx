@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
 
-import { AVAILABILITY, MAX_PHOTOS_PER_HOME, money } from '@shared/domain.js';
+import { AVAILABILITY, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, megabytes, money } from '@shared/domain.js';
 import { Trash } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { homeMeta } from '../../lib/format.js';
-import { fileToDataUrl } from '../../lib/photos.js';
+import { fileToDataUrl, videoToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
@@ -76,6 +76,7 @@ export default function HomesTab({ community, reload }) {
         <div key={home.id} className="card elev-sm" style={{ gap: 8 }}>
           <PhotoStrip home={home} communityId={community.id} reload={reload} />
           <FloorPlanStrip home={home} reload={reload} />
+          <WalkthroughRow home={home} reload={reload} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
             <span className="card-title" style={{ fontSize: 18 }}>{home.name}</span>
             <span style={{ fontFamily: 'var(--font-heading)', fontSize: 16 }}>{money(home.price)}</span>
@@ -232,6 +233,97 @@ function FloorPlanStrip({ home, reload }) {
         ) : null}
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+      <ErrorNote>{error}</ErrorNote>
+    </>
+  );
+}
+
+/**
+ * The home's walkthrough: one video, uploaded from the device.
+ *
+ * One per home rather than a gallery, because every upload is database that
+ * never shrinks and this one is multiplied by the number of homes — a dozen
+ * homes at the 25MB cap is already 300MB. A builder with more to show has the
+ * Videos & articles tab, where a link costs nothing.
+ *
+ * There is no link field here on purpose. A walkthrough is the thing a buyer
+ * taps while they are looking at this home, and a YouTube frame takes them out
+ * of the app to somewhere with a sidebar full of other builders' homes.
+ */
+function WalkthroughRow({ home, reload }) {
+  const { token } = useAdmin();
+  const inputRef = useRef(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const upload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      const dataUrl = await videoToDataUrl(file, MAX_VIDEO_BYTES, 'try a shorter clip.');
+      await adminApi.setHomeVideo(token, home.id, { dataUrl });
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm(`Remove the walkthrough for ${home.name}? This cannot be undone.`)) return;
+    await adminApi.deleteHomeVideo(token, home.id);
+    await reload();
+  };
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span className="text-muted" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase' }}>
+          Walkthrough
+        </span>
+        {home.videoUrl ? (
+          <>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              src={home.videoUrl}
+              controls
+              preload="metadata"
+              style={{ width: 150, borderRadius: 8, background: '#000', flex: 'none' }}
+            />
+            <span className="text-muted" style={{ fontSize: 11.5 }}>
+              {megabytes(home.videoSizeBytes)}
+            </span>
+            <button
+              type="button" className="btn btn-ghost" onClick={() => inputRef.current?.click()}
+              disabled={busy} style={{ minHeight: 30, padding: '0 10px', fontSize: 12 }}
+            >
+              {busy ? 'Reading…' : 'Replace'}
+            </button>
+            <button
+              type="button" className="btn btn-ghost" onClick={remove}
+              style={{ minHeight: 30, padding: '0 10px', fontSize: 12 }}
+            >
+              Remove
+            </button>
+          </>
+        ) : (
+          <button
+            type="button" onClick={() => inputRef.current?.click()} disabled={busy}
+            style={{
+              minHeight: 30, padding: '0 12px', borderRadius: 8, cursor: 'pointer',
+              border: '1.5px dashed var(--color-neutral-400)', background: 'transparent',
+              color: 'var(--color-neutral-700)', fontSize: 12,
+            }}
+          >
+            {busy ? 'Reading…' : `＋ Add a video · up to ${megabytes(MAX_VIDEO_BYTES)}`}
+          </button>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept="video/*" hidden onChange={upload} />
       <ErrorNote>{error}</ErrorNote>
     </>
   );

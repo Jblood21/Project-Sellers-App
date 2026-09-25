@@ -59,7 +59,9 @@ function BuyerShell() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [tourOpen, setTourOpen] = useState(false);
+  // null when closed; otherwise the topic the sheet was opened for, so the
+  // booking that comes out of it says what it is about.
+  const [tourTopic, setTourTopic] = useState(null);
   const [addToPhoneOpen, setAddToPhoneOpen] = useState(false);
 
   useCommunityChrome(community, communityId);
@@ -98,14 +100,14 @@ function BuyerShell() {
             )
           }
         />
-        <Route path="tools" element={guard(<AllTools />)} />
+        <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
         <Route path="explore" element={guard(<Explore />)} />
         <Route path="area" element={guard(<Area />)} />
         <Route path="map" element={guard(<SiteMap />)} />
-        <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourOpen(true)} />)} />
+        <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourTopic('community')} />)} />
         <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
         <Route path="saved" element={guard(<Saved />)} />
-        <Route path="plan" element={guard(<Plan onOpenTour={() => setTourOpen(true)} />)} />
+        <Route path="plan" element={guard(<Plan onOpenTour={() => setTourTopic('community')} />)} />
         <Route path="plan/print" element={guard(<PlanPrint />)} />
         <Route path="*" element={<Navigate to={`/c/${communityId}`} replace />} />
       </Routes>
@@ -117,7 +119,7 @@ function BuyerShell() {
         onAddToPhone={() => setAddToPhoneOpen(true)}
       />
       <TutorialSheet open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
-      <TourDialog open={tourOpen} onClose={() => setTourOpen(false)} />
+      <TourDialog topic={tourTopic} onClose={() => setTourTopic(null)} />
       <AddToPhoneDialog open={addToPhoneOpen} onClose={() => setAddToPhoneOpen(false)} />
       <Toast />
     </div>

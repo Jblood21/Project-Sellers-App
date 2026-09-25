@@ -8,7 +8,7 @@ import { createFileStore } from '../db/file.js';
 import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
-import { MAX_VIDEO_BYTES } from '../../shared/domain.js';
+import { describeTour, LENDER, lenderReady, MAX_VIDEO_BYTES } from '../../shared/domain.js';
 import { createApp } from '../index.js';
 
 let server;
@@ -1257,4 +1257,235 @@ test('an uploaded video is stored, capped, and served in byte ranges', async () 
   });
   assert.equal(toFile.body.url, '', 'and the link is gone again');
   assert.equal(toFile.body.videoUrl, `/api/resources/${made.body.id}/video`);
+});
+
+test('a home walkthrough uploads, replaces, serves ranges and is capped', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Walkthrough Test' },
+  });
+  const cid = community.body.id;
+  const mk = (name) => api(`/api/admin/communities/${cid}/homes`, {
+    method: 'POST', token, body: { name, price: 500000, beds: 3, baths: 2, sqft: 2000 },
+  });
+  const cedar = (await mk('The Cedar')).body;
+  const oak = (await mk('The Oak')).body;
+
+  // Not a real MP4 — the route stores bytes, it does not decode them, so a
+  // known-length payload proves the storage and the range maths.
+  const bytes = Buffer.from(Array.from({ length: 1000 }, (_, i) => i % 256));
+  const put = (homeId, body) => api(`/api/admin/homes/${homeId}/video`, { method: 'PUT', token, body });
+  const dataUrl = `data:video/mp4;base64,${bytes.toString('base64')}`;
+
+  assert.equal(cedar.videoUrl, '', 'a new home has no walkthrough');
+
+  const stored = await put(cedar.id, { dataUrl });
+  assert.equal(stored.status, 200);
+  assert.equal(stored.body.videoUrl, `/api/homes/${cedar.id}/video`);
+  assert.equal(stored.body.videoSizeBytes, 1000, 'the decoded size is what gets recorded');
+
+  // The bytes never ride along with the homes — that payload goes to every
+  // buyer on every page load, which is why the video has its own table.
+  const buyerView = await api(`/api/c/${cid}`);
+  const seen = buyerView.body.homes.find((h) => h.id === cedar.id);
+  assert.equal(seen.videoUrl, `/api/homes/${cedar.id}/video`);
+  assert.ok(!JSON.stringify(buyerView.body.homes).includes(bytes.toString('base64').slice(0, 64)),
+    'the file itself is not in the community payload');
+  assert.equal(buyerView.body.homes.find((h) => h.id === oak.id).videoUrl, '',
+    'and the other home is unaffected');
+
+  // Whole file.
+  const whole = await fetch(`${base}/api/homes/${cedar.id}/video`);
+  assert.equal(whole.status, 200);
+  assert.equal(whole.headers.get('content-type'), 'video/mp4');
+  assert.equal(whole.headers.get('accept-ranges'), 'bytes', 'browsers look for this before seeking');
+  assert.deepEqual(Buffer.from(await whole.arrayBuffer()), bytes, 'the bytes come back unchanged');
+
+  // A range: this is what a scrubber asks for, and Safari will not start
+  // playback at all until it gets a 206 back.
+  const slice = await fetch(`${base}/api/homes/${cedar.id}/video`, {
+    headers: { Range: 'bytes=100-199' },
+  });
+  assert.equal(slice.status, 206);
+  assert.equal(slice.headers.get('content-range'), 'bytes 100-199/1000');
+  assert.deepEqual(Buffer.from(await slice.arrayBuffer()), bytes.subarray(100, 200));
+
+  // A range past the end is refused with the length, not clamped silently.
+  const past = await fetch(`${base}/api/homes/${cedar.id}/video`, {
+    headers: { Range: 'bytes=5000-6000' },
+  });
+  assert.equal(past.status, 416);
+  assert.equal(past.headers.get('content-range'), 'bytes */1000');
+
+  // One per home: a second upload replaces the first rather than stacking up.
+  const smaller = Buffer.alloc(200, 9);
+  const replaced = await put(cedar.id, { dataUrl: `data:video/webm;base64,${smaller.toString('base64')}` });
+  assert.equal(replaced.body.videoSizeBytes, 200);
+  const after = await fetch(`${base}/api/homes/${cedar.id}/video`);
+  assert.equal(after.headers.get('content-type'), 'video/webm');
+  assert.equal(Buffer.from(await after.arrayBuffer()).length, 200, 'the old file is gone, not appended to');
+
+  // Over the cap is refused, with a real payload rather than a stubbed size.
+  // The hint must not send a builder looking for a link field this form has not
+  // got — that message belongs to resources, not to a home.
+  const tooBig = Buffer.alloc(MAX_VIDEO_BYTES + 1024, 7).toString('base64');
+  const refused = await put(oak.id, { dataUrl: `data:video/mp4;base64,${tooBig}` });
+  assert.equal(refused.status, 400);
+  assert.match(refused.body.error, /25\.0 MB/, 'it names the limit');
+  assert.match(refused.body.error, /shorter clip/, 'and the way out that exists here');
+  assert.ok(!/YouTube|Vimeo/.test(refused.body.error), 'not the one that does not');
+  assert.equal((await api(`/api/c/${cid}`)).body.homes.find((h) => h.id === oak.id).videoUrl, '',
+    'and nothing was stored');
+
+  // A file that is not a video is refused by type, whatever it is named.
+  const wrongType = await put(oak.id, { dataUrl: 'data:application/zip;base64,QUJD' });
+  assert.equal(wrongType.status, 400);
+  assert.match(wrongType.body.error, /not a video file/i);
+
+  assert.equal((await put('h_nosuchhome', { dataUrl })).status, 404);
+
+  // Removing it leaves the home, and the file stops being served.
+  assert.equal((await api(`/api/admin/homes/${cedar.id}/video`, { method: 'DELETE', token })).status, 204);
+  assert.equal((await fetch(`${base}/api/homes/${cedar.id}/video`)).status, 404);
+  assert.equal((await api(`/api/c/${cid}`)).body.homes.find((h) => h.id === cedar.id).videoUrl, '');
+});
+
+test('consent to calls and texts is recorded with the words the buyer saw', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Consent Test', builder: 'Northgate Homes' },
+  });
+  const cid = community.body.id;
+  const enter = (body) => api(`/api/c/${cid}/leads`, { method: 'POST', body });
+
+  // Leaving the box unchecked still gets you into the app: agreeing to be
+  // marketed to is never the price of entry, and that is the whole point.
+  const declined = await enter({ name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114' });
+  assert.equal(declined.status, 201);
+  assert.equal(declined.body.lead.consent.granted, false,
+    'a declined answer is recorded, not left absent');
+  assert.ok(declined.body.lead.consent.at, 'and it is stamped');
+
+  // Consent names who may call, says it is not a condition of buying, and says
+  // how to stop — the three things that make it express written consent rather
+  // than a checkbox.
+  const agreed = await enter({
+    name: 'Sam Lee', email: 'sam@test.co', phone: '801-555-0115', consent: true,
+  });
+  const consent = agreed.body.lead.consent;
+  assert.equal(consent.granted, true);
+  assert.match(consent.text, /Northgate Homes/, 'it names the business that will call');
+  assert.match(consent.text, /automatic telephone dialing system/i);
+  assert.match(consent.text, /not a condition of buying/i);
+  assert.match(consent.text, /STOP/);
+  assert.ok(consent.version, 'and the wording is versioned');
+
+  // The stored text is the server's, never the caller's. A client that sends
+  // its own wording must not be able to put those words in the record.
+  const forged = await enter({
+    name: 'Alex Kim',
+    email: 'alex@test.co',
+    phone: '801-555-0116',
+    consent: true,
+    text: 'I agree to absolutely anything',
+    version: 'forged',
+    consentText: 'I agree to absolutely anything',
+  });
+  assert.ok(!/absolutely anything/.test(forged.body.lead.consent.text),
+    'the caller cannot write the consent record');
+  assert.equal(forged.body.lead.consent.version, consent.version);
+  assert.match(forged.body.lead.consent.text, /Northgate Homes/);
+
+  // Coming back and ticking the box is a change of mind, and it is kept as a
+  // second row rather than overwriting the first: the old answer is evidence too.
+  const returned = await enter({
+    name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114', consent: true,
+  });
+  assert.equal(returned.body.returning, true);
+  assert.equal(returned.body.lead.consent.granted, true, 'the current answer is the new one');
+  const history = await api(`/api/admin/leads/${declined.body.lead.id}/consents`, { token });
+  assert.equal(history.body.length, 2, 'and both answers are on file');
+  assert.deepEqual(history.body.map((c) => c.granted), [true, false], 'newest first');
+
+  // Re-entering with the same answer does not pile up identical rows.
+  await enter({ name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114', consent: true });
+  assert.equal((await api(`/api/admin/leads/${declined.body.lead.id}/consents`, { token })).body.length, 2);
+
+  // What the builder sees before dialling.
+  const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
+  const sam = leads.body.find((l) => l.email === 'sam@test.co');
+  assert.equal(sam.consent.granted, true, 'the list carries it, not just the detail screen');
+});
+
+test('a financing appointment is booked through the same sheet but arrives labelled', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Lender Test' },
+  });
+  const cid = community.body.id;
+  const slots = await publishSlots(token, cid);
+
+  const buyer = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114' },
+  });
+  const leadToken = buyer.body.token;
+
+  const booked = await api('/api/me/tour', {
+    method: 'POST', token: leadToken, body: { slotId: slots[0].id, contact: 'phone', topic: 'lender' },
+  });
+  assert.equal(booked.status, 200);
+  assert.equal(booked.body.tour.topic, 'lender');
+
+  // The label is what reaches the builder — in the list, the activity line and
+  // the alert email. A financing request that reads like a model-home tour gets
+  // handled by the wrong person.
+  const lead = await api(`/api/admin/leads/${buyer.body.lead.id}`, { token });
+  assert.match(describeTour(lead.body.tour), /about financing/i);
+  assert.match(describeTour(lead.body.tour), /Summit Home Loans/);
+  assert.ok(
+    lead.body.activity.some((a) => /about financing/i.test(a.text)),
+    'and it is on the activity line the builder reads',
+  );
+
+  // An ordinary booking is untouched — no topic means the community team.
+  const other = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Sam Lee', email: 'sam@test.co', phone: '801-555-0115' },
+  });
+  const plain = await api('/api/me/tour', {
+    method: 'POST', token: other.body.token, body: { slotId: slots[1].id, contact: 'phone' },
+  });
+  assert.equal(plain.body.tour.topic, 'community');
+  assert.ok(!/about financing/i.test(describeTour(plain.body.tour)));
+
+  // A topic nobody defined falls back rather than being stored as given.
+  const third = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Alex Kim', email: 'alex@test.co', phone: '801-555-0116' },
+  });
+  await publishSlots(token, cid, ['16:00']);
+  // Ask for a genuinely free time rather than assuming one: two are booked above.
+  const free = (await api(`/api/c/${cid}/slots`)).body;
+  const odd = await api('/api/me/tour', {
+    method: 'POST', token: third.body.token, body: { slotId: free[0].id, topic: 'whatever' },
+  });
+  assert.equal(odd.status, 200);
+  assert.equal(odd.body.tour.topic, 'community');
+});
+
+test('the lender card stays hidden until it has an NMLS number to show', () => {
+  // An advertisement for a mortgage lender without a licence number should not
+  // go out, so an unfinished block renders nothing rather than a partial ad.
+  assert.equal(lenderReady({ name: 'Summit Home Loans', nmls: '' }), false);
+  assert.equal(lenderReady({ name: '', nmls: '1790749' }), false);
+  assert.equal(lenderReady({ name: 'Summit Home Loans', nmls: '1790749' }), true);
+  assert.equal(lenderReady(), true, 'and the configured lender is ready to show');
+  assert.equal(LENDER.nmls, '1790749');
 });

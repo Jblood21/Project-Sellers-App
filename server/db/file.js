@@ -7,12 +7,13 @@ import {
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
-  shapeResource, shapeSlot,
+  shapeResource, shapeSlot, shapeConsent,
 } from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
-  slots: [], leads: [], planItems: [], moveIn: [], activity: [],
+  homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
+  consents: [],
 };
 
 /**
@@ -54,6 +55,17 @@ export function createFileStore(path) {
       .map(shapePhoto);
   const photosOf = (homeId) => imagesOf(homeId, 'home');
   const plansOf = (homeId) => imagesOf(homeId, 'floorplan');
+  // Newest answer wins; the older rows stay as the audit trail.
+  const consentOf = (leadId) => shapeConsent(
+    db.consents.filter((c) => c.leadId === leadId)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] ?? null,
+  );
+  // Presence and size only, so shapeHome never sees the bytes — the same split
+  // the Postgres store draws by keeping the file out of its column list.
+  const videoOf = (homeId) => {
+    const row = db.homeVideos.find((v) => v.homeId === homeId);
+    return row ? { contentType: row.contentType, sizeBytes: row.sizeBytes } : null;
+  };
   // A highlight carries at most one photo, so take the first rather than a gallery.
   const photoOf = (highlightId) => {
     const row = db.photos.find((p) => p.highlightId === highlightId);
@@ -166,12 +178,12 @@ export function createFileStore(path) {
       return db.homes
         .filter((h) => h.communityId === communityId)
         .sort((a, b) => a.position - b.position)
-        .map((h) => shapeHome(h, photosOf(h.id), plansOf(h.id)));
+        .map((h) => shapeHome(h, photosOf(h.id), plansOf(h.id), videoOf(h.id)));
     },
 
     async getHome(id) {
       const row = db.homes.find((h) => h.id === id);
-      return row ? shapeHome(row, photosOf(id), plansOf(id)) : null;
+      return row ? shapeHome(row, photosOf(id), plansOf(id), videoOf(id)) : null;
     },
 
     async createHome(communityId, data) {
@@ -192,12 +204,32 @@ export function createFileStore(path) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       save();
-      return shapeHome(row, photosOf(id), plansOf(id));
+      return shapeHome(row, photosOf(id), plansOf(id), videoOf(id));
     },
 
     async deleteHome(id) {
       db.homes = db.homes.filter((h) => h.id !== id);
       db.photos = db.photos.filter((p) => p.homeId !== id);
+      db.homeVideos = db.homeVideos.filter((v) => v.homeId !== id);
+      save();
+    },
+
+    // ── home walkthroughs ────────────────────────────────────────────────
+    async setHomeVideo(homeId, { communityId, contentType, data, sizeBytes }) {
+      // One per home, so a second upload replaces the first rather than stacking.
+      db.homeVideos = db.homeVideos.filter((v) => v.homeId !== homeId);
+      db.homeVideos.push({ homeId, communityId, contentType, data, sizeBytes, createdAt: now() });
+      save();
+      return this.getHome(homeId);
+    },
+
+    async getHomeVideo(homeId) {
+      const row = db.homeVideos.find((v) => v.homeId === homeId);
+      return row ? { content_type: row.contentType, data: row.data } : null;
+    },
+
+    async deleteHomeVideo(homeId) {
+      db.homeVideos = db.homeVideos.filter((v) => v.homeId !== homeId);
       save();
     },
 
@@ -398,19 +430,28 @@ export function createFileStore(path) {
       return db.leads
         .filter((l) => l.communityId === communityId)
         .map((l) => ({
-          ...shapeLead(l, { plan: planOf(l.id), moveIn: moveInOf(l.id) }),
+          ...shapeLead(l, { plan: planOf(l.id), moveIn: moveInOf(l.id), consent: consentOf(l.id) }),
           activityCount: db.activity.filter((a) => a.leadId === l.id).length,
         }));
     },
 
     async getLead(id) {
       const row = db.leads.find((l) => l.id === id);
-      return row ? shapeLead(row, { plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id) }) : null;
+      return row
+        ? shapeLead(row, {
+          plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id), consent: consentOf(id),
+        })
+        : null;
     },
 
     async findLeadByIdentity(communityId, input) {
       const row = db.leads.find((l) => l.communityId === communityId && isSameLead(l, input));
-      return row ? shapeLead(row, { plan: planOf(row.id), activity: activityOf(row.id), moveIn: moveInOf(row.id) }) : null;
+      return row
+        ? shapeLead(row, {
+          plan: planOf(row.id), activity: activityOf(row.id), moveIn: moveInOf(row.id),
+          consent: consentOf(row.id),
+        })
+        : null;
     },
 
     async createLead(communityId, { name, email, phone }) {
@@ -422,6 +463,24 @@ export function createFileStore(path) {
       db.leads.push(row);
       save();
       return shapeLead(row, {});
+    },
+
+    async recordConsent(leadId, { granted, text, version, ip, userAgent }) {
+      // Append-only, like the Postgres store: a change of mind is a new row.
+      const row = {
+        id: `cs_${shortId(12)}`, leadId, granted: Boolean(granted), consentText: text ?? '',
+        version: version ?? '', ip: ip ?? '', userAgent: userAgent ?? '', createdAt: now(),
+      };
+      db.consents.push(row);
+      save();
+      return shapeConsent(row);
+    },
+
+    async listConsents(leadId) {
+      return db.consents
+        .filter((c) => c.leadId === leadId)
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .map(shapeConsent);
     },
 
     async updateLead(id, patch) {

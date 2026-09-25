@@ -21,7 +21,12 @@ export function shapeCommunity(row, extra = {}) {
   };
 }
 
-export function shapeHome(row, photos = [], floorPlans = []) {
+/**
+ * `video` is the home's walkthrough as {sizeBytes, contentType}, or null. Never
+ * the bytes: like a resource video, the file is fetched from its own URL so it
+ * can be ranged and cached, and so it never rides along in a JSON payload.
+ */
+export function shapeHome(row, photos = [], floorPlans = [], video = null) {
   if (!row) return null;
   return {
     id: row.id,
@@ -38,6 +43,8 @@ export function shapeHome(row, photos = [], floorPlans = []) {
     position: Number(row.position) || 0,
     photos,
     floorPlans,
+    videoUrl: video ? `/api/homes/${row.id}/video` : '',
+    videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
   };
 }
 
@@ -50,7 +57,24 @@ export function shapePhoto(row) {
   };
 }
 
-export function shapeLead(row, { plan = {}, activity = [], moveIn = null } = {}) {
+/**
+ * The consent record as the admin needs to read it. `null` means no row at all
+ * — a lead from before the box existed — which is not the same as `granted:
+ * false`, somebody who was asked and said no. Both mean do not call; only one
+ * of them means you asked.
+ */
+export function shapeConsent(row) {
+  if (!row) return null;
+  return {
+    granted: Boolean(row.granted),
+    text: row.consent_text ?? row.consentText ?? '',
+    version: row.version ?? '',
+    at: row.created_at ?? row.createdAt ?? null,
+    ip: row.ip ?? '',
+  };
+}
+
+export function shapeLead(row, { plan = {}, activity = [], moveIn = null, consent = null } = {}) {
   if (!row) return null;
   return {
     id: row.id,
@@ -69,6 +93,7 @@ export function shapeLead(row, { plan = {}, activity = [], moveIn = null } = {})
     plan,
     activity,
     moveIn,
+    consent,
   };
 }
 

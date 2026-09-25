@@ -119,6 +119,19 @@ export default function LeadsTab({ community, leads }) {
             {isArchived(lead) ? <span className="tag tag-neutral">Archived</span> : null}
           </div>
           <span className="text-muted" style={{ fontSize: 12.5 }}>{lead.phone} · {lead.email}</span>
+          {/*
+            Next to the phone number, because that is where somebody's eye goes
+            before they dial. A consent record filed away where nobody reads it
+            does not stop the call that costs $500.
+          */}
+          {lead.consent?.granted ? null : (
+            <span
+              className="tag tag-neutral"
+              style={{ alignSelf: 'flex-start', background: 'var(--color-danger-100, #fdecea)', color: '#8a1c11' }}
+            >
+              Do not call · {lead.consent ? 'declined' : 'never asked'}
+            </span>
+          )}
           <div className="card-meta">
             Plan {planProgress(lead)}% · ★ {lead.savedHomeIds.length} saved · {lead.activityCount ?? 0} actions ·{' '}
             {shortDate(lead.firstVisitAt)}

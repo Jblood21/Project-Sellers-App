@@ -37,7 +37,10 @@ const readyDate = (value) => {
  * stored. The cap is enforced on the decoded size, not the encoded string: the
  * builder picked a 24MB file and that is the number to hold them to.
  */
-const readVideo = (body) => {
+const LINK_INSTEAD = 'for a longer one, paste a YouTube or Vimeo link instead.';
+const TRIM_INSTEAD = 'try a shorter clip.';
+
+const readVideo = (body, longerHint = LINK_INSTEAD) => {
   const dataUrl = String(body?.dataUrl ?? '');
   const match = /^data:([^;,]+);base64,(.+)$/s.exec(dataUrl);
   if (!match) return { error: 'That file could not be read. Try picking it again.' };
@@ -48,9 +51,12 @@ const readVideo = (body) => {
   }
   const sizeBytes = base64Bytes(base64);
   if (sizeBytes > MAX_VIDEO_BYTES) {
+    // The hint differs by where the video is going: a resource can fall back to
+    // a link, a home walkthrough cannot, and telling a builder to paste a link
+    // into a form that has no link field is worse than saying nothing.
     return {
       error: `That video is ${megabytes(sizeBytes)}. Uploads stop at ${megabytes(MAX_VIDEO_BYTES)} `
-        + '— for a longer one, paste a YouTube or Vimeo link instead.',
+        + `— ${longerHint}`,
     };
   }
   return { contentType, data: base64, sizeBytes };
@@ -329,6 +335,32 @@ export function adminRouter() {
     res.status(204).end();
   });
 
+  // ── home walkthroughs ────────────────────────────────────────────────────
+  /**
+   * One video per home, uploaded as a file. A PUT rather than a POST because
+   * that is what it does: there is one walkthrough and this is it, so sending a
+   * second replaces the first instead of leaving the builder to delete the old
+   * one first.
+   */
+  router.put('/homes/:id/video', async (req, res) => {
+    const store = await getStore();
+    const home = await store.getHome(req.params.id);
+    if (!home) return res.status(404).json({ error: 'Home not found' });
+
+    // Validated here and not only in the browser: the cap is the product
+    // decision, and a request that skips the form should not get past it.
+    const read = readVideo(req.body, TRIM_INSTEAD);
+    if (read.error) return res.status(400).json({ error: read.error });
+
+    res.json(await store.setHomeVideo(home.id, { communityId: home.communityId, ...read }));
+  });
+
+  router.delete('/homes/:id/video', async (req, res) => {
+    const store = await getStore();
+    await store.deleteHomeVideo(req.params.id);
+    res.status(204).end();
+  });
+
   // ── photos ───────────────────────────────────────────────────────────────
   /**
    * Accepts either a data URL (the client downscales before upload) or an external
@@ -458,6 +490,20 @@ export function adminRouter() {
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
     if (lead.openedAt) return res.json(lead);
     res.json(await store.updateLead(lead.id, { openedAt: new Date().toISOString() }));
+  });
+
+  /**
+   * Every consent answer this lead has given, newest first.
+   *
+   * Read-only, and there is deliberately no route that writes or edits one from
+   * the admin side: a consent record the business can author is not evidence of
+   * anything. They are written in one place, by the buyer, at the gate.
+   */
+  router.get('/leads/:id/consents', async (req, res) => {
+    const store = await getStore();
+    const lead = await store.getLead(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    res.json(await store.listConsents(lead.id));
   });
 
   /**

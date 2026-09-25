@@ -151,6 +151,7 @@ export default function LeadDetail({ community, reload }) {
         <span className="card-kicker">Contact</span>
         <div style={{ fontSize: 14 }}>{lead.email}</div>
         <div style={{ fontSize: 14 }}>{lead.phone}</div>
+        <ConsentNote consent={lead.consent} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
           <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a>
           <a className="btn btn-secondary" href={`mailto:${lead.email}`}>Email</a>
@@ -297,6 +298,68 @@ function MoveInCard({ lead, homes }) {
         <div className="text-muted" style={{ fontSize: 13 }}>
           {done} of {timeline.items.length} steps ticked off.
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Whether this person agreed to be called, in the one place somebody looks
+ * before they dial.
+ *
+ * Three states, not two. Agreed shows the words they saw and when, because that
+ * paragraph is the whole defence if the call is ever questioned. Declined means
+ * they were asked and said no. No record at all means they signed up before the
+ * box existed -- also do not call, but for a different reason, and worth telling
+ * apart when deciding what to do about the older leads.
+ */
+function ConsentNote({ consent }) {
+  const [open, setOpen] = useState(false);
+  const stamp = consent?.at ? new Date(consent.at).toLocaleString() : '';
+
+  if (!consent || !consent.granted) {
+    return (
+      <div
+        style={{
+          padding: '9px 11px', borderRadius: 8, background: '#fdecea', color: '#8a1c11',
+          fontSize: 12.5, lineHeight: 1.45,
+        }}
+      >
+        <strong>Do not call or text.</strong>{' '}
+        {consent
+          ? `They were asked on ${stamp} and left the box unchecked.`
+          : 'No consent on file — this lead predates the consent box.'}{' '}
+        Replying to something they asked for is fine; marketing calls and texts are not.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        padding: '9px 11px', borderRadius: 8, background: '#e9f7ef', color: '#1b5e37',
+        fontSize: 12.5, lineHeight: 1.45,
+      }}
+    >
+      <strong>Agreed to calls and texts</strong> on {stamp}.{' '}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit',
+          textDecoration: 'underline', cursor: 'pointer',
+        }}
+      >
+        {open ? 'Hide' : 'Show'} what they agreed to
+      </button>
+      {open ? (
+        <p style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.5, fontStyle: 'italic' }}>
+          &ldquo;{consent.text}&rdquo;
+          <br />
+          <span style={{ fontStyle: 'normal', opacity: 0.8 }}>
+            Wording {consent.version}{consent.ip ? ` · from ${consent.ip}` : ''}
+          </span>
+        </p>
       ) : null}
     </div>
   );

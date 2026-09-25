@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead } fr
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
-  shapeResource, shapeSlot,
+  shapeResource, shapeSlot, shapeConsent,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -43,6 +43,26 @@ export function createPostgresStore(connectionString) {
   };
   const EMPTY_IMAGES = { photos: [], floorPlans: [] };
 
+  /**
+   * Which of these homes have a walkthrough, and how big it is.
+   *
+   * The column list leaves out `data` deliberately and this is the reason the
+   * videos live in their own table: a home list is read on every buyer page
+   * load, and selecting the file here would pull megabytes out of Postgres for
+   * a shaper that only wants to know whether one exists. Only the streaming
+   * route reads the bytes.
+   */
+  const videosFor = async (homeIds) => {
+    const byHome = new Map();
+    if (!homeIds.length) return byHome;
+    const { rows } = await q(
+      `SELECT home_id, content_type, size_bytes FROM home_videos WHERE home_id = ANY($1::text[])`,
+      [homeIds],
+    );
+    for (const row of rows) byHome.set(row.home_id, row);
+    return byHome;
+  };
+
   const planFor = async (leadId) => {
     const { rows } = await q(`SELECT key, summary FROM lead_plan_items WHERE lead_id = $1`, [leadId]);
     return Object.fromEntries(rows.map((r) => [r.key, r.summary]));
@@ -51,6 +71,15 @@ export function createPostgresStore(connectionString) {
   const moveInFor = async (leadId) => {
     const { rows } = await q(`SELECT * FROM lead_movein WHERE lead_id = $1`, [leadId]);
     return shapeMoveIn(rows[0]);
+  };
+
+  /** The latest consent row for this lead, or null if they were never asked. */
+  const consentFor = async (leadId) => {
+    const { rows } = await q(
+      `SELECT * FROM lead_consents WHERE lead_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [leadId],
+    );
+    return shapeConsent(rows[0] ?? null);
   };
 
   const activityFor = async (leadId, limit = 200) => {
@@ -163,10 +192,12 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(
         `SELECT * FROM homes WHERE community_id = $1 ORDER BY position, created_at`, [communityId],
       );
-      const byHome = await photosFor(rows.map((r) => r.id));
+      const ids = rows.map((r) => r.id);
+      const byHome = await photosFor(ids);
+      const videos = await videosFor(ids);
       return rows.map((r) => {
         const images = byHome.get(r.id) || EMPTY_IMAGES;
-        return shapeHome(r, images.photos, images.floorPlans);
+        return shapeHome(r, images.photos, images.floorPlans, videos.get(r.id) ?? null);
       });
     },
 
@@ -174,7 +205,8 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`SELECT * FROM homes WHERE id = $1`, [id]);
       if (!rows[0]) return null;
       const images = (await photosFor([id])).get(id) || EMPTY_IMAGES;
-      return shapeHome(rows[0], images.photos, images.floorPlans);
+      const video = (await videosFor([id])).get(id) ?? null;
+      return shapeHome(rows[0], images.photos, images.floorPlans, video);
     },
 
     async createHome(communityId, data) {
@@ -212,6 +244,34 @@ export function createPostgresStore(connectionString) {
 
     async deleteHome(id) {
       await q(`DELETE FROM homes WHERE id = $1`, [id]);
+    },
+
+    // ── home walkthroughs ────────────────────────────────────────────────
+    /** Upload or replace the home's video. The primary key makes it one per home. */
+    async setHomeVideo(homeId, { communityId, contentType, data, sizeBytes }) {
+      await q(
+        `INSERT INTO home_videos (home_id, community_id, content_type, data, size_bytes)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (home_id) DO UPDATE
+           SET content_type = EXCLUDED.content_type,
+               data = EXCLUDED.data,
+               size_bytes = EXCLUDED.size_bytes,
+               created_at = now()`,
+        [homeId, communityId, contentType, data, sizeBytes],
+      );
+      return this.getHome(homeId);
+    },
+
+    /** The file itself, asked for only by the route that streams it. */
+    async getHomeVideo(homeId) {
+      const { rows } = await q(
+        `SELECT content_type, data FROM home_videos WHERE home_id = $1`, [homeId],
+      );
+      return rows[0] ?? null;
+    },
+
+    async deleteHomeVideo(homeId) {
+      await q(`DELETE FROM home_videos WHERE home_id = $1`, [homeId]);
     },
 
     // ── photos ───────────────────────────────────────────────────────────
@@ -499,12 +559,16 @@ export function createPostgresStore(connectionString) {
                 (SELECT count(*)::int FROM lead_activity a WHERE a.lead_id = l.id) AS activity_count,
                 (SELECT coalesce(json_object_agg(key, summary), '{}'::json)
                    FROM lead_plan_items p WHERE p.lead_id = l.id) AS plan,
-                (SELECT row_to_json(m) FROM lead_movein m WHERE m.lead_id = l.id) AS movein
+                (SELECT row_to_json(m) FROM lead_movein m WHERE m.lead_id = l.id) AS movein,
+                (SELECT row_to_json(c) FROM lead_consents c WHERE c.lead_id = l.id
+                  ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS consent
          FROM leads l WHERE l.community_id = $1 ORDER BY l.first_visit_at`,
         [communityId],
       );
       return rows.map((r) => ({
-        ...shapeLead(r, { plan: r.plan || {}, moveIn: shapeMoveIn(r.movein) }),
+        ...shapeLead(r, {
+          plan: r.plan || {}, moveIn: shapeMoveIn(r.movein), consent: shapeConsent(r.consent),
+        }),
         activityCount: r.activity_count,
       }));
     },
@@ -514,6 +578,7 @@ export function createPostgresStore(connectionString) {
       if (!rows[0]) return null;
       return shapeLead(rows[0], {
         plan: await planFor(id), activity: await activityFor(id), moveIn: await moveInFor(id),
+        consent: await consentFor(id),
       });
     },
 
@@ -529,7 +594,10 @@ export function createPostgresStore(connectionString) {
       );
       const row = rows.find((candidate) => isSameLead(candidate, input));
       if (!row) return null;
-      return shapeLead(row, { plan: await planFor(row.id), activity: await activityFor(row.id) });
+      return shapeLead(row, {
+        plan: await planFor(row.id), activity: await activityFor(row.id),
+        consent: await consentFor(row.id),
+      });
     },
 
     async createLead(communityId, { name, email, phone }) {
@@ -538,6 +606,29 @@ export function createPostgresStore(connectionString) {
         [`l_${shortId(12)}`, communityId, name, email, phone],
       );
       return shapeLead(rows[0], {});
+    },
+
+    /**
+     * Write a consent answer. Append-only: nothing here updates a previous row,
+     * because the record of what somebody agreed to on a given day is the point.
+     */
+    async recordConsent(leadId, { granted, text, version, ip, userAgent }) {
+      const { rows } = await q(
+        `INSERT INTO lead_consents (id, lead_id, granted, consent_text, version, ip, user_agent)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [`cs_${shortId(12)}`, leadId, Boolean(granted), text ?? '', version ?? '', ip ?? '',
+          userAgent ?? ''],
+      );
+      return shapeConsent(rows[0]);
+    },
+
+    /** Every answer this lead has given, newest first — the audit trail. */
+    async listConsents(leadId) {
+      const { rows } = await q(
+        `SELECT * FROM lead_consents WHERE lead_id = $1 ORDER BY created_at DESC, id DESC`,
+        [leadId],
+      );
+      return rows.map(shapeConsent);
     },
 
     async updateLead(id, patch) {
