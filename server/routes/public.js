@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   CONSENT_VERSION, consentText,
   CONTACT_METHOD_KEYS, describeTour, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
+  TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
   PLAN_LABELS, TOOL_KEYS,
 } from '../../shared/domain.js';
@@ -305,6 +306,10 @@ export function publicRouter() {
       date: booked.date,
       time: booked.time,
       contact,
+      // What they want to talk about. Stored on the tour rather than guessed
+      // from where they tapped, so the person picking it up knows whether to
+      // bring a floor plan or a loan officer.
+      topic: TOUR_TOPICS.includes(req.body?.topic) ? req.body.topic : 'community',
       requestedAt: new Date().toISOString(),
     };
     const lead = await store.updateLead(req.leadId, { tour });

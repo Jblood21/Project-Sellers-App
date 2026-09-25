@@ -8,7 +8,7 @@ import { createFileStore } from '../db/file.js';
 import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
-import { MAX_VIDEO_BYTES } from '../../shared/domain.js';
+import { describeTour, LENDER, lenderReady, MAX_VIDEO_BYTES } from '../../shared/domain.js';
 import { createApp } from '../index.js';
 
 let server;
@@ -1421,4 +1421,71 @@ test('consent to calls and texts is recorded with the words the buyer saw', asyn
   const leads = await api(`/api/admin/communities/${cid}/leads`, { token });
   const sam = leads.body.find((l) => l.email === 'sam@test.co');
   assert.equal(sam.consent.granted, true, 'the list carries it, not just the detail screen');
+});
+
+test('a financing appointment is booked through the same sheet but arrives labelled', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Lender Test' },
+  });
+  const cid = community.body.id;
+  const slots = await publishSlots(token, cid);
+
+  const buyer = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Dana Reyes', email: 'dana@test.co', phone: '801-555-0114' },
+  });
+  const leadToken = buyer.body.token;
+
+  const booked = await api('/api/me/tour', {
+    method: 'POST', token: leadToken, body: { slotId: slots[0].id, contact: 'phone', topic: 'lender' },
+  });
+  assert.equal(booked.status, 200);
+  assert.equal(booked.body.tour.topic, 'lender');
+
+  // The label is what reaches the builder — in the list, the activity line and
+  // the alert email. A financing request that reads like a model-home tour gets
+  // handled by the wrong person.
+  const lead = await api(`/api/admin/leads/${buyer.body.lead.id}`, { token });
+  assert.match(describeTour(lead.body.tour), /about financing/i);
+  assert.match(describeTour(lead.body.tour), /Summit Home Loans/);
+  assert.ok(
+    lead.body.activity.some((a) => /about financing/i.test(a.text)),
+    'and it is on the activity line the builder reads',
+  );
+
+  // An ordinary booking is untouched — no topic means the community team.
+  const other = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Sam Lee', email: 'sam@test.co', phone: '801-555-0115' },
+  });
+  const plain = await api('/api/me/tour', {
+    method: 'POST', token: other.body.token, body: { slotId: slots[1].id, contact: 'phone' },
+  });
+  assert.equal(plain.body.tour.topic, 'community');
+  assert.ok(!/about financing/i.test(describeTour(plain.body.tour)));
+
+  // A topic nobody defined falls back rather than being stored as given.
+  const third = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Alex Kim', email: 'alex@test.co', phone: '801-555-0116' },
+  });
+  await publishSlots(token, cid, ['16:00']);
+  // Ask for a genuinely free time rather than assuming one: two are booked above.
+  const free = (await api(`/api/c/${cid}/slots`)).body;
+  const odd = await api('/api/me/tour', {
+    method: 'POST', token: third.body.token, body: { slotId: free[0].id, topic: 'whatever' },
+  });
+  assert.equal(odd.status, 200);
+  assert.equal(odd.body.tour.topic, 'community');
+});
+
+test('the lender card stays hidden until it has an NMLS number to show', () => {
+  // An advertisement for a mortgage lender without a licence number should not
+  // go out, so an unfinished block renders nothing rather than a partial ad.
+  assert.equal(lenderReady({ name: 'Summit Home Loans', nmls: '' }), false);
+  assert.equal(lenderReady({ name: '', nmls: '1790749' }), false);
+  assert.equal(lenderReady({ name: 'Summit Home Loans', nmls: '1790749' }), true);
+  assert.equal(lenderReady(), true, 'and the configured lender is ready to show');
+  assert.equal(LENDER.nmls, '1790749');
 });

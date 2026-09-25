@@ -170,10 +170,10 @@ export function BuyerProvider({ communityId, children }) {
 
   /** Returns true when the booking took, so the dialog knows whether to close. */
   const requestTour = useCallback(
-    async (slotId, contact) => {
+    async (slotId, contact, topic = 'community') => {
       if (!token) return false;
       try {
-        const updated = await buyerApi.requestTour(token, slotId, contact);
+        const updated = await buyerApi.requestTour(token, slotId, contact, topic);
         setLead(updated);
         showToast(contact === 'email' ? 'Booked — the team will email you' : 'Booked — the team will call you');
         return true;

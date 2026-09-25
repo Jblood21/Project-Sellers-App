@@ -397,11 +397,74 @@ export function formatSlotTime(value) {
  */
 export function describeTour(tour) {
   if (!tour) return '';
+  // The topic rides along in the description because this string is what the
+  // admin list, the activity line and the alert email all show. A lender
+  // request that reads like a model-home tour gets handled by the wrong person.
+  const about = tour.topic === 'lender' ? ` · about financing (${LENDER.name})` : '';
   if (tour.date && tour.time) {
     const how = contactMethodLabel(tour.contact).toLowerCase();
-    return `${formatSlotDate(tour.date)} at ${formatSlotTime(tour.time)} · by ${how}`;
+    return `${formatSlotDate(tour.date)} at ${formatSlotTime(tour.time)} · by ${how}${about}`;
   }
-  return tour.time || 'No time given';
+  return `${tour.time || 'No time given'}${about}`;
+}
+
+/**
+ * The lender advertised at the foot of the buyer's home screen.
+ *
+ * ── FILL THIS IN BEFORE IT CAN SHOW ──────────────────────────────────────
+ * `nmls` is blank on purpose and the card does not render while it is. An
+ * advertisement for a mortgage lender without an NMLS ID is not a cosmetic
+ * omission, and a guessed one is worse than none: several businesses trade
+ * under names close to this one, and the wrong six digits on an ad points
+ * buyers at somebody else's licence on NMLS Consumer Access.
+ *
+ * Get these from the lender's own marketing pack, not from a search:
+ *   nmls    — the company NMLS ID (and loNmls, if a named LO is the contact)
+ *   phone   — the number they want on it
+ *   website — their site
+ *   logo    — see LENDER_LOGO below
+ *
+ * Also worth settling before this goes live: a builder advertising a lender is
+ * the arrangement RESPA Section 8 governs. If the placement is paid for, that
+ * is a marketing services agreement; if the two are affiliated, buyers are owed
+ * an Affiliated Business Arrangement disclosure.
+ */
+export const LENDER = {
+  name: 'Summit Home Loans',
+  tagline: 'Financing for buyers at this community.',
+  nmls: '1790749',
+  loName: '',
+  loNmls: '',
+  phone: '801-855-8535',
+  website: '',
+};
+
+/**
+ * A logo file, or '' to fall back to the name set in the community's own
+ * heading font. Put the file in client/public/ and name it here, e.g.
+ * '/summit-home-loans.svg' — from the lender's brand pack, so the rights to
+ * use it come with it.
+ */
+export const LENDER_LOGO = '';
+
+/**
+ * Whether there is enough here to advertise. Name and NMLS are the minimum: an
+ * ad missing the licence number should not go out, so an unfinished block
+ * simply shows nothing rather than shipping a half-built advertisement.
+ */
+export function lenderReady(lender = LENDER) {
+  return Boolean(String(lender?.name ?? '').trim() && String(lender?.nmls ?? '').trim());
+}
+
+/**
+ * What a booked appointment is about. The buyer books through one sheet either
+ * way, but whoever picks the request up needs to know whether they are meeting
+ * about the homes or about the money — those are different people.
+ */
+export const TOUR_TOPICS = ['community', 'lender'];
+
+export function tourTopicLabel(topic) {
+  return topic === 'lender' ? `${LENDER.name}` : 'the community team';
 }
 
 export const MAX_PHOTOS_PER_HOME = 8;
