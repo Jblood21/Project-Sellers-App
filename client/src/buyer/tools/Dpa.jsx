@@ -83,12 +83,17 @@ export default function Dpa() {
       {result ? (
         <div
           style={{
-            background: result === 'likely' ? 'var(--t-tint2)' : 'var(--t-tint)',
+            // The theme's own wash for the outcome worth having; the neutral
+            // one for the two that are not. It used to be the other way round,
+            // which painted "good news" grey in every palette.
+            background: result === 'likely' ? 'var(--t-tint)' : 'var(--t-tint2)',
             color: 'var(--t-ink)', borderRadius: 'var(--t-radlg)', padding: 18,
             display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14,
           }}
         >
-          <span className="b-head" style={{ fontSize: 18 }}>{copy[result].title}</span>
+          <span className="b-head" style={{ fontSize: 18, color: result === 'likely' ? 'var(--t-accT)' : 'var(--t-ink)' }}>
+            {copy[result].title}
+          </span>
           <span style={{ fontSize: 13, lineHeight: 1.55 }}>{copy[result].body}</span>
         </div>
       ) : (
