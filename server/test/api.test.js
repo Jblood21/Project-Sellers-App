@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { after, before } from 'node:test';
@@ -8,7 +8,9 @@ import { createFileStore } from '../db/file.js';
 import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
-import { describeTour, LENDER, lenderReady, MAX_VIDEO_BYTES } from '../../shared/domain.js';
+import {
+  describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES, unitsLabel,
+} from '../../shared/domain.js';
 import { createApp } from '../index.js';
 
 let server;
@@ -1488,4 +1490,81 @@ test('the lender card stays hidden until it has an NMLS number to show', () => {
   assert.equal(lenderReady({ name: 'Summit Home Loans', nmls: '1790749' }), true);
   assert.equal(lenderReady(), true, 'and the configured lender is ready to show');
   assert.equal(LENDER.nmls, '1790749');
+});
+
+test('a home can carry how many are left, and zero means sold', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', {
+    method: 'POST', token, body: { name: 'Units Test' },
+  });
+  const cid = community.body.id;
+  const mk = (body) => api(`/api/admin/communities/${cid}/homes`, { method: 'POST', token, body });
+
+  // A one-off house on a lot: no count, and the buyer is told nothing extra.
+  const single = await mk({ name: 'Lot 14', price: 500000 });
+  assert.equal(single.body.unitsAvailable, null, 'no count is null, not zero');
+  assert.equal(unitsLabel(single.body), '');
+  assert.equal(isSold(single.body), false);
+
+  // A plan with several lots.
+  const plan = await mk({ name: 'The Cedar', price: 520000, unitsAvailable: 4 });
+  assert.equal(plan.body.unitsAvailable, 4);
+  assert.equal(unitsLabel(plan.body), '4 available');
+
+  // Zero is a real answer, not an absence. This is the distinction the whole
+  // feature rests on: `Number(x) || 0` anywhere in the chain turns every
+  // uncounted home into a sold one, and a sold one into an uncounted one.
+  const gone = await mk({ name: 'The Aspen', price: 480000, unitsAvailable: 0 });
+  assert.equal(gone.body.unitsAvailable, 0, 'zero survives the round trip');
+  assert.equal(unitsLabel(gone.body), 'Sold');
+  assert.equal(isSold(gone.body), true);
+
+  // Selling the last one.
+  const soldOut = await api(`/api/admin/homes/${plan.body.id}`, {
+    method: 'PATCH', token, body: { unitsAvailable: 0 },
+  });
+  assert.equal(soldOut.body.unitsAvailable, 0);
+  assert.equal(unitsLabel(soldOut.body), 'Sold');
+
+  // Clearing it back to "no count" — blank and null both mean that.
+  assert.equal((await api(`/api/admin/homes/${plan.body.id}`, {
+    method: 'PATCH', token, body: { unitsAvailable: '' },
+  })).body.unitsAvailable, null);
+  await api(`/api/admin/homes/${plan.body.id}`, { method: 'PATCH', token, body: { unitsAvailable: 7 } });
+  assert.equal((await api(`/api/admin/homes/${plan.body.id}`, {
+    method: 'PATCH', token, body: { unitsAvailable: null },
+  })).body.unitsAvailable, null);
+
+  // Nonsense clears rather than being stored: a home showing "-3 available" or
+  // "2.5 available" is worse than one showing nothing.
+  for (const bad of [-3, 2.5, 'lots', {}]) {
+    const r = await mk({ name: `Bad ${JSON.stringify(bad)}`, unitsAvailable: bad });
+    assert.equal(r.body.unitsAvailable, null, `${JSON.stringify(bad)} does not become a count`);
+  }
+
+  // ...and it is never written, not merely tidied on the way out. The shaper
+  // sanitises every response, so a route that stored -3 would still answer
+  // null and look correct from here. The check below reads what actually
+  // landed on disk, because the database is what a later reader gets.
+  const stored = JSON.parse(readFileSync(join(dir, 'db.json'), 'utf8'));
+  const counts = stored.homes.map((h) => h.unitsAvailable);
+  assert.ok(
+    counts.every((c) => c === null || (Number.isInteger(c) && c >= 0)),
+    `only whole counts or null reach storage, got ${JSON.stringify(counts)}`,
+  );
+
+  // Editing something else leaves the count alone.
+  const renamed = await api(`/api/admin/homes/${gone.body.id}`, {
+    method: 'PATCH', token, body: { name: 'The Aspen II' },
+  });
+  assert.equal(renamed.body.name, 'The Aspen II');
+  assert.equal(renamed.body.unitsAvailable, 0, 'a rename does not un-sell a home');
+
+  // And it reaches the buyer.
+  const seen = (await api(`/api/c/${cid}`)).body.homes;
+  assert.equal(seen.find((h) => h.id === gone.body.id).unitsAvailable, 0);
+  assert.equal(seen.find((h) => h.id === single.body.id).unitsAvailable, null);
 });

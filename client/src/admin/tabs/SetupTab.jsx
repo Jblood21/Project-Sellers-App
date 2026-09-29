@@ -128,10 +128,48 @@ export default function SetupTab({ community, reload }) {
 
       <div className="card elev-sm" style={{ gap: 10 }}>
         <span className="card-kicker">Down payment assistance rules</span>
+        <TextField
+          label="Program name"
+          hint="Shown to buyers by name. Leave blank and it reads as “this community’s assistance program”."
+          value={settings.dpaProgram}
+          onChange={set('dpaProgram')}
+          placeholder="Utah SB 240 first-time buyer"
+        />
         <div className="grid-3">
           <TextField label="Income limit $" value={settings.dpaIncomeLimit} onChange={set('dpaIncomeLimit')} inputMode="numeric" />
-          <TextField label="Assist amount $" value={settings.dpaAmount} onChange={set('dpaAmount')} inputMode="numeric" />
           <TextField label="Min credit" value={settings.dpaMinCredit} onChange={set('dpaMinCredit')} inputMode="numeric" />
+          <TextField
+            label="Price cap $"
+            hint="The program's purchase-price ceiling. Homes above it are marked as not covered. Blank = no cap."
+            value={settings.dpaPriceCap}
+            onChange={set('dpaPriceCap')}
+            inputMode="numeric"
+            placeholder="450,000"
+          />
+        </div>
+        <div className="grid-3">
+          <TextField
+            label="Assist amount $"
+            hint="A flat figure on its own. With a % below, this becomes the most the program will pay."
+            value={settings.dpaAmount}
+            onChange={set('dpaAmount')}
+            inputMode="numeric"
+          />
+          <TextField
+            label="or % of loan"
+            hint="Leave blank for a flat amount. Set it and the help scales with each home's price."
+            value={settings.dpaPct}
+            onChange={set('dpaPct')}
+            inputMode="decimal"
+            placeholder="6"
+          />
+          <TextField
+            label="Rules checked on"
+            hint="Shown to buyers. Limits reset every year and funded programs run out."
+            value={settings.dpaAsOf}
+            onChange={set('dpaAsOf')}
+            type="date"
+          />
         </div>
       </div>
 

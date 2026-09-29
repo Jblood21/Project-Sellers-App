@@ -34,11 +34,9 @@ export default function Plan({ onOpenTour }) {
         anybody.
       */}
       {empty ? null : (
-        <div style={{ background: 'var(--t-tint)', borderRadius: 'var(--t-radlg)', padding: '13px 16px', marginBottom: 14 }}>
-          <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-            {items.length ? `${items.length} ${items.length === 1 ? 'answer' : 'answers'} saved` : 'Nothing answered yet'}
-            {savedHomes.length ? ` · ${savedHomes.length} ${savedHomes.length === 1 ? 'home' : 'homes'} you like` : ''}
-          </span>
+        <div className="b-strip">
+          {items.length ? `${items.length} ${items.length === 1 ? 'answer' : 'answers'} saved` : 'Nothing answered yet'}
+          {savedHomes.length ? ` · ${savedHomes.length} ${savedHomes.length === 1 ? 'home' : 'homes'} you like` : ''}
         </div>
       )}
 

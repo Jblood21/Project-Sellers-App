@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 
-import { AVAILABILITY, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, megabytes, money } from '@shared/domain.js';
+import {
+  AVAILABILITY, isSold, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, megabytes, money, unitsLabel,
+} from '@shared/domain.js';
 import { Trash } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -11,7 +13,7 @@ import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
 const BLANK = {
   name: '', price: '', beds: '', baths: '', sqft: '', description: '',
-  availability: 'Planning', lotNumber: '', readyOn: '',
+  availability: 'Planning', lotNumber: '', readyOn: '', unitsAvailable: '',
 };
 
 export default function HomesTab({ community, reload }) {
@@ -35,6 +37,11 @@ export default function HomesTab({ community, reload }) {
       sqft: String(home.sqft),
       description: home.description,
       availability: AVAILABILITY.includes(home.availability) ? home.availability : 'Planning',
+      // null becomes an empty box; 0 has to survive as '0', because a sold home
+      // that reopens as an uncounted one is the bug this field invites.
+      unitsAvailable: home.unitsAvailable === null || home.unitsAvailable === undefined
+        ? ''
+        : String(home.unitsAvailable),
       lotNumber: home.lotNumber ?? '',
       readyOn: home.readyOn ?? '',
     });
@@ -87,6 +94,16 @@ export default function HomesTab({ community, reload }) {
           <p className="card-body" style={{ margin: 0 }}>{home.description}</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span className="tag tag-accent-2">{home.availability}</span>
+            {unitsLabel(home) ? (
+              <span
+                className="tag"
+                style={isSold(home)
+                  ? { background: '#fdecea', color: '#8a1c11' }
+                  : { background: '#e9f7ef', color: '#1b5e37' }}
+              >
+                {unitsLabel(home)}
+              </span>
+            ) : null}
             <span style={{ display: 'flex', gap: 6 }}>
               <button type="button" className="btn btn-ghost" onClick={() => openEdit(home)} style={{ minHeight: 34, padding: '0 14px', fontSize: 12.5 }}>
                 Edit
@@ -149,6 +166,16 @@ export default function HomesTab({ community, reload }) {
                 <option key={option} value={option}>{option}</option>
               ))}
             </select>
+          </Field>
+          <Field
+            label="How many are left"
+            hint="Leave blank for a one-off home on a lot — buyers just see its stage. Put a number here for a plan you have several of, and 0 when it is sold."
+          >
+            <input
+              className="input" type="number" min="0" step="1" placeholder="Blank for a single home"
+              value={form.unitsAvailable}
+              onChange={(event) => setForm((f) => ({ ...f, unitsAvailable: event.target.value }))}
+            />
           </Field>
           {form.availability === 'Move-in ready' ? null : (
             <Field

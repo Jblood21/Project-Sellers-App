@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PROGRAMS, calcPayment, money, num, ratesOf } from '@shared/domain.js';
+import { PROGRAMS, calcPayment, dpaAmountFor, dpaCap, money, num, ratesOf } from '@shared/domain.js';
 import { dateTime } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { BigNumber, Field, PillGroup, ResultCard, ResultRow, SaveToPlan, ToolHeader } from './ToolUI.jsx';
@@ -29,10 +29,19 @@ export default function Payment() {
   const rates = ratesOf(settings);
   const result = calcPayment({ price: home.price, program: state.program, downPct: state.downPct, settings });
 
-  // The down-payment-help checkbox only appears once the DPA screener says "likely".
+  // The down-payment-help checkbox only appears once the DPA screener says
+  // "likely" AND this home clears the program's purchase-price ceiling. A
+  // program capped at a price does nothing for the plan above it however well
+  // the buyer screened, so switching homes can take the help away.
   const dpaLikely = String(lead?.plan?.dpa ?? '').startsWith('Likely');
-  const dpaAmount = num(settings.dpaAmount);
-  const cashToClose = Math.max(0, result.cashToClose - (state.dpaOn && dpaLikely ? dpaAmount : 0));
+  const cap = dpaCap(settings);
+  const covered = cap === null || num(home.price) <= cap;
+  // Exact here: this is the one screen that knows both the home and the down
+  // payment, and a percentage-based program is worth a different figure on
+  // every row of the price board.
+  const dpaAmount = dpaAmountFor({ price: home.price, downPayment: result.down, settings });
+  const dpaOffered = dpaLikely && covered && dpaAmount > 0;
+  const cashToClose = Math.max(0, result.cashToClose - (state.dpaOn && dpaOffered ? dpaAmount : 0));
 
   const save = () => {
     // Saving a payment scenario pre-fills the savings plan's cash target.
@@ -90,7 +99,7 @@ export default function Payment() {
         </Field>
       </div>
 
-      {dpaLikely ? (
+      {dpaOffered ? (
         <button
           type="button"
           onClick={() => setTool('pay', { dpaOn: !state.dpaOn })}
@@ -112,6 +121,15 @@ export default function Payment() {
           </span>
           <span style={{ fontSize: 13 }}>Apply my down payment help ({money(dpaAmount)})</span>
         </button>
+      ) : dpaLikely && !covered ? (
+        <p
+          style={{
+            background: 'var(--t-tint2)', borderRadius: 'var(--t-rad)', padding: '11px 14px',
+            margin: '0 0 14px', fontSize: 12.5, lineHeight: 1.5, color: 'var(--t-mut)',
+          }}
+        >
+          Your down payment help stops at {money(cap)}, so it can&apos;t be used on {home.name}.
+        </p>
       ) : null}
 
       <ResultCard>
@@ -124,7 +142,7 @@ export default function Payment() {
         <ResultRow label="HOA &amp; community fees" value={money(result.hoa)} />
         <ResultRow
           label="Cash to close (down + ~2.5%)"
-          value={`${money(cashToClose)}${state.dpaOn && dpaLikely ? ' (after help)' : ''}`}
+          value={`${money(cashToClose)}${state.dpaOn && dpaOffered ? ' (after help)' : ''}`}
           bold
         />
         <span style={{ fontSize: 10.5, color: 'var(--t-mut)' }}>

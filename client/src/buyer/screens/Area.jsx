@@ -18,26 +18,29 @@ export default function Area() {
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h2 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>Local Spots</h2>
-      <p style={{ margin: '0 0 18px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
+      <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
         {highlights.length
           ? `The schools, parks and everyday places near ${community?.name}.`
           : 'Nothing has been added yet — ask the team what’s nearby.'}
       </p>
 
+      {highlights.length ? (
+        <div className="b-strip">
+          {highlights.length} {highlights.length === 1 ? 'place' : 'places'} nearby
+          {grouped.length > 1 ? ` · ${grouped.length} kinds` : ''}
+        </div>
+      ) : null}
+
       {grouped.map(([category, items]) => (
         <section key={category.k} style={{ marginBottom: 22 }}>
-          <span className="b-lbl" style={{ display: 'block', marginBottom: 10 }}>{category.label}</span>
+          <span className="b-lbl" style={{ display: 'block', marginBottom: 10, color: 'var(--t-accT)' }}>
+            {category.label}
+          </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {items.map((highlight) => {
               const directions = mapsUrl(highlight.address);
               return (
-                <article
-                  key={highlight.id}
-                  style={{
-                    background: 'var(--t-sur)', border: '1px solid var(--t-line)',
-                    borderRadius: 'var(--t-radlg)', overflow: 'hidden',
-                  }}
-                >
+                <article key={highlight.id} className="b-card" style={{ overflow: 'hidden' }}>
                   {highlight.photo ? (
                     <div style={{ height: 150 }}>
                       <Photo photo={highlight.photo} label="" alt={highlight.name} />

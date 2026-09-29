@@ -1,5 +1,5 @@
 import {
-  affordabilityLevers, calcAffordability, creditRanges, money, num,
+  affordabilityLevers, calcAffordability, creditRanges, dpaAmountFor, dpaCap, money, num,
 } from '@shared/domain.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import {
@@ -21,13 +21,25 @@ export default function Afford() {
     downPayment: hasCash ? state.downPayment : null,
   });
 
+  // What the help is worth depends on the price, so the lever is worked out
+  // at the price this buyer can actually reach — and never above the program's
+  // ceiling, because a home over it gets nothing at all.
+  const cap = dpaCap(settings);
+  const leverPrice = cap === null
+    ? result.comfortable.price
+    : Math.min(result.comfortable.price, cap);
+
   const levers = affordabilityLevers({
     income: state.income,
     debts: state.debts,
     credit: state.credit,
     settings,
     downPayment: hasCash ? state.downPayment : null,
-    dpaAmount: settings.dpaAmount,
+    dpaAmount: dpaAmountFor({
+      price: leverPrice,
+      downPayment: hasCash ? state.downPayment : 0,
+      settings,
+    }),
   });
 
   const save = () =>
@@ -75,8 +87,13 @@ export default function Afford() {
 
       {hasIncome ? (
         <>
+          <div className="b-strip">
+            {ranges.find((r) => r.k === state.credit).label} credit
+            {hasCash ? ` · ${money(num(state.downPayment))} down` : ' · 5% down'} · {result.rate.toFixed(2)}%
+          </div>
+
           <ResultCard style={{ gap: 6 }}>
-            <span className="b-lbl">Homes you could look at</span>
+            <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>Homes you could look at</span>
             <span className="b-head" style={{ fontSize: 28, lineHeight: 1.15 }}>
               {money(result.comfortable.price)}
               <span style={{ color: 'var(--t-mut)', fontWeight: 400 }}> to </span>
@@ -94,7 +111,7 @@ export default function Afford() {
 
           {homes.length ? (
             <div className="b-card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-              <span className="b-lbl">How the homes here fit</span>
+              <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>How the homes here fit</span>
               {homes.map((home) => {
                 const inRange = home.price <= result.comfortable.price;
                 const close = !inRange && home.price <= result.lenderMax.price;
@@ -109,8 +126,8 @@ export default function Afford() {
                     <span
                       style={{
                         flex: 'none', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
-                        background: inRange ? 'var(--t-tint2)' : 'var(--t-tint)',
-                        color: inRange ? 'var(--t-acc2)' : 'var(--t-mut)',
+                        background: inRange ? 'var(--t-tint)' : 'var(--t-tint2)',
+                        color: inRange ? 'var(--t-accT)' : 'var(--t-mut)',
                       }}
                     >
                       {inRange ? 'In reach' : close ? 'Worth asking' : 'A stretch for now'}
@@ -126,14 +143,14 @@ export default function Afford() {
               className="b-card"
               style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}
             >
-              <span className="b-lbl">What would move this number</span>
+              <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>What would move this number</span>
               {levers.map((lever) => (
                 <div
                   key={lever.key}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, fontSize: 13 }}
                 >
                   <span style={{ lineHeight: 1.4 }}>{lever.label}</span>
-                  <span style={{ flex: 'none', fontWeight: 700, color: 'var(--t-acc2)' }}>
+                  <span style={{ flex: 'none', fontWeight: 700, color: 'var(--t-accT)' }}>
                     +{money(lever.delta)}
                   </span>
                 </div>

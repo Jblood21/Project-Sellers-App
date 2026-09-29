@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import Photo from '../../components/Photo.jsx';
+import { isSold, unitsLabel } from '@shared/domain.js';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { ToolSheet } from '../tools/index.jsx';
@@ -56,6 +57,29 @@ export default function HomeDetail({ onOpenTour }) {
         {homeMeta(home)} · {home.availability}
         {home.lotNumber ? ` · ${home.lotNumber}` : ''}
       </span>
+      {/*
+        Its own line rather than another item in the grey run above: how many
+        are left is the one fact here that changes a buyer's mind about waiting,
+        and sold is not something to find at the end of a list of measurements.
+      */}
+      {unitsLabel(home) ? (
+        // A block wrapper, not alignSelf: .b-shell is not a flex container, so
+        // the badge would otherwise run straight on from the line above and
+        // read "Move-in ready4 available".
+        <div style={{ marginTop: 8 }}>
+          <span
+            style={{
+              display: 'inline-block', padding: '4px 10px', borderRadius: 999,
+              fontSize: 12, fontWeight: 700, letterSpacing: '.02em',
+              background: isSold(home) ? 'rgba(138,28,17,.10)' : 'var(--t-tint)',
+              color: isSold(home) ? '#8a1c11' : 'var(--t-accT)',
+              border: `1px solid ${isSold(home) ? 'rgba(138,28,17,.25)' : 'var(--t-line)'}`,
+            }}
+          >
+            {unitsLabel(home)}
+          </span>
+        </div>
+      ) : null}
       <p style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
 
       {/*

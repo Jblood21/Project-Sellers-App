@@ -206,6 +206,19 @@ a { color: inherit; }
   border: 1px solid var(--t-line);
   border-radius: var(--t-radlg);
 }
+/* The tinted band My Home Plan opens with, lifted out so the screens that want
+   it cannot drift apart. --t-tint is the ACCENT-derived wash, not --t-tint2,
+   which is derived from the secondary and lands on grey in most palettes. This
+   is the one element on a screen that carries the theme's own colour behind
+   ordinary text, so it is what makes a screen look like it belongs. */
+.b-strip {
+  background: var(--t-tint);
+  border-radius: var(--t-radlg);
+  padding: 13px 16px;
+  margin-bottom: 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
 /* A rule that opens a section rather than a hairline that closes one. The
    accent at full strength on the left, fading into the ordinary line colour,
    so one rule carries every theme's own colour without a second token per

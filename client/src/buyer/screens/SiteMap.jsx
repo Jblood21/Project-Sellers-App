@@ -20,9 +20,15 @@ export default function SiteMap() {
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h2 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>Site Map</h2>
-      <p style={{ margin: '0 0 16px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
+      <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
         Where the homes sit in {community?.name}.{map.length ? ' Tap it to open it full screen.' : ''}
       </p>
+
+      {lots.length ? (
+        <div className="b-strip">
+          {lots.length} {lots.length === 1 ? 'lot has' : 'lots have'} a home on {lots.length === 1 ? 'it' : 'them'}
+        </div>
+      ) : null}
 
       <button
         type="button"
@@ -47,7 +53,9 @@ export default function SiteMap() {
 
       {lots.length ? (
         <>
-          <span className="b-lbl" style={{ display: 'block', marginBottom: 10 }}>Lots with a home on them</span>
+          <span className="b-lbl" style={{ display: 'block', marginBottom: 10, color: 'var(--t-accT)' }}>
+            Lots with a home on them
+          </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lots.map((home) => (
               <div
