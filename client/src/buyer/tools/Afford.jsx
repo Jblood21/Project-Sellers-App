@@ -1,5 +1,5 @@
 import {
-  affordabilityLevers, calcAffordability, creditRanges, money, num,
+  affordabilityLevers, calcAffordability, creditRanges, dpaAmountFor, dpaCap, money, num,
 } from '@shared/domain.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import {
@@ -21,13 +21,25 @@ export default function Afford() {
     downPayment: hasCash ? state.downPayment : null,
   });
 
+  // What the help is worth depends on the price, so the lever is worked out
+  // at the price this buyer can actually reach — and never above the program's
+  // ceiling, because a home over it gets nothing at all.
+  const cap = dpaCap(settings);
+  const leverPrice = cap === null
+    ? result.comfortable.price
+    : Math.min(result.comfortable.price, cap);
+
   const levers = affordabilityLevers({
     income: state.income,
     debts: state.debts,
     credit: state.credit,
     settings,
     downPayment: hasCash ? state.downPayment : null,
-    dpaAmount: settings.dpaAmount,
+    dpaAmount: dpaAmountFor({
+      price: leverPrice,
+      downPayment: hasCash ? state.downPayment : 0,
+      settings,
+    }),
   });
 
   const save = () =>

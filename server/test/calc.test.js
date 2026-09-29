@@ -3,9 +3,9 @@ import test from 'node:test';
 
 import {
   DEFAULT_SETTINGS, DEFAULT_THEME, THEMES, THEME_CHIPS, THEME_COLORS, affordabilityLevers,
-  calcAffordability, calcPayment, creditRanges,
+  calcAffordability, calcPayment, creditRanges, dpaAmountFor, dpaCap, dpaHomes,
   MAX_VIDEO_BYTES, base64Bytes, daysBetween, leaseOverlap, mapsUrl, megabytes, moveInSchedule,
-  moveInTimeline, normalizeTheme, pay30, videoEmbed,
+  moveInTimeline, normalizeTheme, num, pay30, videoEmbed,
   planProgress, screenDpa, shiftDate, suggestPrograms,
 } from '../../shared/domain.js';
 
@@ -355,4 +355,87 @@ test('a base64 payload reports the size of the file behind it', () => {
   assert.equal(megabytes(33 * 1024), '33 KB');
   assert.equal(megabytes(900), '1 KB', 'a sub-kilobyte file rounds up, never to 0');
   assert.equal(megabytes(0), '0 KB', 'but nothing at all is still nothing');
+});
+
+// ── down payment assistance: the amount and the price ceiling ──────────────
+//
+// Real programmes come in two shapes and stop at a purchase price. Both facts
+// change per home, so both are worked out per home rather than stored as one
+// number that is wrong everywhere but the middle.
+
+test('a flat programme pays the same on every home', () => {
+  const flat = { ...settings, dpaAmount: '20000', dpaPct: '' };
+  assert.equal(dpaAmountFor({ price: 429000, settings: flat }), 20000);
+  assert.equal(dpaAmountFor({ price: 598000, settings: flat }), 20000);
+  // and a down payment does not shrink it
+  assert.equal(dpaAmountFor({ price: 429000, downPayment: 60000, settings: flat }), 20000);
+});
+
+test('a percentage programme scales with the loan and stops at its ceiling', () => {
+  // 6% of the loan, never more than $27,500.
+  const pct = { ...settings, dpaAmount: '27500', dpaPct: '6' };
+
+  // 6% of (429,000 - 15,000) = 24,840
+  assert.equal(dpaAmountFor({ price: 429000, downPayment: 15000, settings: pct }), 24840);
+  // the same home with more down borrows less, so the help is worth less
+  assert.equal(dpaAmountFor({ price: 429000, downPayment: 60000, settings: pct }), 22140);
+  // a big loan is held at the ceiling rather than running past it
+  assert.equal(dpaAmountFor({ price: 900000, downPayment: 0, settings: pct }), 27500);
+
+  // A flat figure would have been wrong at both ends: too much on the first,
+  // too little on the last.
+  assert.notEqual(dpaAmountFor({ price: 429000, downPayment: 15000, settings: pct }), num(settings.dpaAmount));
+});
+
+test('the assistance figure is rounded down, never up', () => {
+  // 6% of 333,333 = 19,999.98 — a buyer who is told 20,000 is short at closing.
+  const pct = { ...settings, dpaAmount: '', dpaPct: '6' };
+  assert.equal(dpaAmountFor({ price: 333333, downPayment: 0, settings: pct }), 19999);
+});
+
+test('a percentage with no ceiling is not capped by the flat amount', () => {
+  const uncapped = { ...settings, dpaAmount: '', dpaPct: '5' };
+  assert.equal(dpaAmountFor({ price: 600000, downPayment: 0, settings: uncapped }), 30000);
+});
+
+test('dpaCap reads a ceiling only when one is set', () => {
+  assert.equal(dpaCap({ ...settings, dpaPriceCap: '450000' }), 450000);
+  assert.equal(dpaCap({ ...settings, dpaPriceCap: '' }), null);
+  assert.equal(dpaCap({ ...settings, dpaPriceCap: '0' }), null);
+});
+
+test('homes are split by the price ceiling, and unpriced homes are not guessed at', () => {
+  const homes = [
+    { id: 'a', name: 'The Aspen', price: 429000 },
+    { id: 'b', name: 'The Birch', price: 512000 },
+    { id: 'c', name: 'The Cedar', price: 598000 },
+    { id: 'd', name: 'Coming soon', price: 0 },
+  ];
+  const capped = dpaHomes(homes, { ...settings, dpaPriceCap: '450000' });
+  assert.equal(capped.cap, 450000);
+  assert.deepEqual(capped.within.map((h) => h.id), ['a']);
+  assert.deepEqual(capped.over.map((h) => h.id), ['b', 'c']);
+  assert.ok(
+    ![...capped.within, ...capped.over].some((h) => h.id === 'd'),
+    'a home with no price is left out of both lists rather than called covered',
+  );
+
+  // A home exactly at the ceiling is under it, not over.
+  const exact = dpaHomes([{ id: 'x', price: 450000 }], { ...settings, dpaPriceCap: '450000' });
+  assert.deepEqual(exact.within.map((h) => h.id), ['x']);
+
+  // No ceiling means every priced home is covered.
+  const open = dpaHomes(homes, { ...settings, dpaPriceCap: '' });
+  assert.equal(open.cap, null);
+  assert.equal(open.within.length, 3);
+  assert.equal(open.over.length, 0);
+});
+
+test('assistance settings default to the flat behaviour they had before', () => {
+  // Communities set up before the percentage and ceiling existed must keep
+  // answering exactly as they did.
+  assert.equal(DEFAULT_SETTINGS.dpaPct, '');
+  assert.equal(DEFAULT_SETTINGS.dpaPriceCap, '');
+  assert.equal(dpaAmountFor({ price: 429000, settings }), num(settings.dpaAmount));
+  assert.equal(dpaCap(settings), null);
 });

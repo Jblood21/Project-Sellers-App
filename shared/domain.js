@@ -355,8 +355,19 @@ export const DEFAULT_SETTINGS = {
   insuranceYr: '1400',
   hoaMo: '45',
   dpaIncomeLimit: '110000',
+  // The help itself. dpaAmount is a flat figure on its own; set dpaPct as well
+  // and it becomes the ceiling on a percentage of the loan. dpaPriceCap is the
+  // program's purchase-price limit, which is the rule that decides per home
+  // rather than per buyer. Blank means the program has no such limit.
   dpaAmount: '15000',
+  dpaPct: '',
+  dpaPriceCap: '',
   dpaMinCredit: '660',
+  // Named and dated so the screen can say whose rules these are and when the
+  // builder last checked them. Assistance limits are re-set every year and
+  // funded programs run dry mid-year, so an undated figure goes stale silently.
+  dpaProgram: '',
+  dpaAsOf: '',
   creditExcellentMin: '740',
   creditGoodMin: '700',
   creditFairMin: '660',
@@ -685,7 +696,56 @@ export function creditRanges(settings) {
   ];
 }
 
-/** 'likely' | 'maybe' | 'unlikely' | null (null = not enough answers yet). */
+/**
+ * What the help is actually worth on one home. Real programs come in two
+ * shapes and a single number cannot serve both: some pay a flat figure
+ * whatever the price, others pay a percentage of the loan up to a ceiling. A
+ * percentage has to be worked out per home or it is wrong at both ends — too
+ * little on the big plan, too much on the small one.
+ *
+ * Rounded down, never up: this figure lands in a buyer's cash-to-close.
+ */
+export function dpaAmountFor({ price, downPayment = 0, settings }) {
+  const flat = num(settings.dpaAmount);
+  const pct = num(settings.dpaPct);
+  if (pct <= 0) return flat;
+  const loan = Math.max(0, num(price) - num(downPayment));
+  const share = (loan * pct) / 100;
+  return Math.floor(flat > 0 ? Math.min(share, flat) : share);
+}
+
+/** The program's purchase-price ceiling, or null when it has none. */
+export function dpaCap(settings) {
+  const cap = num(settings.dpaPriceCap);
+  return cap > 0 ? cap : null;
+}
+
+/**
+ * Which homes here sit under that ceiling. This is the half of the answer a
+ * buyer cannot work out alone and the builder already knows: a program that
+ * stops at a given price may cover one plan on the board and none of the
+ * others, and no amount of income changes that. Homes with no price set are
+ * left out of both lists rather than guessed at.
+ */
+export function dpaHomes(homes, settings) {
+  const priced = (homes ?? []).filter((h) => num(h.price) > 0);
+  const cap = dpaCap(settings);
+  if (!cap) return { cap: null, within: priced, over: [] };
+  return {
+    cap,
+    within: priced.filter((h) => num(h.price) <= cap),
+    over: priced.filter((h) => num(h.price) > cap),
+  };
+}
+
+/**
+ * Whether the BUYER fits the program — income, credit and first-time status.
+ * Deliberately says nothing about which homes qualify: those are two separate
+ * failures with two separate remedies, and collapsing them would tell a buyer
+ * who is perfectly eligible that they are not.
+ *
+ * 'likely' | 'maybe' | 'unlikely' | null (null = not enough answers yet).
+ */
 export function screenDpa({ income, credit, firstTime, military, settings }) {
   const inc = num(income);
   if (!inc) return null;
