@@ -1,3 +1,10 @@
+import { COMPLIANCE_DEFAULTS } from './compliance.js';
+
+export {
+  COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens,
+  nmlsConsumerUrl, safeHref, settingMaxLength, telHref,
+} from './compliance.js';
+
 /**
  * Domain constants and calculators shared by the Express server and the React client.
  * Every number in here traces back to the design handoff — keep the two in step.
@@ -325,6 +332,90 @@ export function unitsLabel(home) {
 export function isSold(home) {
   return home?.unitsAvailable === 0;
 }
+// ── layouts ────────────────────────────────────────────────────────────────
+
+/**
+ * How the buyer app is LAID OUT, as distinct from how it is coloured.
+ *
+ * A theme is a palette. A layout is the rest of the look: the typeface, the
+ * shape of things, where the buttons sit and what the home screen is built
+ * from. They are independent, which is why a community picks both. What a
+ * layout may NOT change is what the tools do: the same questions, the same
+ * maths and the same saved answers on every one, with only the placement and
+ * the appearance of the controls differing.
+ *
+ * Adding one is three things: an entry here, a folder under
+ * client/src/buyer/layouts/, and a stylesheet scoped to `.l-<key>`.
+ */
+export const LAYOUTS = [
+  {
+    k: 'cornerpost',
+    name: 'Cornerpost Default',
+    note: 'One phone-width column of soft, rounded tiles. Manrope throughout, with a Talk to the Team button on every page.',
+  },
+  {
+    k: 'saltgrass',
+    name: 'Salt Grass',
+    note: 'Condensed uppercase headlines, a dark header and footer, and big figures. Reads best with the Navy & Gold, Ice Blue & Dark Navy or Slate Blue & Soft Green themes.',
+  },
+];
+export const LAYOUT_KEYS = LAYOUTS.map((l) => l.k);
+export const DEFAULT_LAYOUT = 'cornerpost';
+
+/** An unknown or missing key falls back rather than rendering a layout that is not there. */
+export function normalizeLayout(key) {
+  return LAYOUT_KEYS.includes(key) ? key : DEFAULT_LAYOUT;
+}
+
+/**
+ * How many guides the tools home shows before sending the buyer to the full list.
+ * It is shared, not the screen's own, because the structured data describes the
+ * thumbnails the home shows and has to count the same ones.
+ */
+export const HOME_GUIDES = 3;
+
+// ── realtors ───────────────────────────────────────────────────────────────
+
+/** Real estate agents a community can list. The server enforces this, not just the form. */
+export const MAX_AGENTS = 4;
+
+export const AGENT_TEXT_MAX = {
+  name: 80, brokerage: 120, licenseNo: 40, licenseState: 2, phone: 40, email: 120, website: 200,
+};
+
+/**
+ * "UT license #12345", or '' when there is no number to print. A licence line
+ * with no number says nothing a buyer can check, so it is not shown at all.
+ */
+export function agentLicenseLine(agent) {
+  const no = String(agent?.licenseNo ?? '').trim();
+  if (!no) return '';
+  const state = String(agent?.licenseState ?? '').trim().toUpperCase();
+  return `${state ? `${state} ` : ''}license #${no.replace(/^#/, '')}`;
+}
+
+// ── buyer guides ───────────────────────────────────────────────────────────
+
+/** The picture the supplied guides share. Overridable per guide. */
+export const DEFAULT_GUIDE_IMAGE = '/guides/blog-hero-model-home.webp';
+export const DEFAULT_GUIDE_IMAGE_ALT = 'New construction townhome living, dining and kitchen';
+
+export const GUIDE_TEXT_MAX = {
+  title: 140, category: 40, byline: 200, note: 200, summary: 400, body: 60000, imageAlt: 200, slug: 100,
+};
+
+/** 'What credit score do you need?' becomes 'what-credit-score-do-you-need'. */
+export function slugify(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['\u2019]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, GUIDE_TEXT_MAX.slug);
+}
+
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 
 /**
@@ -337,10 +428,14 @@ export const FEATURES = [
   { k: 'floorPlans', name: 'Floor plans', q: 'Let buyers open the plan drawing for a home' },
   { k: 'siteMap', name: 'Site map', q: 'Show the community plat so buyers can place a home' },
   { k: 'resources', name: 'Videos & articles', q: 'Show what you have written and filmed, below the tools' },
+  { k: 'guides', name: 'Buyer guides', q: 'Show the long-form guides, readable without signing in' },
+  { k: 'agents', name: 'Realtors', q: 'Show the real estate agents you have added, on each home' },
 ];
 export const FEATURE_KEYS = FEATURES.map((f) => f.k);
 
-export const DEFAULT_FEATURES = { lotNumbers: true, floorPlans: true, siteMap: true, resources: true };
+export const DEFAULT_FEATURES = {
+  lotNumbers: true, floorPlans: true, siteMap: true, resources: true, guides: true, agents: true,
+};
 
 export const DEFAULT_TOOLS_ENABLED = {
   payment: true, afford: true, loans: true, compare: true, dpa: true, savings: true, movein: true,
@@ -371,6 +466,9 @@ export const DEFAULT_SETTINGS = {
   creditExcellentMin: '740',
   creditGoodMin: '700',
   creditFairMin: '660',
+  // The lender, the compliance copy and the links under it. See shared/compliance.js
+  // for what each one is and where the words came from.
+  ...COMPLIANCE_DEFAULTS,
   // Where call requests are emailed. Blank falls back to the admin account that
   // owns the dashboard, so a builder who never sets this still gets told.
   notifyEmail: '',
@@ -431,12 +529,19 @@ export function formatSlotTime(value) {
  * One line describing a request, for the admin list and the alert email.
  * Handles requests made before slots existed, which carry free text instead.
  */
-export function describeTour(tour) {
+/**
+ * The lender's name as this community has set it, for sentences that name the
+ * lender. Blank means the builder cleared it, which must not quietly revert to
+ * the built-in default and name a company they did not choose.
+ */
+export const lenderNameOf = (community) => String(community?.settings?.lenderName ?? LENDER.name).trim() || 'the lender';
+
+export function describeTour(tour, lenderName = LENDER.name) {
   if (!tour) return '';
   // The topic rides along in the description because this string is what the
   // admin list, the activity line and the alert email all show. A lender
   // request that reads like a model-home tour gets handled by the wrong person.
-  const about = tour.topic === 'lender' ? ` · about financing (${LENDER.name})` : '';
+  const about = tour.topic === 'lender' ? ` · about financing (${lenderName})` : '';
   if (tour.date && tour.time) {
     const how = contactMethodLabel(tour.contact).toLowerCase();
     return `${formatSlotDate(tour.date)} at ${formatSlotTime(tour.time)} · by ${how}${about}`;
@@ -445,47 +550,55 @@ export function describeTour(tour) {
 }
 
 /**
- * The lender advertised at the foot of the buyer's home screen.
+ * The lender, as it stood before it became a per-community setting.
  *
- * ── FILL THIS IN BEFORE IT CAN SHOW ──────────────────────────────────────
- * `nmls` is blank on purpose and the card does not render while it is. An
- * advertisement for a mortgage lender without an NMLS ID is not a cosmetic
- * omission, and a guessed one is worse than none: several businesses trade
- * under names close to this one, and the wrong six digits on an ad points
- * buyers at somebody else's licence on NMLS Consumer Access.
+ * Kept for the places that have no community in hand: the appointment sheet
+ * names who the buyer is booking with, and the call-request email says what the
+ * request was about. Both only need a NAME, and those read this. Everything a
+ * buyer is SHOWN as an advertisement (the footer, the lender card, the printed
+ * plan, the structured data) comes from `complianceOf(community.settings)`, so
+ * that what Setup says is what the page says.
  *
- * Get these from the lender's own marketing pack, not from a search:
- *   nmls    — the company NMLS ID (and loNmls, if a named LO is the contact)
- *   phone   — the number they want on it
- *   website — their site
- *   logo    — see LENDER_LOGO below
- *
- * Also worth settling before this goes live: a builder advertising a lender is
- * the arrangement RESPA Section 8 governs. If the placement is paid for, that
- * is a marketing services agreement; if the two are affiliated, buyers are owed
- * an Affiliated Business Arrangement disclosure.
+ * It is derived from the same defaults rather than typed out a second time, so
+ * the two cannot disagree about who the lender is.
  */
 export const LENDER = {
-  name: 'Summit Home Loans',
-  tagline: 'Financing for buyers at this community.',
-  nmls: '1790749',
-  loName: '',
-  loNmls: '',
-  phone: '801-855-8535',
-  website: '',
+  name: COMPLIANCE_DEFAULTS.lenderName,
+  tagline: COMPLIANCE_DEFAULTS.lenderTagline,
+  nmls: COMPLIANCE_DEFAULTS.lenderNmls,
+  loName: COMPLIANCE_DEFAULTS.loName,
+  loNmls: COMPLIANCE_DEFAULTS.loNmls,
+  phone: COMPLIANCE_DEFAULTS.lenderPhone,
+  website: COMPLIANCE_DEFAULTS.lenderWebsite,
 };
 
 /**
- * The lender's logo, or '' to fall back to their name set in the community's
- * own heading font.
+ * The supplied marks, served from client/public/brand.
  *
- * The file supplied is 129x65 with a transparent background, which is the
- * artwork's real resolution. At the height below a 3x phone wants about 156
- * device pixels of it and there are 65, so the browser is upscaling roughly
- * 2.4x and the wordmark is a little soft up close. A larger PNG or an SVG from
- * the brand pack fixes that: drop it in beside this one and rename here.
+ * The Summit logo is 700x355 with a transparent background, so it is sharp at
+ * any size a page draws it. Pick by ground: `color` on light, `white` on dark
+ * photos or fills, `black` for one-colour print. It is never recoloured to a
+ * community's palette, and the supplied guidance sets a 30px minimum height.
+ *
+ * The Equal Housing Lender mark is required wherever the lender is advertised,
+ * at 40px or more. `ink` for light grounds, `white` for dark.
  */
-export const LENDER_LOGO = '/summit-home-loans.png';
+export const LENDER_LOGOS = {
+  color: '/brand/summit-home-loans-color.png',
+  black: '/brand/summit-home-loans-black.png',
+  white: '/brand/summit-home-loans-white.png',
+};
+export const LENDER_LOGO_RATIO = 700 / 355;
+export const LENDER_LOGO_MIN_HEIGHT = 30;
+export const EHL_MARKS = {
+  ink: '/brand/equal-housing-lender-ink.svg',
+  white: '/brand/equal-housing-lender-white.svg',
+};
+export const EHL_MARK_RATIO = 120 / 132;
+export const EHL_MARK_MIN_HEIGHT = 40;
+
+/** Kept so the old import keeps working; the default is the full-colour logo. */
+export const LENDER_LOGO = LENDER_LOGOS.color;
 export const LENDER_LOGO_HEIGHT = 52;
 
 /**
@@ -504,8 +617,8 @@ export function lenderReady(lender = LENDER) {
  */
 export const TOUR_TOPICS = ['community', 'lender'];
 
-export function tourTopicLabel(topic) {
-  return topic === 'lender' ? `${LENDER.name}` : 'the community team';
+export function tourTopicLabel(topic, lenderName = LENDER.name) {
+  return topic === 'lender' ? lenderName : 'the community team';
 }
 
 export const MAX_PHOTOS_PER_HOME = 8;

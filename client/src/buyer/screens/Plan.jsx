@@ -6,6 +6,16 @@ import { buyerApi } from '../../lib/api.js';
 import { money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 
+/**
+ * The booked time, for the buyer's own button. The shared description names the
+ * lender from the built-in default, which is wrong once the builder has changed
+ * the lender in Setup, so the topic is described here without a name.
+ */
+function tourSummary(tour) {
+  const base = describeTour({ ...tour, topic: 'community' });
+  return tour.topic === 'lender' ? `${base} · about financing` : base;
+}
+
 /** The buyer's growing record — and the door to the PDF and the team. */
 export default function Plan({ onOpenTour }) {
   const { homes, lead, track } = useBuyer();
@@ -22,7 +32,7 @@ export default function Plan({ onOpenTour }) {
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
-      <h3 className="b-head" style={{ margin: '0 0 2px', fontSize: 22 }}>My Home Plan</h3>
+      <h1 className="b-head" style={{ margin: '0 0 2px', fontSize: 22 }}>My Home Plan</h1>
       <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 12.5 }}>
         Your personal record of everything so far — it builds as you go.
       </p>
@@ -94,7 +104,7 @@ export default function Plan({ onOpenTour }) {
       )}
 
       <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>
-        {lead?.tour ? `Booked ✓ ${describeTour(lead.tour)} — change it` : 'Talk to the team · book a time'}
+        {lead?.tour ? `Booked ✓ ${tourSummary(lead.tour)} — change it` : 'Talk to the team · book a time'}
       </button>
     </div>
   );

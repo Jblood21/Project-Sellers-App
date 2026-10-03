@@ -70,6 +70,11 @@ jobs:
 
           curl -sf http://127.0.0.1:3000/api/health | tee /dev/stderr | grep -q '"ok":true'
           curl -sf http://127.0.0.1:3000/admin | grep -q '<div id="root">'
+
+          # A NUL byte in an address once killed the process through an unhandled
+          # rejection; one request must never be able to end the server.
+          test "$(curl -s -o /dev/null -w '%{http_code}' --path-as-is 'http://127.0.0.1:3000/c/%00/manifest.webmanifest')" = 404
+          curl -sf http://127.0.0.1:3000/api/health | grep -q '"ok":true'
         env:
           NODE_ENV: production
           PORT: '3000'

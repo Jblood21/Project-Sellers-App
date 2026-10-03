@@ -149,3 +149,39 @@ test('the email preference puts the email address first', async () => {
   assert.ok(reach > 0, 'it says how to reach them');
   assert.match(lines[reach + 1], /Email:\s+dana@test\.co/, 'and leads with the address, not the phone');
 });
+
+test('the plan email carries the lender identity and the required disclosures', async () => {
+  const sent = captureTransport();
+  await sendPlanToBuyer({ community: COMMUNITY, lead: LEAD, baseUrl: 'https://cornerpost.example' });
+  const text = sent[0].text;
+
+  assert.match(text, /Summit Home Loans · NMLS #1790749/, 'who is advertising');
+  assert.match(text, /Equal Housing Lender/, 'the equal housing statement');
+  assert.match(text, /is not an offer for credit/, 'not an offer for credit');
+  assert.match(text, /not a real estate agent/, 'and not a real estate agent');
+  assert.match(text, /nmlsconsumeraccess\.org/, 'with a way to verify the licence');
+  assert.match(text, /©\s*\d{4} Summit Home Loans/, 'and the copyright line');
+  // The footer follows the buyer's own numbers, not the other way round.
+  assert.ok(text.indexOf('Hi Dana') < text.indexOf('Equal Housing Lender'));
+  assert.ok(text.indexOf('$350,049') < text.indexOf('NMLS #1790749'));
+});
+
+test('the plan email follows what Setup says, not a copy of it', async () => {
+  const sent = captureTransport();
+  await sendPlanToBuyer({
+    community: {
+      ...COMMUNITY,
+      settings: {
+        ...COMMUNITY.settings, lenderName: 'Acme Lending', lenderNmls: '424242',
+        complianceNotOffer: 'Custom: nothing here is an offer.', complianceAba: 'We are affiliated with the builder.',
+      },
+    },
+    lead: LEAD,
+  });
+  const text = sent[0].text;
+  assert.match(text, /Acme Lending · NMLS #424242/);
+  assert.match(text, /Custom: nothing here is an offer\./);
+  assert.match(text, /We are affiliated with the builder\./, 'a disclosure added in Setup is sent');
+  assert.doesNotMatch(text, /Summit Home Loans/, 'and the default is gone');
+  assert.doesNotMatch(text, /is not an offer for credit/, 'the replaced sentence is not also sent');
+});

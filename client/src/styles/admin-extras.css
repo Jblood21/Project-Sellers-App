@@ -1,0 +1,150 @@
+/* Admin-only styles that the shared atoms in base.css do not cover: the Setup
+   cards (layout choice, image slots, the pre-launch checklist) and the guide
+   editor. Everything is prefixed `ax-` so it can never collide with a buyer
+   class, since both apps ship in one bundle. */
+
+.dialog.dialog-wide { max-width: 1080px; }
+
+/* ── a labelled field's helper line: hint on the left, counter on the right ── */
+.ax-note { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ax-counter { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* A textarea's label reads like the label on a one-line TextField beside it (plain,
+   not the small-caps style of `.field > label`), so a form of mixed fields looks like one. */
+.field > label.ax-plain { font-size: inherit; font-weight: inherit; letter-spacing: 0; text-transform: none; color: inherit; }
+
+/* Two fields side by side once there is room; a single column on a phone. */
+.ax-cols { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 560px) { .ax-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ── the layout picker ──────────────────────────────────────────────────── */
+.ax-choices { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 560px) { .ax-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ax-choice {
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px; text-align: left;
+  padding: 12px; border-radius: 12px; cursor: pointer; min-height: 44px;
+  background: transparent; color: var(--color-text);
+  border: 2px solid var(--color-divider);
+}
+.ax-choice[aria-pressed='true'] { border-color: var(--color-accent); background: var(--color-accent-100); }
+.ax-choice:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.ax-choice-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ax-choice-name { font-family: var(--font-heading); font-weight: 700; font-size: 14.5px; }
+.ax-choice-note { font-size: 12px; line-height: 1.45; color: var(--color-neutral-700); }
+.ax-wire { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--color-divider); }
+
+/* ── one image slot: preview plate on the left, actions on the right ───────── */
+.ax-slot {
+  display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap;
+  padding: 10px; border-radius: 12px; border: 1px solid var(--color-divider); background: #fff;
+}
+.ax-plate {
+  flex: none; width: 148px; height: 84px; border-radius: 8px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--color-divider); background: #fff;
+}
+.ax-plate--dark { background: #1b2230; border-color: #1b2230; }
+.ax-plate--square { width: 84px; }
+.ax-plate img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.ax-plate--cover img { width: 100%; height: 100%; object-fit: cover; }
+.ax-plate-empty { font-size: 11.5px; color: var(--color-neutral-600); text-align: center; padding: 6px; line-height: 1.35; }
+.ax-plate--dark .ax-plate-empty { color: #b9c2d3; }
+.ax-slot-body { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.ax-slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ax-slot-actions .btn { min-height: 44px; }
+.ax-status { font-size: 12px; color: var(--color-neutral-700); }
+
+/* ── the pre-launch checklist and other call-outs ────────────────────────── */
+.ax-callout {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px;
+  background: #fff7e0; border: 1px solid #e3c36b; color: #4d3500;
+}
+.ax-callout--ok { background: var(--color-accent-100); border-color: rgba(78, 119, 88, 0.35); color: var(--color-accent-700); }
+.ax-callout h5 { margin: 0; font-family: var(--font-heading); font-size: 14px; }
+.ax-callout ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.ax-callout li button {
+  background: none; border: 0; padding: 0 0 0 0; min-height: 44px; color: inherit; cursor: pointer;
+  text-align: left; font-size: 13px; text-decoration: underline; text-underline-offset: 3px;
+}
+.ax-callout li button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.ax-group { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--color-divider); }
+.ax-group-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ax-group-head h5 { margin: 0; font-family: var(--font-heading); font-size: 14px; }
+.ax-preview {
+  margin: 0; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid var(--color-divider);
+  font-size: 12px; line-height: 1.55; color: var(--color-neutral-700);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ax-preview p { margin: 0; }
+
+/* Keeps "Save settings" in reach however far down the Setup page the builder is,
+   because the compliance fields it saves sit in the middle of a long page. */
+.ax-savebar {
+  position: sticky; bottom: 0; z-index: 5; margin: 0 -20px; padding: 10px 20px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, rgba(242, 241, 235, 0), var(--color-bg) 28%);
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+/* The bar covers the foot of the viewport, so when Tab scrolls a field into view
+   it must stop short of the bar rather than land underneath it. scroll-padding
+   belongs on the scrolling root; :has() keeps it to the Setup tab. 140px clears
+   the bar and a tall textarea that Tab only partly scrolls into view. */
+:root:has(.ax-setup) { scroll-padding-bottom: 140px; }
+
+/* ── realtors ───────────────────────────────────────────────────────────── */
+.ax-agent-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ax-agent-thumb {
+  flex: none; width: 48px; height: 48px; border-radius: 50%; overflow: hidden;
+  background: var(--color-neutral-300); display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 800; color: var(--color-neutral-700);
+}
+.ax-agent-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ax-agent-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ax-agent-meta > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ax-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ax-actions .btn { min-height: 44px; }
+
+/* ── the guide list and editor ──────────────────────────────────────────── */
+.ax-guide-row { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* A title or category with no spaces in it must wrap, not push the page sideways. */
+.ax-guide-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.ax-guide-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ax-guide-controls .btn { min-height: 44px; }
+.ax-guide-toggle { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; font-size: 12.5px; }
+.ax-editor { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.ax-editor-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+@media (min-width: 900px) { .ax-editor { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+/* 16px on a phone (anything smaller makes iOS zoom the page on focus), tighter once there is room. */
+textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.55; min-height: 280px; }
+@media (min-width: 900px) { textarea.ax-body { font-size: 14px; min-height: 420px; } }
+/* The preview wears the buyer app's theme and layout classes, so what scrolls
+   here is what a buyer will read. min-height is reset because .b-app fills the screen. */
+.ax-preview-frame { border-radius: 12px; border: 1px solid var(--color-divider); overflow: auto; max-height: 72vh; }
+.ax-preview-frame .b-app { min-height: 0; padding: 18px 18px 10px; }
+.ax-preview-hero { width: 100%; height: auto; max-height: 220px; object-fit: cover; display: block; border-radius: var(--t-radlg, 12px); margin: 0 0 14px; }
+.ax-preview-kicker { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--t-accT, var(--t-mut)); font-weight: 700; margin: 0 0 6px; }
+.ax-preview-title { font-size: 1.7rem; line-height: 1.15; margin: 0 0 8px; }
+.ax-preview-by { margin: 0 0 4px; color: var(--t-mut); font-size: 13.5px; }
+.ax-preview-note { margin: 0 0 16px; color: var(--t-mut); font-size: 13px; font-style: italic; }
+
+@media (max-width: 559px) {
+  .ax-savebar { margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+  .ax-plate { width: 100%; flex: 1 1 100%; height: 96px; }
+  .ax-plate--square { width: 96px; flex: none; height: 96px; }
+}
+
+/* The editor's preview stays in view while the builder scrolls the long form beside it. */
+@media (min-width: 900px) { .ax-sticky { position: sticky; top: 0; align-self: start; } }
+
+/* The switch is drawn 27px tall, which is too small to hit reliably with a
+   thumb. This grows the tappable area to 44px without changing how it looks. */
+.ax-toggle::after { content: ''; position: absolute; inset: -9px -4px; }
+.ax-toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+
+/* A long dialog (the guide editor) keeps Save and Cancel in view; otherwise the
+   buttons are a full screen of scrolling away from the field being typed in. */
+.dialog.dialog-wide .dialog-actions {
+  position: sticky; bottom: -20px; z-index: 2; margin: 0 -20px -20px; padding: 12px 20px 20px;
+  background: var(--color-neutral-100); border-top: 1px solid var(--color-divider);
+}

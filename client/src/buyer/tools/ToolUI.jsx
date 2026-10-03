@@ -1,9 +1,19 @@
+import { useLocation } from 'react-router-dom';
+
 /** Shared bits every buyer tool screen uses, so the seven tools stay consistent. */
 
+/**
+ * The tool's title. On its own screen it is the page's one h1; opened in a sheet
+ * over another screen (the payment sheet on a home) that screen already has the
+ * h1, so this steps down to h2 rather than giving the page two. The look is the
+ * same either way.
+ */
 export function ToolHeader({ title, subtitle }) {
+  const { pathname } = useLocation();
+  const Heading = pathname.includes('/tool/') ? 'h1' : 'h2';
   return (
     <>
-      <h3 className="b-head" style={{ margin: '0 0 2px', fontSize: 22 }}>{title}</h3>
+      <Heading className="b-head" style={{ margin: '0 0 2px', fontSize: 22 }}>{title}</Heading>
       <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 12.5 }}>{subtitle}</p>
     </>
   );
@@ -31,6 +41,18 @@ export function MoneyInput({ value, onChange, placeholder }) {
   );
 }
 
+/**
+ * A browser may break a line after an en dash, which would split "700–739" into
+ * "700–" and "739" on a narrow chip. Number ranges are kept whole instead; the
+ * chip then wraps at the space before the range, which reads correctly.
+ */
+function keepRangesWhole(label) {
+  if (typeof label !== 'string') return label;
+  return label.split(/(\d+–\d+%?)/).map((part, i) =>
+    i % 2 ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{part}</span> : part,
+  );
+}
+
 /** Single-select pill group — selected reads accent background, on-accent text. */
 export function PillGroup({ options, value, onChange, label, stack = false }) {
   return (
@@ -49,7 +71,7 @@ export function PillGroup({ options, value, onChange, label, stack = false }) {
           onClick={() => onChange(option.value)}
           style={stack ? { flex: 'none', display: 'flex', justifyContent: 'space-between', padding: '0 16px', fontSize: 13.5 } : undefined}
         >
-          <span>{option.label}</span>
+          <span>{keepRangesWhole(option.label)}</span>
           {option.trailing ? <span style={{ opacity: 0.75 }}>{option.trailing}</span> : null}
         </button>
       ))}
@@ -60,7 +82,7 @@ export function PillGroup({ options, value, onChange, label, stack = false }) {
 export function ResultCard({ children, style }) {
   return (
     <div
-      className="b-card"
+      className="b-card b-result"
       style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14, ...style }}
     >
       {children}
@@ -71,6 +93,7 @@ export function ResultCard({ children, style }) {
 export function ResultRow({ label, value, bold = false }) {
   return (
     <div
+      className="b-resultrow"
       style={{
         display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13,
         borderTop: '1px solid var(--t-line)', paddingTop: 7,
@@ -84,7 +107,7 @@ export function ResultRow({ label, value, bold = false }) {
 
 export function BigNumber({ value, suffix }) {
   return (
-    <span className="b-head" style={{ fontSize: 34 }}>
+    <span className="b-head b-bignum" style={{ fontSize: 34 }}>
       {value}
       {suffix ? <span style={{ fontSize: 15, color: 'var(--t-mut)' }}>{suffix}</span> : null}
     </span>

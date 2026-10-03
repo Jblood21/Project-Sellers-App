@@ -1,5 +1,6 @@
 import {
-  DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, normalizeTheme,
+  DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE, DEFAULT_GUIDE_IMAGE_ALT, DEFAULT_SETTINGS,
+  DEFAULT_TOOLS_ENABLED, GUIDE_TEXT_MAX, normalizeLayout, normalizeTheme, slugify,
 } from '../../shared/domain.js';
 
 export function shapeCommunity(row, extra = {}) {
@@ -10,6 +11,9 @@ export function shapeCommunity(row, extra = {}) {
     location: row.location || '',
     status: row.status,
     theme: normalizeTheme(row.theme),
+    // Falls back rather than trusting the column: a layout retired later must
+    // not leave a community rendering a stylesheet that is not there.
+    layout: normalizeLayout(row.layout),
     websiteUrl: row.website_url ?? row.websiteUrl ?? null,
     builder: row.builder || '',
     settings: { ...DEFAULT_SETTINGS, ...(row.settings || {}) },
@@ -178,5 +182,106 @@ export function shapeSlot(row) {
       : String(raw).slice(0, 10),
     time: row.slot_time ?? row.slotTime,
     leadId: row.lead_id ?? row.leadId ?? null,
+  };
+}
+
+/**
+ * A realtor. `photo` and `logo` are shapePhoto results (or null); the public
+ * route flattens them to bare URLs, the admin keeps the ids so it can remove them.
+ */
+export function shapeAgent(row, photo = null, logo = null) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    communityId: row.community_id ?? row.communityId,
+    name: row.name,
+    brokerage: row.brokerage || '',
+    licenseNo: row.license_no ?? row.licenseNo ?? '',
+    licenseState: row.license_state ?? row.licenseState ?? '',
+    phone: row.phone || '',
+    email: row.email || '',
+    website: row.website || '',
+    position: Number(row.position) || 0,
+    photo,
+    logo,
+  };
+}
+
+/** A path on this site, or an https address: the only two things an image column may name. */
+const usableImage = (value) => {
+  const text = String(value ?? '').trim();
+  return /^https:\/\//i.test(text) || /^\/(?!\/)/.test(text) ? text : '';
+};
+
+/**
+ * A guide. `body` is only included when asked for: the list of guides is sent to
+ * every buyer on every page load and a 60,000-character article in each entry
+ * would be most of the payload.
+ *
+ * `image` is always a URL a page can use. An uploaded picture wins, then a
+ * well-formed address stored on the row, then the shared default, so a guide can
+ * never render a broken image because the column was blank or hand-edited.
+ */
+export function shapeGuide(row, { body = false, photo = null } = {}) {
+  if (!row) return null;
+  const title = row.title || '';
+  const stored = usableImage(row.image);
+  const image = photo?.url || stored || DEFAULT_GUIDE_IMAGE;
+  const alt = String(row.image_alt ?? row.imageAlt ?? '').trim();
+  const shaped = {
+    id: row.id,
+    communityId: row.community_id ?? row.communityId,
+    slug: row.slug,
+    defaultKey: row.default_key ?? row.defaultKey ?? '',
+    title,
+    category: row.category || '',
+    byline: row.byline || '',
+    note: row.note || '',
+    summary: row.summary || '',
+    image,
+    imageAlt: alt || (image === DEFAULT_GUIDE_IMAGE ? DEFAULT_GUIDE_IMAGE_ALT : title),
+    published: row.published !== false,
+    position: Number(row.position) || 0,
+    createdAt: row.created_at ?? row.createdAt ?? null,
+    updatedAt: row.updated_at ?? row.updatedAt ?? null,
+  };
+  if (body) shaped.body = row.body || '';
+  return shaped;
+}
+
+/**
+ * A slug nobody in `taken` already has. Both stores and the create route use
+ * this one function so a slug collision resolves identically everywhere.
+ */
+export function uniqueSlug(base, taken) {
+  const root = slugify(base) || 'guide';
+  if (!taken.has(root)) return root;
+  for (let n = 2; ; n += 1) {
+    const suffix = `-${n}`;
+    const candidate = `${root.slice(0, GUIDE_TEXT_MAX.slug - suffix.length)}${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+/**
+ * The row a supplied guide becomes in a community. Shared by seeding and by
+ * restore-defaults so the two cannot copy it differently.
+ */
+export function guideRowFromDefault(def, slug, position) {
+  return {
+    slug,
+    defaultKey: def.defaultKey,
+    title: def.title,
+    category: def.category || 'Guide',
+    byline: def.byline || '',
+    note: def.note || '',
+    summary: def.summary || '',
+    body: def.body || '',
+    // Blank means "the shared default picture", so the supplied guides keep
+    // following DEFAULT_GUIDE_IMAGE rather than freezing a path into every row.
+    image: '',
+    imageAlt: def.imageAlt || '',
+    published: true,
+    position,
   };
 }

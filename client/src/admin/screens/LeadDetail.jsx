@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import {
   formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS, TOOL_KEYS,
-  describeTour, isTourPending, planProgress,
+  describeTour, isTourPending, lenderNameOf, planProgress,
 } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -113,7 +113,7 @@ export default function LeadDetail({ community, reload }) {
           <span className="card-kicker">
             {isTourPending(lead) ? '📞 Waiting for a call' : 'Call request — handled'}
           </span>
-          <span style={{ fontWeight: 600 }}>{describeTour(lead.tour)}</span>
+          <span style={{ fontWeight: 600 }}>{describeTour(lead.tour, lenderNameOf(community))}</span>
           {lead.tour.requestedAt ? (
             <span className="text-muted" style={{ fontSize: 12 }}>Asked {shortDate(lead.tour.requestedAt)}</span>
           ) : null}

@@ -32,7 +32,7 @@ function sign(payloadB64) {
 }
 
 export function issueToken(admin) {
-  const payload = { sub: admin.id, email: admin.email, exp: Date.now() + SESSION_TTL_MS };
+  const payload = { typ: 'admin', sub: admin.id, email: admin.email, exp: Date.now() + SESSION_TTL_MS };
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${body}.${sign(body)}`;
 }
@@ -52,12 +52,25 @@ export function readToken(token) {
   }
 }
 
+/**
+ * Buyer and admin tokens are signed with one secret, so a valid signature says
+ * nothing about WHO holds the token. The public contact gate hands a buyer token
+ * to anyone who fills in a form, so it must never pass for an admin one. Tokens
+ * now say what they are (`typ`); one issued before that was recorded is told
+ * apart by its shape, since only an admin token has a `sub` and only a buyer
+ * token has a `lead`.
+ */
+function isAdminToken(payload) {
+  if (!payload || typeof payload.sub !== 'string' || !payload.sub || payload.lead) return false;
+  return payload.typ === undefined || payload.typ === 'admin';
+}
+
 /** Express middleware — requires a valid admin bearer token. */
 export function requireAdmin(req, res, next) {
   const header = req.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   const payload = token && readToken(token);
-  if (!payload) return res.status(401).json({ error: 'Not signed in' });
+  if (!isAdminToken(payload)) return res.status(401).json({ error: 'Not signed in' });
   req.admin = payload;
   next();
 }
@@ -69,14 +82,14 @@ export function requireAdmin(req, res, next) {
 const LEAD_TTL_MS = 1000 * 60 * 60 * 24 * 180; // 6 months
 
 export function issueLeadToken(lead) {
-  const payload = { lead: lead.id, community: lead.communityId, exp: Date.now() + LEAD_TTL_MS };
+  const payload = { typ: 'lead', lead: lead.id, community: lead.communityId, exp: Date.now() + LEAD_TTL_MS };
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${body}.${sign(body)}`;
 }
 
 export function readLeadToken(token) {
   const payload = readToken(token);
-  return payload && payload.lead ? payload : null;
+  return payload && payload.lead && (payload.typ === undefined || payload.typ === 'lead') ? payload : null;
 }
 
 /** Express middleware — resolves req.lead from the buyer bearer token. */

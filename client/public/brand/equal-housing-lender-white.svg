@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 132" role="img" aria-label="Equal Housing Lender">
+  <g fill="#ffffff" fill-rule="evenodd">
+    <path d="M60 4 4 34v14h10v38h92V48h10V34L60 4Zm0 13.6L98 38v38H22V38l38-20.4Z"/>
+    <rect x="38" y="46" width="44" height="9"/>
+    <rect x="38" y="62" width="44" height="9"/>
+  </g>
+  <g fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-weight="700" text-anchor="middle">
+    <text x="60" y="106" font-size="14" textLength="112" lengthAdjust="spacingAndGlyphs">EQUAL HOUSING</text>
+    <text x="60" y="126" font-size="17" textLength="84" lengthAdjust="spacing">LENDER</text>
+  </g>
+</svg>

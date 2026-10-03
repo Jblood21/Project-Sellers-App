@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { CONTACT_METHODS, formatSlotDate, formatSlotTime, LENDER, TOOLS } from '@shared/domain.js';
+import { CONTACT_METHODS, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
+import { complianceOf } from '@shared/compliance.js';
 import { buyerApi } from '../lib/api.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
 import { useBuyer } from './BuyerContext.jsx';
+import CommunityMark from './CommunityMark.jsx';
+import useDialog from './useDialog.js';
 
 const TUTORIAL = [
   {
@@ -26,17 +29,37 @@ const TUTORIAL = [
 ];
 
 
-/** Sticky, translucent, never scrolls away — the buyer must always be able to leave a tool. */
-export function BuyerHeader({ onOpenMenu }) {
+/**
+ * Sticky, translucent, never scrolls away — the buyer must always be able to leave a tool.
+ *
+ * Props, shared with the headers a layout may supply in its place:
+ *   onOpenMenu  opens the menu drawer
+ *   onTalk      opens the talk-to-the-team sheet; this header has no button for
+ *               it (the menu and every screen already do) and a layout's does
+ *   signedIn    false on the public guide pages, where the tools menu would only
+ *               bounce a visitor to the contact gate. The header then offers the
+ *               one thing that is useful there: the way into the app.
+ */
+export function BuyerHeader({ onOpenMenu, signedIn = true }) {
   const { community } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
 
   const onHomeDetail = /\/homes\//.test(location.pathname);
+  const onGuide = /\/guides\/[^/]+$/.test(location.pathname);
   const atTools = location.pathname.endsWith('/tools');
-  const backLabel = onHomeDetail ? 'Homes' : 'All Tools';
-  const goBack = () => navigate(onHomeDetail ? `/c/${communityId}/explore` : `/c/${communityId}/tools`);
+  // A signed-out reader's "back" is the front door, not a tools screen they
+  // cannot open.
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'All Tools' : 'Back';
+  const backTo = onHomeDetail
+    ? `/c/${communityId}/explore`
+    : onGuide
+      ? `/c/${communityId}/guides`
+      : signedIn
+        ? `/c/${communityId}/tools`
+        : `/c/${communityId}`;
+  const goBack = () => navigate(backTo);
 
   return (
     <header
@@ -72,35 +95,56 @@ export function BuyerHeader({ onOpenMenu }) {
         </button>
       )}
       <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-        <div
-          className="b-head"
-          style={{ fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-        >
-          {community?.name}
-        </div>
+        {community?.logo || community?.logoLight ? (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <CommunityMark tone="light" height={28} />
+          </div>
+        ) : (
+          <div
+            className="b-head"
+            style={{ fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {community?.name}
+          </div>
+        )}
         <div style={{ fontSize: 10.5, color: 'var(--t-mut)' }}>{community?.location}</div>
       </div>
-      <button
-        type="button"
-        onClick={onOpenMenu}
-        aria-label="Menu"
-        style={{
-          width: 44, height: 44, flex: 'none', borderRadius: 'var(--t-radbtn)',
-          border: '1px solid var(--t-line)', background: 'var(--t-sur)', color: 'var(--t-ink)',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <Menu />
-      </button>
+      {signedIn ? (
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          aria-label="Menu"
+          style={{
+            width: 44, height: 44, flex: 'none', borderRadius: 'var(--t-radbtn)',
+            border: '1px solid var(--t-line)', background: 'var(--t-sur)', color: 'var(--t-ink)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Menu />
+        </button>
+      ) : (
+        <Link
+          to={`/c/${communityId}/start`}
+          className="b-btn"
+          style={{
+            width: 'auto', flex: 'none', minHeight: 44, padding: '0 14px', fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
+          }}
+        >
+          Open the app
+        </Link>
+      )}
     </header>
   );
 }
 
 export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
-  const { community, lead } = useBuyer();
+  const { community, lead, features, guides, agents } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
+  const dialogRef = useRef(null);
+  useDialog(open, onClose, dialogRef);
 
   if (!open) return null;
 
@@ -117,6 +161,10 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
       to: `/c/${communityId}/tool/${tool.k}`,
       done: Boolean(lead?.plan?.[tool.k]),
     })),
+    // The server empties these lists when the builder switches the feature off;
+    // the flag is checked as well so a stale payload cannot show a dead link.
+    ...(features.guides && guides.length ? [{ label: 'Buyer guides', to: `/c/${communityId}/guides` }] : []),
+    ...(features.agents && agents.length ? [{ label: 'Realtors', to: `/c/${communityId}/realtors` }] : []),
     { label: 'Homes I Like', to: `/c/${communityId}/saved` },
     { label: 'My Home Plan', to: `/c/${communityId}/plan` },
   ];
@@ -133,9 +181,12 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
       style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(8,10,12,.45)', display: 'flex', justifyContent: 'flex-end' }}
     >
       <div
-        className="scroll-y"
+        ref={dialogRef}
+        // No scroll-y class: that hides the scrollbar, and with sixteen entries the
+        // list runs past a short phone, where the scrollbar is the only sign of it.
         onClick={(event) => event.stopPropagation()}
         role="dialog"
+        aria-modal="true"
         aria-label="Menu"
         style={{
           width: 'min(300px, 84vw)', height: '100%', overflowY: 'auto', background: 'var(--t-bg)',
@@ -153,7 +204,7 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
             onClick={() => go(item.to)}
             style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
-              minHeight: 46, padding: '0 12px', borderRadius: 'var(--t-rad)', border: 'none',
+              minHeight: 44, padding: '0 12px', borderRadius: 'var(--t-rad)', border: 'none',
               background: location.pathname === item.to ? 'var(--t-tint)' : 'transparent',
               color: 'var(--t-ink)', fontFamily: 'var(--t-font)', fontSize: 14.5, fontWeight: 500,
               textAlign: 'left', cursor: 'pointer',
@@ -190,7 +241,7 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
 }
 
 const menuSecondary = {
-  minHeight: 46,
+  minHeight: 44,
   padding: '0 12px',
   borderRadius: 'var(--t-rad)',
   border: 'none',
@@ -224,6 +275,8 @@ export function Toast() {
 
 export function TutorialSheet({ open, onClose }) {
   const [step, setStep] = useState(0);
+  const dialogRef = useRef(null);
+  useDialog(open, onClose, dialogRef);
 
   useEffect(() => {
     if (open) setStep(0);
@@ -233,7 +286,7 @@ export function TutorialSheet({ open, onClose }) {
   const last = step === TUTORIAL.length - 1;
 
   return (
-    <div className="b-sheet-backdrop" role="dialog" aria-label="Show me around">
+    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Show me around">
       <div className="b-sheet">
         <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>
           Show me around · {step + 1} of {TUTORIAL.length}
@@ -262,10 +315,15 @@ export function TourDialog({ topic, onClose }) {
   const open = Boolean(topic);
   const lender = topic === 'lender';
   const { community, communityId, requestTour, lead } = useBuyer();
+  // The lender is whoever Setup says it is, the same name the footer and the
+  // Financing card print, so the sheet cannot contradict them.
+  const lenderName = complianceOf(community?.settings, { community }).lender.name || 'the lender';
   const [slots, setSlots] = useState(community?.slots ?? []);
   const [picked, setPicked] = useState(null);
   const [contact, setContact] = useState('phone');
   const [busy, setBusy] = useState(false);
+  const dialogRef = useRef(null);
+  useDialog(open, onClose, dialogRef);
 
   // Re-read on open: the community payload was fetched when they arrived, and
   // somebody else may have taken a time since.
@@ -302,7 +360,13 @@ export function TourDialog({ topic, onClose }) {
   };
 
   return (
-    <div className="b-sheet-backdrop" role="dialog" aria-label={lender ? 'Talk about financing' : 'Talk to the team'}>
+    <div
+      ref={dialogRef}
+      className="b-sheet-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={lender ? 'Talk about financing' : 'Talk to the team'}
+    >
       <div className="b-sheet" style={{ maxHeight: '86vh', overflowY: 'auto' }}>
         <span className="b-head" style={{ fontSize: 20 }}>
           {lender ? 'Talk about financing' : 'Talk to the team'}
@@ -322,7 +386,7 @@ export function TourDialog({ topic, onClose }) {
           <>
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
               {lender
-                ? `Pick a time and the ${community?.name} team will set you up with ${LENDER.name}.`
+                ? `Pick a time and the ${community?.name} team will set you up with ${lenderName}.`
                 : `Pick a time that suits you. These are the times the ${community?.name} team is free.`}
             </span>
 
@@ -389,10 +453,12 @@ export function TourDialog({ topic, onClose }) {
 
 export function AddToPhoneDialog({ open, onClose }) {
   const { community } = useBuyer();
+  const dialogRef = useRef(null);
+  useDialog(open, onClose, dialogRef);
   if (!open) return null;
 
   return (
-    <div className="b-sheet-backdrop" role="dialog" aria-label="Add to my phone">
+    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Add to my phone">
       <div className="b-sheet" style={{ alignItems: 'center', textAlign: 'center' }}>
         <div
           style={{

@@ -2,18 +2,20 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
-  DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isoDate, isSameLead,
+  DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED,
+  isoDate, isSameLead,
 } from '../../shared/domain.js';
+import { loadDefaultGuides } from '../lib/guides.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
-  shapeResource, shapeSlot, shapeConsent,
+  guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
+  shapeMoveIn, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
-  consents: [],
+  consents: [], agents: [], guides: [],
 };
 
 /**
@@ -71,6 +73,54 @@ export function createFileStore(path) {
     const row = db.photos.find((p) => p.highlightId === highlightId);
     return row ? shapePhoto(row) : null;
   };
+  // Realtor images: at most one portrait and one logo each, the oldest of a kind
+  // winning, exactly as the Postgres store reads them.
+  const agentImage = (agentId, kind) => {
+    const row = db.photos.find((p) => p.agentId === agentId && p.kind === kind);
+    return row ? shapePhoto(row) : null;
+  };
+  // Position first, then id: the id makes the order of equal positions the same
+  // here as in Postgres, where ties would otherwise fall to whatever order the
+  // rows happen to sit in on disk (an UPDATE moves a row). Creation time is not
+  // used because seeded rows share one in Postgres and differ by a millisecond
+  // here. Plain < compares code units, which for the ASCII ids is what
+  // Postgres' "C" collation does.
+  const byPosition = (a, b) => a.position - b.position || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const agentOf = (row) => (row ? shapeAgent(row, agentImage(row.id, 'agent'), agentImage(row.id, 'agentlogo')) : null);
+  const guideImage = (guideId) => {
+    const row = db.photos.find((p) => p.guideId === guideId);
+    return row ? shapePhoto(row) : null;
+  };
+  const guideOf = (row, body) => (row ? shapeGuide(row, { body, photo: guideImage(row.id) }) : null);
+  // The same error pg raises for a duplicate (community_id, slug), so the route
+  // has one thing to catch whichever store is running.
+  const duplicateSlug = () => Object.assign(new Error('duplicate guide slug'), { code: '23505' });
+  const newGuideRow = (communityId, g, position) => ({
+    id: `g_${shortId(10)}`, communityId, slug: g.slug, defaultKey: g.defaultKey ?? '',
+    title: g.title, category: g.category ?? 'Guide', byline: g.byline ?? '', note: g.note ?? '',
+    summary: g.summary ?? '', body: g.body ?? '', image: g.image ?? '', imageAlt: g.imageAlt ?? '',
+    published: g.published ?? true, position, createdAt: now(), updatedAt: now(),
+  });
+  // Copies each supplied guide the community does not have, matched by defaultKey
+  // so a retitled or re-slugged guide still counts as present. Never touches an
+  // existing row. The same algorithm as the Postgres store's addMissingDefaults.
+  const addMissingDefaults = (communityId) => {
+    const have = db.guides.filter((g) => g.communityId === communityId);
+    const taken = new Set(have.map((g) => g.slug));
+    const keys = new Set(have.map((g) => g.defaultKey).filter(Boolean));
+    let position = have.reduce((max, g) => Math.max(max, g.position), -1) + 1;
+    const added = [];
+    for (const def of loadDefaultGuides()) {
+      if (keys.has(def.defaultKey)) continue;
+      const slug = uniqueSlug(def.slug, taken);
+      taken.add(slug);
+      const row = newGuideRow(communityId, guideRowFromDefault(def, slug, position), position);
+      db.guides.push(row);
+      added.push(row);
+      position += 1;
+    }
+    return added;
+  };
   const planOf = (leadId) =>
     Object.fromEntries(db.planItems.filter((p) => p.leadId === leadId).map((p) => [p.key, p.summary]));
   const moveInOf = (leadId) => shapeMoveIn(db.moveIn.find((m) => m.leadId === leadId));
@@ -86,6 +136,14 @@ export function createFileStore(path) {
 
     async init() {
       load();
+      // Communities that predate guides get the supplied ones once. The flag is
+      // what stops a builder's deletions being undone on the next start; see the
+      // Postgres store's init for the longer account.
+      for (const community of db.communities) {
+        if (community.guidesSeeded) continue;
+        addMissingDefaults(community.id);
+        community.guidesSeeded = true;
+      }
       save();
     },
 
@@ -138,9 +196,12 @@ export function createFileStore(path) {
         settings: { ...DEFAULT_SETTINGS },
         tools: { ...DEFAULT_TOOLS_ENABLED },
         features: { ...DEFAULT_FEATURES },
+        layout: DEFAULT_LAYOUT,
+        guidesSeeded: true,
         createdAt: now(), updatedAt: now(),
       };
       db.communities.push(row);
+      addMissingDefaults(row.id);
       save();
       return shapeCommunity(row);
     },
@@ -150,6 +211,7 @@ export function createFileStore(path) {
       if (!row) return null;
       for (const key of [
         'name', 'location', 'status', 'theme', 'websiteUrl', 'builder', 'settings', 'tools', 'features',
+        'layout',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
@@ -170,7 +232,14 @@ export function createFileStore(path) {
       db.planItems = db.planItems.filter((p) => !leadIds.includes(p.leadId));
       db.moveIn = db.moveIn.filter((m) => !leadIds.includes(m.leadId));
       db.activity = db.activity.filter((a) => !leadIds.includes(a.leadId));
-      void homeIds;
+      // What Postgres gets from ON DELETE CASCADE has to be done by hand here.
+      // Realtor and guide pictures are photos rows with this community_id, so
+      // the photos filter above already took them.
+      db.agents = db.agents.filter((a) => a.communityId !== id);
+      db.guides = db.guides.filter((g) => g.communityId !== id);
+      db.resources = db.resources.filter((r) => r.communityId !== id);
+      db.homeVideos = db.homeVideos.filter((v) => !homeIds.includes(v.homeId));
+      db.consents = db.consents.filter((c) => !leadIds.includes(c.leadId));
       save();
     },
 
@@ -342,12 +411,12 @@ export function createFileStore(path) {
     },
 
     async addPhoto({
-      communityId, homeId = null, highlightId = null, kind = 'home',
-      contentType = null, data = null, url = null,
+      communityId, homeId = null, highlightId = null, agentId = null, guideId = null,
+      kind = 'home', contentType = null, data = null, url = null,
     }) {
       const position = db.photos.filter((p) => p.communityId === communityId && p.homeId === homeId).length;
       const row = {
-        id: `p_${shortId(12)}`, communityId, homeId, highlightId, kind,
+        id: `p_${shortId(12)}`, communityId, homeId, highlightId, agentId, guideId, kind,
         content_type: contentType, data, url, position, createdAt: now(),
       };
       db.photos.push(row);
@@ -364,11 +433,149 @@ export function createFileStore(path) {
       save();
     },
 
+    async listAgentPhotos(agentId, kind) {
+      return db.photos
+        .filter((p) => p.agentId === agentId && p.kind === kind)
+        .sort((a, b) => a.position - b.position)
+        .map(shapePhoto);
+    },
+
+    async listGuidePhotos(guideId) {
+      return db.photos.filter((p) => p.guideId === guideId).map(shapePhoto);
+    },
+
     async listCommunityPhotos(communityId, kind) {
       return db.photos
         .filter((p) => p.communityId === communityId && p.kind === kind)
         .sort((a, b) => a.position - b.position)
         .map(shapePhoto);
+    },
+
+    // ── realtors ─────────────────────────────────────────────────────────
+    async listAgents(communityId) {
+      return db.agents
+        .filter((a) => a.communityId === communityId)
+        .sort(byPosition)
+        .map(agentOf);
+    },
+
+    async getAgent(id) {
+      return agentOf(db.agents.find((a) => a.id === id));
+    },
+
+    async countAgents(communityId) {
+      return db.agents.filter((a) => a.communityId === communityId).length;
+    },
+
+    /** An unconditional add, for callers that enforce no cap (seeding, tests). */
+    async createAgent(communityId, data) {
+      return this.createAgentIfRoom(communityId, data, Infinity);
+    },
+
+    /**
+     * Adds a realtor unless the community already has `max`, answering null when
+     * it does. The same contract as the Postgres store, where the check and the
+     * insert are one locked step; here they are one synchronous block.
+     */
+    async createAgentIfRoom(communityId, data, max) {
+      if (!db.communities.some((c) => c.id === communityId)) return null;
+      const mine = db.agents.filter((a) => a.communityId === communityId);
+      if (mine.length >= max) return null;
+      const row = {
+        id: `a_${shortId(10)}`, communityId,
+        position: mine.length ? Math.max(...mine.map((a) => a.position)) + 1 : 0,
+        name: data.name, brokerage: data.brokerage ?? '', licenseNo: data.licenseNo ?? '',
+        licenseState: data.licenseState ?? 'UT', phone: data.phone ?? '', email: data.email ?? '',
+        website: data.website ?? '', createdAt: now(),
+      };
+      db.agents.push(row);
+      save();
+      return shapeAgent(row);
+    },
+
+    async updateAgent(id, patch) {
+      const row = db.agents.find((a) => a.id === id);
+      if (!row) return null;
+      for (const key of [
+        'name', 'brokerage', 'licenseNo', 'licenseState', 'phone', 'email', 'website', 'position',
+      ]) {
+        if (patch[key] !== undefined) row[key] = patch[key];
+      }
+      save();
+      return agentOf(row);
+    },
+
+    async deleteAgent(id) {
+      db.agents = db.agents.filter((a) => a.id !== id);
+      db.photos = db.photos.filter((p) => p.agentId !== id);
+      save();
+    },
+
+    // ── buyer guides ─────────────────────────────────────────────────────
+    async listGuides(communityId, { includeUnpublished = false } = {}) {
+      return db.guides
+        .filter((g) => g.communityId === communityId && (includeUnpublished || g.published !== false))
+        .sort(byPosition)
+        .map((g) => guideOf(g, false));
+    },
+
+    async getGuide(id) {
+      return guideOf(db.guides.find((g) => g.id === id), true);
+    },
+
+    async getGuideBySlug(communityId, slug) {
+      return guideOf(db.guides.find((g) => g.communityId === communityId && g.slug === slug), true);
+    },
+
+    async createGuide(communityId, data) {
+      if (db.guides.some((g) => g.communityId === communityId && g.slug === data.slug)) {
+        throw duplicateSlug();
+      }
+      const mine = db.guides.filter((g) => g.communityId === communityId);
+      const row = newGuideRow(
+        communityId, data, mine.length ? Math.max(...mine.map((g) => g.position)) + 1 : 0,
+      );
+      db.guides.push(row);
+      save();
+      return guideOf(row, true);
+    },
+
+    async updateGuide(id, patch) {
+      const row = db.guides.find((g) => g.id === id);
+      if (!row) return null;
+      if (
+        patch.slug !== undefined && patch.slug !== row.slug
+        && db.guides.some((g) => g.communityId === row.communityId && g.slug === patch.slug)
+      ) {
+        throw duplicateSlug();
+      }
+      let changed = false;
+      for (const key of [
+        'slug', 'title', 'category', 'byline', 'note', 'summary', 'body', 'image', 'imageAlt',
+        'published', 'position',
+      ]) {
+        if (patch[key] !== undefined) {
+          row[key] = patch[key];
+          changed = true;
+        }
+      }
+      // An empty patch changes nothing, so it must not look like an edit: the
+      // Postgres store leaves updated_at alone too, and dateModified is read from it.
+      if (changed) row.updatedAt = now();
+      save();
+      return guideOf(row, true);
+    },
+
+    async restoreDefaultGuides(communityId) {
+      const added = addMissingDefaults(communityId);
+      save();
+      return added.map((row) => shapeGuide(row));
+    },
+
+    async deleteGuide(id) {
+      db.guides = db.guides.filter((g) => g.id !== id);
+      db.photos = db.photos.filter((p) => p.guideId !== id);
+      save();
     },
 
     async listSlots(communityId) {

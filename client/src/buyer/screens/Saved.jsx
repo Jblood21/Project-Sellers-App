@@ -11,7 +11,7 @@ export default function Saved() {
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
-      <h3 className="b-head" style={{ margin: '0 0 12px', fontSize: 22 }}>Homes I Like</h3>
+      <h1 className="b-head" style={{ margin: '0 0 12px', fontSize: 22 }}>Homes I Like</h1>
       {saved.length === 0 ? (
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>
           Nothing saved yet — tap the star on any home you like.
