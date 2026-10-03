@@ -1,6 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
-export function Dialog({ title, children, actions, onClose }) {
+import '../styles/admin-extras.css';
+
+// What Tab can land on. Hidden controls (the file inputs behind the upload
+// buttons) are filtered out by their layout, since `disabled` alone would miss them.
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const tabStops = (root) => [...root.querySelectorAll(FOCUSABLE)].filter((el) => el.getClientRects().length > 0);
+
+export function Dialog({ title, children, actions, onClose, wide = false }) {
   const ref = useRef(null);
   // Callers pass an inline arrow for onClose, so its identity changes on every
   // render. Reading it through a ref keeps the effects below from re-running
@@ -13,8 +20,37 @@ export function Dialog({ title, children, actions, onClose }) {
   // yanked the caret out of whatever was being typed and back to the first field,
   // so only one character per field ever landed.
   useEffect(() => {
+    // Remember what had focus so closing the dialog puts the keyboard back where
+    // it was, instead of dropping it at the top of the page.
+    const opener = document.activeElement;
     ref.current?.querySelector('input, textarea, select, button')?.focus();
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+    };
   }, []);
+
+  // aria-modal tells a screen reader the page behind is inert, so the keyboard
+  // has to agree: Tab and Shift+Tab wrap inside the dialog rather than walking
+  // out into controls the backdrop is hiding.
+  const trapTab = (event) => {
+    if (event.key !== 'Tab' || !ref.current) return;
+    const stops = tabStops(ref.current);
+    if (!stops.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    const active = document.activeElement;
+    const inside = ref.current.contains(active);
+    if (event.shiftKey && (active === first || !inside)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (active === last || !inside)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   useEffect(() => {
     const onKey = (event) => event.key === 'Escape' && closeRef.current?.();
@@ -24,7 +60,15 @@ export function Dialog({ title, children, actions, onClose }) {
 
   return (
     <div className="dialog-backdrop" onClick={onClose} role="presentation">
-      <div className="dialog" ref={ref} role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={wide ? 'dialog dialog-wide' : 'dialog'}
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={trapTab}
+      >
         <div className="dialog-title">{title}</div>
         {children}
         <div className="dialog-actions">{actions}</div>
@@ -48,6 +92,41 @@ export function TextField({ label, hint, value, onChange, ...rest }) {
     <Field label={label} hint={hint}>
       <input className="input" value={value} onChange={(event) => onChange(event.target.value)} {...rest} />
     </Field>
+  );
+}
+
+/**
+ * A multi-line field whose label sits OUTSIDE the helper line. Field wraps
+ * everything in one <label>, which is right for a short input but wrong here:
+ * a live character counter inside the label would be re-read as part of the
+ * field's name on every keystroke. `counter` is the helper line, tied to the
+ * textarea with aria-describedby instead.
+ */
+export function TextAreaField({ label, hint, counter, value, onChange, rows = 4, id: givenId, ...rest }) {
+  // A caller may need a known id (the checklist jumps to a field by it). The label
+  // and the description must follow whichever id is in use, or the field loses its name.
+  const generated = useId();
+  const id = givenId ?? generated;
+  const noteId = `${id}-note`;
+  return (
+    <div className="field">
+      <label className="ax-plain" htmlFor={id}>{label}</label>
+      <textarea
+        className="input"
+        rows={rows}
+        value={value}
+        aria-describedby={hint || counter ? noteId : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        {...rest}
+        id={id}
+      />
+      {hint || counter ? (
+        <span id={noteId} className="field-hint ax-note">
+          {hint ? <span>{hint}</span> : null}
+          {counter ? <span className="ax-counter">{counter}</span> : null}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -82,6 +161,7 @@ export function Toggle({ on, onChange, label }) {
   return (
     <button
       type="button"
+      className="ax-toggle"
       role="switch"
       aria-checked={on}
       aria-label={label}

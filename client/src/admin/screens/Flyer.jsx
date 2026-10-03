@@ -30,6 +30,14 @@ export default function Flyer({ community }) {
           boxShadow: '0 2px 14px rgba(0,0,0,.08)',
         }}
       >
+        {/* The development's own mark leads the sign when there is one. The name below stays: a
+            logo is often only a symbol, and a printed sign with no readable name is no sign. */}
+        {community.logo?.url ? (
+          <img
+            src={community.logo.url} alt={`${community.name} logo`}
+            style={{ display: 'block', maxWidth: 260, maxHeight: 110, width: 'auto', height: 'auto', objectFit: 'contain', marginBottom: 6 }}
+          />
+        ) : null}
         {community.builder ? <span className="card-kicker">{community.builder}</span> : null}
         <h3 style={{ margin: '4px 0 0', fontSize: 30 }}>{community.name}</h3>
         <span className="text-muted" style={{ fontSize: 14 }}>{community.location}</span>

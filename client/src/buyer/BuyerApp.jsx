@@ -4,14 +4,20 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import { DEFAULT_THEME, THEME_COLORS } from '@shared/domain.js';
 import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialSheet } from './Chrome.jsx';
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
+import ComplianceFooter from './ComplianceFooter.jsx';
+import { layoutFor } from './layouts/index.js';
+import StructuredData from './StructuredData.jsx';
 import AllTools from './screens/AllTools.jsx';
 import Area from './screens/Area.jsx';
 import Explore from './screens/Explore.jsx';
 import Gate from './screens/Gate.jsx';
+import GuideArticle from './screens/GuideArticle.jsx';
+import Guides from './screens/Guides.jsx';
 import HomeDetail from './screens/HomeDetail.jsx';
 import Landing from './screens/Landing.jsx';
 import Plan from './screens/Plan.jsx';
 import PlanPrint from './screens/PlanPrint.jsx';
+import Realtors from './screens/Realtors.jsx';
 import Saved from './screens/Saved.jsx';
 import SiteMap from './screens/SiteMap.jsx';
 import ToolScreen from './tools/index.jsx';
@@ -53,7 +59,7 @@ function Centered({ children }) {
 }
 
 function BuyerShell() {
-  const { community, lead, loading, loadError, token } = useBuyer();
+  const { community, layout, loading, loadError, signedIn } = useBuyer();
   const { communityId } = useParams();
   const location = useLocation();
 
@@ -77,40 +83,67 @@ function BuyerShell() {
 
   const isLanding = location.pathname === `/c/${communityId}`;
   const isGate = location.pathname === `/c/${communityId}/start`;
-  const isPrint = location.pathname.endsWith('/plan/print');
-  const signedIn = Boolean(token && lead);
+  // A trailing slash reaches the same route, so it has to count as print too.
+  const isPrint = /\/plan\/print\/?$/.test(location.pathname);
+  // Guides are the one part of the app a visitor reads before giving their
+  // details, so on those pages the header offers the way in instead of a menu
+  // that would only bounce them to the contact gate.
+  const isGuidePage = location.pathname.startsWith(`/c/${communityId}/guides`);
+  const publicGuide = isGuidePage && !signedIn;
   const showChrome = !isLanding && !isGate && !isPrint;
+  const Header = layoutFor(layout).Header ?? BuyerHeader;
 
   const guard = (element) =>
     signedIn ? element : <Navigate to={`/c/${communityId}/start`} replace />;
 
   return (
-    <div className={`b-app t-${community.theme}`}>
-      {showChrome ? <BuyerHeader onOpenMenu={() => setMenuOpen(true)} /> : null}
-
-      <Routes>
-        <Route index element={<Landing onAddToPhone={() => setAddToPhoneOpen(true)} />} />
-        <Route
-          path="start"
-          element={
-            signedIn ? (
-              <Navigate to={`/c/${communityId}/tools`} replace />
-            ) : (
-              <Gate onEntered={(result) => !result.returning && setTutorialOpen(true)} />
-            )
-          }
+    <div className={`b-app t-${community.theme} l-${layout}`}>
+      <a className="b-skip" href="#b-main">Skip to the page</a>
+      <StructuredData />
+      {showChrome ? (
+        <Header
+          onOpenMenu={() => setMenuOpen(true)}
+          onTalk={() => setTourTopic('community')}
+          signedIn={!publicGuide}
         />
-        <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
-        <Route path="explore" element={guard(<Explore />)} />
-        <Route path="area" element={guard(<Area />)} />
-        <Route path="map" element={guard(<SiteMap />)} />
-        <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourTopic('community')} />)} />
-        <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
-        <Route path="saved" element={guard(<Saved />)} />
-        <Route path="plan" element={guard(<Plan onOpenTour={() => setTourTopic('community')} />)} />
-        <Route path="plan/print" element={guard(<PlanPrint />)} />
-        <Route path="*" element={<Navigate to={`/c/${communityId}`} replace />} />
-      </Routes>
+      ) : null}
+
+      <main id="b-main" tabIndex={-1} className="b-main">
+        <Routes>
+          <Route index element={<Landing onAddToPhone={() => setAddToPhoneOpen(true)} />} />
+          <Route
+            path="start"
+            element={
+              signedIn ? (
+                <Navigate to={`/c/${communityId}/tools`} replace />
+              ) : (
+                <Gate onEntered={(result) => !result.returning && setTutorialOpen(true)} />
+              )
+            }
+          />
+          <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
+          <Route path="explore" element={guard(<Explore />)} />
+          <Route path="area" element={guard(<Area />)} />
+          <Route path="map" element={guard(<SiteMap />)} />
+          <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourTopic('community')} />)} />
+          <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
+          <Route path="saved" element={guard(<Saved />)} />
+          <Route path="plan" element={guard(<Plan onOpenTour={() => setTourTopic('community')} />)} />
+          <Route path="plan/print" element={guard(<PlanPrint />)} />
+          <Route path="guides" element={<Guides />} />
+          <Route path="guides/:slug" element={<GuideArticle />} />
+          <Route path="realtors" element={guard(<Realtors />)} />
+          <Route path="*" element={<Navigate to={`/c/${communityId}`} replace />} />
+        </Routes>
+      </main>
+
+      {/*
+        Once, here, so it is on every route: the landing page, the gate and
+        every screen behind it. The printed plan is the one exception, and only
+        in where it is drawn: PlanPrint puts the same footer inside its document,
+        because print CSS shows nothing outside it.
+      */}
+      {isPrint ? null : <ComplianceFooter />}
 
       <MenuDrawer
         open={menuOpen}

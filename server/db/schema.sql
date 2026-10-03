@@ -27,6 +27,19 @@ ALTER TABLE communities ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT
 -- Nothing reads it (both stores pass a theme explicitly) but a default that
 -- names a dead theme is a trap for the next person who inserts a row by hand.
 ALTER TABLE communities ALTER COLUMN theme SET DEFAULT 'navy';
+-- Which buyer-app layout the community uses. A layout is the typeface, shape and
+-- placement; a theme is the palette, and the two are chosen independently. An
+-- unknown value is tolerated here (shapeCommunity falls back to the default)
+-- rather than constrained, so retiring a layout later never needs a migration.
+ALTER TABLE communities ADD COLUMN IF NOT EXISTS layout TEXT NOT NULL DEFAULT 'cornerpost';
+-- Whether the supplied buyer guides have been copied into this community.
+--
+-- A flag rather than "has no guides", and the difference matters: boot backfills
+-- every community whose flag is false, so a builder who deletes all thirteen
+-- would otherwise see them come back on the next deploy. Once this is true it
+-- never goes back to false; only the explicit restore-defaults action brings
+-- guides back after that.
+ALTER TABLE communities ADD COLUMN IF NOT EXISTS guides_seeded BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS homes (
   id           TEXT PRIMARY KEY,
@@ -99,10 +112,17 @@ CREATE TABLE IF NOT EXISTS photos (
 -- missing column, so the wrong order takes the server down on every existing database
 -- while passing on every fresh one.
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS highlight_id TEXT;
+-- Realtor portraits, realtor logos and guide pictures hang off their owner the
+-- same way highlight photos do, and for the same reason both ALTERs sit above
+-- the indexes that name them.
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS agent_id TEXT;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS guide_id TEXT;
 
 CREATE INDEX IF NOT EXISTS photos_home_idx ON photos(home_id);
 CREATE INDEX IF NOT EXISTS photos_community_idx ON photos(community_id, kind);
 CREATE INDEX IF NOT EXISTS photos_highlight_idx ON photos(highlight_id);
+CREATE INDEX IF NOT EXISTS photos_agent_idx ON photos(agent_id);
+CREATE INDEX IF NOT EXISTS photos_guide_idx ON photos(guide_id);
 
 -- What is around the community: schools, parks, shops, commute notes.
 CREATE TABLE IF NOT EXISTS highlights (
@@ -120,6 +140,59 @@ CREATE TABLE IF NOT EXISTS highlights (
 -- CREATE TABLE IF NOT EXISTS above is a no-op once the table is there.
 ALTER TABLE highlights ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
+
+-- The real estate agents a community lists, at most four (MAX_AGENTS). The cap is
+-- enforced by the route, not here: a CHECK cannot count siblings, and a trigger
+-- for it would be a second place for the number 4 to live.
+--
+-- Their portrait and logo are photos rows (kind 'agent' and 'agentlogo' with
+-- agent_id set), so the bytes stay in the one table that already serves images.
+CREATE TABLE IF NOT EXISTS agents (
+  id           TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  position     INTEGER NOT NULL DEFAULT 0,
+  name         TEXT NOT NULL,
+  brokerage    TEXT NOT NULL DEFAULT '',
+  license_no   TEXT NOT NULL DEFAULT '',
+  license_state TEXT NOT NULL DEFAULT 'UT',
+  phone        TEXT NOT NULL DEFAULT '',
+  email        TEXT NOT NULL DEFAULT '',
+  website      TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS agents_community_idx ON agents(community_id, position);
+
+-- Buyer guides: long-form articles in markdown, readable without the contact gate.
+--
+-- default_key is the slug of the supplied guide a row was copied from ('' for one
+-- the builder wrote). It is what restore-defaults matches on, so a builder can
+-- retitle or re-slug a guide and the restore still knows it is the same one
+-- instead of adding a second copy beside it.
+--
+-- image is '' for "use the shared default picture"; an uploaded picture is a
+-- photos row (kind 'guide', guide_id set) and wins over this column.
+CREATE TABLE IF NOT EXISTS guides (
+  id           TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  slug         TEXT NOT NULL,
+  default_key  TEXT NOT NULL DEFAULT '',
+  title        TEXT NOT NULL,
+  category     TEXT NOT NULL DEFAULT 'Guide',
+  byline       TEXT NOT NULL DEFAULT '',
+  note         TEXT NOT NULL DEFAULT '',
+  summary      TEXT NOT NULL DEFAULT '',
+  body         TEXT NOT NULL DEFAULT '',
+  image        TEXT NOT NULL DEFAULT '',
+  image_alt    TEXT NOT NULL DEFAULT '',
+  published    BOOLEAN NOT NULL DEFAULT true,
+  position     INTEGER NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- The unique index is the real guard for "one slug per community": the route
+-- checks first to give a friendly message, and this catches two requests racing.
+CREATE UNIQUE INDEX IF NOT EXISTS guides_slug_idx ON guides(community_id, slug);
+CREATE INDEX IF NOT EXISTS guides_community_idx ON guides(community_id, position);
 
 -- What the builder has written and filmed: an article is a title and a
 -- paragraph, a video is a title and a link. One table because they are one

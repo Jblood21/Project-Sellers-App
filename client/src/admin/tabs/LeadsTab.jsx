@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
-  countPendingTours, describeTour, isArchived, isTourPending, isUnread, planProgress,
+  countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, planProgress,
 } from '@shared/domain.js';
 import CardButton from '../../components/CardButton.jsx';
 import { shortDate } from '../../lib/format.js';
@@ -111,7 +111,7 @@ export default function LeadsTab({ community, leads }) {
             <span className="card-title" style={{ fontSize: 17, flex: 1, minWidth: 0 }}>{lead.name}</span>
             {isTourPending(lead) ? (
               <span className="tag tag-accent" style={{ background: 'var(--color-accent)', color: '#fff' }}>
-                📞 {describeTour(lead.tour)}
+                📞 {describeTour(lead.tour, lenderNameOf(community))}
               </span>
             ) : null}
             {isUnread(lead) ? <span className="tag tag-accent">Unread</span> : null}

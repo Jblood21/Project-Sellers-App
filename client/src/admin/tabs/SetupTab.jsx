@@ -6,27 +6,69 @@ import { adminApi } from '../../lib/api.js';
 import { dateTime } from '../../lib/format.js';
 import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
+import ComplianceCard from '../setup/ComplianceCard.jsx';
+import LayoutCard from '../setup/LayoutCard.jsx';
+import LogoCard from '../setup/LogoCard.jsx';
+import RealtorsCard from '../setup/RealtorsCard.jsx';
 import { ErrorNote, Field, TextField } from '../ui.jsx';
 
+// What "Check rate inbox" can change; everything else on the form is left alone.
+const RATE_KEYS = ['rateConv', 'rateFha', 'rateVa', 'ratesUpdatedAt'];
+
 /** Every value on this tab flows straight into the buyer tools. */
-export default function SetupTab({ community, reload }) {
+export default function SetupTab({ community, reload, dirtyRef }) {
   const { token } = useAdmin();
   const [settings, setSettings] = useState(community.settings);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
 
-  useEffect(() => setSettings(community.settings), [community.settings]);
+  // The saved values can change under an open form (checking the rate inbox, a
+  // logo upload, a layout change all reload the community). Replacing the form
+  // then would throw away compliance text that was typed but not yet saved, so
+  // only the fields the person has NOT touched take the new saved value.
+  const savedSettings = JSON.stringify(community.settings);
+  const lastSaved = useRef(community.settings);
+  useEffect(() => {
+    const before = lastSaved.current;
+    const after = JSON.parse(savedSettings);
+    lastSaved.current = after;
+    setSettings((prev) => Object.fromEntries(Object.keys(after).map((key) => [
+      key,
+      JSON.stringify(prev[key]) === JSON.stringify(before[key]) ? after[key] : prev[key],
+    ])));
+  }, [savedSettings]);
 
   const dirty = JSON.stringify(settings) !== JSON.stringify(community.settings);
   const set = (key) => (value) => setSettings((prev) => ({ ...prev, [key]: value }));
+
+  // CommunityDetail reads this to ask before a tab switch throws the edits away,
+  // and the browser is asked to do the same before the page is closed or reloaded.
+  useEffect(() => {
+    if (dirtyRef) dirtyRef.current = dirty;
+    if (!dirty) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      // Older browsers need a value set; the text itself is never shown.
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty, dirtyRef]);
+  useEffect(() => () => {
+    if (dirtyRef) dirtyRef.current = false;
+  }, [dirtyRef]);
 
   const saveSettings = async () => {
     setSaving(true);
     setError('');
     try {
       await adminApi.updateCommunity(token, community.id, { settings });
-      await reload();
+      const fresh = await reload();
+      // The server trims and caps what it stores. Showing the form what was
+      // really saved (not what was typed) is what makes "Saved" true, and it
+      // clears the unsaved mark even when the stored value did not change.
+      if (fresh) setSettings(JSON.parse(JSON.stringify(fresh.settings)));
       setSavedAt(Date.now());
     } catch (err) {
       setError(err.message);
@@ -49,7 +91,11 @@ export default function SetupTab({ community, reload }) {
     setError('');
     try {
       const result = await adminApi.checkRates(token, community.id);
-      setSettings(result.settings);
+      // Only the rate fields: the form may hold unsaved lender or compliance text.
+      setSettings((prev) => ({
+        ...prev,
+        ...Object.fromEntries(RATE_KEYS.map((key) => [key, result.settings[key]])),
+      }));
       await reload();
       if (!result.webhookConfigured) {
         setError('No rate inbox connected yet — set RATES_WEBHOOK_SECRET and point Zapier at /api/communities/' +
@@ -61,7 +107,10 @@ export default function SetupTab({ community, reload }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="ax-setup" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <h4 style={{ margin: '0 0 -4px', fontSize: 17 }}>Look &amp; feel</h4>
+      <LayoutCard community={community} reload={reload} />
+
       <div className="card elev-sm" style={{ gap: 10 }}>
         <span className="card-kicker">Buyer app theme</span>
         <div className="grid-3">
@@ -88,7 +137,7 @@ export default function SetupTab({ community, reload }) {
               <span style={{ fontSize: 11.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.25 }}>
                 {theme.name}
               </span>
-              <span className="text-muted" style={{ fontSize: 10, textAlign: 'center', lineHeight: 1.3 }}>
+              <span className="text-muted" style={{ fontSize: 11, textAlign: 'center', lineHeight: 1.3 }}>
                 {theme.note}
               </span>
             </button>
@@ -99,6 +148,13 @@ export default function SetupTab({ community, reload }) {
         </span>
       </div>
 
+      <LogoCard community={community} reload={reload} />
+
+      <ComplianceCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
+
+      <RealtorsCard community={community} reload={reload} />
+
+      <h4 style={{ margin: '6px 0 -4px', fontSize: 17 }}>Rates, costs and rules</h4>
       <div className="card elev-sm" style={{ gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <span className="card-kicker">Live rates</span>
@@ -202,13 +258,16 @@ export default function SetupTab({ community, reload }) {
 
       <CommunityArtwork community={community} reload={reload} />
 
-      <ErrorNote>{error}</ErrorNote>
-      <button
-        type="button" className="btn btn-primary btn-block" onClick={saveSettings}
-        disabled={!dirty || saving} style={{ minHeight: 46 }}
-      >
-        {saving ? 'Saving…' : dirty ? 'Save settings' : savedAt ? 'Saved ✓' : 'Saved'}
-      </button>
+      {/* Sticky: the lender and compliance fields sit mid-page, a long way above the foot. */}
+      <div className="ax-savebar">
+        <ErrorNote>{error}</ErrorNote>
+        <button
+          type="button" className="btn btn-primary btn-block" onClick={saveSettings}
+          disabled={!dirty || saving} style={{ minHeight: 46 }}
+        >
+          {saving ? 'Saving…' : dirty ? 'Save settings' : savedAt ? 'Saved ✓' : 'Saved'}
+        </button>
+      </div>
     </div>
   );
 }

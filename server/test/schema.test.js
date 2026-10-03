@@ -658,3 +658,204 @@ test('a move-in plan round-trips through Postgres', opts, async () => {
     }
   });
 });
+
+/** Count rows in `table` for a community, straight from the database. */
+const countRows = async (url, table, communityId) => {
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    const { rows } = await client.query(`SELECT count(*)::int AS n FROM ${table} WHERE community_id = $1`, [communityId]);
+    return rows[0].n;
+  } finally {
+    await client.end();
+  }
+};
+
+/** A database as production has it: the legacy schema plus one community that has been live a while. */
+const legacyWithCommunity = async (url) => {
+  await applyLegacy(url);
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  await client.query(
+    `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools)
+     VALUES ('c1', 'Willow Creek', 'Lehi, Utah', 'Now selling', 'navy', 'Hearthside', '{}', '{}')`,
+  );
+  await client.end();
+};
+
+test('an older database gains layouts, realtors and guides without losing anything', opts, async () => {
+  await withDatabase('schema_guides_upgrade_test', async (url) => {
+    await legacyWithCommunity(url);
+    await boot(url);
+
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    for (const [table, column] of [
+      ['communities', 'layout'], ['communities', 'guides_seeded'],
+      ['photos', 'agent_id'], ['photos', 'guide_id'],
+    ]) {
+      const added = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+        [table, column],
+      );
+      assert.equal(added.rowCount, 1, `${table}.${column} was added by ALTER`);
+    }
+    for (const table of ['agents', 'guides']) {
+      assert.equal((await client.query(`SELECT 1 FROM pg_tables WHERE tablename = $1`, [table])).rowCount, 1, `${table} exists`);
+    }
+    // The indexes name the new columns, so these only exist if the ALTERs ran first.
+    for (const index of ['photos_agent_idx', 'photos_guide_idx', 'guides_slug_idx', 'guides_community_idx', 'agents_community_idx']) {
+      assert.equal((await client.query(`SELECT 1 FROM pg_indexes WHERE indexname = $1`, [index])).rowCount, 1, `${index} exists`);
+    }
+    const unique = await client.query(`SELECT indexdef FROM pg_indexes WHERE indexname = 'guides_slug_idx'`);
+    assert.match(unique.rows[0].indexdef, /UNIQUE.*\(community_id, slug\)/, 'one slug per community is a database rule');
+
+    const row = await client.query(`SELECT layout, guides_seeded, name FROM communities WHERE id = 'c1'`);
+    assert.equal(row.rows[0].layout, 'cornerpost', 'an existing community gets the default layout');
+    assert.equal(row.rows[0].name, 'Willow Creek', 'and keeps everything else');
+    await client.end();
+  });
+});
+
+test('an existing community with no guides is backfilled exactly once', opts, async () => {
+  await withDatabase('schema_backfill_test', async (url) => {
+    await legacyWithCommunity(url);
+    await boot(url);
+    assert.equal(await countRows(url, 'guides', 'c1'), 13, 'the first boot seeds the supplied guides');
+    await boot(url);
+    await boot(url);
+    assert.equal(await countRows(url, 'guides', 'c1'), 13, 'later boots add nothing');
+
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    const { rows } = await client.query(`SELECT guides_seeded FROM communities WHERE id = 'c1'`);
+    assert.equal(rows[0].guides_seeded, true);
+    const keys = await client.query(`SELECT count(DISTINCT default_key)::int AS n FROM guides WHERE community_id = 'c1'`);
+    assert.equal(keys.rows[0].n, 13, 'thirteen different guides, not one repeated');
+    await client.end();
+  });
+});
+
+test('two instances booting at the same moment seed a community once', opts, async () => {
+  await withDatabase('schema_backfill_race_test', async (url) => {
+    await legacyWithCommunity(url);
+    // Render overlaps the old and new instance during a deploy.
+    await Promise.all([boot(url), boot(url), boot(url)]);
+    assert.equal(await countRows(url, 'guides', 'c1'), 13);
+  });
+});
+
+test('a builder who deleted every guide does not get them back on the next boot', opts, async () => {
+  await withDatabase('schema_deleted_guides_test', async (url) => {
+    await legacyWithCommunity(url);
+    await boot(url);
+
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    await client.query(`DELETE FROM guides WHERE community_id = 'c1'`);
+    await client.end();
+
+    await boot(url);
+    assert.equal(await countRows(url, 'guides', 'c1'), 0, 'a restart does not undo the deletion');
+
+    // Only the explicit action brings them back.
+    const store = createPostgresStore(url);
+    try {
+      await store.init();
+      assert.equal((await store.restoreDefaultGuides('c1')).length, 13);
+      assert.equal((await store.restoreDefaultGuides('c1')).length, 0, 'and asking again adds nothing');
+    } finally {
+      await store.close();
+    }
+    assert.equal(await countRows(url, 'guides', 'c1'), 13);
+  });
+});
+
+test('a community created through the store is seeded once and not again on boot', opts, async () => {
+  await withDatabase('schema_new_community_test', async (url) => {
+    const store = createPostgresStore(url);
+    let id;
+    try {
+      await store.init();
+      id = (await store.createCommunity({ name: 'Fresh Ridge' })).id;
+      assert.equal((await store.listGuides(id, { includeUnpublished: true })).length, 13);
+    } finally {
+      await store.close();
+    }
+    await boot(url);
+    assert.equal(await countRows(url, 'guides', id), 13, 'the next boot does not seed it a second time');
+  });
+});
+
+test('realtors, guides and their pictures round-trip through Postgres and cascade on delete', opts, async () => {
+  await withDatabase('schema_agents_guides_test', async (url) => {
+    const store = createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Cascade Ridge' });
+      assert.equal(community.layout, 'cornerpost');
+      const updated = await store.updateCommunity(community.id, { layout: 'saltgrass' });
+      assert.equal(updated.layout, 'saltgrass');
+
+      const agent = await store.createAgent(community.id, { name: 'Dana', licenseNo: '123' });
+      const photo = await store.addPhoto({
+        communityId: community.id, agentId: agent.id, kind: 'agent', contentType: 'image/gif', data: 'R0lGODlh',
+      });
+      const logo = await store.addPhoto({
+        communityId: community.id, agentId: agent.id, kind: 'agentlogo', contentType: 'image/gif', data: 'R0lGODlh',
+      });
+      const shown = await store.getAgent(agent.id);
+      assert.equal(shown.photo.id, photo.id);
+      assert.equal(shown.logo.id, logo.id);
+      assert.equal(shown.licenseState, 'UT');
+      assert.equal(await store.countAgents(community.id), 1);
+
+      const guide = await store.createGuide(community.id, { slug: 'mine', title: 'Mine' });
+      await assert.rejects(
+        store.createGuide(community.id, { slug: 'mine', title: 'Same slug' }),
+        { code: '23505' },
+        'the unique index refuses a second guide at the same address',
+      );
+      const gp = await store.addPhoto({
+        communityId: community.id, guideId: guide.id, kind: 'guide', contentType: 'image/gif', data: 'R0lGODlh',
+      });
+      assert.equal((await store.getGuide(guide.id)).image, `/api/photos/${gp.id}`);
+
+      await store.deleteAgent(agent.id);
+      assert.equal(await store.getPhotoData(photo.id), null, 'deleting an agent deletes their pictures');
+      assert.equal(await store.getPhotoData(logo.id), null);
+      await store.deleteGuide(guide.id);
+      assert.equal(await store.getPhotoData(gp.id), null, 'and deleting a guide deletes its picture');
+
+      const other = await store.createAgent(community.id, { name: 'Lee' });
+      const keep = await store.addPhoto({
+        communityId: community.id, agentId: other.id, kind: 'agent', contentType: 'image/gif', data: 'R0lGODlh',
+      });
+      await store.deleteCommunity(community.id);
+      assert.equal(await store.getAgent(other.id), null, 'cascade removed the agent');
+      assert.equal(await store.getPhotoData(keep.id), null, 'and their picture');
+      assert.equal(await countRows(url, 'guides', community.id), 0);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('a community created after guides shipped is already flagged, so its deleted guides stay deleted', opts, async () => {
+  await withDatabase('schema_new_flag_test', async (url) => {
+    const store = createPostgresStore(url);
+    let id;
+    try {
+      await store.init();
+      id = (await store.createCommunity({ name: 'Flagged Ridge' })).id;
+      // Deleted before any further boot has had the chance to set the flag for
+      // it. Seeding is idempotent by default_key, so a community that was NOT
+      // flagged at creation would look fine until exactly this happened.
+      for (const guide of await store.listGuides(id, { includeUnpublished: true })) await store.deleteGuide(guide.id);
+    } finally {
+      await store.close();
+    }
+    await boot(url);
+    assert.equal(await countRows(url, 'guides', id), 0);
+  });
+});

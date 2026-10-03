@@ -13,7 +13,7 @@
   --color-neutral-300: #d7d4c9;
   --color-neutral-400: #bab7ab;
   --color-neutral-500: #9b988c;
-  --color-neutral-600: #7c796e;
+  --color-neutral-600: #6b685e; /* 5.1:1 on the page ground; the old #7c796e was 4.0:1 and every hint and counter used it */
   --color-neutral-700: #5f5c53;
   --color-accent-100: #edf4ee;
   --color-accent-600: #436b4c;
@@ -290,6 +290,244 @@ a { color: inherit; }
 /* A sheet holding a whole tool rather than a paragraph: it has to scroll, and
    stop short of the top so the screen behind stays visible as context. */
 .b-sheet-tall { max-height: 88vh; overflow-y: auto; padding-top: 12px; }
+/* A tool on a screen leaves 120px under it for the sticky bar; in a sheet that
+   is only an empty gap between the buttons and the disclosure below them. */
+.b-sheet .b-shell { padding-bottom: 0; }
+
+/* ── buyer: focus, skip link and landmarks ─────────────────────────────── */
+/* The accent FILL is too pale to be seen as a ring on a light ground, so the
+   focus ring uses the text-safe accent, which clears 3:1 on every theme. */
+.b-app a:focus-visible,
+.b-app button:focus-visible,
+.b-app [role='button']:focus-visible,
+.b-app summary:focus-visible {
+  outline: 2px solid var(--t-accT);
+  outline-offset: 2px;
+}
+.b-main { display: block; }
+.b-main:focus { outline: none; }
+/* Paragraphs quote a community name the builder typed, and one long word in it would push the page sideways. */
+.b-main p { overflow-wrap: break-word; }
+/* Hidden until a keyboard user tabs to it, then the first thing on the page. */
+.b-skip {
+  position: absolute;
+  left: 12px;
+  top: -64px;
+  z-index: 90;
+  padding: 12px 16px;
+  min-height: 44px;
+  border-radius: var(--t-radbtn);
+  background: var(--t-acc2);
+  color: var(--t-onacc2);
+  font-family: var(--t-font);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.b-skip:focus { top: 12px; }
+/* The footer follows the screen, so the room the shell keeps below its content
+   for a floating control is not needed and would only push the footer away. */
+.b-main > .b-shell { padding-bottom: 36px; }
+
+/* ── buyer: development mark and lender logo ───────────────────────────── */
+.b-mark { display: inline-flex; align-items: center; max-width: 100%; }
+.b-mark--text { font-size: 15px; line-height: 1.2; }
+.b-mark__img { display: block; object-fit: contain; }
+/* A logo made for the other ground sits on a plate of the right colour. */
+.b-mark--plate, .b-lender-logo--plate { padding: 4px 8px; border-radius: 6px; }
+.b-mark--light, .b-lender-logo--plate { background: #fff; }
+.b-mark--dark { background: #15181c; }
+.b-lender-logo { display: inline-flex; max-width: 100%; }
+.b-lender-logo__img, .b-ehl { display: block; }
+/* An uploaded logo of any shape keeps its proportions inside the fixed height. */
+.b-lender-logo__img { object-fit: contain; }
+.b-lender-card__text { min-width: 0; overflow-wrap: anywhere; }
+
+/* ── buyer: compliance footer ──────────────────────────────────────────── */
+/* The "default look": layout stylesheets restyle these same classes. Padding
+   is computed so the text lines up with the 480px shell above on a wide screen
+   and still has a 20px gutter on a phone. */
+.b-footer {
+  background: var(--t-sur);
+  color: var(--t-ink);
+  border-top: 1px solid var(--t-line);
+  padding: 28px max(20px, calc((100% - 480px) / 2)) calc(32px + env(safe-area-inset-bottom));
+  font-family: var(--t-font);
+}
+/* Everything in the footer is typed in Setup, so a long unbroken value (a deep
+   link, a licence token) must wrap rather than push the whole page sideways. */
+.b-footer { overflow-wrap: anywhere; }
+.b-footer--dark { background: var(--t-acc2); color: var(--t-onacc2); border-top-color: transparent; }
+.b-footer__brand { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 0 0 14px; }
+.b-footer__id { margin: 0 0 12px; font-size: 13.5px; line-height: 1.65; }
+.b-footer__fine { margin: 0 0 10px; font-size: 12px; line-height: 1.65; color: var(--t-mut); }
+.b-footer--dark .b-footer__fine { color: color-mix(in srgb, var(--t-onacc2) 88%, transparent); }
+.b-footer a { color: var(--t-accT); text-underline-offset: 2px; }
+.b-footer--dark a { color: inherit; }
+.b-footer__links { display: flex; flex-wrap: wrap; gap: 0 20px; margin: 4px 0 8px; }
+.b-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.b-footer__copy { margin: 6px 0 0; }
+/* Inline links inside a sentence still get a 44px target: the padding makes the
+   hit area and the equal negative margin keeps the lines where they were. */
+.b-footer__tel, .b-footer__tap { display: inline-block; padding: 14px 0; margin: -14px 0; }
+.b-footer__tel { white-space: nowrap; }
+/* On screen the printed plan's links keep their 44px target; only on paper do they sit inline. */
+@media print { .b-footer--print .b-footer__tap { display: inline; padding: 0; margin: 0; } }
+/* The printed plan: ink on paper, nothing coloured, no statement split by a page break. */
+.b-footer--print {
+  background: #fff;
+  color: #000;
+  border-top: 1px solid #000;
+  padding: 14px 0 0;
+  margin-top: 26px;
+  font-family: inherit;
+}
+.b-footer--print .b-footer__fine { color: #000; font-size: 10px; line-height: 1.5; break-inside: avoid; page-break-inside: avoid; }
+.b-footer--print .b-footer__id { font-size: 11px; break-inside: avoid; page-break-inside: avoid; }
+.b-footer--print a { color: #000; }
+/* The licensing address is written out in full on paper, and a long URL has no break points. */
+.b-footer--print .b-footer__fine, .b-footer--print .b-footer__id { overflow-wrap: anywhere; }
+.b-footer--print .b-footer__brand { break-inside: avoid; page-break-inside: avoid; }
+
+/* The disclosure inside a tool sheet: the sheet hides the page footer, so the
+   estimate wording and the lender's identity are repeated under the numbers. */
+.b-sheet-note { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--t-line); font-family: var(--t-font); overflow-wrap: anywhere; }
+.b-sheet-note__brand { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; }
+.b-sheet-note__brand .b-footer__id { margin: 0; }
+.b-sheet-note .b-footer__fine { margin: 0 0 8px; }
+
+/* ── buyer: guides ─────────────────────────────────────────────────────── */
+.b-glist { display: grid; gap: 14px; }
+.b-gcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  overflow: hidden;
+}
+.b-gcard__img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; background: var(--t-tint2); }
+.b-gcard__body { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; }
+.b-gcard__kicker { color: var(--t-accT); }
+.b-gcard__title { font-size: 17px; line-height: 1.25; }
+/* The title link is stretched over the card, so the whole card is one target. */
+.b-gcard__link { color: inherit; text-decoration: none; }
+.b-gcard__link::after { content: ''; position: absolute; inset: 0; border-radius: var(--t-radlg); }
+.b-gcard__link:focus-visible { outline: none; }
+.b-gcard__link:focus-visible::after { outline: 2px solid var(--t-accT); outline-offset: 2px; }
+.b-gcard__sum {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--t-mut);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.b-article__kicker { display: block; color: var(--t-accT); }
+.b-article__title { margin: 6px 0 8px; font-size: 27px; line-height: 1.18; }
+.b-article__byline { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.b-article__note { margin: 0 0 14px; font-size: 12px; line-height: 1.5; font-style: italic; color: var(--t-mut); }
+.b-article__hero {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1400 / 930;
+  object-fit: cover;
+  border-radius: var(--t-radlg);
+  margin: 0 0 18px;
+  background: var(--t-tint2);
+}
+.b-article__cta {
+  margin-top: 28px;
+  padding: 18px;
+  background: var(--t-tint);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+}
+.b-article__more { margin-top: 28px; }
+
+/* ── buyer: realtors ───────────────────────────────────────────────────── */
+.b-agent {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+}
+.b-agent__photo {
+  flex: none;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--t-rad);
+  overflow: hidden;
+  background: var(--t-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.b-agent__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b-agent__initial { font-size: 28px; color: var(--t-accT); }
+.b-agent__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.b-agent__name { font-size: 17px; line-height: 1.2; overflow-wrap: anywhere; }
+.b-agent__brokerage { margin: 0; font-size: 13px; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-agent__logo { align-self: flex-start; height: 28px; width: auto; max-width: 150px; object-fit: contain; margin-top: 4px; }
+.b-agent__license { margin: 2px 0 0; font-size: 12px; color: var(--t-mut); }
+.b-agent__contact { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; }
+.b-agent__link, .b-agent__text {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+.b-agent__link { font-weight: 600; color: var(--t-accT); text-decoration: none; }
+.b-agent__link:hover { text-decoration: underline; }
+.b-agents__notice { margin-top: 14px; }
+.b-agents__note { margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--t-mut); }
+.b-agents__eho { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--t-mut); }
+/* The home screen's single row that leads to the realtors page. */
+.b-agents-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px 16px;
+  background: var(--t-tint);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  color: var(--t-ink);
+  text-decoration: none;
+}
+.b-agents-row__faces { display: flex; flex: none; }
+.b-agents-row__faces > * {
+  width: 36px;
+  height: 36px;
+  margin-left: -10px;
+  border-radius: 50%;
+  border: 2px solid var(--t-tint);
+  object-fit: cover;
+  background: var(--t-sur);
+}
+.b-agents-row__faces > *:first-child { margin-left: 0; }
+.b-agents-row__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t-accT);
+}
+.b-agents-row__text { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
 
 /* ── admin atoms ────────────────────────────────────────────────────────── */
 .a-shell { max-width: 900px; margin: 0 auto; padding: 24px 20px 80px; }
@@ -404,13 +642,45 @@ textarea.input { min-height: auto; resize: vertical; }
   line-height: 1.4;
   background:
     repeating-linear-gradient(135deg, rgba(128, 128, 128, 0.09) 0 10px, rgba(128, 128, 128, 0.04) 10px 20px);
-  color: var(--t-mut, var(--color-neutral-600));
+  /* Muted ink on the stripe fell under 4.5:1 on some themes, so it borrows some of
+     the full ink to stay readable while still looking like a placeholder. */
+  color: color-mix(in srgb, var(--t-mut, var(--color-neutral-600)) 45%, var(--t-ink, #111));
 }
 .photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A placeholder under a darkening scrim (the Explore banner) cannot use the
+   muted ink: it is a light-ground colour and the scrim only partly covers it. The
+   theme's own dark ground with the ink made for it reads on every theme, and the
+   scrim, which only darkens, cannot lower that. */
+.b-photo--scrimmed .photo-empty {
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: var(--t-acc2);
+  color: var(--t-onacc2);
+  font-size: 13px;
+}
 
 @media print {
-  body * { visibility: hidden; }
-  #plan-doc, #plan-doc * { visibility: visible; }
+  /* Only the plan screen prints as a lone document. Every other buyer page (a
+     guide the visitor was told to "print and take with you", the guides list,
+     the landing page) prints its own content, so the rule that blanks the
+     page is scoped to the page that has a #plan-doc on it. */
+  body:has(#plan-doc) * { visibility: hidden; }
+  body:has(#plan-doc) #plan-doc, body:has(#plan-doc) #plan-doc * { visibility: visible; }
   #plan-doc { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border-radius: 0; }
   .no-print { display: none !important; }
+
+  /* The rest of the buyer app drops what only works on a screen: the header,
+     the sticky bars, the skip link and the toast. The page itself and the lender
+     footer stay, because the footer is the disclosure that goes with the page. */
+  .b-app > header, .b-app > .sg-stick, .b-app > .b-skip, .b-app [role='status'] { display: none !important; }
+  .b-app { min-height: 0; }
+  /* A dark footer has a coloured ground that a printer leaves out, which would
+     print its white text on white paper. Draw it as ink on paper instead, with
+     the supplied white marks turned to black so they still show. */
+  /* !important because the layout skins style the same footer at higher specificity. */
+  .b-footer--dark { background: #fff !important; border-top: 1px solid #000 !important; }
+  .b-footer--dark, .b-footer--dark * { color: #000 !important; }
+  .b-footer--dark .b-lender-logo:not(.b-lender-logo--plate) .b-lender-logo__img, .b-footer--dark .b-ehl { filter: brightness(0); }
+  .b-footer--dark .b-footer__mark { display: none !important; }
+  .b-footer__fine, .b-footer__id, .b-footer__brand { break-inside: avoid; page-break-inside: avoid; }
 }

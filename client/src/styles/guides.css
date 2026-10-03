@@ -1,0 +1,157 @@
+/* Guide body text (the <Markdown> component).
+
+   Colour comes only from the --t-* theme tokens, so the same rules read well on
+   every theme. Type and shape come from the tokens a layout sets on .b-app
+   (--t-font, --t-head, --t-headwt, --t-track, --t-rad, --t-radlg); a layout that
+   wants a different reading register overrides these single-class selectors from
+   its own stylesheet, which is why almost nothing here nests deeper than one class
+   (the closing-line rule below is the one exception) and nothing uses !important. */
+
+.md {
+  /* About 62 characters a line: the measure that reads comfortably on a phone
+     held at arm's length and does not turn into a wall of text on a tablet. */
+  max-width: 62ch;
+  font-family: var(--t-font);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--t-ink);
+  overflow-wrap: break-word;
+  /* No fixed width anywhere inside: long words and URLs wrap, never scroll. */
+  min-width: 0;
+}
+
+.md-p {
+  margin: 0 0 1.1em;
+}
+
+/* Question-style headings ("What should I ask about the HOA?") are sentences,
+   so they stay in sentence case whatever the theme's headline transform is. The
+   theme's tracking (--t-track) is meant for its uppercase headlines (Bronze sets
+   0.12em), so it is not applied here: sentence-case text that wide wraps early and
+   looks airy. It is 0 rather than min(var(--t-track), ...) because --t-track is a
+   bare `0` in most themes and a length in others, and min() refuses to mix them.
+   A layout that wants tracking on these can set it from its own stylesheet. */
+.md-h2,
+.md-h3 {
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--t-ink);
+  text-wrap: balance;
+}
+
+.md-h2 {
+  margin: 2.2em 0 0.6em;
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.md-h3 {
+  margin: 1.8em 0 0.5em;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+/* The first thing in the article needs no air above it. */
+.md > .md-h2:first-child,
+.md > .md-h3:first-child {
+  margin-top: 0;
+}
+
+.md-ul,
+.md-ol {
+  margin: 0 0 1.3em;
+  padding-left: 1.5em;
+}
+
+.md-li {
+  margin: 0 0 0.55em;
+  padding-left: 0.2em;
+}
+
+.md-li::marker {
+  color: var(--t-accT);
+  font-weight: 700;
+}
+
+.md-link {
+  color: var(--t-accT);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.md-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+.md-link:focus-visible {
+  outline: 2px solid var(--t-acc);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* The pull-quote ("Twenty points can be worth thousands"). The border does the
+   work of setting it apart because several themes have a tint barely off the page
+   colour; the tint only warms it. */
+.md-callout {
+  margin: 1.8em 0;
+  padding: 1.1em 1.25em 1.1em 1.2em;
+  background: var(--t-tint);
+  border: 1px solid var(--t-line);
+  border-left: 4px solid var(--t-acc);
+  border-radius: var(--t-rad);
+  color: var(--t-ink);
+}
+
+.md-callout__title {
+  margin: 0 0 0.35em;
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  letter-spacing: 0;
+  font-size: 1.1rem;
+  line-height: 1.3;
+  color: var(--t-ink);
+}
+
+.md-callout__text {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.md-callout > :last-child {
+  margin-bottom: 0;
+}
+
+.md-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1.6em 0;
+  border-radius: var(--t-radlg);
+}
+
+.md-hr {
+  margin: 2.4em 0 1.4em;
+  border: 0;
+  border-top: 1px solid var(--t-line);
+}
+
+/* What follows the closing rule is the dated figures-and-disclaimer line the
+   guides end with: small and quiet, but still readable (--t-mut clears 4.5:1).
+   Only a rule that is second from the end, followed by the last paragraph, counts:
+   a builder who uses `---` as a divider mid-article must not get the next real
+   paragraph shrunk and greyed. */
+.md-hr:nth-last-child(2) + .md-p:last-child {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--t-mut);
+}
+
+.md code {
+  padding: 0.1em 0.35em;
+  background: var(--t-tint2);
+  border-radius: 4px;
+  font-size: 0.92em;
+}

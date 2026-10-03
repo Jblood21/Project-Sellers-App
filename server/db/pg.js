@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 import { DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead } from '../../shared/domain.js';
+import { loadDefaultGuides } from '../lib/guides.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  shapeCommunity, shapeHighlight, shapeHome, shapeLead, shapeMoveIn, shapePhoto,
-  shapeResource, shapeSlot, shapeConsent,
+  guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
+  shapeMoveIn, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,13 @@ export function createPostgresStore(connectionString) {
   });
   const q = (text, params) => pool.query(text, params);
 
+  // Every photo column but the bytes. A picture is listed on every page load
+  // (logos, realtors, guide thumbnails, home galleries) only to learn its id and
+  // URL, and `data` is up to 3 MB of base64 per row: selecting it would drag
+  // megabytes out of Postgres to throw them away. Only getPhotoData reads it.
+  const PHOTO_COLUMNS = `id, community_id, home_id, highlight_id, agent_id, guide_id, kind,
+    content_type, url, position, created_at`;
+
   /**
    * A home's images, split by kind: the gallery buyers swipe through, and the
    * floor plans. Both hang off home_id, so anything reading photos has to say
@@ -31,7 +39,7 @@ export function createPostgresStore(connectionString) {
     const byHome = new Map(homeIds.map((id) => [id, { photos: [], floorPlans: [] }]));
     if (!homeIds.length) return byHome;
     const { rows } = await q(
-      `SELECT * FROM photos WHERE home_id = ANY($1::text[]) ORDER BY position, created_at`,
+      `SELECT ${PHOTO_COLUMNS} FROM photos WHERE home_id = ANY($1::text[]) ORDER BY position, created_at`,
       [homeIds],
     );
     for (const row of rows) {
@@ -90,11 +98,136 @@ export function createPostgresStore(connectionString) {
     return rows.map((r) => ({ text: r.text, createdAt: r.created_at }));
   };
 
+
+  /**
+   * The first portrait and the first logo of each agent. Two rows per agent at
+   * most are ever kept (uploads replace), so taking the oldest of each kind is
+   * the same as taking the only one, and stays sane if a stray extra exists.
+   */
+  const agentImagesFor = async (agentIds) => {
+    const byAgent = new Map(agentIds.map((id) => [id, { photo: null, logo: null }]));
+    if (!agentIds.length) return byAgent;
+    const { rows } = await q(
+      `SELECT ${PHOTO_COLUMNS} FROM photos WHERE agent_id = ANY($1::text[]) ORDER BY position, created_at`,
+      [agentIds],
+    );
+    for (const row of rows) {
+      const entry = byAgent.get(row.agent_id);
+      if (!entry) continue;
+      if (row.kind === 'agent' && !entry.photo) entry.photo = shapePhoto(row);
+      if (row.kind === 'agentlogo' && !entry.logo) entry.logo = shapePhoto(row);
+    }
+    return byAgent;
+  };
+
+  /** The uploaded picture for each guide, if any. A guide has at most one. */
+  const guideImagesFor = async (guideIds) => {
+    const byGuide = new Map();
+    if (!guideIds.length) return byGuide;
+    const { rows } = await q(
+      `SELECT ${PHOTO_COLUMNS} FROM photos WHERE guide_id = ANY($1::text[]) ORDER BY position, created_at`,
+      [guideIds],
+    );
+    for (const row of rows) if (!byGuide.has(row.guide_id)) byGuide.set(row.guide_id, shapePhoto(row));
+    return byGuide;
+  };
+
+  // Every column but the article itself, for the same reason listResources
+  // spells its columns out: a list of guides is read on every buyer page load
+  // and the body is up to 60,000 characters each.
+  const GUIDE_SUMMARY_COLUMNS = `id, community_id, slug, default_key, title, category, byline, note,
+    summary, image, image_alt, published, position, created_at, updated_at`;
+
+  /**
+   * Copies each supplied guide this community does not already have, matched by
+   * default_key so a guide the builder retitled or re-slugged still counts as
+   * present. Never touches an existing row. Takes a client so callers can run it
+   * inside the transaction that also sets, or relies on, `guides_seeded`.
+   */
+  const addMissingDefaults = async (db, communityId) => {
+    const { rows: have } = await db.query(
+      `SELECT slug, default_key, position FROM guides WHERE community_id = $1`, [communityId],
+    );
+    const taken = new Set(have.map((r) => r.slug));
+    const keys = new Set(have.map((r) => r.default_key).filter(Boolean));
+    let position = have.reduce((max, r) => Math.max(max, r.position), -1) + 1;
+    const added = [];
+    for (const def of loadDefaultGuides()) {
+      if (keys.has(def.defaultKey)) continue;
+      // A slug the builder has since given to a different guide is theirs, so the
+      // restored one takes a suffixed address instead of colliding with it.
+      const slug = uniqueSlug(def.slug, taken);
+      taken.add(slug);
+      added.push(await insertGuide(db, communityId, guideRowFromDefault(def, slug, position)));
+      position += 1;
+    }
+    return added;
+  };
+
+  /** Run `fn` in a transaction on one connection, rolling back if it throws. */
+  const inTransaction = async (fn) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await fn(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  };
+
+  const agentOf = async (row) => {
+    if (!row) return null;
+    const images = (await agentImagesFor([row.id])).get(row.id);
+    return shapeAgent(row, images.photo, images.logo);
+  };
+
+  const guideOf = async (row) => {
+    if (!row) return null;
+    return shapeGuide(row, { body: true, photo: (await guideImagesFor([row.id])).get(row.id) ?? null });
+  };
+
+  /**
+   * Insert one guide row. Takes a client so seeding can run inside a transaction
+   * with the flag that says it happened.
+   */
+  const insertGuide = async (db, communityId, g) => {
+    const { rows } = await db.query(
+      `INSERT INTO guides (id, community_id, slug, default_key, title, category, byline, note,
+                           summary, body, image, image_alt, published, position)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      [`g_${shortId(10)}`, communityId, g.slug, g.defaultKey ?? '', g.title, g.category ?? 'Guide',
+        g.byline ?? '', g.note ?? '', g.summary ?? '', g.body ?? '', g.image ?? '', g.imageAlt ?? '',
+        g.published ?? true, g.position],
+    );
+    return rows[0];
+  };
+
   return {
     kind: 'postgres',
 
     async init() {
       await q(readFileSync(join(here, 'schema.sql'), 'utf8'));
+      // Every community that has never been given the supplied guides gets them
+      // now: this is how communities that existed before guides shipped receive
+      // them. The flag is claimed inside the same transaction as the inserts, so
+      // two instances booting at once seed once, and a builder who later deletes
+      // the guides is not given them back on the next boot because the flag stays
+      // true. Only the restore action brings them back.
+      const { rows } = await q(`SELECT id FROM communities`);
+      for (const { id } of rows) {
+        await inTransaction(async (db) => {
+          const claimed = await db.query(
+            `UPDATE communities SET guides_seeded = true WHERE id = $1 AND NOT guides_seeded RETURNING id`,
+            [id],
+          );
+          if (claimed.rowCount) await addMissingDefaults(db, id);
+        });
+      }
     },
 
     async close() {
@@ -153,19 +286,26 @@ export function createPostgresStore(connectionString) {
 
     async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '' }) {
       const id = slugId(name);
-      const { rows } = await q(
-        `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-        [id, name, location, status, theme, builder, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED],
-      );
-      return shapeCommunity(rows[0]);
+      // The community and its guides land together or not at all, with the flag
+      // already set: a new community must not be seen as "never seeded" by the
+      // next boot and get a second copy.
+      const row = await inTransaction(async (db) => {
+        const { rows } = await db.query(
+          `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools, guides_seeded)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true) RETURNING *`,
+          [id, name, location, status, theme, builder, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED],
+        );
+        await addMissingDefaults(db, id);
+        return rows[0];
+      });
+      return shapeCommunity(row);
     },
 
     async updateCommunity(id, patch) {
       const map = {
         name: 'name', location: 'location', status: 'status', theme: 'theme',
         websiteUrl: 'website_url', builder: 'builder', settings: 'settings', tools: 'tools',
-        features: 'features',
+        features: 'features', layout: 'layout',
       };
       const sets = [];
       const params = [];
@@ -287,17 +427,19 @@ export function createPostgresStore(connectionString) {
     },
 
     async addPhoto({
-      communityId, homeId = null, highlightId = null, kind = 'home',
-      contentType = null, data = null, url = null,
+      communityId, homeId = null, highlightId = null, agentId = null, guideId = null,
+      kind = 'home', contentType = null, data = null, url = null,
     }) {
       const { rows: posRows } = await q(
         `SELECT coalesce(max(position), -1) + 1 AS pos FROM photos WHERE community_id = $1 AND coalesce(home_id,'') = coalesce($2,'')`,
         [communityId, homeId],
       );
       const { rows } = await q(
-        `INSERT INTO photos (id, community_id, home_id, highlight_id, kind, content_type, data, url, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-        [`p_${shortId(12)}`, communityId, homeId, highlightId, kind, contentType, data, url, posRows[0].pos],
+        `INSERT INTO photos (id, community_id, home_id, highlight_id, agent_id, guide_id, kind,
+                             content_type, data, url, position)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+        [`p_${shortId(12)}`, communityId, homeId, highlightId, agentId, guideId, kind, contentType,
+          data, url, posRows[0].pos],
       );
       return shapePhoto(rows[0]);
     },
@@ -313,20 +455,35 @@ export function createPostgresStore(connectionString) {
 
     async listHomePhotosOfKind(homeId, kind) {
       const { rows } = await q(
-        `SELECT * FROM photos WHERE home_id = $1 AND kind = $2 ORDER BY position, created_at`,
+        `SELECT ${PHOTO_COLUMNS} FROM photos WHERE home_id = $1 AND kind = $2 ORDER BY position, created_at`,
         [homeId, kind],
       );
       return rows.map(shapePhoto);
     },
 
     async listHighlightPhotos(highlightId) {
-      const { rows } = await q(`SELECT * FROM photos WHERE highlight_id = $1`, [highlightId]);
+      const { rows } = await q(`SELECT ${PHOTO_COLUMNS} FROM photos WHERE highlight_id = $1`, [highlightId]);
+      return rows.map(shapePhoto);
+    },
+
+    async listAgentPhotos(agentId, kind) {
+      const { rows } = await q(
+        `SELECT ${PHOTO_COLUMNS} FROM photos WHERE agent_id = $1 AND kind = $2 ORDER BY position, created_at`,
+        [agentId, kind],
+      );
+      return rows.map(shapePhoto);
+    },
+
+    async listGuidePhotos(guideId) {
+      const { rows } = await q(
+        `SELECT ${PHOTO_COLUMNS} FROM photos WHERE guide_id = $1 ORDER BY position, created_at`, [guideId],
+      );
       return rows.map(shapePhoto);
     },
 
     async listCommunityPhotos(communityId, kind) {
       const { rows } = await q(
-        `SELECT * FROM photos WHERE community_id = $1 AND kind = $2 ORDER BY position, created_at`,
+        `SELECT ${PHOTO_COLUMNS} FROM photos WHERE community_id = $1 AND kind = $2 ORDER BY position, created_at`,
         [communityId, kind],
       );
       return rows.map(shapePhoto);
@@ -353,7 +510,7 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`SELECT * FROM highlights WHERE id = $1`, [id]);
       if (!rows[0]) return null;
       const { rows: pics } = await q(
-        `SELECT * FROM photos WHERE highlight_id = $1 ORDER BY created_at LIMIT 1`, [id],
+        `SELECT ${PHOTO_COLUMNS} FROM photos WHERE highlight_id = $1 ORDER BY created_at LIMIT 1`, [id],
       );
       return shapeHighlight(rows[0], pics[0] ? shapePhoto(pics[0]) : null);
     },
@@ -481,6 +638,160 @@ export function createPostgresStore(connectionString) {
     async deleteHighlight(id) {
       await q(`DELETE FROM photos WHERE highlight_id = $1`, [id]);
       await q(`DELETE FROM highlights WHERE id = $1`, [id]);
+    },
+
+    // ── realtors ─────────────────────────────────────────────────────────
+    async listAgents(communityId) {
+      const { rows } = await q(
+        `SELECT * FROM agents WHERE community_id = $1 ORDER BY position, id COLLATE "C"`, [communityId],
+      );
+      const images = await agentImagesFor(rows.map((r) => r.id));
+      return rows.map((r) => shapeAgent(r, images.get(r.id).photo, images.get(r.id).logo));
+    },
+
+    async getAgent(id) {
+      const { rows } = await q(`SELECT * FROM agents WHERE id = $1`, [id]);
+      return agentOf(rows[0]);
+    },
+
+    async countAgents(communityId) {
+      const { rows } = await q(`SELECT count(*)::int AS n FROM agents WHERE community_id = $1`, [communityId]);
+      return rows[0].n;
+    },
+
+    /** An unconditional add, for callers that enforce no cap (seeding, tests). */
+    async createAgent(communityId, data) {
+      return this.createAgentIfRoom(communityId, data, Infinity);
+    },
+
+    /**
+     * Adds a realtor unless the community already has `max`, and answers null
+     * when it does. The community row is locked for the whole check-and-insert,
+     * the way restoreDefaultGuides does it, so concurrent requests queue up
+     * instead of all counting the same number; the next position is worked out
+     * under the same lock so two agents never share one.
+     */
+    async createAgentIfRoom(communityId, data, max) {
+      return inTransaction(async (db) => {
+        const { rows: locked } = await db.query(
+          `SELECT id FROM communities WHERE id = $1 FOR UPDATE`, [communityId],
+        );
+        if (!locked.length) return null;
+        const { rows: have } = await db.query(
+          `SELECT count(*)::int AS n, coalesce(max(position), -1) + 1 AS pos
+             FROM agents WHERE community_id = $1`,
+          [communityId],
+        );
+        if (have[0].n >= max) return null;
+        const { rows } = await db.query(
+          `INSERT INTO agents (id, community_id, position, name, brokerage, license_no, license_state,
+                               phone, email, website)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+          [`a_${shortId(10)}`, communityId, have[0].pos, data.name, data.brokerage ?? '',
+            data.licenseNo ?? '', data.licenseState ?? 'UT', data.phone ?? '', data.email ?? '',
+            data.website ?? ''],
+        );
+        return shapeAgent(rows[0]);
+      });
+    },
+
+    async updateAgent(id, patch) {
+      const map = {
+        name: 'name', brokerage: 'brokerage', licenseNo: 'license_no', licenseState: 'license_state',
+        phone: 'phone', email: 'email', website: 'website', position: 'position',
+      };
+      const sets = [];
+      const params = [];
+      for (const [key, column] of Object.entries(map)) {
+        if (patch[key] === undefined) continue;
+        params.push(patch[key]);
+        sets.push(`${column} = $${params.length}`);
+      }
+      if (!sets.length) return this.getAgent(id);
+      params.push(id);
+      await q(`UPDATE agents SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
+      return this.getAgent(id);
+    },
+
+    async deleteAgent(id) {
+      await q(`DELETE FROM photos WHERE agent_id = $1`, [id]);
+      await q(`DELETE FROM agents WHERE id = $1`, [id]);
+    },
+
+    // ── buyer guides ─────────────────────────────────────────────────────
+    async listGuides(communityId, { includeUnpublished = false } = {}) {
+      const { rows } = await q(
+        `SELECT ${GUIDE_SUMMARY_COLUMNS} FROM guides
+          WHERE community_id = $1 ${includeUnpublished ? '' : 'AND published'}
+          ORDER BY position, id COLLATE "C"`,
+        [communityId],
+      );
+      const images = await guideImagesFor(rows.map((r) => r.id));
+      return rows.map((r) => shapeGuide(r, { photo: images.get(r.id) ?? null }));
+    },
+
+    async getGuide(id) {
+      const { rows } = await q(`SELECT * FROM guides WHERE id = $1`, [id]);
+      return guideOf(rows[0]);
+    },
+
+    async getGuideBySlug(communityId, slug) {
+      const { rows } = await q(
+        `SELECT * FROM guides WHERE community_id = $1 AND slug = $2`, [communityId, slug],
+      );
+      return guideOf(rows[0]);
+    },
+
+    /** A duplicate slug surfaces as pg's own 23505, which the route turns into a 400. */
+    async createGuide(communityId, data) {
+      // Locked like createAgentIfRoom so the next position is worked out one
+      // request at a time and two new guides never share one.
+      return inTransaction(async (db) => {
+        await db.query(`SELECT id FROM communities WHERE id = $1 FOR UPDATE`, [communityId]);
+        const { rows: pos } = await db.query(
+          `SELECT coalesce(max(position), -1) + 1 AS pos FROM guides WHERE community_id = $1`,
+          [communityId],
+        );
+        const row = await insertGuide(db, communityId, { ...data, position: pos[0].pos });
+        return shapeGuide(row, { body: true });
+      });
+    },
+
+    async updateGuide(id, patch) {
+      const map = {
+        slug: 'slug', title: 'title', category: 'category', byline: 'byline', note: 'note',
+        summary: 'summary', body: 'body', image: 'image', imageAlt: 'image_alt',
+        published: 'published', position: 'position',
+      };
+      const sets = [];
+      const params = [];
+      for (const [key, column] of Object.entries(map)) {
+        if (patch[key] === undefined) continue;
+        params.push(patch[key]);
+        sets.push(`${column} = $${params.length}`);
+      }
+      if (!sets.length) return this.getGuide(id);
+      params.push(id);
+      await q(`UPDATE guides SET ${sets.join(', ')}, updated_at = now() WHERE id = $${params.length}`, params);
+      return this.getGuide(id);
+    },
+
+    /**
+     * Adds back any supplied guide the community no longer has and returns what it
+     * added. The community row is locked first so two clicks cannot both decide a
+     * guide is missing and trip the unique slug index.
+     */
+    async restoreDefaultGuides(communityId) {
+      return inTransaction(async (db) => {
+        await db.query(`SELECT id FROM communities WHERE id = $1 FOR UPDATE`, [communityId]);
+        const added = await addMissingDefaults(db, communityId);
+        return added.map((row) => shapeGuide(row));
+      });
+    },
+
+    async deleteGuide(id) {
+      await q(`DELETE FROM photos WHERE guide_id = $1`, [id]);
+      await q(`DELETE FROM guides WHERE id = $1`, [id]);
     },
 
     // ── appointment slots ────────────────────────────────────────────────
