@@ -21,7 +21,8 @@
  *
  * Deliberately NOT included, because each depends on facts only the lender and
  * builder have:
- *   · a state licence number (left out, never invented — see `missing`)
+ *   · a loan officer: the owners are business partners and one company ID covers
+ *     the page, so no individual is named until a community chooses to
  *   · a RESPA Affiliated Business Arrangement disclosure (`aba`, blank; owed if
  *     the builder and lender are affiliated)
  *   · Truth in Lending "trigger term" disclosures beyond the APR line above
@@ -37,13 +38,15 @@ export const COMPLIANCE_DEFAULTS = {
   lenderPhone: '801-855-8535',
   lenderWebsite: '',
   lenderTagline: 'Financing for buyers at this community.',
-  // The named loan officer, shown with their own NMLS ID. Blank both to show
-  // the company alone.
-  loName: 'Alan Blood',
-  loNmls: '3146',
-  // The whole sentence. A state licence NUMBER belongs in here once somebody
-  // has it — see `missing` in complianceOf, which flags its absence.
-  lenderLicense: 'Licensed by the Utah Division of Real Estate.',
+  // A named loan officer, shown with their own NMLS ID. Blank by default: the
+  // page identifies the company, and a community that wants an individual named
+  // adds both fields in Setup.
+  loName: '',
+  loNmls: '',
+  // The whole sentence, in the wording of the supplied footer, with the licence
+  // number the owners gave. `missing` in complianceOf flags it if a community
+  // edits the number out.
+  lenderLicense: 'Licensed by the Utah Division of Real Estate, mortgage entity license #1337516.',
   // Blank derives the NMLS Consumer Access page from lenderNmls.
   lenderNmlsUrl: '',
 

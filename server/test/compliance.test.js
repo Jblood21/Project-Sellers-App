@@ -13,12 +13,11 @@ test('the defaults describe Summit Home Loans and name what a human still has to
   assert.equal(c.lender.name, 'Summit Home Loans');
   assert.equal(c.lender.nmls, '1790749');
   assert.equal(c.lender.ready, true);
-  assert.deepEqual(c.lo, { name: 'Alan Blood', nmls: '3146' });
+  assert.equal(c.lo, null, 'no individual is named until a community adds one');
+  assert.match(c.license, /Utah Division of Real Estate, mortgage entity license #1337516\./);
   assert.equal(c.copyright, '© 2026 Summit Home Loans');
   // These are the things this module refuses to invent.
-  assert.deepEqual(c.missing, [
-    'state licence number', 'privacy policy link', 'terms of use link', 'accessibility link',
-  ]);
+  assert.deepEqual(c.missing, ['privacy policy link', 'terms of use link', 'accessibility link']);
   assert.deepEqual(c.links.map((l) => l.key), ['nmls'], 'a link with no address is not printed');
 });
 
@@ -34,7 +33,9 @@ test('the required statements are present, in order, with the lender named', () 
   assert.doesNotMatch(all, /undefined|\{|\}/);
 });
 
-test('a state licence number clears the warning, and a blank statement drops out', () => {
+test('a licence sentence with no number is flagged, a number clears it, and a blank statement drops out', () => {
+  const noNumber = complianceOf({ lenderLicense: 'Licensed by the Utah Division of Real Estate.' }, here);
+  assert.ok(noNumber.missing.includes('state licence number'));
   const c = complianceOf({ lenderLicense: 'Utah mortgage entity licence #1234567.', complianceRates: '' }, here);
   assert.ok(!c.missing.includes('state licence number'));
   assert.match(c.license, /1234567/);
@@ -59,8 +60,9 @@ test('blanking the lender never prints "undefined" or an empty bullet', () => {
   assert.ok(c.missing.includes('lender name') && c.missing.includes('lender NMLS ID'));
   assert.equal(c.copyright, '© 2026 Willow Creek');
   assert.equal(c.nmlsHref, '');
-  const flat = JSON.stringify(c) + complianceText({ lenderName: '', lenderNmls: '' }, here);
-  assert.doesNotMatch(flat, /undefined|null/);
+  // Only printed text is checked for "null": the structured result legitimately holds `lo: null`.
+  assert.doesNotMatch(JSON.stringify(c), /undefined/);
+  assert.doesNotMatch(c.statements.map((s) => s.text).join(' ') + complianceText({ lenderName: '', lenderNmls: '' }, here), /undefined|null/);
 });
 
 test('a loan officer is only advertised with their own NMLS ID', () => {
@@ -127,7 +129,10 @@ test('the plain-text footer says what the page says', () => {
   const t = complianceText({}, here);
   for (const s of c.statements) assert.ok(t.includes(s.text), s.key);
   assert.ok(t.includes(c.nmlsHref));
-  assert.ok(t.includes('Loan officer: Alan Blood · NMLS #3146'));
+  assert.ok(t.includes('mortgage entity license #1337516'));
+  assert.ok(!t.includes('Loan officer:'), 'no loan officer line until a community names one');
+  const named = complianceText({ loName: 'Pat Doe', loNmls: '123456' }, here);
+  assert.ok(named.includes('Loan officer: Pat Doe · NMLS #123456'));
 });
 
 test('a tour names the lender the community chose, not the built-in default', async () => {

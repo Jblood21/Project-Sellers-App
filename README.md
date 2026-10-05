@@ -341,10 +341,11 @@ Access*, *Privacy Policy*, *Terms of Use*, *Accessibility*) are fixed and not se
   team read it. Mortgage advertising is regulated, and what is required depends on the lender, the
   state and the relationship between builder and lender.
 - Some things are **deliberately left blank, and are never filled in for you**, because only the
-  lender or builder has them: the **state licence number**, the **privacy policy, terms of use and
-  accessibility links**, the lender's website, and any **RESPA Affiliated Business Arrangement
-  disclosure** (owed if builder and lender are affiliated). Setup lists these under **Needs your
-  attention before launch**. The same list flags a required statement (equal housing, not an offer
+  lender or builder has them: the **privacy policy, terms of use and accessibility links**, the
+  lender's website, and any **RESPA Affiliated Business Arrangement disclosure** (owed if builder
+  and lender are affiliated). The state licensing sentence ships with the Utah mortgage entity
+  licence number the owners supplied, and no individual loan officer is named until a community
+  adds one. Setup lists what is still missing under **Needs your attention before launch**. The same list flags a required statement (equal housing, not an offer
   for credit, not a real estate agent) that has been blanked out.
 - Blank the lender's name or NMLS ID and the footer drops the lender logo and Equal Housing mark
   and prints only the statements.

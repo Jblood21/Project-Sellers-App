@@ -34,6 +34,8 @@ function fixture(overrides = {}) {
       ...DEFAULT_SETTINGS,
       notifyEmail: PRIVATE_EMAIL,
       lenderLicense: 'Licensed by the Utah Division of Real Estate, license #12345.',
+      loName: 'Alan Blood',
+      loNmls: '3146',
     },
     tools: { payment: true, afford: true, loans: true, compare: true, dpa: true, savings: true, movein: false },
     features: { lotNumbers: true, floorPlans: true, siteMap: true, resources: true, guides: true, agents: true },
