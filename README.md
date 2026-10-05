@@ -384,9 +384,9 @@ are several), on every home, and on a **Meet the agent** page. Each card has the
 **Call**, **Text** (phones only) and **Email** buttons, and a **Tour the homes** button that opens a message to
 the agent that is already written: a text on a phone, an email on a computer (whichever the agent has, if only
 one). The **Explore Homes** screen has *Ready to look at homes?* under the homes (one button per agent a message can
-reach), and each model's page starts its buttons with **Tour this model**, which asks the first agent who can be
-reached and names the model in the message (the agent cards on a model page have Call, Text and Email, not a tour button). Nothing opens a
-new tab. There is no realtor disclaimer line: the old note and fair housing line were removed. The *Realtors*
+reach), and each model's page starts its buttons with **Tour this model**, which opens **Talk to the team** (the
+day-then-time picker), not a message to an agent (the agent cards on a model page have Call, Text and Email, not a
+tour button). Nothing opens a new tab. There is no realtor disclaimer line: the old note and fair housing line were removed. The *Realtors*
 switch under **Tools → What buyers see** hides the realtors. Contact details are published as given: a website
 must be an `http(s)` address and an email must contain an `@`.
 
