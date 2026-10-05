@@ -41,7 +41,7 @@
   --cp-topbar-h: 56px;
   --cp-control-h: 48px;
   --cp-tile-min-h: 84px;
-  --cp-photo-h: 104px;
+  --cp-photo-h: 148px;
   --cp-radius-sm: 10px;
   --cp-radius-md: 14px;
   --cp-radius-lg: 16px;
@@ -291,14 +291,6 @@
 }
 .b-app.l-cornerpost .cp-row--guide { align-items: flex-start; }
 .b-app.l-cornerpost .cp-row--guide .cp-row__chev { align-self: center; }
-.b-app.l-cornerpost .cp-row__thumb {
-  flex: none;
-  width: 72px;
-  height: 72px;
-  border-radius: var(--cp-radius-sm);
-  object-fit: cover;
-  background: var(--t-tint2);
-}
 .b-app.l-cornerpost .cp-row__sum {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -326,47 +318,33 @@
   color: var(--t-accT);
 }
 
-/* ── photo tile with scrim ─────────────────────────────────────────────── */
+/* ── photo tile: the picture as it is, with its words underneath ───────── */
+/* No scrim and no tint over the picture. A community's hero photograph is the
+   best thing on the screen and fading it hides it; the words go on a solid
+   caption below instead, where they read on any photograph and any theme. */
 .b-app.l-cornerpost .cp-photo {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  height: var(--cp-photo-h);
   padding: 0;
   overflow: hidden;
   border-radius: var(--cp-radius-lg);
   border: 1px solid var(--t-line);
-  background: var(--t-tint);
-  color: #fff;
+  background: var(--t-sur);
+  color: var(--t-ink);
   font-family: var(--t-font);
   text-align: left;
   text-decoration: none;
   cursor: pointer;
 }
-.b-app.l-cornerpost .cp-photo__img { position: absolute; inset: 0; }
-/* A community with no hero photo yet (every new one) shows this instead of the
-   shared "Photo coming soon" tile, whose muted label read at 1.3:1 under the
-   scrim. The ground is a fixed dark mixed from the accent, so the white title
-   has a dark ground on every theme, light or dark. */
-.b-app.l-cornerpost .cp-photo__img--empty {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--t-accT) 45%, #120c20), #120c20);
-}
-/* Held solid under the two lines of text and faded out above them. The design
-   fades by 55% of the height, which leaves the title over almost bare photo; a
-   white photograph then reads at 1.3:1. At .68 the worst case, pure white
-   underneath, is still 4.9:1 for the white title. The scrim is black-on-image,
-   not a theme colour: white text over a photograph needs a dark ground
-   whatever the palette. */
-.b-app.l-cornerpost .cp-photo::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(18, 12, 32, 0.68) 0%, rgba(18, 12, 32, 0.68) 48%, rgba(18, 12, 32, 0) 100%);
-  pointer-events: none;
-}
-.b-app.l-cornerpost .cp-photo__text { position: absolute; z-index: 1; left: var(--cp-space-3); right: var(--cp-space-3); bottom: var(--cp-space-3); }
-.b-app.l-cornerpost .cp-photo__title { display: block; font-size: 18px; line-height: 22px; font-weight: 800; color: #fff; }
-.b-app.l-cornerpost .cp-photo__sub { display: block; font-size: 11px; line-height: 15px; font-weight: 500; color: #fff; }
+.b-app.l-cornerpost .cp-photo__img { position: relative; display: block; width: 100%; height: var(--cp-photo-h); }
+/* A community with no hero photo yet (every new one) shows a plain tinted block
+   instead of the shared "Photo coming soon" tile. */
+.b-app.l-cornerpost .cp-photo__img--empty { background: var(--t-tint); }
+.b-app.l-cornerpost .cp-photo__text { display: block; padding: var(--cp-space-3); background: var(--t-sur); border-top: 1px solid var(--t-line); }
+.b-app.l-cornerpost .cp-photo__title { display: block; font-size: 18px; line-height: 22px; font-weight: 800; color: var(--t-ink); }
+.b-app.l-cornerpost .cp-photo__sub { display: block; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--t-ink); }
 
 /* ── section header: a rule, an eyebrow, an optional title ─────────────── */
 .b-app.l-cornerpost .cp-section { margin-top: var(--cp-space-8); }
@@ -610,9 +588,8 @@
 .b-app.l-cornerpost .b-sheet { max-width: var(--cp-page-max); border-radius: var(--cp-radius-lg) var(--cp-radius-lg) 0 0; }
 
 /* ── guides: the list and the reading page ─────────────────────────────── */
-/* A guide in a list is a row like the home screen's: a small picture beside the
-   words, so thirteen of them stay a list a buyer can scan rather than thirteen
-   full-width photographs. The title link is stretched over the whole row. */
+/* A guide in a list is a row like the home screen's, words only, so thirteen of
+   them stay a list a buyer can scan. The title link is stretched over the whole row. */
 .b-app.l-cornerpost .b-glist { gap: var(--cp-space-2); }
 .b-app.l-cornerpost .b-gcard {
   flex-direction: row;
@@ -621,13 +598,6 @@
   padding: var(--cp-space-3);
   border-radius: var(--cp-radius-lg);
   box-shadow: none;
-}
-.b-app.l-cornerpost .b-gcard__img {
-  flex: none;
-  width: 88px;
-  height: 88px;
-  aspect-ratio: 1;
-  border-radius: var(--cp-radius-sm);
 }
 .b-app.l-cornerpost .b-gcard__body { flex: 1; min-width: 0; gap: var(--cp-space-1); padding: 0; }
 .b-app.l-cornerpost .b-gcard__kicker {
@@ -647,7 +617,6 @@
   text-wrap: balance;
 }
 .b-app.l-cornerpost .b-article__byline { font-weight: 700; }
-.b-app.l-cornerpost .b-article__hero { border-radius: var(--cp-radius-md); border: 1px solid var(--t-line); }
 .b-app.l-cornerpost .b-article__cta { border-radius: var(--cp-radius-lg); background: var(--t-tint); border-color: var(--t-line); }
 /* Reading text: 16/1.7, still Manrope, with headings in the design's ink-strong
    800. Sentence case and no tracking, so a serif theme's uppercase does not leak
@@ -732,3 +701,17 @@
   .b-app.l-cornerpost .b-bar > span { transition: none; }
   .b-app.l-cornerpost * { scroll-behavior: auto; }
 }
+
+/* ── builder incentive, the agent to tour with, FAQ ────────────────────── */
+.b-app.l-cornerpost .cp-incentive {
+  background: var(--t-tint);
+  border: 1px solid var(--t-line);
+  border-radius: var(--cp-radius-lg);
+  padding: var(--cp-space-4);
+  gap: var(--cp-space-2);
+}
+.b-app.l-cornerpost .cp-incentive .b-incentive__title { font-size: 20px; line-height: 26px; font-weight: 800; text-transform: none; letter-spacing: 0; }
+.b-app.l-cornerpost .b-tour { gap: var(--cp-space-3); }
+.b-app.l-cornerpost .b-tour__meet { font-size: 18px; line-height: 24px; font-weight: 800; text-transform: none; letter-spacing: 0; }
+.b-app.l-cornerpost .b-faq__item { border-radius: var(--cp-radius-md); }
+.b-app.l-cornerpost .b-faq__q { font-weight: 700; }

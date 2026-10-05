@@ -146,7 +146,8 @@ describe('server-rendered page heads', () => {
     assert.match(html, new RegExp(`href="https://homes\\.example\\.com/c/[^"]+/guides/${liveSlug}"`));
     const ld = jsonLdOf(html);
     const article = ld['@graph'].find((n) => n['@type'] === 'Article');
-    assert.ok(article.headline && article.image?.['@type'] === 'ImageObject', 'an Article with an ImageObject');
+    assert.ok(article.headline, 'an Article with a headline');
+    assert.equal(article.image, undefined, 'guides carry no pictures');
     assert.ok(article.datePublished && article.dateModified);
     assert.match(html, new RegExp(`<title>${article.headline.replace(/[$()*+.?[\]\\^{|}]/g, '\\$&').replace(/&/g, '&amp;')}`));
     assert.ok(typesOf(ld).includes('BreadcrumbList'));

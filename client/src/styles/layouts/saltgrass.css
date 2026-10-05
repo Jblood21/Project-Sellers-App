@@ -661,6 +661,18 @@
 
 /* Three figures on a band, the brand's stat strip. */
 .b-app.l-saltgrass .sg-strip { background: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-saltgrass .sg-strip__title {
+  margin: 0;
+  padding: 1.3rem 0 0;
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  line-height: 0.95;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+  text-align: center;
+  color: var(--t-onacc2);
+}
 .b-app.l-saltgrass .sg-strip__grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; text-align: center; }
 .b-app.l-saltgrass .sg-strip__grid > div { padding: 1.3rem 0.4rem; border-right: 1px solid rgba(255, 255, 255, 0.28); }
 .b-app.l-saltgrass .sg-strip__grid > div:last-child { border-right: 0; }
@@ -692,51 +704,27 @@
 
 .b-app.l-saltgrass .sg-explore {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border-radius: 10px;
   cursor: pointer;
   background: var(--sg-deep);
 }
-.b-app.l-saltgrass .sg-explore__photo { height: clamp(190px, 42vw, 320px); }
-/* Only the picture is dimmed under the title. Dimming the whole box also dimmed
-   the "Photo coming soon" label of a community with no photo to 1.9:1. */
-.b-app.l-saltgrass .sg-explore__photo .photo-img { opacity: 0.55; }
-/* The scrim is drawn after the photo and covers it with 94% of the deep ground
-   on the left, which left this label at 1.3:1 even in the light ink. The label
-   is lifted above the scrim, and moved to the top right where the scrim is
-   thinnest and clear of the title, so it is read against the plain deep ground. */
-.b-app.l-saltgrass .sg-explore__photo .photo-empty {
-  position: relative;
-  z-index: 1;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 1rem 1.3rem;
-  font-size: 13px;
-  color: var(--t-onacc2);
-}
+/* The picture at full strength: no dimming, no gradient over it. A community's
+   hero photograph is the best thing on the screen and fading it hides it. */
+.b-app.l-saltgrass .sg-explore__photo { height: clamp(190px, 42vw, 320px); background: var(--t-tint); }
+.b-app.l-saltgrass .sg-explore__photo .photo-empty { color: var(--t-ink); }
+/* The words sit on a solid caption beneath the picture, so they read on any
+   photograph and any theme without anything laid over the image. */
 .b-app.l-saltgrass .sg-explore__scrim {
-  position: absolute;
-  inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   align-items: flex-start;
   gap: 0.3rem;
-  padding: 1.2rem 1.3rem;
-  /* From the left, so white type stays legible over any photograph. The photo
-     itself is dimmed to 55% on the deep ground, as the reference's visit banner
-     does, because a gradient alone cannot make white type safe on a daylight
-     picture. */
-  background: linear-gradient(100deg, color-mix(in srgb, var(--sg-deep) 94%, transparent) 0%, color-mix(in srgb, var(--sg-deep) 62%, transparent) 55%, color-mix(in srgb, var(--sg-deep) 10%, transparent) 100%);
+  padding: 1.1rem 1.3rem 1.2rem;
+  background: var(--sg-deep);
   color: var(--t-onacc2);
-}
-/* On a phone the type runs nearly the full width of the banner, so the scrim is
-   vertical: the whole banner is dark behind it, and darker toward the foot
-   where the text sits. */
-@media (max-width: 780px) {
-  .b-app.l-saltgrass .sg-explore__scrim {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--sg-deep) 72%, transparent) 0%, color-mix(in srgb, var(--sg-deep) 93%, transparent) 55%);
-  }
 }
 .b-app.l-saltgrass .sg-explore__title {
   font-family: var(--t-head);
@@ -916,7 +904,6 @@
 }
 .b-app.l-saltgrass .b-article__byline { font-size: 1rem; }
 .b-app.l-saltgrass .b-article__note { font-size: 0.9rem; }
-.b-app.l-saltgrass .b-article__hero { border-radius: 10px; }
 .b-app.l-saltgrass .b-article__cta { background: var(--t-acc2); border: 0; border-radius: 10px; padding: 1.6rem; box-shadow: inset 0 4px 0 var(--t-acc); }
 .b-app.l-saltgrass .b-article__cta > .b-head { font-size: clamp(1.8rem, 6.5vw, 2.4rem) !important; /* beats the inline 19px */ }
 .b-app.l-saltgrass .b-article__cta > p { font-size: 1.05rem !important; /* beats the inline 13.5px */ }
@@ -951,7 +938,6 @@
 .b-app.l-saltgrass .b-agent { border: 2px solid var(--sg-panel); border-radius: 10px; }
 .b-app.l-saltgrass .b-agent__photo { width: 88px; height: 88px; border-radius: 8px; }
 .b-app.l-saltgrass .b-agent__name { font-size: 1.6rem; }
-.b-app.l-saltgrass .b-agents__eho { color: var(--sg-mut); }
 
 /* ── wide screens ─────────────────────────────────────────────────────── */
 @media (min-width: 700px) {
@@ -1042,3 +1028,39 @@
    step goes to full opacity in the muted ink instead. It is inline, hence
    !important. */
 .b-app.l-saltgrass [style*='opacity: 0.55'] { opacity: 1 !important; color: var(--t-mut); }
+
+/* ── builder incentive, the agent to tour with, FAQ, the loan link ──────── */
+.b-app.l-saltgrass .sg-incentive {
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 1.3rem;
+  background: var(--t-tint);
+  border: 2px solid var(--sg-panel);
+  border-radius: 10px;
+}
+.b-app.l-saltgrass .sg-incentive .b-incentive__title {
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(1.7rem, 6vw, 2.3rem);
+  line-height: 0.95;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+}
+.b-app.l-saltgrass .sg-btn-apply {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 54px;
+  border: 2px solid var(--t-onacc2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--t-onacc2);
+  font-weight: 700;
+  text-decoration: none;
+}
+.b-app.l-saltgrass .sg-btn-apply:hover { background: color-mix(in srgb, var(--t-onacc2) 12%, transparent); }
+.b-app.l-saltgrass .b-tour__meet { font-family: var(--t-head); font-weight: var(--t-headwt); font-size: 1.5rem; line-height: 1; text-transform: var(--t-up); letter-spacing: var(--t-track); }
+.b-app.l-saltgrass .b-faq__item { border: 2px solid var(--sg-panel); border-radius: 10px; }
+.b-app.l-saltgrass .b-faq__q { min-height: 54px; font-weight: 700; }

@@ -1,10 +1,41 @@
-import { PROGRAMS, PROGRAM_DESCRIPTIONS, creditRanges, ratesOf, suggestPrograms } from '@shared/domain.js';
+import { PROGRAMS, PROGRAM_DESCRIPTIONS, complianceOf, creditRanges, ratesOf, suggestPrograms } from '@shared/domain.js';
+import { fullDate } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import LoanProcessLink from '../LoanProcessLink.jsx';
 import { Field, PillGroup, SaveToPlan, ToolHeader } from './ToolUI.jsx';
+
+/**
+ * What sits under "Add to My Home Plan": that this is not an approval, where to
+ * apply, and the date the rates shown were set. The date is the one Setup keeps
+ * for the rates themselves, so the note can never be newer than the numbers
+ * above it, and it is left out rather than guessed when there is none.
+ */
+function LoansNote({ settings, community }) {
+  const { lender } = complianceOf(settings, { community });
+  const effective = fullDate(settings.ratesUpdatedAt);
+  const apply = 'Complete a loan application';
+  return (
+    <>
+      This is not a loan approval or offer to lend.{' '}
+      {lender.applyHref ? (
+        <a
+          href={lender.applyHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--t-accT)', fontWeight: 700 }}
+        >
+          {apply}
+        </a>
+      ) : apply}{' '}
+      to find out what programs you qualify for and get accurate rate quotes for your specific situation.
+      {effective ? ` Rates effective: ${effective}.` : ''}
+    </>
+  );
+}
 
 /** "What financing could work for me?" — two paths: pick one, or be guided. */
 export default function Loans() {
-  const { settings, tools, setTool, track, savePlan } = useBuyer();
+  const { settings, community, tools, setTool, track, savePlan } = useBuyer();
   const state = tools.loans;
   const rates = ratesOf(settings);
   const ranges = creditRanges(settings);
@@ -116,7 +147,11 @@ export default function Loans() {
         </>
       )}
 
-      <SaveToPlan onSave={save} note="The lender confirms which programs you actually qualify for." />
+      <SaveToPlan
+        onSave={save}
+        after={<LoanProcessLink style={{ marginTop: 10 }} />}
+        note={<LoansNote settings={settings} community={community} />}
+      />
     </div>
   );
 }

@@ -91,7 +91,7 @@ See [`.env.example`](.env.example).
 | `PORT` | Defaults to 3000; Render sets this. |
 
 Caching: the hashed files under `/assets` are cached for a long time. The artwork under `/brand` (logos, the
-Equal Housing mark) and `/guides` (the guide picture) keeps its file name when it changes, so the server marks
+Equal Housing mark) and `/guides` (artwork no longer shown on the guides) keeps its file name when it changes, so the server marks
 it `Cache-Control: no-cache`: a browser keeps a copy but asks first, and an unchanged file answers `304` with no body.
 
 ## Deploying to Render
@@ -245,8 +245,9 @@ you can do, and every combination is published at once — *"Tuesday, Wednesday 
 empty list means nobody can book. Re-publishing the same availability adds nothing rather than
 duplicating it, and past dates are kept but never offered.
 
-Buyers see those times grouped by day, choose one, and choose **a call** or **an email**. The
-choice leads the alert the builder receives, because it decides what they do next.
+Buyers **pick a day first** (the next six days that have times, with a *More days* button for the rest), and
+only then do that day's times open. They then choose **a call** or **an email**. The choice leads the alert the
+builder receives, because it decides what they do next. A buyer who has already booked sees their own time chosen.
 
 A booked time leaves the menu immediately. Two buyers reaching for the same slot is settled in
 the database rather than by a read-then-write, so exactly one wins and the other is told plainly
@@ -350,17 +351,44 @@ Access*, *Privacy Policy*, *Terms of Use*, *Accessibility*) are fixed and not se
 - Blank the lender's name or NMLS ID and the footer drops the lender logo and Equal Housing mark
   and prints only the statements.
 
+**Starting a loan.** Under **Setup → Lender & compliance → Lender** the **Loan application link** is the lender's
+online application (Arive). With it set, buyers see **Start my loan process** under *Set up a time to talk* on
+the home screen, under *Add to My Home Plan* in **Find My Loan Options** and in **See My Payment**, and the words
+*Complete a loan application* in the loan note link to it (in a new tab, so their plan is still here). It is blank
+until you set it, and a blank link hides all of those: nothing is guessed. The loan note under *Add to My Home Plan*
+reads that this is not a loan approval or offer to lend, and ends with **Rates effective:** the date the rates
+above it were last updated (from Setup → Live rates), left out if rates have never been set.
+
+## Home screen content
+
+Under **Setup → Home screen**:
+
+- **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
+  shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state.
+  *Find out if I qualify* opens a sheet with **Call** and **Text** on a phone or **Email** on a computer, and the
+  message already typed: *Contact me about the preferred lender incentive for* the development (editable). The
+  number is the incentive's own, or the lender's when blank; a computer with no email set is shown the number.
+- **FAQ.** Up to twenty questions and answers, shown on the home screen after the financing card. The section
+  appears only when there is at least one complete question and answer. Answers are plain text. It is also
+  in the page's `FAQPage` structured data (the home screen is behind the contact gate, so search engines do not read it).
+
 ## Realtors
 
 **Setup → Realtors** holds up to **four realtors per community** (the server refuses a fifth). Each has a
 name, brokerage, licence state and number, phone, email, website, a **photo** and a **brokerage logo**.
-Realtors save on their own, not with the Save settings button. They appear under every home and on a
-**Realtors** page, with two editable lines, both set under **Setup → Lender & compliance → Note shown with the realtors**:
-the note that the lender is not a real estate agent and the buyer is free to choose any
-(`agentsNote`), and the fair housing line under it (`agentsEhoLine`, which starts as *Equal Housing
-Opportunity*; leave it blank to hide it). The *Realtors* switch under
-**Tools → What buyers see** hides the realtors. Contact details are published as given: a website must be an
-`http(s)` address and an email must contain an `@`.
+Realtors save on their own, not with the Save settings button.
+
+Buyers see them **listed in full on the page**, never behind a link: on the home screen under
+**Schedule your tour.** (above the buyer guides, headed *Meet the agent.*, or *Meet the agents.* when there
+are several), on every home, and on a **Meet the agent** page. Each card has the licence line and
+**Call**, **Text** (phones only) and **Email** buttons, and a **Tour the homes** button that opens a message to
+the agent that is already written: a text on a phone, an email on a computer (whichever the agent has, if only
+one). The **Explore Homes** screen has *Ready to look at homes?* under the homes (one button per agent a message can
+reach), and each model's page starts its buttons with **Tour this model**, which asks the first agent who can be
+reached and names the model in the message (the agent cards on a model page have Call, Text and Email, not a tour button). Nothing opens a
+new tab. There is no realtor disclaimer line: the old note and fair housing line were removed. The *Realtors*
+switch under **Tools → What buyers see** hides the realtors. Contact details are published as given: a website
+must be an `http(s)` address and an email must contain an `@`.
 
 ## Buyer guides
 
@@ -370,8 +398,8 @@ app**: `/c/:id/guides` and `/c/:id/guides/:slug` open without the contact gate, 
 a shared link can reach them; the header on those pages offers to open the app instead of the tools menu.
 
 Each community gets its own copy, edited under **Learn → Buyer guides**: title, category, byline,
-note, summary, address (slug), a markdown body with a live preview, a picture and its description, and a
-Published switch. **Add a guide** writes a new one. Deleting a guide deletes it for good: the supplied
+note, summary, address (slug), a markdown body with a live preview, and a
+Published switch. Guides have **no pictures**: buyers see words only. **Add a guide** writes a new one. Deleting a guide deletes it for good: the supplied
 set is copied into a community **once**, so a deleted guide does not come back on restart. **Restore the
 supplied guides** brings back any that are missing, matched by where they came from, and never touches
 one you have edited. Markdown is rendered to elements, never to raw HTML, and a link or image
@@ -382,7 +410,7 @@ that is not `http(s)`, `mailto:`, `tel:` or a site path is shown as text.
 Every buyer page carries schema.org **JSON-LD**: the community, the lender and the builder on the landing
 page, `Article` markup on a guide, `RealEstateAgent` for realtors, homes with their offers, and
 `BreadcrumbList` and `ImageObject` entries for every picture shown, which also carry real `alt` text (on the
-tools home that means the community banner, the thumbnails of the guides it features and the realtors' photos). The
+tools home that means the community banner and the realtors' photos; guides have no pictures). The
 server writes the head (title, description, canonical link, Open Graph tags and the JSON-LD) into the HTML
 of the **three public pages** (landing, guide list and each guide) before it is sent, so a crawler that does not run the
 app still sees it; the app then takes the tags over. A guide that is a draft, deleted or switched off
@@ -427,7 +455,7 @@ client/src/
   admin/             the admin app: communities, 8 tabs (Homes, Area, Learn, Times, Tools, Leads, Stats,
                      Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
                      display-feature switches
-  admin/setup/       the Setup cards: layout, development logo, lender & compliance, realtors
+  admin/setup/       the Setup cards: layout, development logo, lender & compliance, realtors, builder incentive, FAQ
   admin/learn/       the buyer-guide list and editor
   lib/               API client, formatting, photo downscaling, storage
 ```

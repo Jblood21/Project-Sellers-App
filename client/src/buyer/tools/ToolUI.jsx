@@ -114,12 +114,13 @@ export function BigNumber({ value, suffix }) {
   );
 }
 
-export function SaveToPlan({ onSave, disabled, note }) {
+export function SaveToPlan({ onSave, disabled, note, after }) {
   return (
     <>
       <button type="button" className="b-btn" onClick={onSave} disabled={disabled}>
         Add to My Home Plan
       </button>
+      {after}
       {note ? (
         <p style={{ fontSize: 10.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>{note}</p>
       ) : null}

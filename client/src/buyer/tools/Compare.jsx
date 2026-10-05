@@ -4,7 +4,7 @@ import { Field, PillGroup, SaveToPlan, ToolHeader } from './ToolUI.jsx';
 
 const DOWN_OPTIONS = [3.5, 5, 10, 20];
 
-/** "Which loan or down payment is smarter?" — two scenarios, side by side. */
+/** "Which loan option fits me best?" — two scenarios, side by side. */
 export default function Compare() {
   const { homes, settings, tools, setTool, track, savePlan } = useBuyer();
   const state = tools.compare;
@@ -12,7 +12,7 @@ export default function Compare() {
   if (!homes.length) {
     return (
       <div className="b-shell" style={{ paddingTop: 20 }}>
-        <ToolHeader title="Compare My Options" subtitle="Which loan or down payment is smarter?" />
+        <ToolHeader title="Compare My Options" subtitle="Which loan option fits me best?" />
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>Homes are still being added to this community.</p>
       </div>
     );

@@ -38,7 +38,7 @@ export default function RealtorsCard({ community, reload }) {
         <span className="tag tag-neutral" aria-live="polite">{agents.length} of {MAX_AGENTS} added</span>
       </div>
       <p className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
-        Agents buyers can contact about homes here. They appear under every home and on a Realtors page.
+        Agents buyers can contact about homes here. They are listed on the home screen under “Schedule your tour.”, under every home, and on a Meet the agent page. Buyers can call, text or email them, and ask to tour.
         Changes here save on their own, not with the Save settings button.
       </p>
 

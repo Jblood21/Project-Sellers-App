@@ -49,6 +49,10 @@ const GROUPS = [
         key: 'lenderNmlsUrl', label: 'NMLS Consumer Access link', inputMode: 'url',
         hint: 'Leave blank to build it from the NMLS ID.',
       },
+      {
+        key: 'loanApplicationUrl', label: 'Loan application link', inputMode: 'url', placeholder: 'https://…', keep: true,
+        hint: 'Where “Start my loan process” goes: the lender’s online application. Blank hides those links. Restore defaults never changes it.',
+      },
     ],
   },
   {
@@ -91,18 +95,6 @@ const GROUPS = [
     ],
     help: 'A blank link is left out of the footer rather than guessed at. These live on the lender’s own website.',
   },
-  {
-    id: 'agents',
-    title: 'Note shown with the realtors',
-    restore: 'Restore Summit defaults',
-    fields: [
-      { key: 'agentsNote', label: 'Realtor note', rows: 3 },
-      {
-        key: 'agentsEhoLine', label: 'Fair housing line under the realtors',
-        hint: 'Leave blank to hide the line.',
-      },
-    ],
-  },
 ];
 
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -131,12 +123,13 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
   };
 
   const restore = (group) => {
-    const patch = Object.fromEntries(group.fields.map(({ key }) => [key, COMPLIANCE_DEFAULTS[key]]));
+    // A field marked `keep` is this community's own (not a Summit default), so it is left as typed.
+    const patch = Object.fromEntries(group.fields.filter(({ keep }) => !keep).map(({ key }) => [key, COMPLIANCE_DEFAULTS[key]]));
     setSettings((prev) => ({ ...prev, ...patch }));
     setRestored(group.id);
   };
 
-  const renderField = ({ key, label, hint, rows, ...rest }) => {
+  const renderField = ({ key, label, hint, rows, keep, ...rest }) => {
     const max = settingMaxLength(key);
     const value = settings[key] ?? '';
     const change = (next) => setSettings((prev) => ({ ...prev, [key]: next }));
@@ -220,7 +213,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
       )}
 
       {GROUPS.map((group) => {
-        const keys = group.fields.map((f) => f.key);
+        const keys = group.fields.filter((f) => !f.keep).map((f) => f.key);
         const atDefaults = keys.every((key) => (settings[key] ?? '') === COMPLIANCE_DEFAULTS[key]);
         const groupUnsaved = keys.some((key) => (settings[key] ?? '') !== (saved[key] ?? ''));
         return (

@@ -4,17 +4,8 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { useBuyer } from '../BuyerContext.jsx';
 
 /**
- * The alt text for a guide's thumbnail next to its title: the guide's own image
- * description (the supplied default picture carries one too), or the title when
- * there is none. It is the same text the structured data gives the picture, so
- * what a screen reader says and what a crawler reads cannot disagree.
- */
-export function thumbAlt(guide) {
-  return guide.imageAlt || guide.title;
-}
-
-/**
- * One guide in a list: picture, category, title and the summary.
+ * One guide in a list: category, title and the summary. Words only: guides
+ * carry no pictures.
  *
  * The title is the only link and it is stretched over the whole card, so a
  * screen reader hears one link named for the guide rather than a paragraph, and
@@ -25,15 +16,6 @@ export function GuideCard({ guide, headingLevel = 3 }) {
   const Heading = `h${headingLevel}`;
   return (
     <article className="b-gcard">
-      <img
-        className="b-gcard__img"
-        src={guide.image}
-        alt={thumbAlt(guide)}
-        loading="lazy"
-        decoding="async"
-        width="1400"
-        height="930"
-      />
       <div className="b-gcard__body">
         {guide.category ? <span className="b-lbl b-gcard__kicker">{guide.category}</span> : null}
         <Heading className="b-gcard__title b-head">

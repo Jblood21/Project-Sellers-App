@@ -164,7 +164,7 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
     // The server empties these lists when the builder switches the feature off;
     // the flag is checked as well so a stale payload cannot show a dead link.
     ...(features.guides && guides.length ? [{ label: 'Buyer guides', to: `/c/${communityId}/guides` }] : []),
-    ...(features.agents && agents.length ? [{ label: 'Realtors', to: `/c/${communityId}/realtors` }] : []),
+    ...(features.agents && agents.length ? [{ label: agents.length > 1 ? 'Meet the agents' : 'Meet the agent', to: `/c/${communityId}/realtors` }] : []),
     { label: 'Homes I Like', to: `/c/${communityId}/saved` },
     { label: 'My Home Plan', to: `/c/${communityId}/plan` },
   ];
@@ -311,6 +311,9 @@ export function TutorialSheet({ open, onClose }) {
   );
 }
 
+/** How many days the time picker offers at once. */
+const DAYS_SHOWN = 6;
+
 export function TourDialog({ topic, onClose }) {
   const open = Boolean(topic);
   const lender = topic === 'lender';
@@ -320,6 +323,9 @@ export function TourDialog({ topic, onClose }) {
   const lenderName = complianceOf(community?.settings, { community }).lender.name || 'the lender';
   const [slots, setSlots] = useState(community?.slots ?? []);
   const [picked, setPicked] = useState(null);
+  // The day chosen first; the times for it open underneath once there is one.
+  const [day, setDay] = useState(null);
+  const [moreDays, setMoreDays] = useState(false);
   const [contact, setContact] = useState('phone');
   const [busy, setBusy] = useState(false);
   const dialogRef = useRef(null);
@@ -336,9 +342,22 @@ export function TourDialog({ topic, onClose }) {
     return () => { live = false; };
   }, [open, communityId]);
 
+  // Each time the sheet opens it starts as a short list of days with nothing picked.
+  // A buyer's own booking is never in the open list (a booked time leaves it), so it
+  // is shown as a line of text below instead of as a choice that cannot be seen.
   useEffect(() => {
-    if (open) setPicked(lead?.tour?.slotId ?? null);
-  }, [open, lead?.tour?.slotId]);
+    if (open) {
+      setDay(null);
+      setPicked(null);
+      setMoreDays(false);
+    }
+  }, [open]);
+
+  // A refreshed list can lose the time that was chosen (somebody else took it).
+  // Clearing it keeps "Book it" from being enabled for a time nobody can see.
+  useEffect(() => {
+    if (picked && !slots.some((item) => item.id === picked)) setPicked(null);
+  }, [slots, picked]);
 
   if (!open) return null;
 
@@ -348,6 +367,12 @@ export function TourDialog({ topic, onClose }) {
     if (last && last[0] === slot.date) last[1].push(slot);
     else byDate.push([slot.date, [slot]]);
   }
+  // A few days, not every day the builder has published: the next ones are what
+  // a buyer is choosing between, and a wall of dates is what this replaced.
+  // "More days" reaches the rest, so nothing the builder published is out of reach.
+  const dayIsHidden = day && !byDate.slice(0, DAYS_SHOWN).some(([date]) => date === day);
+  const days = moreDays || dayIsHidden ? byDate : byDate.slice(0, DAYS_SHOWN);
+  const times = byDate.find(([date]) => date === day)?.[1] ?? [];
 
   const send = async () => {
     if (!picked) return;
@@ -384,34 +409,67 @@ export function TourDialog({ topic, onClose }) {
           </>
         ) : (
           <>
+            {lead?.tour?.date && lead?.tour?.time ? (
+              <span style={{ fontSize: 13.5, color: 'var(--t-ink)', lineHeight: 1.5, fontWeight: 600 }}>
+                You are booked for {formatSlotDate(lead.tour.date)} at {formatSlotTime(lead.tour.time)}. Pick another time to move it.
+              </span>
+            ) : null}
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
               {lender
-                ? `Pick a time and the ${community?.name} team will set you up with ${lenderName}.`
-                : `Pick a time that suits you. These are the times the ${community?.name} team is free.`}
+                ? `Pick a day, then a time, and the ${community?.name} team will set you up with ${lenderName}.`
+                : `Pick a day, then a time that suits you. These are the times the ${community?.name} team is free.`}
             </span>
 
-            <div className="b-stack" style={{ gap: 12, margin: '10px 0 4px' }}>
-              {byDate.map(([date, daySlots]) => (
-                <div key={date} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span className="b-lbl">{formatSlotDate(date)}</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {daySlots.map((slot) => (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        className="b-pill"
-                        data-on={picked === slot.id}
-                        aria-pressed={picked === slot.id}
-                        onClick={() => setPicked(slot.id)}
-                        style={{ flex: 'none', padding: '0 14px' }}
-                      >
-                        {formatSlotTime(slot.time)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <span className="b-lbl" style={{ marginTop: 10 }}>Pick a day</span>
+            <div role="group" aria-label="Pick a day" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '4px 0' }}>
+              {days.map(([date]) => (
+                <button
+                  key={date}
+                  type="button"
+                  className="b-pill"
+                  data-on={day === date}
+                  aria-pressed={day === date}
+                  onClick={() => {
+                    setDay(date);
+                    setPicked(null);
+                  }}
+                  style={{ flex: 'none', padding: '0 14px' }}
+                >
+                  {formatSlotDate(date)}
+                </button>
               ))}
+              {byDate.length > days.length ? (
+                <button
+                  type="button"
+                  className="b-pill"
+                  onClick={() => setMoreDays(true)}
+                  style={{ flex: 'none', padding: '0 14px' }}
+                >
+                  More days
+                </button>
+              ) : null}
             </div>
+
+            {day ? (
+              <>
+                <span className="b-lbl" style={{ marginTop: 6 }}>Pick a time</span>
+                <div role="group" aria-label="Pick a time" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '4px 0' }}>
+                  {times.map((slot) => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      className="b-pill"
+                      data-on={picked === slot.id}
+                      aria-pressed={picked === slot.id}
+                      onClick={() => setPicked(slot.id)}
+                      style={{ flex: 'none', padding: '0 14px' }}
+                    >
+                      {formatSlotTime(slot.time)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
 
             <span className="b-lbl" style={{ marginTop: 6 }}>How should they reach you?</span>
             <div style={{ display: 'flex', gap: 6, margin: '4px 0 8px' }}>

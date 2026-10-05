@@ -96,16 +96,17 @@ test('a phone number becomes a link only when it can be dialled exactly', () => 
   assert.equal(telHref('call us'), '');
 });
 
-test('the fair housing line under the realtors is a setting: defaulted, editable, and blank hides it', () => {
-  assert.equal(COMPLIANCE_DEFAULTS.agentsEhoLine, 'Equal Housing Opportunity');
-  assert.equal(complianceOf({}, here).agentsEhoLine, 'Equal Housing Opportunity', 'a community that never saved it still shows it');
-  assert.equal(complianceOf({ agentsEhoLine: 'Equal Opportunity Housing' }, here).agentsEhoLine, 'Equal Opportunity Housing');
-  assert.equal(complianceOf({ agentsEhoLine: '   ' }, here).agentsEhoLine, '', 'blank on purpose is respected, not defaulted back');
-  assert.equal(complianceOf({ agentsEhoLine: '{community} is an equal housing community' }, here).agentsEhoLine,
-    'Willow Creek is an equal housing community');
-  // It is not one of the footer statements, and blanking it flags nothing as missing.
-  assert.ok(!complianceOf({ agentsEhoLine: '' }, here).statements.some((s) => s.key === 'agentsEhoLine'));
-  assert.deepEqual(complianceOf({ agentsEhoLine: '' }, here).missing, complianceOf({}, here).missing);
+test('the loan application link is the lender\'s, only ever http(s), and blank hides it', () => {
+  assert.equal(COMPLIANCE_DEFAULTS.loanApplicationUrl, '', 'no address is guessed for the lender');
+  assert.equal(complianceOf({}, here).lender.applyHref, '');
+  assert.equal(complianceOf({ loanApplicationUrl: ' https://apply.example.com/loan?x=1 ' }, here).lender.applyHref,
+    'https://apply.example.com/loan?x=1');
+  for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'ftp://a.example', 'vbscript:x']) {
+    assert.equal(complianceOf({ loanApplicationUrl: bad }, here).lender.applyHref, '', bad);
+  }
+  // The realtor notice and fair housing line this module used to carry are gone.
+  assert.ok(!('agentsNote' in COMPLIANCE_DEFAULTS) && !('agentsEhoLine' in COMPLIANCE_DEFAULTS));
+  assert.ok(!('agentsNote' in complianceOf({}, here)) && !('agentsEhoLine' in complianceOf({}, here)));
 });
 
 test('the NMLS Consumer Access address is built from digits only', () => {
@@ -159,4 +160,15 @@ test('a blanked required statement is listed as needing attention, not published
   const one = complianceOf({ complianceNotOffer: '' }, here);
   assert.deepEqual(one.missing.filter((m) => /statement$/.test(m)), ['not an offer for credit statement']);
   assert.ok(!complianceOf({}, here).missing.some((m) => /statement$/.test(m)));
+});
+
+test('FAQ helpers keep only text, never throw, and refuse what is not a list', async () => {
+  const { parseFaq, serializeFaq, normalizeFaqJson } = await import('../../shared/faq.js');
+  assert.deepEqual(parseFaq(JSON.stringify([{ q: { x: 1 }, a: 'a' }, { q: 'Q?', a: ' A ' }, null, 'x', { q: 'Only', a: '' }])), [{ q: 'Q?', a: 'A' }]);
+  assert.deepEqual(parseFaq('not json'), []);
+  assert.deepEqual(parseFaq(undefined), []);
+  assert.equal(serializeFaq([{ q: 'Q?', a: 'A' }]), '[{"q":"Q?","a":"A"}]');
+  assert.equal(normalizeFaqJson(`${'['.repeat(100000)}${']'.repeat(100000)}`), '[]', 'nested far too deep is a list with nothing usable, and does not throw');
+  assert.equal(normalizeFaqJson('{"q":"x"}'), null);
+  assert.equal(normalizeFaqJson('  '), '[]');
 });

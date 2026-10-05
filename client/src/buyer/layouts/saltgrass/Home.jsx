@@ -5,6 +5,10 @@ import { complianceOf, telHref } from '@shared/compliance.js';
 import Photo from '../../../components/Photo.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
 import LenderLogo, { EhlMark } from '../../LenderLogo.jsx';
+import AgentsBlock from '../../AgentsBlock.jsx';
+import FaqList, { useFaq } from '../../FaqList.jsx';
+import IncentiveCard from '../../IncentiveCard.jsx';
+import LoanProcessLink from '../../LoanProcessLink.jsx';
 import { GuideCard } from '../../screens/Guides.jsx';
 
 /** The small "done" flag a tool card carries once its answer is in the plan. */
@@ -67,6 +71,7 @@ function LenderPanel({ onOpen }) {
           <button type="button" className="sg-btn-white" onClick={onOpen}>
             Set up a time to talk
           </button>
+          <LoanProcessLink className="sg-btn-apply" />
           <div className="sg-lender__id">
             <span className="sg-lender__ehl"><EhlMark tone="dark" height={44} /></span>
             <span className="sg-lender__text b-lender-card__text">
@@ -146,8 +151,11 @@ function Resources({ resources }) {
 
 /**
  * The Salt Grass home: a dark hero with the two questions a buyer asks first, a
- * band of three figures, then everything the default home has, in the same
- * order of importance but laid out as alternating grounds.
+ * band of three figures under a "My Home Plan" heading, then everything the
+ * default home has, laid out as alternating grounds: the tools, the agent to
+ * tour with, the guides, the financing, the FAQ, and last the builder's own
+ * videos and articles. A builder incentive, when there is one, sits above the
+ * homes picture.
  *
  * Every datum and handler comes from the model (see useHomeModel), so nothing
  * here decides what a tap does.
@@ -157,8 +165,10 @@ export default function Home({ model }) {
     community, paths, leadTools, otherTools, resources, inPlan, savedCount,
     openTool, openExplore, openArea, openMap, openLender,
   } = model;
+  const faq = useFaq();
   const allTools = [...leadTools, ...otherTools];
   const inPlanCount = allTools.filter((tool) => inPlan(tool.k)).length;
+  const floorplans = model.homesCount === 1 ? 'available floorplan' : 'available floorplans';
 
   return (
     <div className="sg-home">
@@ -166,7 +176,7 @@ export default function Home({ model }) {
         <div className="sg-wrap">
           <h1 className="sg-hero__h1">Hi {model.firstName} — can you buy one of these?</h1>
           <p className="sg-lead">
-            Answer a few natural questions and find out. Everything you do saves to your home plan.
+            Take a few minutes to find out what works for you and create your personalized home plan.
           </p>
           {leadTools.length ? (
             <div className={`sg-lead-tools${leadTools.length > 1 ? ' sg-lead-tools--two' : ''}`}>
@@ -178,25 +188,32 @@ export default function Home({ model }) {
         </div>
       </section>
 
-      <section className="sg-strip" aria-label="Where you are">
-        <div className="sg-wrap sg-strip__grid">
-          <div>
-            <b className="num">{model.homesCount}</b>
-            <span>{model.homesCount === 1 ? 'Home available' : 'Homes available'}</span>
-          </div>
-          <div>
-            <b className="num">{savedCount}</b>
-            <span>Homes I like</span>
-          </div>
-          <div>
-            <b className="num">{inPlanCount}</b>
-            <span>In your plan</span>
+      <section className="sg-strip" aria-labelledby="home-my-plan">
+        <div className="sg-wrap">
+          <h2 id="home-my-plan" className="sg-strip__title">My Home Plan</h2>
+          <div className="sg-strip__grid">
+            <div>
+              <b className="num">{model.homesCount}</b>
+              <span>{model.homesCount === 1 ? 'Available floorplan' : 'Available floorplans'}</span>
+            </div>
+            <div>
+              <b className="num">{savedCount}</b>
+              <span>Homes I like</span>
+            </div>
+            <div>
+              <b className="num">{inPlanCount}</b>
+              <span>In your plan</span>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="sg-band">
         <div className="sg-wrap">
+          <IncentiveCard className="sg-incentive" />
+
+          {/* The picture is shown as it is: no fade, no tint. The words sit on a
+              solid caption beneath it, where they read on any photograph. */}
           <div
             role="button"
             tabIndex={0}
@@ -220,7 +237,7 @@ export default function Home({ model }) {
             <div className="sg-explore__scrim">
               <span className="sg-explore__title">Explore Homes</span>
               <span className="sg-explore__sub">
-                {model.homesCount} homes available · save the ones you like
+                {model.homesCount} {floorplans} · save the ones you like
               </span>
             </div>
           </div>
@@ -230,7 +247,7 @@ export default function Home({ model }) {
               {model.hasSpots ? (
                 <Row title="Local Spots" sub="Schools, parks and everyday places nearby" onOpen={openArea} />
               ) : null}
-              {model.hasMap ? <Row title="Site Map" sub="See where each home sits" onOpen={openMap} /> : null}
+              {model.hasMap ? <Row title="Site Map" sub="View the community layout" onOpen={openMap} /> : null}
             </div>
           ) : null}
 
@@ -253,8 +270,19 @@ export default function Home({ model }) {
         </div>
       </section>
 
+      {/* The agent, listed in full on the page, ahead of the guides: a buyer who
+          is ready to see a home should not have to scroll past reading to do it. */}
+      {model.showAgents ? (
+        <section className="sg-band sg-band--sur" aria-labelledby="home-agents">
+          <div className="sg-wrap">
+            <h2 id="home-agents" className="sg-h2">Schedule your tour</h2>
+            <AgentsBlock />
+          </div>
+        </section>
+      ) : null}
+
       {model.showGuides ? (
-        <section className="sg-band sg-band--sur sg-guides" aria-labelledby="home-guides">
+        <section className="sg-band sg-guides" aria-labelledby="home-guides">
           <div className="sg-wrap">
             <h2 id="home-guides" className="sg-h2">Buyer guides</h2>
             <div className="b-glist">
@@ -271,37 +299,18 @@ export default function Home({ model }) {
         </section>
       ) : null}
 
-      {resources.length ? <Resources resources={resources} /> : null}
+      <LenderPanel onOpen={openLender} />
 
-      {/* One row, not four cards: the full cards are a tap away, and a home
-          screen that listed every agent would push the tools out of sight. */}
-      {model.showAgents ? (
-        <section className="sg-band sg-band--sur" aria-labelledby="home-realtors">
+      {faq.length ? (
+        <section className="sg-band sg-band--sur" aria-labelledby="home-faq">
           <div className="sg-wrap">
-            <h2 id="home-realtors" className="sg-h2">Realtors</h2>
-            <Link to={paths.realtors} className="b-agents-row">
-              <span className="b-agents-row__faces" aria-hidden="true">
-                {model.agents.map((agent) =>
-                  agent.photo ? (
-                    <img key={agent.id} src={agent.photo} alt="" />
-                  ) : (
-                    <span key={agent.id} className="b-agents-row__initial">{agent.name?.trim()?.[0]}</span>
-                  ),
-                )}
-              </span>
-              <span className="b-agents-row__text">
-                <span className="sg-h3">Meet the realtors</span>
-                <span className="sg-row__sub">
-                  {model.agents.length} {model.agents.length === 1 ? 'agent' : 'agents'} working with buyers here
-                </span>
-              </span>
-              <span className="sg-row__go" aria-hidden="true">›</span>
-            </Link>
+            <h2 id="home-faq" className="sg-h2">FAQ</h2>
+            <FaqList items={faq} />
           </div>
         </section>
       ) : null}
 
-      <LenderPanel onOpen={openLender} />
+      {resources.length ? <Resources resources={resources} /> : null}
     </div>
   );
 }

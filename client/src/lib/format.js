@@ -14,6 +14,14 @@ export function shortDate(value) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** 'Oct 2, 2026'. The year is kept: a rate quoted without one is open to being read as last year's. */
+export function fullDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export function dateTime(value) {
   if (!value) return '';
   const d = new Date(value);

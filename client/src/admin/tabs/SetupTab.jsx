@@ -7,6 +7,8 @@ import { dateTime } from '../../lib/format.js';
 import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import ComplianceCard from '../setup/ComplianceCard.jsx';
+import FaqCard from '../setup/FaqCard.jsx';
+import IncentiveCard from '../setup/IncentiveCard.jsx';
 import LayoutCard from '../setup/LayoutCard.jsx';
 import LogoCard from '../setup/LogoCard.jsx';
 import RealtorsCard from '../setup/RealtorsCard.jsx';
@@ -153,6 +155,10 @@ export default function SetupTab({ community, reload, dirtyRef }) {
       <ComplianceCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
 
       <RealtorsCard community={community} reload={reload} />
+
+      <h4 style={{ margin: '6px 0 -4px', fontSize: 17 }}>Home screen</h4>
+      <IncentiveCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
+      <FaqCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
 
       <h4 style={{ margin: '6px 0 -4px', fontSize: 17 }}>Rates, costs and rules</h4>
       <div className="card elev-sm" style={{ gap: 10 }}>

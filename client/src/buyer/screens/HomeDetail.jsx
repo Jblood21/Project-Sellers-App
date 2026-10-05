@@ -7,7 +7,9 @@ import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
-import AgentCard, { AgentsNotice } from '../AgentCard.jsx';
+import AgentCard from '../AgentCard.jsx';
+import { canMessage } from '../../lib/contact.js';
+import TourButton from '../TourButton.jsx';
 
 export default function HomeDetail({ onOpenTour }) {
   // Which plan the viewer is showing; null means closed.
@@ -21,6 +23,8 @@ export default function HomeDetail({ onOpenTour }) {
   if (!home) return <Navigate to={`/c/${communityId}/explore`} replace />;
 
   const saved = lead?.savedHomeIds?.includes(home.id);
+  // The first agent a message can reach, so one with no phone and no email does not leave this button out.
+  const tourAgent = features.agents ? agents.find(canMessage) ?? null : null;
   const photos = home.photos.length ? home.photos : [null];
 
   return (
@@ -135,9 +139,21 @@ export default function HomeDetail({ onOpenTour }) {
       ) : null}
 
       <div className="b-stack" style={{ gap: 10 }}>
+        {/*
+          First, because a buyer looking at a model is closest to wanting to see
+          it. It opens a message to the agent, already written for this model; a
+          community with no agent listed falls back to the team's time picker.
+        */}
+        {tourAgent ? (
+          <TourButton agent={tourAgent} homeName={home.name} label="Tour this model" className="b-btn" />
+        ) : (
+          <button type="button" className="b-btn" style={{ minHeight: 50 }} onClick={onOpenTour}>
+            Tour this model
+          </button>
+        )}
         <button
           type="button"
-          className="b-btn"
+          className="b-btn b-btn-outline"
           style={{ minHeight: 50 }}
           onClick={() => {
             setTool('pay', { homeId: home.id });
@@ -153,14 +169,14 @@ export default function HomeDetail({ onOpenTour }) {
           onClick={() => toggleSave(home)}
           style={saved ? { background: 'var(--t-acc)', color: 'var(--t-onacc)' } : undefined}
         >
-          {saved ? '★ Saved to Homes I Like' : '☆ Save to Homes I Like'}
+          {saved ? '★ Saved to My Home Plan' : '☆ Save to My Home Plan'}
         </button>
         <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour} style={{ minHeight: 44 }}>
           Talk to the team · tour or call
         </button>
       </div>
       <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>
-        Saving a home adds it to Homes I Like and tells the team you&apos;re interested.
+        Saving a home adds it to My Home Plan and tells the team you&apos;re interested.
       </p>
 
       {/*
@@ -172,14 +188,13 @@ export default function HomeDetail({ onOpenTour }) {
         <section style={{ marginTop: 26 }} aria-labelledby="home-agents">
           <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
           <h2 id="home-agents" className="b-lbl" style={{ margin: '0 0 12px', color: 'var(--t-accT)' }}>
-            Realtors
+            {agents.length > 1 ? 'Meet the agents.' : 'Meet the agent.'}
           </h2>
           <div className="b-stack" style={{ gap: 12 }}>
             {agents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} headingLevel={3} />
+              <AgentCard key={agent.id} agent={agent} headingLevel={3} tour={false} homeName={home.name} />
             ))}
           </div>
-          <AgentsNotice />
         </section>
       ) : null}
     <ToolSheet

@@ -9,6 +9,7 @@ import { telHref } from '@shared/compliance.js';
 import LenderLogo, { EhlMark } from '../LenderLogo.jsx';
 import { layoutFor } from '../layouts/index.js';
 import { GuideCard } from './Guides.jsx';
+import LoanProcessLink from '../LoanProcessLink.jsx';
 
 /**
  * The two questions a buyer asks before any other, so they lead rather than
@@ -108,7 +109,7 @@ export function HomeScreen({ model }) {
         Hi {model.firstName} — can you buy one of these?
       </h1>
       <p style={{ margin: '0 0 16px', color: 'var(--t-mut)', fontSize: 13 }}>
-        Answer a few natural questions and find out. Everything you do saves to your home plan.
+        Take a few minutes to find out what works for you and create your personalized home plan.
       </p>
 
       {lead2.length ? (
@@ -160,22 +161,21 @@ export function HomeScreen({ model }) {
       >
         <div style={{ height: 120 }}>
           <Photo
-            className="b-photo--scrimmed"
             photo={community?.heroPhoto ? { url: community.heroPhoto } : null}
             label=""
             alt={`${community?.name} community photo`}
           />
         </div>
+        {/* The picture is shown as it is, with its words on a solid caption beneath. */}
         <div
           style={{
-            position: 'absolute', inset: 0, background: 'linear-gradient(180deg,transparent 30%,rgba(10,14,10,.72))',
-            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'flex-start',
-            padding: '14px 16px',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+            padding: '12px 16px', background: 'var(--t-sur)', borderTop: '1px solid var(--t-line)',
           }}
         >
-          <span className="b-head" style={{ color: '#fff', fontSize: 19 }}>Explore Homes</span>
-          <span style={{ color: 'rgba(255,255,255,.85)', fontSize: 12 }}>
-            {model.homesCount} homes available · save the ones you like
+          <span className="b-head" style={{ color: 'var(--t-ink)', fontSize: 19 }}>Explore Homes</span>
+          <span style={{ color: 'var(--t-ink)', fontSize: 12 }}>
+            {model.homesCount} {model.homesCount === 1 ? 'available floorplan' : 'available floorplans'} · save the ones you like
           </span>
         </div>
       </div>
@@ -217,7 +217,7 @@ export function HomeScreen({ model }) {
           <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span className="b-head" style={{ fontSize: 16 }}>Site Map</span>
             <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>
-              See where each home sits
+              View the community layout
             </span>
           </span>
           <span style={{ flex: 'none', color: 'var(--t-accT)', fontSize: 18 }} aria-hidden="true">›</span>
@@ -373,7 +373,7 @@ export function HomeScreen({ model }) {
         <section style={{ marginTop: 22, marginBottom: 14 }} aria-labelledby="home-realtors">
           <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
           <h2 id="home-realtors" className="b-lbl" style={{ margin: '0 0 12px', color: 'var(--t-accT)' }}>
-            Realtors
+            Schedule your tour.
           </h2>
           <Link to={paths.realtors} className="b-agents-row">
             <span className="b-agents-row__faces" aria-hidden="true">
@@ -386,7 +386,9 @@ export function HomeScreen({ model }) {
               )}
             </span>
             <span className="b-agents-row__text">
-              <span className="b-head" style={{ fontSize: 16 }}>Meet the realtors</span>
+              <span className="b-head" style={{ fontSize: 16 }}>
+                {model.agents.length > 1 ? 'Meet the agents.' : 'Meet the agent.'}
+              </span>
               <span style={{ fontSize: 12, color: 'var(--t-ink)' }}>
                 {model.agents.length} {model.agents.length === 1 ? 'agent' : 'agents'} working with buyers here
               </span>
@@ -465,6 +467,7 @@ function LenderCard({ onOpen }) {
         <button type="button" className="b-btn" onClick={onOpen} style={{ minHeight: 46 }}>
           Set up a time to talk
         </button>
+        <LoanProcessLink />
 
         {/*
           The licence number and the Equal Housing mark are part of the
