@@ -230,6 +230,7 @@ a { color: inherit; }
   background: linear-gradient(90deg, var(--t-acc) 0%, var(--t-acc) 24%, var(--t-line) 100%);
 }
 .b-btn {
+  overflow-wrap: anywhere;
   min-height: 48px;
   width: 100%;
   border-radius: var(--t-radbtn);
@@ -242,6 +243,8 @@ a { color: inherit; }
   cursor: pointer;
 }
 .b-btn:disabled { opacity: 0.55; cursor: default; }
+/* A link that looks like a button (call, text, email, a loan application). */
+a.b-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
 .b-btn-outline {
   background: transparent;
   color: var(--t-accT);
@@ -413,7 +416,6 @@ a { color: inherit; }
   border-radius: var(--t-radlg);
   overflow: hidden;
 }
-.b-gcard__img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; background: var(--t-tint2); }
 .b-gcard__body { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; }
 .b-gcard__kicker { color: var(--t-accT); }
 .b-gcard__title { font-size: 17px; line-height: 1.25; }
@@ -436,16 +438,6 @@ a { color: inherit; }
 .b-article__title { margin: 6px 0 8px; font-size: 27px; line-height: 1.18; }
 .b-article__byline { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
 .b-article__note { margin: 0 0 14px; font-size: 12px; line-height: 1.5; font-style: italic; color: var(--t-mut); }
-.b-article__hero {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1400 / 930;
-  object-fit: cover;
-  border-radius: var(--t-radlg);
-  margin: 0 0 18px;
-  background: var(--t-tint2);
-}
 .b-article__cta {
   margin-top: 28px;
   padding: 18px;
@@ -458,12 +450,14 @@ a { color: inherit; }
 /* ── buyer: realtors ───────────────────────────────────────────────────── */
 .b-agent {
   display: flex;
-  gap: 14px;
+  flex-direction: column;
+  gap: 12px;
   padding: 14px;
   background: var(--t-sur);
   border: 1px solid var(--t-line);
   border-radius: var(--t-radlg);
 }
+.b-agent__top { display: flex; gap: 14px; }
 .b-agent__photo {
   flex: none;
   width: 76px;
@@ -492,9 +486,22 @@ a { color: inherit; }
 }
 .b-agent__link { font-weight: 600; color: var(--t-accT); text-decoration: none; }
 .b-agent__link:hover { text-decoration: underline; }
-.b-agents__notice { margin-top: 14px; }
-.b-agents__note { margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--t-mut); }
-.b-agents__eho { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--t-mut); }
+/* Call, Text and Email under the card: a thumb's reach, each a 44px target. */
+.b-agent__actions { display: flex; gap: 8px; }
+.b-agent__act {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--t-acc);
+  border-radius: var(--t-radbtn);
+  background: transparent;
+  color: var(--t-accT);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
 /* The home screen's single row that leads to the realtors page. */
 .b-agents-row {
   display: flex;
@@ -647,17 +654,6 @@ textarea.input { min-height: auto; resize: vertical; }
   color: color-mix(in srgb, var(--t-mut, var(--color-neutral-600)) 45%, var(--t-ink, #111));
 }
 .photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* A placeholder under a darkening scrim (the Explore banner) cannot use the
-   muted ink: it is a light-ground colour and the scrim only partly covers it. The
-   theme's own dark ground with the ink made for it reads on every theme, and the
-   scrim, which only darkens, cannot lower that. */
-.b-photo--scrimmed .photo-empty {
-  align-items: flex-start;
-  padding: 12px 16px;
-  background: var(--t-acc2);
-  color: var(--t-onacc2);
-  font-size: 13px;
-}
 
 @media print {
   /* Only the plan screen prints as a lone document. Every other buyer page (a
@@ -683,4 +679,54 @@ textarea.input { min-height: auto; resize: vertical; }
   .b-footer--dark .b-lender-logo:not(.b-lender-logo--plate) .b-lender-logo__img, .b-footer--dark .b-ehl { filter: brightness(0); }
   .b-footer--dark .b-footer__mark { display: none !important; }
   .b-footer__fine, .b-footer__id, .b-footer__brand { break-inside: avoid; page-break-inside: avoid; }
+}
+
+/* ── buyer: schedule your tour, the builder incentive, FAQ, contact sheet ───── */
+.b-tour { display: flex; flex-direction: column; gap: 12px; }
+.b-tour__meet { margin: 0; font-size: 19px; line-height: 1.2; }
+.b-incentive {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--t-tint);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  color: var(--t-ink);
+}
+.b-incentive__kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--t-accT); }
+.b-incentive__title { margin: 0; font-size: 21px; line-height: 1.2; overflow-wrap: anywhere; }
+.b-incentive__body { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.b-incentive__fine { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.b-faq { display: flex; flex-direction: column; gap: 8px; }
+.b-faq__item { background: var(--t-sur); border: 1px solid var(--t-line); border-radius: var(--t-rad); }
+.b-faq__q {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 16px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+  list-style: none;
+}
+.b-faq__q::-webkit-details-marker { display: none; }
+.b-faq__q::after { content: '+'; flex: none; font-size: 20px; line-height: 1; color: var(--t-accT); }
+.b-faq__item[open] > .b-faq__q::after { content: '\2013'; }
+.b-faq__a { margin: 0; padding: 0 16px 14px; font-size: 14px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
+.b-contact__msg {
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  background: var(--t-tint);
+  border-left: 3px solid var(--t-acc);
+  border-radius: var(--t-rad);
+  color: var(--t-ink);
+  font-size: 13.5px;
+  line-height: 1.5;
 }

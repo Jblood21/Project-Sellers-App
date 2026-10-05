@@ -12,7 +12,7 @@ import useMedia from './useMedia.js';
 
 /**
  * Salt Grass header: a dark bar with an accent rule under it, the development's
- * mark first and then "Financing by" and the lender's mark, never merged into
+ * mark first and then "Preferred Lender" and the lender's mark, never merged into
  * one lockup.
  *
  * It keeps everything BuyerHeader does: the back button and where it goes on
@@ -89,7 +89,7 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
               and logo go together or not at all. */}
           {roomy && lender.ready ? (
             <div className="sg-head__lender">
-              <span className="sg-head__by">Financing by</span>
+              <span className="sg-head__by">Preferred Lender</span>
               <LenderLogo tone="dark" height={44} />
             </div>
           ) : null}

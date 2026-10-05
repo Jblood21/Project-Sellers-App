@@ -6,9 +6,11 @@ import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import ImageViewer from '../ImageViewer.jsx';
+import { canMessage } from '../../lib/contact.js';
+import TourButton from '../TourButton.jsx';
 
 export default function Explore() {
-  const { community, homes, lead, toggleSave, track } = useBuyer();
+  const { community, homes, lead, toggleSave, track, agents, features } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
 
@@ -17,6 +19,8 @@ export default function Explore() {
   const map = community?.siteMap ? [{ id: 'map', url: community.siteMap }] : [];
   const [mapOpen, setMapOpen] = useState(false);
   const placed = homes.filter((home) => home.lotNumber).length;
+  // Only the agents a message can reach: a heading with no button under it helps nobody.
+  const reachable = agents.filter(canMessage);
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
@@ -88,6 +92,25 @@ export default function Explore() {
           );
         })}
       </div>
+
+      {/*
+        Under the homes: a buyer who has found one they like is a buyer who wants
+        to see it. The button opens a message to the agent, already written. With
+        several agents each gets their own, so the buyer chooses who to ask.
+      */}
+      {features.agents && reachable.length ? (
+        <section className="b-tour" style={{ marginTop: 22 }} aria-labelledby="explore-ready">
+          <h2 id="explore-ready" className="b-tour__meet b-head">Ready to look at homes?</h2>
+          {reachable.map((agent) => (
+            <TourButton
+              key={agent.id}
+              agent={agent}
+              label={reachable.length > 1 ? `Tour the homes with ${agent.name}` : 'Tour the homes'}
+              className="b-btn"
+            />
+          ))}
+        </section>
+      ) : null}
 
       {/*
         The plat, under the list rather than on a screen of its own. A buyer

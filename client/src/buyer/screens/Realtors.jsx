@@ -1,6 +1,6 @@
 import { Navigate, useParams } from 'react-router-dom';
 
-import AgentCard, { AgentsNotice } from '../AgentCard.jsx';
+import AgentCard from '../AgentCard.jsx';
 import { useBuyer } from '../BuyerContext.jsx';
 
 /**
@@ -18,10 +18,12 @@ export default function Realtors() {
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
-      <h1 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>Realtors</h1>
+      <h1 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>
+        {agents.length > 1 ? 'Meet the agents' : 'Meet the agent'}
+      </h1>
       <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
         {agents.length
-          ? `The real estate agents working with buyers at ${community?.name}.`
+          ? `Call, text or email to schedule your tour of ${community?.name}.`
           : 'No agents have been listed yet — ask the team who to talk to.'}
       </p>
 
@@ -30,8 +32,6 @@ export default function Realtors() {
           <AgentCard key={agent.id} agent={agent} headingLevel={2} />
         ))}
       </div>
-
-      {agents.length ? <AgentsNotice /> : null}
     </div>
   );
 }

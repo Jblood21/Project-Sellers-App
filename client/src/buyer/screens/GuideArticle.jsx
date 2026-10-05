@@ -87,14 +87,6 @@ export default function GuideArticle() {
           <h1 className="b-head b-article__title">{head.title}</h1>
           {head.byline ? <p className="b-article__byline">{head.byline}</p> : null}
           {head.note ? <p className="b-article__note">{head.note}</p> : null}
-          <img
-            className="b-article__hero"
-            src={head.image}
-            alt={head.imageAlt || head.title}
-            width="1400"
-            height="930"
-            decoding="async"
-          />
         </>
       ) : (
         <h1 className="b-head b-article__title">Loading the guide</h1>
@@ -121,11 +113,11 @@ export default function GuideArticle() {
             afford and whether down payment help applies. It is free.
           </p>
           <Link
-            to={signedIn ? `/c/${communityId}/tools` : `/c/${communityId}/start`}
+            to={signedIn ? `/c/${communityId}/explore` : `/c/${communityId}/start`}
             className="b-btn"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
           >
-            Open the Homebuyer App
+            Explore Homes
           </Link>
         </section>
       ) : null}

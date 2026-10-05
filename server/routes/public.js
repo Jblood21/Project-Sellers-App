@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, consentText, GUIDE_TEXT_MAX,
+  CONSENT_VERSION, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
@@ -108,6 +108,20 @@ const publicGuideSummary = (guide) => ({
   updatedAt: guide.updatedAt,
 });
 
+/**
+ * The settings a buyer is served. A switched-off incentive or FAQ is not sent
+ * (the same rule as the site map, agents and guides: draft marketing terms are
+ * not for the public just because the card is hidden), and neither is the
+ * address call requests are emailed to, which is the builder's, not a buyer's.
+ */
+const INCENTIVE_KEYS = Object.keys(DEFAULT_SETTINGS).filter((key) => key.startsWith('incentive'));
+function publicSettings(community) {
+  const { notifyEmail: _private, ...settings } = community.settings;
+  if (!community.features.incentive) for (const key of INCENTIVE_KEYS) delete settings[key];
+  if (!community.features.faq) settings.faqJson = '[]';
+  return settings;
+}
+
 const publicCommunity = (
   community, homes, highlights, resources, heroPhoto, iconPhoto, siteMap, slots,
   { logo, logoLight, lenderLogo, agents, guides },
@@ -120,7 +134,7 @@ const publicCommunity = (
   layout: community.layout,
   builder: community.builder,
   websiteUrl: community.websiteUrl,
-  settings: community.settings,
+  settings: publicSettings(community),
   tools: community.tools,
   features: community.features,
   heroPhoto: heroPhoto?.url ?? null,

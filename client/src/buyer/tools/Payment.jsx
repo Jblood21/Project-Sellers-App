@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PROGRAMS, calcPayment, dpaAmountFor, dpaCap, money, num, ratesOf } from '@shared/domain.js';
 import { dateTime } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import LoanProcessLink from '../LoanProcessLink.jsx';
 import { BigNumber, Field, PillGroup, ResultCard, ResultRow, SaveToPlan, ToolHeader } from './ToolUI.jsx';
 
 const DOWN_OPTIONS = [3.5, 5, 10, 20];
@@ -151,7 +152,7 @@ export default function Payment() {
         </span>
       </ResultCard>
 
-      <SaveToPlan onSave={save} />
+      <SaveToPlan onSave={save} after={<LoanProcessLink style={{ marginTop: 8 }} />} />
       <button
         type="button"
         className="b-btn b-btn-outline"

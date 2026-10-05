@@ -54,6 +54,16 @@ describe('caching of the client build', () => {
     });
   }
 
+  test('a built file that is gone is a 404, not the app page (a deploy renames the chunks)', async () => {
+    const res = await fetch(`${base}/assets/AdminApp-OLDHASH.js`);
+    assert.equal(res.status, 404);
+    assert.doesNotMatch(res.headers.get('content-type') ?? '', /html/);
+    // Real routes still get the app, so deep links keep working.
+    const page = await fetch(`${base}/admin/communities/x`);
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /<title>x<\/title>/);
+  });
+
   test('hashed build files stay long-lived exactly as before', async () => {
     const res = await fetch(`${base}/assets/index-AbC123.js`);
     assert.equal(res.status, 200);

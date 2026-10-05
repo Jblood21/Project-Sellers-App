@@ -1,12 +1,9 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 
-import {
-  DEFAULT_GUIDE_IMAGE, DEFAULT_GUIDE_IMAGE_ALT, GUIDE_TEXT_MAX, normalizeLayout, slugify,
-} from '@shared/domain.js';
+import { GUIDE_TEXT_MAX, normalizeLayout, slugify } from '@shared/domain.js';
 import Markdown from '../../components/Markdown.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
-import ImageSlot from '../setup/ImageSlot.jsx';
 import { Dialog, ErrorNote, Spinner, TextAreaField, TextField, Toggle } from '../ui.jsx';
 
 const grouped = (n) => n.toLocaleString('en-US');
@@ -14,7 +11,6 @@ const count = (value, max) => `${grouped(value.length)} of ${grouped(max)} chara
 
 /** The fields the form edits, taken from a guide the server returned. */
 function formOf(guide) {
-  const custom = guide.image !== DEFAULT_GUIDE_IMAGE;
   return {
     title: guide.title,
     category: guide.category,
@@ -23,10 +19,6 @@ function formOf(guide) {
     summary: guide.summary,
     slug: guide.slug,
     body: guide.body ?? '',
-    // The server resolves a blank alt to the title for a custom picture. Showing
-    // that back as if it were typed would freeze it: rename the guide later and
-    // the picture's description would still carry the old title.
-    imageAlt: custom && guide.imageAlt === guide.title ? '' : guide.imageAlt,
     published: Boolean(guide.published),
   };
 }
@@ -34,17 +26,16 @@ function formOf(guide) {
 /**
  * Edits one buyer guide.
  *
- * Text saves with the Save button; the picture saves the moment it is picked or
- * reset, like every other upload in the admin, so the dialog says so. The body is
- * fetched here rather than carried in the list, because thirteen guides of
- * several thousand words each would otherwise ride along on every page load.
+ * Guides are text only: buyers see no pictures with them, so there is nothing to
+ * upload here. The body is fetched here rather than carried in the list, because
+ * thirteen guides of several thousand words each would otherwise ride along on
+ * every page load.
  */
 export default function GuideEditor({ community, guideId, onClose, onSaved }) {
   const { token } = useAdmin();
   const [guide, setGuide] = useState(null);
   const [form, setForm] = useState(null);
   const [base, setBase] = useState(null);
-  const [image, setImage] = useState(DEFAULT_GUIDE_IMAGE);
   const [unlocked, setUnlocked] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,7 +49,6 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
         setGuide(loaded);
         setForm(formOf(loaded));
         setBase(formOf(loaded));
-        setImage(loaded.image);
       })
       .catch((err) => !cancelled && setError(err.message));
     return () => {
@@ -88,12 +78,10 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
   }
 
   const dirty = JSON.stringify(form) !== JSON.stringify(base);
-  const isDefaultImage = image === DEFAULT_GUIDE_IMAGE;
   const set = (key) => (value) => {
     setSavedAt(0);
     setForm((prev) => ({ ...prev, [key]: value }));
   };
-  const altShown = form.imageAlt.trim() || (isDefaultImage ? DEFAULT_GUIDE_IMAGE_ALT : form.title);
 
   const requestClose = () => {
     if (dirty && !window.confirm('Discard your unsaved changes to this guide?')) return;
@@ -121,26 +109,6 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
     } finally {
       setBusy(false);
     }
-  };
-
-  const pickImage = async (dataUrl) => {
-    const photo = await adminApi.setGuideImage(token, guideId, { dataUrl });
-    setImage(photo.url);
-    // The server blanks the stock picture's description when a real photo
-    // replaces it (it would be a false description of the new one). Mirror that
-    // so the form does not offer to save the stale text back.
-    if (base.imageAlt === DEFAULT_GUIDE_IMAGE_ALT) setBase((b) => ({ ...b, imageAlt: '' }));
-    setForm((f) => (f.imageAlt === DEFAULT_GUIDE_IMAGE_ALT ? { ...f, imageAlt: '' } : f));
-  };
-
-  const resetImage = async () => {
-    const reset = await adminApi.clearGuideImage(token, guideId);
-    setImage(reset.image);
-    // The old description was of the photo that is now gone. Clearing it here and
-    // now keeps the stored guide from describing a picture it no longer shows.
-    const cleared = await adminApi.updateGuide(token, guideId, { imageAlt: '' });
-    setBase((b) => ({ ...b, imageAlt: cleared.imageAlt }));
-    setForm((f) => ({ ...f, imageAlt: cleared.imageAlt }));
   };
 
   return (
@@ -206,23 +174,6 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
             </span>
           </div>
 
-          <ImageSlot
-            label="Guide picture"
-            image={isDefaultImage ? null : image}
-            fallback={{ url: DEFAULT_GUIDE_IMAGE, note: 'Using the shared picture every guide starts with.' }}
-            alt={isDefaultImage ? DEFAULT_GUIDE_IMAGE_ALT : `${guide.title} picture as saved`}
-            onPick={pickImage}
-            onRemove={resetImage}
-            removeWarning="Go back to the shared picture? Your uploaded picture is deleted."
-            hint="Picture changes save as soon as they finish, not with Save guide. Remove goes back to the shared picture."
-          />
-          <TextField
-            label="Picture description (alt text)" value={form.imageAlt} onChange={set('imageAlt')}
-            maxLength={GUIDE_TEXT_MAX.imageAlt}
-            placeholder={isDefaultImage ? DEFAULT_GUIDE_IMAGE_ALT : form.title}
-            hint="Read aloud to people who cannot see the picture, and used by search engines. Blank uses the title."
-          />
-
           <TextAreaField
             label="Guide text (Markdown)" rows={18} className="input ax-body" spellCheck
             value={form.body} onChange={set('body')} maxLength={GUIDE_TEXT_MAX.body}
@@ -237,7 +188,6 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
           </span>
           <div className="ax-preview-frame" role="region" aria-labelledby="guide-preview-label">
             <div className={previewScope}>
-              <img className="ax-preview-hero" src={image} alt={altShown} />
               {form.category ? <p className="ax-preview-kicker">{form.category}</p> : null}
               <h3 className="b-head ax-preview-title">{form.title || 'Untitled guide'}</h3>
               {form.byline ? <p className="ax-preview-by">{form.byline}</p> : null}

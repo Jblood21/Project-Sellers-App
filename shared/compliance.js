@@ -29,6 +29,8 @@
  *   · state-specific wording for any state other than Utah
  */
 
+import { FAQ_JSON_MAX } from './faq.js';
+
 /** What Setup can hold, with the defaults a new community starts from. */
 export const COMPLIANCE_DEFAULTS = {
   // ── who the lender is ───────────────────────────────────────────────────
@@ -84,19 +86,17 @@ export const COMPLIANCE_DEFAULTS = {
   complianceTermsUrl: '',
   complianceAccessibilityUrl: '',
 
-  // ── the real estate agents section ──────────────────────────────────────
-  agentsNote:
-    'Agent information is provided by the community. {lender} is not a real estate agent or '
-    + 'brokerage. You are free to choose any real estate agent.',
-  // The fair housing line printed under the realtors. Blank hides it, so a
-  // builder whose compliance team words it differently, or wants none, can say so.
-  agentsEhoLine: 'Equal Housing Opportunity',
+  // ── where a buyer starts a loan ─────────────────────────────────────────
+  // The lender's online application. Blank hides every "Start my loan process"
+  // link and the link in the loan note: a link that goes nowhere is worse than none.
+  loanApplicationUrl: '',
 };
 
 /** Keys whose values are paragraphs rather than a line, so they get a longer cap. */
 export const LONG_SETTING_KEYS = [
   'complianceEhl', 'complianceNotOffer', 'complianceNotAgent', 'complianceDisclaimer',
-  'complianceRates', 'complianceAba', 'agentsNote', 'lenderLicense',
+  'complianceRates', 'complianceAba', 'lenderLicense',
+  'incentiveBody', 'incentiveFinePrint',
 ];
 export const SHORT_SETTING_MAX = 300;
 export const LONG_SETTING_MAX = 4000;
@@ -106,6 +106,7 @@ export const LONG_SETTING_MAX = 4000;
  * rendered on every page of the buyer app, so a pasted novel would be too.
  */
 export function settingMaxLength(key) {
+  if (key === 'faqJson') return FAQ_JSON_MAX;
   return LONG_SETTING_KEYS.includes(key) ? LONG_SETTING_MAX : SHORT_SETTING_MAX;
 }
 
@@ -199,6 +200,8 @@ export function complianceOf(settings = {}, { year, community = {} } = {}) {
     phoneHref: telHref(s.lenderPhone),
     website: text(s.lenderWebsite),
     websiteHref: safeHref(s.lenderWebsite),
+    // Where "Start my loan process" goes; '' hides the link.
+    applyHref: safeHref(s.loanApplicationUrl),
     tagline: text(s.lenderTagline),
     ready: Boolean(name && nmls),
   };
@@ -252,8 +255,6 @@ export function complianceOf(settings = {}, { year, community = {} } = {}) {
     lo,
     license,
     statements,
-    agentsNote: fill(s.agentsNote),
-    agentsEhoLine: fill(s.agentsEhoLine),
     links,
     nmlsHref,
     copyright: `© ${year ?? new Date().getFullYear()} ${name || text(community.name)}`.trim(),

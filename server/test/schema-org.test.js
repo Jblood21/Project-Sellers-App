@@ -163,7 +163,7 @@ const PAGES = [
   { page: 'start', path: '/c/willow-creek/start', indexable: false, crumbs: 2, images: [HERO, ...LOGOS, SUMMIT_LOGO], types: ['WebPage'] },
   {
     page: 'tools', path: '/c/willow-creek/tools', indexable: false, crumbs: 2,
-    images: [HERO, ...GUIDE_IMAGES, abs('/api/photos/p_ag1'), abs('/api/photos/p_ag2'), ...LOGOS, SUMMIT_LOGO],
+    images: [HERO, abs('/api/photos/p_ag1'), abs('/api/photos/p_ag2'), ...LOGOS, SUMMIT_LOGO],
     types: ['CollectionPage', 'ItemList', 'ImageObject'],
   },
   {
@@ -189,11 +189,11 @@ const PAGES = [
   { page: 'plan', path: '/c/willow-creek/plan', indexable: false, crumbs: 2, images: [...LOGOS, SUMMIT_LOGO], types: ['WebPage'] },
   {
     page: 'guides', path: '/c/willow-creek/guides', indexable: true, crumbs: 2,
-    images: [...GUIDE_IMAGES, ...LOGOS, SUMMIT_LOGO], types: ['CollectionPage', 'ItemList', 'Article'],
+    images: [...LOGOS, SUMMIT_LOGO], types: ['CollectionPage', 'ItemList', 'Article'],
   },
   {
     page: 'guide', extra: { guide: GUIDE_ONE }, path: '/c/willow-creek/guides/rent-vs-buy-ogden-clearfield', indexable: true, crumbs: 3,
-    images: [GUIDE_IMAGES[0], ...LOGOS, SUMMIT_LOGO], types: ['Article', 'Person'],
+    images: [...LOGOS, SUMMIT_LOGO], types: ['Article', 'Person'],
   },
   {
     page: 'realtors', path: '/c/willow-creek/realtors', indexable: false, crumbs: 2,
@@ -387,7 +387,7 @@ for (const row of PAGES) {
     assert.ok(found.has(EHL), `${row.page}: no ImageObject for the Equal Housing Lender mark`);
     const everything = new Set([
       HERO, SITE_MAP, SUMMIT_LOGO, EHL, ...LOGOS, ...community.homes.flatMap((h) => [...photoUrls(h), ...planUrls(h)]),
-      ...AGENT_IMAGES, ...HIGHLIGHT_IMAGES, ...GUIDE_IMAGES,
+      ...AGENT_IMAGES, ...HIGHLIGHT_IMAGES,
     ]);
     for (const url of found) assert.ok(everything.has(url), `${row.page}: ImageObject for unknown ${url}`);
     for (const image of byType(nodes, 'ImageObject')) {
@@ -455,12 +455,9 @@ test('tools: every community picture the home shows is an ImageObject, once, des
   assert.equal(named(HERO).length, 1);
   assert.equal(named(HERO)[0].name, 'Willow Creek community photo');
 
-  // The shared default guide picture sits under two of the featured guides and
-  // is described exactly once, with the alt text the page gives it.
-  assert.equal(named(GUIDE_IMAGES[0]).length, 1);
-  assert.equal(named(GUIDE_IMAGES[0])[0].name, 'New construction townhome living room');
-  assert.equal(named(GUIDE_IMAGES[1]).length, 1);
-  assert.equal(named(GUIDE_IMAGES[1])[0].name, 'What closing costs really include', 'no alt text falls back to the title, as the thumbnail does');
+  // Guides carry no pictures, so none is described, whatever a guide row still holds.
+  assert.equal(named(GUIDE_IMAGES[0]).length, 0);
+  assert.equal(named(GUIDE_IMAGES[1]).length, 0);
 
   const [pat, sam] = [named(abs('/api/photos/p_ag1'))[0], named(abs('/api/photos/p_ag2'))[0]];
   assert.equal(pat.name, 'Pat Rivera, Wasatch Realty Group');
@@ -475,12 +472,6 @@ test('tools: every community picture the home shows is an ImageObject, once, des
   const urls = images.map((i) => i.contentUrl);
   assert.equal(new Set(urls).size, urls.length, 'no picture appears twice');
 
-  // Only the guides the home features, and only what the community actually has.
-  const many = fixture({
-    guides: [...community.guides, { id: 'g_four', slug: 'fourth', title: 'Fourth', image: '/api/photos/p_guide4', imageAlt: 'Fourth picture' }],
-  });
-  assert.ok(!imageUrls(pageJsonLd({ page: 'tools', community: many, origin: ORIGIN })).has(abs('/api/photos/p_guide4')),
-    'a fourth guide is not on the home, so its picture is not described there');
   const bare = imageUrls(pageJsonLd({
     page: 'tools', origin: ORIGIN, community: fixture({ heroPhoto: null, agents: [], guides: [] }),
   }));
@@ -630,8 +621,7 @@ test('guides: a card per guide, and the article carries author, dates and image'
   assert.equal(article.headline, 'Rent or buy?');
   assert.equal(article.datePublished, '2026-08-27T00:00:00.000Z');
   assert.equal(article.dateModified, '2026-08-27T00:00:00.000Z');
-  assert.equal(article.image.contentUrl, GUIDE_IMAGES[0]);
-  assert.equal(article.image.name, 'New construction townhome living room');
+  assert.equal(article.image, undefined, 'guides carry no pictures');
   assert.equal(article.publisher.name, 'Acme Homes');
   assert.equal(article.publisher.logo, undefined, 'the builder has no logo of its own here');
   assert.equal(article.mainEntityOfPage['@id'], `${abs('/c/willow-creek/guides/rent-vs-buy-ogden-clearfield')}#webpage`);
@@ -887,7 +877,7 @@ test('meta image falls back to the hero, then to nothing', () => {
   assert.equal(pageMeta({ page: 'landing', community, origin: ORIGIN }).image, HERO);
   assert.equal(pageMeta({ page: 'home', community, origin: ORIGIN, home: HOME_READY }).image, photoUrls(HOME_READY)[0]);
   assert.equal(pageMeta({ page: 'home', community, origin: ORIGIN, home: HOME_PLAN }).image, HERO, 'a home with no photo uses the hero');
-  assert.equal(pageMeta({ page: 'guide', community, origin: ORIGIN, guide: GUIDE_ONE }).image, GUIDE_IMAGES[0]);
+  assert.equal(pageMeta({ page: 'guide', community, origin: ORIGIN, guide: GUIDE_ONE }).image, HERO, 'a guide has no picture of its own, so it shares the hero');
   assert.equal(pageMeta({ page: 'tools', community, origin: ORIGIN }).image, '');
   assert.equal(pageMeta({ page: 'landing', community: fixture({ heroPhoto: null }), origin: ORIGIN }).image, '');
 });
@@ -1262,4 +1252,19 @@ test('an agent or guide with no name is not published, listed or counted', () =>
 test('realtors serve the community they work in', () => {
   const [pat] = topLevel(build(PAGES.find((p) => p.page === 'realtors')), 'RealEstateAgent');
   assert.deepEqual(pat.areaServed, { '@id': `${BASE}#community` });
+});
+
+test('tools: the FAQ is described as a FAQPage, and only when there is one', () => {
+  const faqJson = JSON.stringify([{ q: 'Can I buy with a VA loan?', a: 'Yes, where the program allows it.' }, { q: 'Half done', a: '' }]);
+  const nodes = pageJsonLd({ page: 'tools', community: fixture({ settings: { ...DEFAULT_SETTINGS, faqJson } }), origin: ORIGIN });
+  const [faq] = byType(nodes, 'FAQPage');
+  assert.equal(faq['@id'], `${abs('/c/willow-creek/tools')}#faq`);
+  assert.deepEqual(faq.mainEntity, [{
+    '@type': 'Question', name: 'Can I buy with a VA loan?',
+    acceptedAnswer: { '@type': 'Answer', text: 'Yes, where the program allows it.' },
+  }], 'a question with no answer is not published');
+
+  assert.equal(byType(pageJsonLd({ page: 'tools', community, origin: ORIGIN }), 'FAQPage').length, 0, 'no FAQ, no FAQPage');
+  const off = fixture({ features: { ...community.features, faq: false }, settings: { ...DEFAULT_SETTINGS, faqJson } });
+  assert.equal(byType(pageJsonLd({ page: 'tools', community: off, origin: ORIGIN }), 'FAQPage').length, 0, 'a switched-off FAQ is not published');
 });

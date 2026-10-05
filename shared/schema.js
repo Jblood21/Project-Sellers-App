@@ -24,8 +24,9 @@
  * the same community merges them into one organisation and one place instead
  * of finding a new one on every page.
  */
+import { parseFaq } from './faq.js';
 import {
-  EHL_MARKS, HIGHLIGHT_CATEGORIES, HOME_GUIDES, LENDER_LOGOS, PLAN_LABELS, TOOLS, complianceOf, isSold, mapsUrl,
+  EHL_MARKS, HIGHLIGHT_CATEGORIES, LENDER_LOGOS, PLAN_LABELS, TOOLS, complianceOf, isSold, mapsUrl,
 } from './domain.js';
 
 const CONTEXT = 'https://schema.org';
@@ -381,7 +382,7 @@ const CRUMB_LABEL = {
   saved: PLAN_LABELS.homes,
   plan: 'My Home Plan',
   guides: 'Buyer Guides',
-  realtors: 'Realtors',
+  realtors: 'Meet the agent',
 };
 
 // ── page metadata ───────────────────────────────────────────────────────────
@@ -488,7 +489,7 @@ function metaOf(ctx, view, canonical, primaryImage) {
       break;
     case 'realtors': {
       const names = agentsOf(community).map((a) => text(a.name));
-      title = `Realtors | ${name}`;
+      title = `${names.length > 1 ? 'Meet the agents' : 'Meet the agent'} | ${name}`;
       description = names.length
         ? `Real estate agents working with buyers at ${name}: ${names.join(', ')}.`
         : `Real estate agents working with buyers at ${name}.`;
@@ -575,14 +576,6 @@ const homeCover = (ctx, home) => imageObject(ctx, list(home.photos)[0], {
   name: home.name, caption: `${home.name} at ${ctx.name}`,
 });
 
-function guideImage(ctx, guide) {
-  const title = text(guide.title);
-  return imageObject(ctx, guide.image, {
-    name: text(guide.imageAlt) || title,
-    caption: `${text(guide.category) ? `${text(guide.category)}: ` : ''}${title}`,
-  });
-}
-
 function agentPhoto(ctx, agent) {
   const brokerage = text(agent.brokerage);
   return imageObject(ctx, agent.photo, {
@@ -617,11 +610,9 @@ function primaryImage(ctx, view) {
       return (first && highlightImage(ctx, first)) || heroImage(ctx);
     }
     case 'map': return siteMapImage(ctx) || heroImage(ctx);
-    case 'guides': {
-      const first = guidesOf(community)[0];
-      return (first && guideImage(ctx, first)) || heroImage(ctx);
-    }
-    case 'guide': return guideImage(ctx, view.guide) || heroImage(ctx);
+    // Guides carry no pictures of their own, so their pages share the community's.
+    case 'guides': return heroImage(ctx);
+    case 'guide': return heroImage(ctx);
     case 'realtors': {
       const first = agentsOf(community).find((a) => urlOf(a.photo));
       return (first && agentPhoto(ctx, first)) || heroImage(ctx);
@@ -901,7 +892,6 @@ function articleNode(ctx, guide, { full, pageId }) {
     headline: text(guide.title),
     url,
     description: text(guide.summary) || undefined,
-    image: guideImage(ctx, guide),
     articleSection: text(guide.category) || undefined,
     inLanguage: LANGUAGE,
     ...(full ? {
@@ -1012,14 +1002,26 @@ export function pageJsonLd({ page, community, origin, home, guide, tool } = {}) 
         node: toolNode(ctx, t, { full: false }),
       })));
       // The pictures the tools home shows that come from the community: its
-      // banner, the thumbnails of the guides it features, and the realtors' faces.
-      // The shared default guide picture is one file under every guide, so it is
-      // described once; two descriptions of one file would contradict each other.
+      // banner and the realtors' faces. Guides are text only.
       const shown = [
         heroImage(ctx),
-        ...guidesOf(c).slice(0, HOME_GUIDES).map((g) => guideImage(ctx, g)),
         ...agentsOf(c).map((a) => agentPhoto(ctx, a)),
       ];
+      // The FAQ on the home screen, as the questions and answers a builder wrote.
+      const faq = c.features?.faq === false ? [] : parseFaq(c.settings?.faqJson);
+      if (faq.length) {
+        extra.push({
+          '@type': 'FAQPage',
+          '@id': `${ctx.abs(`/c/${encodeURIComponent(text(c.id))}/tools`)}#faq`,
+          name: `${ctx.name} frequently asked questions`,
+          inLanguage: LANGUAGE,
+          mainEntity: faq.map((item) => ({
+            '@type': 'Question',
+            name: item.q,
+            acceptedAnswer: { '@type': 'Answer', text: item.a },
+          })),
+        });
+      }
       const described = new Set(nodes.map((n) => n?.contentUrl));
       for (const image of shown) {
         if (!image || described.has(image.contentUrl)) continue;

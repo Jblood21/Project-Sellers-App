@@ -1,12 +1,8 @@
 import { agentLicenseLine } from '@shared/domain.js';
-import { complianceOf, safeHref } from '@shared/compliance.js';
+import { safeHref, telHref } from '@shared/compliance.js';
+import { safeEmail, textHref, useIsMobile } from '../lib/contact.js';
 import { useBuyer } from './BuyerContext.jsx';
-import { telHref } from '@shared/compliance.js';
-
-// An address that is only an address. The server accepts anything with an @, and
-// "a@b.co?bcc=somebody" in a mailto: link would add recipients to the buyer's
-// draft, so a value with those characters is shown as text and never linked.
-const MAILTO_SAFE = /^[^\s@?&#<>"'%,;]+@[^\s@?&#<>"'%,;]+\.[^\s@?&#<>"'%,;]+$/;
+import TourButton from './TourButton.jsx';
 
 /** 'https://www.example.com/team/' becomes 'example.com/team', for the link text. */
 function websiteLabel(href) {
@@ -19,96 +15,96 @@ function websiteLabel(href) {
 }
 
 /**
- * One realtor: portrait, name, brokerage and its logo, licence, and contact.
+ * One real estate agent: portrait, name, brokerage and its logo, licence, and
+ * every way to reach them.
  *
- * Phone and email are real tel: and mailto: links so a buyer can act on them
- * from a phone; the website is linked only when it is an http(s) address. Each
- * link is a 44px target. A field the builder left blank prints nothing at all.
- * The licence line appears only with a number, because a licence a buyer cannot
- * look up says nothing.
+ * The phone number and email are links, and under them sit Call, Text and Email
+ * buttons, each a 44px target: a buyer can act on the card without copying
+ * anything. Text is offered only on a device that can send one. "Tour the homes"
+ * (unless `tour` is false) opens a message to the agent that is already written.
+ * Nothing here opens a new tab; the listing is the page. A field the builder
+ * left blank prints nothing, and the licence line appears only with a number,
+ * because a licence a buyer cannot look up says nothing.
  *
  * `headingLevel` is the level of the name, so the card sits under whichever
- * heading the page it is on already has.
+ * heading the page it is on already has. `homeName` makes the tour message
+ * about one model.
  */
-export default function AgentCard({ agent, headingLevel = 3 }) {
+export default function AgentCard({ agent, headingLevel = 3, tour = true, homeName }) {
   const Heading = `h${headingLevel}`;
+  const { community, lead } = useBuyer();
+  const mobile = useIsMobile();
   const brokerage = String(agent.brokerage ?? '').trim();
   const license = agentLicenseLine(agent);
   const phoneHref = telHref(agent.phone);
-  const email = String(agent.email ?? '').trim();
+  const email = safeEmail(agent.email);
   const website = safeHref(agent.website);
+  const first = String(agent.name ?? '').trim().split(/\s+/)[0];
+  const greeting = `Hi${first ? ` ${first}` : ''},${lead?.name ? ` this is ${lead.name}.` : ''} I have a question about ${community?.name ?? 'the community'}.`;
+  const smsHref = mobile ? textHref(agent.phone, greeting) : '';
 
   return (
     <article className="b-agent">
-      <div className="b-agent__photo">
-        {agent.photo ? (
-          <img src={agent.photo} alt={brokerage ? `${agent.name}, ${brokerage}` : agent.name} loading="lazy" decoding="async" width="76" height="76" />
-        ) : (
-          // No portrait uploaded: an initial keeps the card's shape. The name is
-          // printed beside it, so the placeholder says nothing to a screen reader.
-          <span className="b-agent__initial b-head" aria-hidden="true">{agent.name?.trim()?.[0] ?? ''}</span>
-        )}
+      <div className="b-agent__top">
+        <div className="b-agent__photo">
+          {agent.photo ? (
+            <img src={agent.photo} alt={brokerage ? `${agent.name}, ${brokerage}` : agent.name} loading="lazy" decoding="async" width="76" height="76" />
+          ) : (
+            // No portrait uploaded: an initial keeps the card's shape. The name is
+            // printed beside it, so the placeholder says nothing to a screen reader.
+            <span className="b-agent__initial b-head" aria-hidden="true">{agent.name?.trim()?.[0] ?? ''}</span>
+          )}
+        </div>
+        <div className="b-agent__body">
+          <Heading className="b-agent__name b-head">{agent.name}</Heading>
+          {brokerage ? <p className="b-agent__brokerage">{brokerage}</p> : null}
+          {agent.logo ? (
+            <img
+              className="b-agent__logo"
+              src={agent.logo}
+              alt={`${brokerage || agent.name} logo`}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : null}
+          {license ? <p className="b-agent__license">{license}</p> : null}
+          <ul className="b-agent__contact">
+            {agent.phone ? (
+              <li>
+                {phoneHref ? (
+                  <a className="b-agent__link" href={phoneHref}>{agent.phone}</a>
+                ) : (
+                  <span className="b-agent__text">{agent.phone}</span>
+                )}
+              </li>
+            ) : null}
+            {agent.email ? (
+              <li>
+                {email ? (
+                  <a className="b-agent__link" href={`mailto:${email}`}>{email}</a>
+                ) : (
+                  <span className="b-agent__text">{agent.email}</span>
+                )}
+              </li>
+            ) : null}
+            {website ? (
+              <li>
+                <a className="b-agent__link" href={website}>{websiteLabel(website)}</a>
+              </li>
+            ) : null}
+          </ul>
+        </div>
       </div>
-      <div className="b-agent__body">
-        <Heading className="b-agent__name b-head">{agent.name}</Heading>
-        {brokerage ? <p className="b-agent__brokerage">{brokerage}</p> : null}
-        {agent.logo ? (
-          <img
-            className="b-agent__logo"
-            src={agent.logo}
-            alt={`${brokerage || agent.name} logo`}
-            loading="lazy"
-            decoding="async"
-          />
-        ) : null}
-        {license ? <p className="b-agent__license">{license}</p> : null}
-        <ul className="b-agent__contact">
-          {agent.phone ? (
-            <li>
-              {phoneHref ? (
-                <a className="b-agent__link" href={phoneHref}>{agent.phone}</a>
-              ) : (
-                <span className="b-agent__text">{agent.phone}</span>
-              )}
-            </li>
-          ) : null}
-          {email ? (
-            <li>
-              {MAILTO_SAFE.test(email) ? (
-                <a className="b-agent__link" href={`mailto:${email}`}>{email}</a>
-              ) : (
-                <span className="b-agent__text">{email}</span>
-              )}
-            </li>
-          ) : null}
-          {website ? (
-            <li>
-              <a className="b-agent__link" href={website} target="_blank" rel="noopener noreferrer">
-                {websiteLabel(website)}
-              </a>
-            </li>
-          ) : null}
-        </ul>
-      </div>
-    </article>
-  );
-}
 
-/**
- * What goes with a list of agents: who the lender says the agents are not, and
- * the fair housing line for real estate. The words of both come from settings, so
- * Setup can change or blank either. The second is text only; the Equal Housing
- * LENDER mark belongs to the lender and is not used for agents.
- */
-export function AgentsNotice() {
-  const { community } = useBuyer();
-  const { agentsNote, agentsEhoLine } = complianceOf(community?.settings, { community });
-  // With both blanked there is nothing to print, so no empty box is left behind.
-  if (!agentsNote && !agentsEhoLine) return null;
-  return (
-    <div className="b-agents__notice">
-      {agentsNote ? <p className="b-agents__note">{agentsNote}</p> : null}
-      {agentsEhoLine ? <p className="b-agents__eho">{agentsEhoLine}</p> : null}
-    </div>
+      {phoneHref || email ? (
+        <div className="b-agent__actions">
+          {phoneHref ? <a className="b-agent__act" href={phoneHref}>Call</a> : null}
+          {smsHref ? <a className="b-agent__act" href={smsHref}>Text</a> : null}
+          {email ? <a className="b-agent__act" href={`mailto:${email}`}>Email</a> : null}
+        </div>
+      ) : null}
+
+      {tour ? <TourButton agent={agent} homeName={homeName} /> : null}
+    </article>
   );
 }

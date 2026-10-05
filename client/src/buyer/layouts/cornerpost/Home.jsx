@@ -5,7 +5,10 @@ import { complianceOf, telHref } from '@shared/compliance.js';
 import Photo from '../../../components/Photo.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
 import LenderLogo, { EhlMark } from '../../LenderLogo.jsx';
-import { thumbAlt } from '../../screens/Guides.jsx';
+import AgentsBlock from '../../AgentsBlock.jsx';
+import FaqList, { useFaq } from '../../FaqList.jsx';
+import IncentiveCard from '../../IncentiveCard.jsx';
+import LoanProcessLink from '../../LoanProcessLink.jsx';
 
 /** The row chevron: 2.4px stroke, round caps, in the accent, as the design draws it. */
 function RowChevron() {
@@ -136,6 +139,7 @@ function LenderCard({ onOpen }) {
         <button type="button" className="cp-btn cp-btn--primary cp-btn--block" onClick={onOpen}>
           Set up a time to talk
         </button>
+        <LoanProcessLink className="cp-btn cp-btn--outline cp-btn--block" />
         <div className="cp-lender__legal">
           <EhlMark tone="light" height={40} />
           <span className="cp-lender__id">
@@ -159,20 +163,25 @@ function LenderCard({ onOpen }) {
  * Every datum and handler the default home has is here and does what it does
  * there: this decides only where each goes. Order follows the design (greeting,
  * the two lead questions, the homes photo, the rows, the other tools) and then
- * the sections that come after the tools, each under a rule and an eyebrow.
+ * the sections that come after the tools, each under a rule and an eyebrow:
+ * the agent to tour with, the guides, the financing, the FAQ, and last the
+ * builder's own videos and articles. A builder incentive, when there is one,
+ * sits above the homes photo.
  */
 export default function Home({ model }) {
   const {
     community, paths, leadTools, otherTools, resources, inPlan, savedCount,
     openTool, openExplore, openArea, openMap, openLender,
   } = model;
+  const faq = useFaq();
+  const floorplans = model.homesCount === 1 ? 'available floorplan' : 'available floorplans';
 
   return (
     <div className="b-shell cp-home">
       <div className="cp-header">
         <h1 className="cp-display">Hi {model.firstName} — can you buy one of these?</h1>
         <p className="cp-lede">
-          Answer a few natural questions and find out. Everything you do saves to your home plan.
+          Take a few minutes to find out what works for you and create your personalized home plan.
         </p>
       </div>
 
@@ -185,6 +194,10 @@ export default function Home({ model }) {
           </div>
         ) : null}
 
+        <IncentiveCard className="cp-card cp-card--tint cp-incentive" />
+
+        {/* The picture is shown as it is: no fade, no tint. The words sit on a
+            solid caption beneath it, where they read on any photograph. */}
         <button type="button" className="cp-photo" onClick={openExplore}>
           {community?.heroPhoto ? (
             <Photo
@@ -198,7 +211,7 @@ export default function Home({ model }) {
           )}
           <span className="cp-photo__text">
             <span className="cp-photo__title">Explore Homes</span>
-            <span className="cp-photo__sub">{model.homesCount} homes available · save the ones you like</span>
+            <span className="cp-photo__sub">{model.homesCount} {floorplans} · save the ones you like</span>
           </span>
         </button>
 
@@ -206,7 +219,7 @@ export default function Home({ model }) {
           <RowButton title="Local Spots" sub="Schools, parks and everyday places nearby" onClick={openArea} />
         ) : null}
         {model.hasMap ? (
-          <RowButton title="Site Map" sub="See where each home sits" onClick={openMap} />
+          <RowButton title="Site Map" sub="View the community layout" onClick={openMap} />
         ) : null}
 
         {otherTools.length ? (
@@ -218,11 +231,25 @@ export default function Home({ model }) {
         ) : null}
       </div>
 
+      <div className="cp-btn-pair cp-btn-pair--home">
+        <Link to={paths.saved} className="cp-btn cp-btn--outline">★ Homes I Like · {savedCount}</Link>
+        <Link to={paths.plan} className="cp-btn cp-btn--primary">My Home Plan</Link>
+      </div>
+
+      {/* The agent, listed in full on the page, ahead of the guides: a buyer who
+          is ready to see a home should not have to scroll past reading to do it. */}
+      {model.showAgents ? (
+        <section aria-labelledby="home-agents">
+          <SectionHeader id="home-agents" eyebrow="Schedule your tour." />
+          <AgentsBlock />
+        </section>
+      ) : null}
+
       {/*
-        The guides come right after the tools: a buyer who has just seen what
-        the tools ask for is the buyer who wants the plain-English version of
-        why. Three, with the way to the rest, so the screen stays a home screen
-        and not a reading list.
+        The guides come after the tour: a buyer who has just seen what the tools
+        ask for is the buyer who wants the plain-English version of why. Three,
+        with the way to the rest, so the screen stays a home screen and not a
+        reading list. No pictures: they are text, and read faster that way.
       */}
       {model.showGuides ? (
         <section aria-labelledby="home-guides">
@@ -230,13 +257,6 @@ export default function Home({ model }) {
           <div className="cp-stack">
             {model.featuredGuides.map((guide) => (
               <Link key={guide.id} to={`${paths.guides}/${guide.slug}`} className="cp-row cp-row--guide">
-                <img
-                  className="cp-row__thumb"
-                  src={guide.image}
-                  alt={thumbAlt(guide)}
-                  loading="lazy"
-                  decoding="async"
-                />
                 <span className="cp-row__text">
                   {guide.category ? <span className="cp-row__kicker">{guide.category}</span> : null}
                   <span className="cp-tile__title">{guide.title}</span>
@@ -254,6 +274,15 @@ export default function Home({ model }) {
         </section>
       ) : null}
 
+      <LenderCard onOpen={openLender} />
+
+      {faq.length ? (
+        <section aria-labelledby="home-faq">
+          <SectionHeader id="home-faq" eyebrow="FAQ" />
+          <FaqList items={faq} />
+        </section>
+      ) : null}
+
       {resources.length ? (
         <section aria-labelledby="home-worth-knowing">
           <SectionHeader id="home-worth-knowing" eyebrow="Worth knowing" />
@@ -264,39 +293,6 @@ export default function Home({ model }) {
           </div>
         </section>
       ) : null}
-
-      {/* One row, not four cards: the full cards are a tap away, and a home
-          screen that listed every agent would push the tools out of sight. */}
-      {model.showAgents ? (
-        <section aria-labelledby="home-realtors">
-          <SectionHeader id="home-realtors" eyebrow="Realtors" />
-          <Link to={paths.realtors} className="cp-row cp-row--agents">
-            <span className="cp-faces" aria-hidden="true">
-              {model.agents.map((agent) =>
-                agent.photo ? (
-                  <img key={agent.id} src={agent.photo} alt="" />
-                ) : (
-                  <span key={agent.id} className="cp-faces__initial">{agent.name?.trim()?.[0]}</span>
-                ),
-              )}
-            </span>
-            <span className="cp-row__text">
-              <span className="cp-tile__title">Meet the realtors</span>
-              <span className="cp-tile__sub">
-                {model.agents.length} {model.agents.length === 1 ? 'agent' : 'agents'} working with buyers here
-              </span>
-            </span>
-            <RowChevron />
-          </Link>
-        </section>
-      ) : null}
-
-      <div className="cp-btn-pair cp-btn-pair--home">
-        <Link to={paths.saved} className="cp-btn cp-btn--outline">★ Homes I Like · {savedCount}</Link>
-        <Link to={paths.plan} className="cp-btn cp-btn--primary">My Home Plan</Link>
-      </div>
-
-      <LenderCard onOpen={openLender} />
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import { COMPLIANCE_DEFAULTS } from './compliance.js';
 
 export {
+  FAQ_ANSWER_MAX, FAQ_JSON_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, normalizeFaqJson, parseFaq, serializeFaq,
+} from './faq.js';
+
+export {
   COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens,
   nmlsConsumerUrl, safeHref, settingMaxLength, telHref,
 } from './compliance.js';
@@ -113,7 +117,7 @@ export const TOOLS = [
   { k: 'payment', name: 'See My Payment', q: 'What would a home cost me each month?' },
   { k: 'afford', name: 'See What I Can Afford', q: 'What price range fits my income?' },
   { k: 'loans', name: 'Find My Loan Options', q: 'What financing could work for me?' },
-  { k: 'compare', name: 'Compare My Options', q: 'Which loan or down payment is smarter?' },
+  { k: 'compare', name: 'Compare My Options', q: 'Which loan option fits me best?' },
   { k: 'dpa', name: 'Down Payment Help', q: 'Could I get help with my down payment?' },
   { k: 'savings', name: 'My Savings Plan', q: 'How do I save what I need in time?' },
   { k: 'movein', name: 'My Move-In Plan', q: 'When could I actually get keys?' },
@@ -429,12 +433,18 @@ export const FEATURES = [
   { k: 'siteMap', name: 'Site map', q: 'Show the community plat so buyers can place a home' },
   { k: 'resources', name: 'Videos & articles', q: 'Show what you have written and filmed, below the tools' },
   { k: 'guides', name: 'Buyer guides', q: 'Show the long-form guides, readable without signing in' },
-  { k: 'agents', name: 'Realtors', q: 'Show the real estate agents you have added, on each home' },
+  { k: 'agents', name: 'Realtors', q: 'Show the real estate agents you have added: on the home screen, under every home and on their own page' },
+  { k: 'incentive', name: 'Builder incentive', q: 'Show the incentive card above Explore Homes' },
+  { k: 'faq', name: 'FAQ', q: 'Show your frequently asked questions on the home screen' },
 ];
 export const FEATURE_KEYS = FEATURES.map((f) => f.k);
 
 export const DEFAULT_FEATURES = {
   lotNumbers: true, floorPlans: true, siteMap: true, resources: true, guides: true, agents: true,
+  // Off until a builder writes an incentive: a card with nothing to say is worse than none.
+  incentive: false,
+  // On, but the section only appears once there is at least one question and answer.
+  faq: true,
 };
 
 export const DEFAULT_TOOLS_ENABLED = {
@@ -472,6 +482,24 @@ export const DEFAULT_SETTINGS = {
   // Where call requests are emailed. Blank falls back to the admin account that
   // owns the dashboard, so a builder who never sets this still gets told.
   notifyEmail: '',
+
+  // ── the builder incentive card (shown when features.incentive is on) ───────
+  // No amount or terms are assumed: those are the builder's to state, and an
+  // incentive advertised with wrong terms is worse than none.
+  incentiveTitle: 'Preferred lender incentive',
+  incentiveBody: 'Buy a home at {community} with our preferred lender and ask what you could save.',
+  incentiveFinePrint: '',
+  incentiveButton: 'Find out if I qualify',
+  // Who the buyer reaches. A blank phone falls back to the lender's; a blank
+  // email means a desktop visitor is shown the number to call instead.
+  incentivePhone: '',
+  incentiveEmail: '',
+  // The text the buyer's message starts with. {community} is the development.
+  incentiveMessage: 'Contact me about the preferred lender incentive for {community}.',
+
+  // ── the FAQ shown on the home screen: a JSON list, edited in Setup ───────
+  // Empty until the builder adds questions; see shared/faq.js.
+  faqJson: '[]',
 };
 
 /**

@@ -159,6 +159,13 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     app.get('/c/:communityId/guides', withHead('guides'));
     app.get('/c/:communityId/guides/:slug', withHead('guide'));
 
+    // A built file that is not there is a 404, never the app's page. After a deploy
+    // renames the hashed chunks, a tab that still holds the old page asks for a file
+    // that is gone; answering it with HTML (and a 200) made the browser choke on a
+    // "script" that was a web page, and let the service worker cache that page under
+    // the script's address.
+    app.get('/assets/*', (_req, res) => res.status(404).type('text/plain').send('Not found'));
+
     // Both route trees (/c/:id/... and /admin/...) are one SPA bundle.
     app.get('*', (_req, res) => res.sendFile(indexPath));
   } else {

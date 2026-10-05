@@ -1642,22 +1642,107 @@ test('settings are trimmed, capped at their own length, and unknown keys are ign
   assert.equal(seen.complianceNotOffer.length, 4000);
 });
 
-test('the fair housing line under the realtors saves, trims, caps at 300, and can be blanked', async () => {
-  const { token, cid } = await signedInCommunity('Realtor EHO Test');
-  const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
-  assert.equal((await api(`/api/c/${cid}`)).body.settings.agentsEhoLine, 'Equal Housing Opportunity');
+test('the incentive card and loan link save, trim and cap, and the FAQ is normalised or refused', async () => {
+  const { token, cid } = await signedInCommunity('Home Screen Test');
+  const patch = (body) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body });
 
-  const edited = await patch({ agentsEhoLine: '  Equal Opportunity Housing  ' });
+  // Off until the builder turns it on, and the card's words start from generic wording.
+  // (The buyer payload leaves an off incentive's words out, so read the builder's view.)
+  const before = (await api(`/api/admin/communities/${cid}`, { token })).body;
+  assert.equal(before.features.incentive, false);
+  assert.equal(before.features.faq, true);
+  assert.equal(before.settings.incentiveButton, 'Find out if I qualify');
+  assert.match(before.settings.incentiveMessage, /preferred lender incentive for \{community\}/);
+  assert.equal(before.settings.loanApplicationUrl, '');
+
+  const edited = await patch({
+    features: { incentive: true },
+    settings: {
+      incentiveTitle: '  Up to $5,000 toward closing  ', incentivePhone: ' 801-555-0100 ',
+      incentiveBody: 'x'.repeat(settingMaxLength('incentiveBody') + 50),
+      incentiveButton: 'y'.repeat(500), loanApplicationUrl: ' https://apply.example.com/me ',
+    },
+  });
   assert.equal(edited.status, 200);
-  assert.equal(edited.body.settings.agentsEhoLine, 'Equal Opportunity Housing');
-  assert.equal((await api(`/api/c/${cid}`)).body.settings.agentsEhoLine, 'Equal Opportunity Housing', 'the buyer is served what was stored');
+  assert.equal(edited.body.features.incentive, true);
+  assert.equal(edited.body.settings.incentiveTitle, 'Up to $5,000 toward closing');
+  assert.equal(edited.body.settings.incentivePhone, '801-555-0100');
+  assert.equal(edited.body.settings.incentiveBody.length, 4000, 'the details are a paragraph');
+  assert.equal(edited.body.settings.incentiveButton.length, 300, 'a short field is capped');
+  assert.equal((await api(`/api/c/${cid}`)).body.settings.loanApplicationUrl, 'https://apply.example.com/me');
 
-  const long = await patch({ agentsEhoLine: 'x'.repeat(settingMaxLength('agentsEhoLine') + 40) });
-  assert.equal(long.body.settings.agentsEhoLine.length, 300);
+  // The FAQ: kept as a cleaned list, half-finished rows dropped, anything else refused.
+  const good = await patch({ settings: { faqJson: JSON.stringify([
+    { q: '  Can I? ', a: ' Yes. ' }, { q: 'No answer', a: '' }, { q: '', a: 'No question' }, 'junk',
+  ]) } });
+  assert.equal(good.status, 200);
+  assert.deepEqual(JSON.parse(good.body.settings.faqJson), [{ q: 'Can I?', a: 'Yes.' }]);
+  const many = await patch({ settings: { faqJson: JSON.stringify(Array.from({ length: 30 }, (_, i) => ({ q: `Q${i}`, a: 'A' }))) } });
+  assert.equal(JSON.parse(many.body.settings.faqJson).length, 20, 'at most twenty');
 
-  const blank = await patch({ agentsEhoLine: '' });
-  assert.equal(blank.body.settings.agentsEhoLine, '', 'blank is stored as blank, which hides the line');
-  assert.equal((await patch({ loName: 'Someone Else' })).body.settings.agentsEhoLine, '', 'an unrelated save does not bring it back');
+  for (const bad of ['not json', '{"q":"x"}', '"text"']) {
+    const refused = await patch({ settings: { faqJson: bad } });
+    assert.equal(refused.status, 400, bad);
+    assert.match(refused.body.error, /FAQ/);
+  }
+  assert.equal(JSON.parse((await api(`/api/c/${cid}`)).body.settings.faqJson).length, 20, 'a refused save changes nothing');
+  assert.equal((await patch({ settings: { faqJson: '' } })).body.settings.faqJson, '[]', 'blank is an empty FAQ');
+  assert.equal((await patch({ features: { faq: false } })).body.features.faq, false);
+});
+
+test('a switched-off incentive or FAQ is not served, and the builder\'s alert address never is', async () => {
+  const { token, cid } = await signedInCommunity('Draft Privacy Test');
+  const patch = (body) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body });
+  await patch({ settings: {
+    notifyEmail: 'owner@builder.example', incentiveTitle: 'SECRET DRAFT $9,999 credit',
+    faqJson: JSON.stringify([{ q: 'Draft question?', a: 'Draft answer.' }]),
+  } });
+
+  // Off: the draft words are not in the public payload at all, not merely hidden.
+  await patch({ features: { incentive: false, faq: false } });
+  const off = (await api(`/api/c/${cid}`)).body;
+  assert.ok(!('incentiveTitle' in off.settings) && !('incentiveBody' in off.settings), 'no incentive words');
+  assert.equal(off.settings.faqJson, '[]');
+  assert.ok(!JSON.stringify(off).includes('SECRET DRAFT') && !JSON.stringify(off).includes('Draft question'));
+  assert.ok(!('notifyEmail' in off.settings) && !JSON.stringify(off).includes('owner@builder.example'), 'the alert address is private');
+
+  // The admin still sees and edits them.
+  const admin = (await api(`/api/admin/communities/${cid}`, { token })).body;
+  assert.equal(admin.settings.incentiveTitle, 'SECRET DRAFT $9,999 credit');
+  assert.equal(admin.settings.notifyEmail, 'owner@builder.example');
+
+  // On: served.
+  await patch({ features: { incentive: true, faq: true } });
+  const on = (await api(`/api/c/${cid}`)).body;
+  assert.equal(on.settings.incentiveTitle, 'SECRET DRAFT $9,999 credit');
+  assert.equal(JSON.parse(on.settings.faqJson).length, 1);
+});
+
+test('the loan link, incentive email and FAQ are validated, not stored and silently ignored', async () => {
+  const { token, cid } = await signedInCommunity('Validation Test');
+  const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
+
+  for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'ftp://a.example']) {
+    const res = await patch({ loanApplicationUrl: bad });
+    assert.equal(res.status, 400, bad);
+    assert.match(res.body.error, /loan application link/i);
+  }
+  assert.equal((await patch({ loanApplicationUrl: 'arive.example.com/x' })).status, 200, 'a bare address is accepted and linked as https');
+  assert.equal((await patch({ loanApplicationUrl: '' })).status, 200, 'blank clears it');
+
+  for (const bad of ['a@b.co?bcc=x@y.z', 'a@b.co, c@d.co', 'two words@b.co', 'no-at.example', 'a@b.co%0Abcc:x@y.z']) {
+    assert.equal((await patch({ incentiveEmail: bad })).status, 400, bad);
+  }
+  assert.equal((await patch({ incentiveEmail: "o'brien@x.co" })).status, 200);
+
+  // Only text becomes an FAQ item: an object or a list is dropped, not printed as "[object Object]".
+  const mixed = await patch({ faqJson: JSON.stringify([{ q: { x: 1 }, a: [1, 2] }, { q: 'Real?', a: 'Yes.' }, { q: 5, a: 'No' }]) });
+  assert.equal(mixed.status, 200);
+  assert.deepEqual(JSON.parse(mixed.body.settings.faqJson), [{ q: 'Real?', a: 'Yes.' }]);
+  // Nested far too deep is a list with no usable items, handled without a crash (it was a 500).
+  const deep = await patch({ faqJson: `${'['.repeat(100000)}${']'.repeat(100000)}` });
+  assert.equal(deep.status, 200);
+  assert.equal(deep.body.settings.faqJson, '[]');
 });
 
 test('a new community starts from the Summit defaults, and unsent keys keep them', async () => {

@@ -5,7 +5,7 @@ import {
   COMPLIANCE_DEFAULTS, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
-  SLOT_TIMES, THEMES, TOOL_KEYS,
+  SLOT_TIMES, THEMES, TOOL_KEYS, normalizeFaqJson,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
@@ -14,6 +14,8 @@ import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
+// One address and nothing else: no list, no query string, no display name.
+const INCENTIVE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;]+$/;
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 const MAX_FLOOR_PLANS = 4;
 // Raster only, and SVG is left out on purpose: an SVG is a document that can
@@ -341,7 +343,26 @@ export function adminRouter() {
         // door. A setting that predates the cap (a long program name, say) is
         // never silently shortened by an unrelated save.
         const text = str(value);
-        settings[key] = key in COMPLIANCE_DEFAULTS ? text.slice(0, settingMaxLength(key)) : text;
+        // An address that would be ignored at render is refused here, so the admin is told
+        // instead of wondering why a link never appears.
+        if (key === 'loanApplicationUrl' && text && !safeHref(text)) {
+          return res.status(400).json({ error: 'The loan application link must be a web address starting with http:// or https://.' });
+        }
+        if (key === 'incentiveEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+          return res.status(400).json({ error: 'The incentive email must be a single email address.' });
+        }
+        if (key === 'faqJson') {
+          // A list, normalised: items trimmed, half-finished ones dropped, counts
+          // capped. Anything that is not a list is refused rather than stored,
+          // so a bad request cannot quietly empty the FAQ.
+          const faq = normalizeFaqJson(text);
+          if (faq === null) return res.status(400).json({ error: 'The FAQ could not be read. Send a list of questions and answers.' });
+          settings[key] = faq;
+        } else {
+          // The incentive card is printed on the home screen like the compliance copy.
+          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive');
+          settings[key] = capped ? text.slice(0, settingMaxLength(key)) : text;
+        }
       }
       patch.settings = settings;
     }
