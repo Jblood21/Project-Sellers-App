@@ -1,4 +1,4 @@
-import { contactMethodLabel, describeTour, money } from '../../shared/domain.js';
+import { complianceText, contactMethodLabel, describeTour, lenderNameOf, money } from '../../shared/domain.js';
 import { sendEmail } from './email.js';
 
 /** Where a community's call requests go: its own address, else the dashboard account. */
@@ -33,7 +33,7 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
 
   const prefersEmail = lead.tour?.contact === 'email';
   const text = [
-    `${lead.name} booked ${describeTour(lead.tour)}.`,
+    `${lead.name} booked ${describeTour(lead.tour, lenderNameOf(community))}.`,
     '',
     // The contact they chose leads, because it decides what the builder does next.
     `Reach them by: ${contactMethodLabel(lead.tour?.contact)}`,
@@ -55,7 +55,7 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
   return sendEmail({
     to,
     subject: lead.tour?.date
-      ? `${lead.name} booked ${describeTour(lead.tour)} — ${community.name}`
+      ? `${lead.name} booked ${describeTour(lead.tour, lenderNameOf(community))} — ${community.name}`
       : `${lead.name} wants a call — ${community.name}`,
     text,
     // So hitting reply in a mail client reaches the buyer, not the app.
@@ -85,6 +85,12 @@ export async function sendPlanToBuyer({ community, lead, baseUrl }) {
     baseUrl ? `Pick up where you left off: ${baseUrl}/c/${community.id}` : '',
     '',
     'These are estimates to help you plan — not a loan offer or a pre-approval.',
+    '',
+    // The email carries payment estimates, so it is an advertisement of credit
+    // like the page it came from and gets the same lender identity and
+    // disclosures, built from the same function so the two cannot differ.
+    '——',
+    complianceText(community.settings, { community }),
   ].join('\n');
 
   return sendEmail({

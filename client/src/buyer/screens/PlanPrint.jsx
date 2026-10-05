@@ -4,6 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PLAN_LABELS, TOOL_KEYS } from '@shared/domain.js';
 import { longDate, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import CommunityMark from '../CommunityMark.jsx';
+import ComplianceFooter from '../ComplianceFooter.jsx';
 
 /**
  * The printable plan. Print CSS hides everything but #plan-doc, so "Save as PDF"
@@ -34,10 +36,10 @@ export default function PlanPrint() {
         className="no-print"
         style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 18, flexWrap: 'wrap' }}
       >
-        <button type="button" className="btn btn-secondary" onClick={() => navigate(`/c/${communityId}/plan`)}>
+        <button type="button" className="btn btn-secondary" style={{ minHeight: 44 }} onClick={() => navigate(`/c/${communityId}/plan`)}>
           Close
         </button>
-        <button type="button" className="btn btn-primary" onClick={() => window.print()}>
+        <button type="button" className="btn btn-primary" style={{ minHeight: 44 }} onClick={() => window.print()}>
           Print / Save as PDF
         </button>
       </div>
@@ -52,10 +54,14 @@ export default function PlanPrint() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#7c796e', fontWeight: 700 }}>
+            {/* The development's logo when it has one; the name is printed under it either way. */}
+            <div style={{ marginBottom: 8 }}>
+              <CommunityMark tone="light" height={40} fallback="none" />
+            </div>
+            <div style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5f5c52', fontWeight: 700 }}>
               {community?.name} · {community?.location}
             </div>
-            <h2 style={{ margin: '6px 0 0', fontSize: 26 }}>My Home Plan</h2>
+            <h1 style={{ margin: '6px 0 0', fontSize: 26 }}>My Home Plan</h1>
           </div>
           <div style={{ fontSize: 12.5, color: '#5f5c53', textAlign: 'right' }}>
             <div style={{ fontWeight: 700, color: '#1f221d' }}>{lead?.name}</div>
@@ -67,9 +73,9 @@ export default function PlanPrint() {
 
         {savedHomes.length ? (
           <div style={{ marginBottom: 22 }}>
-            <h6 style={{ margin: '0 0 8px', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#7c796e' }}>
+            <h2 style={{ margin: '0 0 8px', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5f5c52' }}>
               Homes I Like
-            </h6>
+            </h2>
             {savedHomes.map((home) => (
               <div
                 key={home.id}
@@ -84,17 +90,24 @@ export default function PlanPrint() {
 
         {items.map((item) => (
           <div key={item.key} style={{ marginBottom: 18 }}>
-            <h6 style={{ margin: '0 0 4px', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#7c796e' }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5f5c52' }}>
               {item.label}
-            </h6>
+            </h2>
             <p style={{ margin: 0, fontSize: 14 }}>{item.summary}</p>
           </div>
         ))}
 
-        <p style={{ marginTop: 26, fontSize: 11.5, color: '#7c796e', lineHeight: 1.6 }}>
+        <p style={{ marginTop: 26, fontSize: 11.5, color: '#5f5c52', lineHeight: 1.6 }}>
           Estimates only — not a loan offer, pre-approval or purchase contract. Prepared with the {community?.name}{' '}
           team; contact us anytime to update your plan.
         </p>
+
+        {/*
+          Inside the document, not after it: print CSS hides everything outside
+          #plan-doc, so a footer mounted beside it would reach the screen and
+          never the PDF. The shell leaves the print route's footer to this one.
+        */}
+        <ComplianceFooter print />
       </div>
     </div>
   );

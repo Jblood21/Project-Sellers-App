@@ -5,6 +5,7 @@ import { Trash } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { videoToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
+import GuidesSection from '../learn/GuidesSection.jsx';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
 const BLANK_ARTICLE = { kind: 'article', title: '', body: '' };
@@ -161,6 +162,11 @@ export default function LearnTab({ community, reload }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <GuidesSection community={community} reload={reload} />
+
+      <hr style={{ width: '100%', border: 0, borderTop: '1px solid var(--color-divider)', margin: '8px 0' }} />
+
+      <h4 style={{ margin: 0, fontSize: 17 }}>Your own articles and videos</h4>
       <p className="text-muted" style={{ fontSize: 13, lineHeight: 1.55, margin: 0 }}>
         Anything you want buyers to read or watch — how your build process works, what to
         expect at closing, a walkthrough. It shows <strong>below the tools</strong> in the

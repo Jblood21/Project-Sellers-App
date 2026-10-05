@@ -1,0 +1,734 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Cornerpost Default: the default buyer layout.
+
+   Typeface, shape, spacing and the look of every control. Colour is NOT here:
+   everything below reads the --t-* theme tokens, so the layout holds on all ten
+   themes. The slots of the supplied design map as
+     brand = --t-acc (a FILL), brand-strong = --t-accT (the accent as TEXT),
+     brand-tint = --t-tint, brand-line = --t-line, surface-page = --t-bg,
+     surface-card = --t-sur, ink = --t-ink, ink-muted = --t-mut.
+
+   Every rule is scoped under .b-app.l-cornerpost, which is two classes and so
+   beats the single-class theme blocks in base.css that set the same tokens on
+   the same element. !important appears only where an inline style on a shared
+   screen has to be beaten, and each use says so.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.b-app.l-cornerpost {
+  /* Manrope only, 500 to 800. A community on a serif theme (Bronze, Forest,
+     Clay) loses its serif under this layout on purpose, and with it the
+     theme's wide tracking and uppercase headlines, which were set for that
+     serif: the design's headlines are sentence-case 800. */
+  --t-head: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t-headwt: 800;
+  --t-track: 0;
+  --t-up: none;
+  /* radius-md for inputs and cards, radius-lg for tiles, pills for buttons. */
+  --t-rad: 14px;
+  --t-radlg: 16px;
+  --t-radbtn: 999px;
+
+  /* The design's spacing scale and fixed sizes. */
+  --cp-space-1: 4px;
+  --cp-space-2: 8px;
+  --cp-space-3: 12px;
+  --cp-space-4: 16px;
+  --cp-space-5: 20px;
+  --cp-space-6: 24px;
+  --cp-space-8: 32px;
+  --cp-page-max: 560px;
+  --cp-topbar-h: 56px;
+  --cp-control-h: 48px;
+  --cp-tile-min-h: 84px;
+  --cp-photo-h: 104px;
+  --cp-radius-sm: 10px;
+  --cp-radius-md: 14px;
+  --cp-radius-lg: 16px;
+  --cp-rule-h: 3px;
+
+  font-family: var(--t-font);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  min-width: 0;
+}
+
+/* ── the page column ───────────────────────────────────────────────────── */
+/* One phone-width column, centred on a wide screen, with the design's 20px
+   gutter and 24px under the bar. Screens that set their own paddingTop inline
+   (20px) are brought to 24px; that is the one use of !important on the shell. */
+.b-app.l-cornerpost .b-shell {
+  max-width: var(--cp-page-max);
+  padding-left: var(--cp-space-5);
+  padding-right: var(--cp-space-5);
+}
+/* No bottom padding: the footer brings its own 32px above it, as in the design,
+   and the two together would leave twice the room. */
+.b-app.l-cornerpost .b-main > .b-shell { padding-bottom: 0; }
+.b-app.l-cornerpost .b-main > .b-shell[style*='padding-top: 20px'] { padding-top: var(--cp-space-6) !important; }
+
+/* Page titles: every screen's h1 is the design's page-title. The fontSize on
+   them is inline, which is why this needs !important. */
+.b-app.l-cornerpost .b-shell > h1.b-head {
+  font-size: 24px !important;
+  line-height: 30px;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px !important;
+}
+/* The lede under a title: 14/20 muted, and 24px before the first thing. Also
+   inline, so also !important. */
+.b-app.l-cornerpost .b-shell > h1.b-head + p {
+  font-size: 14px !important;
+  line-height: 20px;
+  margin-bottom: var(--cp-space-6) !important;
+}
+
+.b-app.l-cornerpost .b-shell > h1.b-head:has(+ :not(p)) { margin-bottom: var(--cp-space-4) !important; }
+/* The home is built here, so its top padding is plain CSS rather than inline. */
+.b-app.l-cornerpost .cp-home { padding-top: var(--cp-space-6); }
+
+.b-app.l-cornerpost .b-head { letter-spacing: 0; text-transform: none; }
+
+/* ── the sticky top bar ────────────────────────────────────────────────── */
+/* Reserve the bar's height when the browser scrolls a focused control into
+   view, so a Shift+Tab upward never parks the control and its focus ring
+   behind the bar (WCAG 2.2 Focus Not Obscured). The bar is 57px with its
+   border; 72px leaves the ring clear. */
+:root:has(.b-app.l-cornerpost) { scroll-padding-top: calc(72px + env(safe-area-inset-top)); }
+
+.b-app.l-cornerpost .cp-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  min-height: var(--cp-topbar-h);
+  padding-top: env(safe-area-inset-top);
+  background: var(--t-bg);
+  border-bottom: 1px solid var(--t-line);
+}
+/* The only shadow in the layout, and only once the page has scrolled. */
+.b-app.l-cornerpost .cp-topbar.is-scrolled { box-shadow: 0 1px 8px color-mix(in srgb, var(--t-ink) 8%, transparent); }
+.b-app.l-cornerpost .cp-topbar__inner {
+  max-width: var(--cp-page-max);
+  min-height: var(--cp-topbar-h);
+  margin: 0 auto;
+  padding: 0 var(--cp-space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+.b-app.l-cornerpost .cp-topbar__back,
+.b-app.l-cornerpost .cp-topbar__menu {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--t-ink);
+  cursor: pointer;
+  padding: 0;
+}
+/* A 44px target whose chevron still lines up with the page gutter. */
+.b-app.l-cornerpost .cp-topbar__back { margin-left: -8px; }
+.b-app.l-cornerpost .cp-topbar__menu { border: 1px solid var(--t-line); background: var(--t-sur); }
+.b-app.l-cornerpost .cp-topbar__id {
+  flex: 1;
+  min-width: 0;
+  /* Room above and below a two-line name, so it never touches the bar's edges. */
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.b-app.l-cornerpost .cp-topbar__name {
+  max-width: 100%;
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 800;
+  color: var(--t-ink);
+  /* Two lines, not one: at 360px the name column is under 100px beside the Talk
+     pill and the menu, and the community's name appears nowhere else on a tool
+     screen, so a long one must not be cut to "Cedar Rid...". */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.b-app.l-cornerpost .cp-topbar__place {
+  display: block;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--t-mut);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.b-app.l-cornerpost .cp-topbar__mark { max-width: 100%; }
+/* The Talk pill: a 44px target around the design's 34px pill. */
+.b-app.l-cornerpost .cp-topbar__cta {
+  flex: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  font: inherit;
+}
+.b-app.l-cornerpost .cp-topbar__cta .cp-btn { pointer-events: none; }
+/* On a phone (430px is the widest common one) the pill reads "Talk" and gives
+   its width to the name, which is otherwise squeezed to about 100px; the button
+   keeps its full accessible name. */
+@media (max-width: 430px) {
+  .b-app.l-cornerpost .cp-topbar__long { display: none; }
+}
+/* The ring is drawn on the pill, not on the invisible 44px box around it. */
+.b-app.l-cornerpost .cp-topbar__cta:focus-visible { outline: none; }
+.b-app.l-cornerpost .cp-topbar__cta:focus-visible .cp-btn { outline: 2px solid var(--t-accT); outline-offset: 2px; }
+
+/* ── page header, stacks and grids ─────────────────────────────────────── */
+.b-app.l-cornerpost .cp-header { margin-bottom: var(--cp-space-6); }
+.b-app.l-cornerpost .cp-display {
+  margin: 0 0 6px;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--t-ink);
+  font-family: var(--t-head);
+  text-transform: none;
+}
+.b-app.l-cornerpost .cp-lede { margin: 0; font-size: 14px; line-height: 20px; color: var(--t-mut); }
+.b-app.l-cornerpost .cp-stack { display: flex; flex-direction: column; gap: var(--cp-space-2); }
+/* Two-up. An odd last tile stays at half width; it is never stretched. */
+.b-app.l-cornerpost .cp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--cp-space-2); align-items: stretch; }
+
+/* ── action tiles and row links: the two tile weights ──────────────────── */
+.b-app.l-cornerpost .cp-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cp-space-1);
+  min-height: var(--cp-tile-min-h);
+  min-width: 0;
+  padding: var(--cp-space-3);
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--cp-radius-lg);
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-cornerpost .cp-tile--featured,
+.b-app.l-cornerpost .cp-row { background: var(--t-tint); }
+.b-app.l-cornerpost .cp-tile__title {
+  display: block;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--t-ink);
+  overflow-wrap: anywhere;
+}
+.b-app.l-cornerpost .cp-tile__sub {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--t-mut);
+  overflow-wrap: anywhere;
+}
+/* Text on the tint is --t-ink: --t-mut falls under 4.5:1 there on the light
+   themes (Sage and Azure among them). */
+.b-app.l-cornerpost .cp-tile--featured .cp-tile__sub,
+.b-app.l-cornerpost .cp-row .cp-tile__sub { color: var(--t-ink); }
+.b-app.l-cornerpost .cp-tile__badge {
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-accT);
+}
+.b-app.l-cornerpost .cp-tile--featured .cp-tile__badge { color: var(--t-ink); }
+
+.b-app.l-cornerpost .cp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--cp-space-3);
+  border: 1px solid var(--t-line);
+  border-radius: var(--cp-radius-lg);
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-cornerpost .cp-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--cp-space-1); }
+.b-app.l-cornerpost .cp-row__chev { flex: none; color: var(--t-accT); }
+@media (hover: hover) {
+  .b-app.l-cornerpost .cp-tile:hover,
+  .b-app.l-cornerpost .cp-row:hover { border-color: var(--t-accT); }
+}
+.b-app.l-cornerpost .cp-row__kicker {
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-accT);
+}
+.b-app.l-cornerpost .cp-row--guide { align-items: flex-start; }
+.b-app.l-cornerpost .cp-row--guide .cp-row__chev { align-self: center; }
+.b-app.l-cornerpost .cp-row__thumb {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--cp-radius-sm);
+  object-fit: cover;
+  background: var(--t-tint2);
+}
+.b-app.l-cornerpost .cp-row__sum {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* The realtors row: overlapping faces in place of a thumbnail. */
+.b-app.l-cornerpost .cp-faces { display: flex; flex: none; }
+.b-app.l-cornerpost .cp-faces > * {
+  width: 36px;
+  height: 36px;
+  margin-left: -10px;
+  border-radius: 50%;
+  border: 2px solid var(--t-tint);
+  object-fit: cover;
+  background: var(--t-sur);
+}
+.b-app.l-cornerpost .cp-faces > *:first-child { margin-left: 0; }
+.b-app.l-cornerpost .cp-faces__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t-accT);
+}
+
+/* ── photo tile with scrim ─────────────────────────────────────────────── */
+.b-app.l-cornerpost .cp-photo {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--cp-photo-h);
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--cp-radius-lg);
+  border: 1px solid var(--t-line);
+  background: var(--t-tint);
+  color: #fff;
+  font-family: var(--t-font);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-cornerpost .cp-photo__img { position: absolute; inset: 0; }
+/* A community with no hero photo yet (every new one) shows this instead of the
+   shared "Photo coming soon" tile, whose muted label read at 1.3:1 under the
+   scrim. The ground is a fixed dark mixed from the accent, so the white title
+   has a dark ground on every theme, light or dark. */
+.b-app.l-cornerpost .cp-photo__img--empty {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--t-accT) 45%, #120c20), #120c20);
+}
+/* Held solid under the two lines of text and faded out above them. The design
+   fades by 55% of the height, which leaves the title over almost bare photo; a
+   white photograph then reads at 1.3:1. At .68 the worst case, pure white
+   underneath, is still 4.9:1 for the white title. The scrim is black-on-image,
+   not a theme colour: white text over a photograph needs a dark ground
+   whatever the palette. */
+.b-app.l-cornerpost .cp-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(18, 12, 32, 0.68) 0%, rgba(18, 12, 32, 0.68) 48%, rgba(18, 12, 32, 0) 100%);
+  pointer-events: none;
+}
+.b-app.l-cornerpost .cp-photo__text { position: absolute; z-index: 1; left: var(--cp-space-3); right: var(--cp-space-3); bottom: var(--cp-space-3); }
+.b-app.l-cornerpost .cp-photo__title { display: block; font-size: 18px; line-height: 22px; font-weight: 800; color: #fff; }
+.b-app.l-cornerpost .cp-photo__sub { display: block; font-size: 11px; line-height: 15px; font-weight: 500; color: #fff; }
+
+/* ── section header: a rule, an eyebrow, an optional title ─────────────── */
+.b-app.l-cornerpost .cp-section { margin-top: var(--cp-space-8); }
+.b-app.l-cornerpost .cp-rule {
+  height: var(--cp-rule-h);
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--t-acc) 0%, var(--t-acc) 40%, var(--t-line) 100%);
+}
+.b-app.l-cornerpost .cp-eyebrow {
+  margin: var(--cp-space-3) 0 0;
+  font-family: var(--t-font);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-accT);
+}
+.b-app.l-cornerpost .cp-section-title {
+  margin: var(--cp-space-3) 0 var(--cp-space-2);
+  font-family: var(--t-head);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--t-accT);
+}
+.b-app.l-cornerpost .cp-section > .cp-eyebrow + .cp-section-title { margin-bottom: var(--cp-space-2); }
+/* Something that follows a section header sits a little under it. */
+.b-app.l-cornerpost .cp-section + .cp-stack,
+.b-app.l-cornerpost .cp-section + .cp-card,
+.b-app.l-cornerpost .cp-section + .cp-resources { margin-top: var(--cp-space-3); }
+.b-app.l-cornerpost section > .cp-section + * { margin-top: var(--cp-space-3); }
+
+/* ── cards, frames, resources ──────────────────────────────────────────── */
+.b-app.l-cornerpost .cp-card {
+  padding: var(--cp-space-4);
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--cp-radius-md);
+}
+.b-app.l-cornerpost .cp-card--tint { background: var(--t-tint); border-radius: var(--cp-radius-lg); }
+.b-app.l-cornerpost .cp-frame {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--cp-radius-md);
+  border: 1px solid var(--t-line);
+  background: var(--t-sur);
+}
+.b-app.l-cornerpost .cp-resources { display: flex; flex-direction: column; gap: var(--cp-space-4); }
+.b-app.l-cornerpost .cp-resource { display: flex; flex-direction: column; gap: var(--cp-space-2); }
+.b-app.l-cornerpost .cp-resource__title { margin: 0; }
+.b-app.l-cornerpost .cp-resource__video { display: block; width: 100%; background: #000; }
+.b-app.l-cornerpost .cp-resource__embed { position: relative; padding-top: 56.25%; }
+.b-app.l-cornerpost .cp-resource__embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.b-app.l-cornerpost .cp-resource__body {
+  margin: 0;
+  padding: var(--cp-space-4);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--t-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── buttons ───────────────────────────────────────────────────────────── */
+.b-app.l-cornerpost .cp-btn,
+.b-app.l-cornerpost .b-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--cp-control-h);
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  font-family: var(--t-font);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-cornerpost .b-btn { width: 100%; }
+.b-app.l-cornerpost .cp-btn--sm { min-height: 34px; padding: 0 14px; font-size: 13px; line-height: 18px; white-space: nowrap; }
+.b-app.l-cornerpost .cp-btn--block { display: flex; width: 100%; }
+@media (hover: hover) {
+  .b-app.l-cornerpost .cp-btn--primary:hover,
+  .b-app.l-cornerpost .b-btn:not(.b-btn-outline):not(:disabled):hover,
+  .b-app.l-cornerpost .cp-topbar__cta:hover .cp-btn {
+    /* An inner ring rather than a darker fill: on a light accent with dark label
+       text (bronze, sage) darkening the fill takes the label under 4.5:1. */
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--t-onacc) 40%, transparent);
+  }
+}
+/* The disabled primary is a softened fill rather than a faded one, so its
+   label does not go to mush; a disabled control is exempt from contrast. */
+.b-app.l-cornerpost .b-btn:disabled {
+  opacity: 1;
+  background: color-mix(in srgb, var(--t-acc) 36%, var(--t-bg));
+  /* Ink, not the on-accent colour: white on a half-faded blue is 2.2:1. */
+  color: var(--t-ink);
+  cursor: not-allowed;
+}
+.b-app.l-cornerpost .cp-btn--outline,
+.b-app.l-cornerpost .b-btn-outline {
+  background: var(--t-sur);
+  color: var(--t-accT);
+  border: 1.5px solid var(--t-acc);
+}
+@media (hover: hover) {
+  .b-app.l-cornerpost .cp-btn--outline:hover,
+  .b-app.l-cornerpost .b-btn-outline:not(:disabled):hover { background: var(--t-tint); }
+}
+/* A secondary and a primary sit as two equal columns, secondary on the left. */
+.b-app.l-cornerpost .cp-btn-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--cp-space-2); margin-top: var(--cp-space-3); }
+.b-app.l-cornerpost .cp-btn-pair--home { margin-top: var(--cp-space-6); }
+.b-app.l-cornerpost .cp-btn-pair .cp-btn { padding: 0 8px; text-align: center; font-size: 13px; line-height: 18px; }
+.b-app.l-cornerpost .cp-more { margin-top: var(--cp-space-3); }
+
+/* ── the lender card ───────────────────────────────────────────────────── */
+.b-app.l-cornerpost .cp-lender { display: flex; flex-direction: column; gap: var(--cp-space-3); }
+.b-app.l-cornerpost .cp-lender__logo { align-self: flex-start; }
+.b-app.l-cornerpost .cp-lender__line { margin: 0; color: var(--t-ink); overflow-wrap: anywhere; }
+.b-app.l-cornerpost .cp-lender__legal { display: flex; align-items: center; gap: var(--cp-space-3); color: var(--t-ink); font-size: 11px; line-height: 16px; }
+.b-app.l-cornerpost .cp-lender__legal > img { flex: none; }
+.b-app.l-cornerpost .cp-lender__id { min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.b-app.l-cornerpost .cp-lender__tel {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t-accT);
+}
+
+/* ── form controls ─────────────────────────────────────────────────────── */
+.b-app.l-cornerpost .b-field { gap: 6px; }
+.b-app.l-cornerpost .b-lbl {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.b-app.l-cornerpost .b-in,
+.b-app.l-cornerpost select.b-in {
+  min-height: var(--cp-control-h);
+  padding: 12px var(--cp-space-4);
+  border: 1px solid var(--t-line);
+  border-radius: var(--cp-radius-md);
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  font-size: 16px; /* 16px stops iOS zooming on focus */
+  line-height: 22px;
+  font-weight: 500;
+}
+.b-app.l-cornerpost .b-in:focus { border-color: var(--t-accT); }
+.b-app.l-cornerpost .b-in:focus-visible { outline: 2px solid var(--t-accT); outline-offset: 2px; }
+/* Choice chips: pills, one weight, the selected one in the accent. They keep a
+   44px height rather than the design's 40: a chip is a thumb target. */
+.b-app.l-cornerpost .b-pill {
+  min-height: 44px;
+  /* Stacked chips are flex buttons; without this their label and price sit at
+     the top of the 44px with empty room below. */
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--t-line);
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  /* A chip wraps to a second line, at a space, before it pushes its neighbour
+     out of the column; it never splits a word ("Conventional" at 360px with the
+     real face), so it will not shrink below its longest word. */
+  min-width: min-content;
+  padding: 4px 8px;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+@media (max-width: 400px) {
+  .b-app.l-cornerpost .b-pill { padding: 4px 6px; }
+}
+.b-app.l-cornerpost .b-pill[data-on='true'] { background: var(--t-acc); border-color: var(--t-acc); color: var(--t-onacc); }
+
+/* A tick box is a tap target too, and the browser's own is 13 to 20px. The box
+   is drawn here at 22px inside a 44px hit area, and the negative margin gives
+   back the room, so a row keeps the height and spacing it had. The size is
+   inline on the shared screens, hence !important. */
+.b-app.l-cornerpost .b-main input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px !important;
+  height: 44px !important;
+  margin: -12px;
+  background: transparent;
+  cursor: pointer;
+}
+.b-app.l-cornerpost .b-main input[type='checkbox']::before,
+.b-app.l-cornerpost .b-main input[type='checkbox']::after { content: ''; grid-area: 1 / 1; }
+.b-app.l-cornerpost .b-main input[type='checkbox']::before {
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--t-accT);
+  border-radius: 7px;
+  background: var(--t-sur);
+}
+.b-app.l-cornerpost .b-main input[type='checkbox']:checked::before { background: var(--t-acc); border-color: var(--t-acc); }
+.b-app.l-cornerpost .b-main input[type='checkbox']:checked::after {
+  width: 6px;
+  height: 11px;
+  margin-top: -2px;
+  border: solid var(--t-onacc);
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+.b-app.l-cornerpost .b-main input[type='checkbox']:focus-visible { outline: 2px solid var(--t-accT); outline-offset: -4px; border-radius: 12px; }
+
+/* ── surfaces ──────────────────────────────────────────────────────────── */
+/* Flat: a border separates things, not a shadow. Result cards are radius-md;
+   the explore cards are photo tiles, so radius-lg. */
+.b-app.l-cornerpost .b-card { background: var(--t-sur); border: 1px solid var(--t-line); border-radius: var(--cp-radius-md); box-shadow: none; }
+.b-app.l-cornerpost .b-card[role='button'] { border-radius: var(--cp-radius-lg); }
+.b-app.l-cornerpost .b-strip { border: 1px solid var(--t-line); border-radius: var(--cp-radius-lg); color: var(--t-ink); }
+.b-app.l-cornerpost .b-rule {
+  height: var(--cp-rule-h);
+  background: linear-gradient(to right, var(--t-acc) 0%, var(--t-acc) 40%, var(--t-line) 100%);
+}
+.b-app.l-cornerpost .b-sheet { max-width: var(--cp-page-max); border-radius: var(--cp-radius-lg) var(--cp-radius-lg) 0 0; }
+
+/* ── guides: the list and the reading page ─────────────────────────────── */
+/* A guide in a list is a row like the home screen's: a small picture beside the
+   words, so thirteen of them stay a list a buyer can scan rather than thirteen
+   full-width photographs. The title link is stretched over the whole row. */
+.b-app.l-cornerpost .b-glist { gap: var(--cp-space-2); }
+.b-app.l-cornerpost .b-gcard {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-lg);
+  box-shadow: none;
+}
+.b-app.l-cornerpost .b-gcard__img {
+  flex: none;
+  width: 88px;
+  height: 88px;
+  aspect-ratio: 1;
+  border-radius: var(--cp-radius-sm);
+}
+.b-app.l-cornerpost .b-gcard__body { flex: 1; min-width: 0; gap: var(--cp-space-1); padding: 0; }
+.b-app.l-cornerpost .b-gcard__kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.b-app.l-cornerpost .b-gcard__title { font-size: 16px; line-height: 22px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+.b-app.l-cornerpost .b-gcard__sum { font-size: 12px; line-height: 16px; color: var(--t-mut); -webkit-line-clamp: 2; }
+.b-app.l-cornerpost .b-article__kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
+.b-app.l-cornerpost .b-article__title {
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  text-wrap: balance;
+}
+.b-app.l-cornerpost .b-article__byline { font-weight: 700; }
+.b-app.l-cornerpost .b-article__hero { border-radius: var(--cp-radius-md); border: 1px solid var(--t-line); }
+.b-app.l-cornerpost .b-article__cta { border-radius: var(--cp-radius-lg); background: var(--t-tint); border-color: var(--t-line); }
+/* Reading text: 16/1.7, still Manrope, with headings in the design's ink-strong
+   800. Sentence case and no tracking, so a serif theme's uppercase does not leak
+   into a question like "What should I ask about the HOA?". */
+.b-app.l-cornerpost .md { font-size: 16px; line-height: 1.7; font-weight: 500; }
+.b-app.l-cornerpost .md-h2 { font-size: 22px; line-height: 28px; font-weight: 800; letter-spacing: -0.01em; }
+.b-app.l-cornerpost .md-h3 { font-size: 17px; line-height: 22px; font-weight: 800; }
+.b-app.l-cornerpost .md-callout { border-radius: var(--cp-radius-md); border-color: var(--t-line); border-left-color: var(--t-acc); }
+.b-app.l-cornerpost .md-callout__title { font-weight: 800; }
+.b-app.l-cornerpost .md-img { border-radius: var(--cp-radius-md); border: 1px solid var(--t-line); }
+.b-app.l-cornerpost .md-link:focus-visible { outline-color: var(--t-accT); }
+.b-app.l-cornerpost .md-hr { border-top-color: var(--t-line); }
+
+/* ── realtors ──────────────────────────────────────────────────────────── */
+.b-app.l-cornerpost .b-agent { border-radius: var(--cp-radius-lg); }
+.b-app.l-cornerpost .b-agent__photo { border-radius: var(--cp-radius-sm); }
+.b-app.l-cornerpost .b-agent__name { font-size: 16px; line-height: 22px; font-weight: 800; }
+
+/* ── compliance footer skin ────────────────────────────────────────────── */
+/* The printed plan's footer (.b-footer--print) is excluded throughout so the
+   shared black-on-white print look in base.css applies untouched.
+
+   On the page's own ground, with a hairline above it, in the design's measure
+   (560px column, 20px gutter). Colour and wording come from the shared
+   component; this only decides where things sit. */
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) {
+  margin-top: var(--cp-space-8);
+  padding: var(--cp-space-6) max(var(--cp-space-5), calc((100% - var(--cp-page-max)) / 2 + var(--cp-space-5))) calc(var(--cp-space-8) + env(safe-area-inset-bottom));
+  background: transparent;
+  color: var(--t-ink);
+  border-top: 1px solid var(--t-line);
+}
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__brand { justify-content: space-between; flex-wrap: nowrap; gap: var(--cp-space-4); margin: 0 0 var(--cp-space-3); }
+/* The lender logo is sized inline by its component; the design draws it at 38px
+   beside the 44px Equal Housing mark, hence !important. The mark itself stays at
+   its own height, which is never below 40px. */
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__brand .b-lender-logo { min-width: 0; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__brand .b-lender-logo__img { height: 38px !important; max-width: 100%; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__brand .b-ehl { flex: none; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__id { margin: 0 0 var(--cp-space-3); font-size: 12px; line-height: 17px; color: var(--t-mut); }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__id strong { color: var(--t-ink); font-weight: 700; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__fine { margin: 0 0 var(--cp-space-2); font-size: 11px; line-height: 16px; font-weight: 500; color: var(--t-mut); }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) a { color: var(--t-mut); text-decoration: underline; text-underline-offset: 2px; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__links { gap: 0 14px; margin: var(--cp-space-3) 0 0; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__links a { font-size: 11px; line-height: 16px; font-weight: 600; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__tel { font-weight: 600; }
+.b-app.l-cornerpost .b-footer:not(.b-footer--print) .b-footer__copy { margin-top: var(--cp-space-3); }
+@media (hover: hover) {
+  .b-app.l-cornerpost .b-footer:not(.b-footer--print) a:hover { color: var(--t-accT); }
+}
+
+/* ── inline colours on shared screens that fail 4.5:1 ──────────────────── */
+/* These three are inline styles in the tool screens, which a layout may not edit,
+   so they are matched by what they say. Each fixes a pairing the themes make
+   unreadable: the accent FILL used as text, --t-mut on --t-tint2, and a selected
+   chip's secondary figure faded to 75% on the accent. !important is the point:
+   it is the only way to beat an inline style. */
+.b-app.l-cornerpost .b-main [style*=' color: var(--t-acc);'] { color: var(--t-accT) !important; }
+.b-app.l-cornerpost .b-main [style*='background: var(--t-tint2)'] { color: var(--t-ink) !important; }
+.b-app.l-cornerpost .b-pill > span[style*='opacity'] { opacity: 1 !important; font-weight: 600; }
+
+/* A completed Move-in step is faded to .55 inline, which leaves its title at
+   3.2 to 4:1 and its "You" line at 2.1:1 on every theme. The strike-through
+   already says the step is done, so the fade comes off and the title is drawn
+   in the muted ink instead. */
+.b-app.l-cornerpost .b-main [style*='opacity: 0.55'] { opacity: 1 !important; }
+.b-app.l-cornerpost .b-main [style*='line-through'] { color: var(--t-mut) !important; }
+
+/* The shared tools size their own text and gaps inline, on a scale of 10.5,
+   11.5, 12.5 and 13.5. The design's scale is 11, 12 and 14 with 16px between
+   fields, so those are brought onto it. Inline, hence !important. */
+.b-app.l-cornerpost .b-main .b-stack[style*='gap: 12px'] { gap: var(--cp-space-4) !important; }
+.b-app.l-cornerpost .b-main [style*='font-size: 13.5px'] { font-size: 14px !important; }
+.b-app.l-cornerpost .b-main [style*='font-size: 12.5px'],
+.b-app.l-cornerpost .b-main [style*='font-size: 11.5px'] { font-size: 12px !important; }
+.b-app.l-cornerpost .b-main [style*='font-size: 10.5px'] { font-size: 11px !important; }
+
+/* ── motion ────────────────────────────────────────────────────────────── */
+/* The layout moves nothing on its own. The one thing in the shared styles that
+   animates is the progress bar's width; it stops for a buyer who asked for less. */
+@media (prefers-reduced-motion: reduce) {
+  .b-app.l-cornerpost .b-bar > span { transition: none; }
+  .b-app.l-cornerpost * { scroll-behavior: auto; }
+}

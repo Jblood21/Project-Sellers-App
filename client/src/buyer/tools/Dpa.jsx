@@ -162,7 +162,7 @@ export default function Dpa() {
                     style={{
                       flex: 'none', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
                       background: covered ? 'var(--t-tint)' : 'var(--t-tint2)',
-                      color: covered ? 'var(--t-accT)' : 'var(--t-mut)',
+                      color: covered ? 'var(--t-accT)' : 'var(--t-ink)',
                     }}
                   >
                     {covered ? 'Covered' : `Over by ${money(num(home.price) - cap)}`}

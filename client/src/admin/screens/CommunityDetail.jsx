@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { COMMUNITY_STATUSES } from '@shared/domain.js';
@@ -45,6 +45,8 @@ export default function CommunityDetail() {
     ]);
     setCommunity(next);
     setLeads(nextLeads);
+    // Handed back so a caller can show what was really stored, not what it sent.
+    return next;
   }, [communityId, token]);
 
   useEffect(() => {
@@ -71,14 +73,35 @@ function CommunityTabs({ community, leads, reload }) {
   const [qrOpen, setQrOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const setTab = (next) => setSearchParams(next === 'homes' ? {} : { tab: next }, { replace: true });
+  // SetupTab keeps this true while its form holds edits that are not saved yet.
+  const setupDirty = useRef(false);
+  const leaveSetupOk = () => !setupDirty.current
+    || window.confirm('You have unsaved changes on the Setup tab. Leave and lose them?');
+
+  const setTab = (next) => {
+    if (next !== tab && !leaveSetupOk()) return;
+    setSearchParams(next === 'homes' ? {} : { tab: next }, { replace: true });
+  };
+
+  // The row scrolls sideways on a phone. Bring the active pill into view so the
+  // person can see which section they are in; the row is scrolled directly,
+  // because scrollIntoView could also move the whole page.
+  const tabRow = useRef(null);
+  useEffect(() => {
+    const row = tabRow.current;
+    const pill = row?.querySelector('[aria-pressed="true"]');
+    if (!row || !pill) return;
+    const r = row.getBoundingClientRect();
+    const p = pill.getBoundingClientRect();
+    row.scrollLeft += p.left - r.left - (r.width - p.width) / 2;
+  }, [tab]);
 
   return (
     <div className="a-shell">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <button
           type="button" className="btn btn-secondary btn-icon" aria-label="Back to communities"
-          onClick={() => navigate('/admin')}
+          onClick={() => leaveSetupOk() && navigate('/admin')}
         >
           <ChevronLeft size={18} />
         </button>
@@ -94,7 +117,9 @@ function CommunityTabs({ community, leads, reload }) {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 5, margin: '16px 0 18px' }}>
+      {/* Eight tabs do not fit a 390px phone at their natural width, so the row scrolls
+          sideways instead of widening the whole page. */}
+      <div ref={tabRow} className="scroll-x" role="group" aria-label="Sections" style={{ display: 'flex', gap: 5, margin: '16px 0 18px', overflowX: 'auto' }}>
         {TABS.map(([key, label]) => (
           <button
             key={key}
@@ -102,8 +127,8 @@ function CommunityTabs({ community, leads, reload }) {
             onClick={() => setTab(key)}
             aria-pressed={tab === key}
             style={{
-              flex: 1, minHeight: 38, whiteSpace: 'nowrap', borderRadius: 999,
-              border: '1px solid var(--color-divider)', cursor: 'pointer', padding: '0 4px',
+              flex: '1 0 auto', minHeight: 44, whiteSpace: 'nowrap', borderRadius: 999,
+              border: '1px solid var(--color-divider)', cursor: 'pointer', padding: '0 14px',
               background: tab === key ? 'var(--color-accent)' : 'transparent',
               color: tab === key ? '#fff' : 'var(--color-text)',
               fontFamily: 'var(--font-heading)', fontSize: 12.5, fontWeight: 600,
@@ -121,13 +146,14 @@ function CommunityTabs({ community, leads, reload }) {
       {tab === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
       {tab === 'leads' ? <LeadsTab community={community} leads={leads} /> : null}
       {tab === 'stats' ? <StatsTab community={community} leads={leads} /> : null}
-      {tab === 'setup' ? <SetupTab community={community} reload={reload} /> : null}
+      {tab === 'setup' ? <SetupTab community={community} reload={reload} dirtyRef={setupDirty} /> : null}
 
       {qrOpen ? (
         <QrDialog
           community={community}
           onClose={() => setQrOpen(false)}
           onOpenFlyer={() => {
+            if (!leaveSetupOk()) return;
             setQrOpen(false);
             navigate(`/admin/communities/${community.id}/flyer`);
           }}

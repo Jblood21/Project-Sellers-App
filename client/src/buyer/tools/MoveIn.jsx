@@ -317,6 +317,7 @@ function StepRow({ item, first, today, thisYear, onToggle, onRemove }) {
     >
       <input
         type="checkbox"
+        className="b-check"
         checked={item.done}
         onChange={onToggle}
         aria-label={item.label}
@@ -325,7 +326,7 @@ function StepRow({ item, first, today, thisYear, onToggle, onRemove }) {
       <span
         style={{
           flex: 'none', width: 58, fontSize: 12, fontWeight: 700,
-          color: overdue ? 'var(--t-acc)' : 'var(--t-mut)',
+          color: overdue ? 'var(--t-accT)' : 'var(--t-mut)',
         }}
       >
         {overdue ? 'Now' : dayLabel(item.date, thisYear)}

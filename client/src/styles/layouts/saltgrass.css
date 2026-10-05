@@ -1,0 +1,1044 @@
+/* Salt Grass layout.
+
+   A layout owns typeface, shape, spacing, header, home and the look of every
+   control; it does not own colour. Every colour below is a --t-* token, so the
+   layout reads on all ten themes: the dark grounds are the theme's secondary
+   (--t-acc2, with --t-onacc2 text on it), the one accent is --t-acc (with
+   --t-onacc text on it), and --t-accT is the accent when it has to be TEXT on a
+   light ground. The accent is never used as text on a dark ground, because on
+   several themes (azure, violet, teal, sage) it is too close to the secondary.
+
+   Everything is scoped under .b-app.l-saltgrass. Tool screens are drawn with
+   inline styles that read var(--t-*), so where a dark panel needs different
+   text colours the panel REDEFINES those tokens for its subtree rather than
+   fighting each inline colour with !important. !important appears only where an
+   inline font-size or padding has to be beaten, and each is commented. */
+
+/* ── tokens: type, shape, and the few derived colours ─────────────────── */
+.b-app.l-saltgrass {
+  --t-head: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --t-font: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --t-headwt: 800;
+  --t-track: -0.01em;
+  --t-up: uppercase;
+  --t-rad: 8px;
+  --t-radlg: 10px;
+  --t-radbtn: 8px;
+
+  /* The originals, kept under their own names: a dark panel redefines --t-ink
+     and friends for everything inside it, and a light card inside that panel
+     (the lead tools on the hero) still needs the page's own values. */
+  --sg-ink: var(--t-ink);
+  --sg-mut: var(--t-mut);
+  --sg-accT: var(--t-accT);
+  --sg-sur: var(--t-sur);
+  --sg-bg: var(--t-bg);
+  /* The deepest ground (header, hero, footer) is the secondary pushed toward
+     black; panels use the secondary itself. White text only gets safer. */
+  --sg-deep: color-mix(in srgb, var(--t-acc2) 78%, #000);
+  --sg-soft: color-mix(in srgb, var(--t-onacc2) 84%, var(--t-acc2));
+  /* Borders: panels are quiet, controls say "tap me" at close to 3:1. */
+  --sg-panel: color-mix(in srgb, var(--t-ink) 18%, var(--t-sur));
+  --sg-ctl: color-mix(in srgb, var(--t-ink) 55%, var(--t-sur));
+  --sg-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  font-size: 17px;
+  line-height: 1.55;
+  /* Figures line up: money and counts are what a buyer compares. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every dark ground redefines the tokens its contents read, so inline colours
+   such as var(--t-mut) land on a legible value without any !important. */
+.b-app.l-saltgrass .sg-head,
+.b-app.l-saltgrass .sg-stick,
+.b-app.l-saltgrass .sg-hero,
+.b-app.l-saltgrass .sg-strip,
+.b-app.l-saltgrass .sg-lender,
+.b-app.l-saltgrass .b-result,
+.b-app.l-saltgrass .b-article__cta,
+.b-app.l-saltgrass .b-landing,
+.b-app.l-saltgrass .b-gate,
+.b-app.l-saltgrass .b-footer--dark {
+  --t-ink: var(--t-onacc2);
+  --t-mut: var(--sg-soft);
+  --t-accT: var(--t-onacc2);
+  --t-line: rgba(255, 255, 255, 0.22);
+  color: var(--t-onacc2);
+}
+.b-app.l-saltgrass .sg-head,
+.b-app.l-saltgrass .sg-stick,
+.b-app.l-saltgrass .sg-hero,
+.b-app.l-saltgrass .b-landing,
+.b-app.l-saltgrass .b-gate,
+.b-app.l-saltgrass .b-footer--dark { --sg-soft: color-mix(in srgb, var(--t-onacc2) 84%, var(--sg-deep)); }
+
+/* Text the screens draw inline on a tinted chip or as the bare accent. The tint
+   grounds are light washes, where --t-mut can miss 4.5:1 (Afford's "Worth
+   asking" on navy is 4.3:1), so the muted text on them is set in --t-ink; and
+   the accent is a FILL, so where a screen paints it as text (Move-in's "Now")
+   the text-safe accent stands in. Both are done by redefining the token on the
+   element, so the inline declaration is not fought with !important. */
+.b-app.l-saltgrass [style*='background: var(--t-tint2)'],
+.b-app.l-saltgrass [style*='background: var(--t-tint)'] { --t-mut: var(--sg-ink); }
+.b-app.l-saltgrass [style*='; color: var(--t-acc)'],
+.b-app.l-saltgrass [style^='color: var(--t-acc)'] { --t-acc: var(--sg-accT); }
+
+/* ── focus, motion ────────────────────────────────────────────────────── */
+/* 3px, offset 2px, as the brand sets it. The brand draws it in lime, which is
+   1.8:1 on white; --t-accT clears 3:1 on light grounds, and on the dark ones
+   the token redefinition above turns it white. */
+.b-app.l-saltgrass a:focus-visible,
+.b-app.l-saltgrass button:focus-visible,
+.b-app.l-saltgrass [role='button']:focus-visible,
+.b-app.l-saltgrass summary:focus-visible,
+.b-app.l-saltgrass input:focus-visible,
+.b-app.l-saltgrass select:focus-visible,
+.b-app.l-saltgrass textarea:focus-visible {
+  outline: 3px solid var(--t-accT);
+  outline-offset: 2px;
+}
+
+/* The skip link is the first stop on every screen and lands on the dark header,
+   where its usual secondary-colour fill is nearly the header's own colour and the
+   ring is the accent. A lime fill with a white ring, and a deep halo beyond it,
+   reads on all ten themes. */
+.b-app.l-saltgrass .b-skip:focus-visible {
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--sg-deep);
+}
+/* The bar's buttons fill the bottom edge of the screen, so a ring drawn outside
+   them falls off the viewport or onto the page behind. This one is inside: a
+   white band with a deep frame on both sides, which shows on the lime button and
+   on the dark one alike. */
+.b-app.l-saltgrass .sg-stick a:focus-visible,
+.b-app.l-saltgrass .sg-stick button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -6px;
+  box-shadow: inset 0 0 0 9px var(--sg-deep);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .b-app.l-saltgrass *,
+  .b-app.l-saltgrass *::before,
+  .b-app.l-saltgrass *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── type ─────────────────────────────────────────────────────────────── */
+.b-app.l-saltgrass .b-head { line-height: 0.95; }
+/* Headlines end in punctuation. It is drawn here and not typed, so no app copy
+   changes; buttons and their names are left alone. A name that already ends in
+   punctuation ("Willow Creek Estates, Inc.") says so with data-punct and is
+   not given a second mark. */
+.b-app.l-saltgrass h1.b-head:not(.b-article__title):not(.b-guides__title):not([data-punct])::after,
+.b-app.l-saltgrass .sg-h2::after,
+.b-app.l-saltgrass .sg-h3::after { content: '.'; }
+.b-app.l-saltgrass h1.b-head {
+  /* The pages set a 22 to 34px size inline; a condensed face needs to be bigger
+     to carry the same presence, so this is the one place that beats them. */
+  font-size: clamp(2.3rem, 9vw, 3.4rem) !important;
+  margin-bottom: 0.4rem !important;
+  /* A one-word name of 15 or more letters (a community name is typed by the
+     builder) is wider than a phone at this size, and would scroll the page. */
+  overflow-wrap: anywhere;
+}
+.b-app.l-saltgrass .b-article__title,
+.b-app.l-saltgrass .b-guides__title { text-transform: none; }
+.b-app.l-saltgrass .b-lbl {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.b-app.l-saltgrass .sg-h2 {
+  margin: 0 0 1.4rem;
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(2rem, 7vw, 3.2rem);
+  line-height: 0.95;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+  color: var(--t-ink);
+  overflow-wrap: anywhere;
+}
+.b-app.l-saltgrass .sg-h3 {
+  margin: 0;
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(1.4rem, 4vw, 1.9rem);
+  line-height: 1;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+  color: var(--t-ink);
+}
+
+/* ── the page column ──────────────────────────────────────────────────── */
+/* Tool and form screens stay a single comfortable column. */
+.b-app.l-saltgrass .b-shell { max-width: 680px; }
+.b-app.l-saltgrass .sg-wrap { width: min(100% - 2rem, 1120px); margin-inline: auto; }
+
+/* ── controls ─────────────────────────────────────────────────────────── */
+.b-app.l-saltgrass .b-in {
+  min-height: 54px;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid var(--sg-ctl);
+  border-radius: 8px;
+  background: var(--t-sur);
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s var(--sg-ease);
+}
+.b-app.l-saltgrass .b-in:focus-visible { border-color: var(--t-acc2); }
+.b-app.l-saltgrass .b-field { gap: 0.4rem; }
+
+.b-app.l-saltgrass .b-btn {
+  min-height: 54px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s var(--sg-ease), background-color 0.15s var(--sg-ease);
+}
+.b-app.l-saltgrass .b-btn:not(:disabled):active { transform: scale(0.98); }
+/* A hover darkens the fill. Lightening it (a mix toward white) took the white
+   label on azure and teal under 4.5:1; a slight darkening helps a light label
+   and costs a dark one almost nothing. */
+.b-app.l-saltgrass .b-btn:not(:disabled):hover { filter: brightness(0.93); }
+.b-app.l-saltgrass .b-btn-outline {
+  background: transparent;
+  color: var(--t-acc2);
+  border-color: var(--sg-ctl);
+}
+.b-app.l-saltgrass .b-btn-outline:not(:disabled):hover { background: transparent; border-color: var(--t-acc2); }
+
+/* Chips: 48px, a 2px border, and the selected one fills with the dark
+   secondary, which is how the brand marks selection. */
+.b-app.l-saltgrass .b-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.5rem 0.6rem;
+  border: 2px solid var(--sg-ctl);
+  border-radius: 8px;
+  background: var(--t-sur);
+  color: var(--t-acc2);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.15;
+  /* Three loan types in a row do not all fit on one line at 360px. */
+  white-space: normal;
+  min-width: 0;
+  transition: background-color 0.12s var(--sg-ease), border-color 0.12s var(--sg-ease), color 0.12s var(--sg-ease);
+}
+/* The price beside a home's name is drawn at 75% opacity inline, which takes the
+   chip's text under 4.5:1 on the lighter themes (sage measures 4.0). */
+.b-app.l-saltgrass .b-pill > span[style*='opacity'] { opacity: 0.92 !important; }
+.b-app.l-saltgrass .b-pill:hover { border-color: var(--t-acc2); }
+.b-app.l-saltgrass .b-pill[data-on='true'] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); }
+
+.b-app.l-saltgrass .b-card {
+  background: var(--t-sur);
+  border: 2px solid var(--sg-panel);
+  border-radius: 10px;
+}
+.b-app.l-saltgrass .b-strip {
+  background: var(--t-tint);
+  border: 2px solid var(--sg-panel);
+  border-radius: 10px;
+  color: var(--t-ink);
+  font-size: 0.95rem;
+}
+/* A short accent bar, not a full-width gradient. */
+.b-app.l-saltgrass .b-rule { width: 56px; height: 4px; border-radius: 0; background: var(--t-acc); }
+.b-app.l-saltgrass .b-bar { height: 12px; }
+
+.b-app.l-saltgrass .b-sheet {
+  max-width: 560px;
+  border-radius: 10px 10px 0 0;
+  border-top: 4px solid var(--t-acc);
+}
+
+/* The Move-in step checkboxes are 20px with no label around them. The box is
+   redrawn at 28px inside a 44px hit area: the hit area is a transparent border,
+   the visible box is the padding box, and negative margins keep the row's
+   layout where it was. The inline 20px is beaten with !important because the
+   size is set in the step's style attribute. */
+.b-app.l-saltgrass input.b-check {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 44px !important;
+  height: 44px !important;
+  margin: -8px;
+  border: 8px solid transparent;
+  border-radius: 14px;
+  background-color: var(--t-sur);
+  background-clip: padding-box;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 18px;
+  box-shadow: inset 0 0 0 2px var(--sg-ctl);
+  cursor: pointer;
+}
+.b-app.l-saltgrass input.b-check:checked {
+  background-color: var(--t-acc2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.5 3.5 7.5-8' fill='none' stroke='white' stroke-width='2.6'/%3E%3C/svg%3E");
+  box-shadow: inset 0 0 0 2px var(--t-acc2);
+}
+.b-app.l-saltgrass input.b-check:focus-visible { outline-offset: -6px; }
+
+/* Assumption and legal lines are set inline at 10 to 11.5px. The brand's
+   smallest style is 12px, and these are the lines a buyer is told to read, so
+   they are raised to it; the attribute selector is the only way to reach a size
+   written in a style attribute. */
+.b-app.l-saltgrass [style*='font-size: 10px'],
+.b-app.l-saltgrass [style*='font-size: 10.5px'],
+.b-app.l-saltgrass [style*='font-size: 11px'],
+.b-app.l-saltgrass [style*='font-size: 11.5px'] { font-size: 12px !important; }
+
+/* ── tool results: the answer panel ───────────────────────────────────── */
+/* The one big number on a tool screen. White on the dark secondary, with the
+   accent as a bar on top, because the accent as text is not safe on every
+   theme. */
+.b-app.l-saltgrass .b-result {
+  background: var(--t-acc2);
+  color: var(--t-onacc2);
+  border: 0;
+  border-radius: 10px;
+  /* The accent bar is an inset shadow, not a border, so it follows the corners. */
+  box-shadow: inset 0 4px 0 var(--t-acc), 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+/* The tool sets 34px inline on the figure; the brand's payment figure is 70px. */
+.b-app.l-saltgrass .b-result .b-bignum {
+  font-size: clamp(3.6rem, 18vw, 4.6rem) !important;
+  line-height: 0.92 !important;
+}
+/* Afford's range is two figures with "to" between them, so it is large but
+   not payment-sized. */
+.b-app.l-saltgrass .b-result > .b-head:not(.b-bignum) {
+  font-size: clamp(2.1rem, 9.5vw, 3rem) !important;
+  line-height: 1 !important;
+}
+.b-app.l-saltgrass .b-result .b-resultrow {
+  /* Inline 13px: the rows are the breakdown a buyer checks the figure against. */
+  font-size: 1rem !important;
+  padding-top: 0.55rem !important;
+}
+
+/* ── header ───────────────────────────────────────────────────────────── */
+.b-app.l-saltgrass .sg-head {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 68px;
+  padding: calc(0.5rem + env(safe-area-inset-top)) max(0.75rem, calc((100% - 1120px) / 2)) 0.5rem;
+  background: var(--sg-deep);
+  color: var(--t-onacc2);
+}
+/* The accent rule. A line of white sits above it so that on a theme whose
+   accent is nearly the colour of the dark ground (azure, violet, teal, where the
+   accent alone is under 2.2:1) the rule still reads as a separate line. */
+.b-app.l-saltgrass .sg-head::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: var(--t-acc);
+  box-shadow: 0 -2px 0 rgba(255, 255, 255, 0.5);
+}
+.b-app.l-saltgrass .sg-head__back {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 44px;
+  padding: 0 0.7rem 0 0.4rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--t-onacc2);
+  font: 700 0.95rem/1 var(--t-font);
+  cursor: pointer;
+}
+.b-app.l-saltgrass .sg-head__back:hover { background: rgba(255, 255, 255, 0.12); }
+.b-app.l-saltgrass .sg-head__brands {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+/* The mark is what gives way when the header is crowded. It has to be allowed to
+   shrink below the width of its location line (a column flex item will not, by
+   default), or a real location such as "Saratoga Springs, Utah County, Utah"
+   runs under the buttons and a long one scrolls the whole page sideways. */
+.b-app.l-saltgrass .sg-head__mark { min-width: 0; max-width: 100%; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 0.15rem; }
+/* The name is the part of the header that gives way: two lines, then an
+   ellipsis. The lender's mark beside it never shrinks. */
+.b-app.l-saltgrass .sg-head__name {
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: 1.4rem;
+  line-height: 1;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.b-app.l-saltgrass .sg-head__loc {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-mut);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.b-app.l-saltgrass .sg-head__lender {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding-left: 1rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
+.b-app.l-saltgrass .sg-head__by {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-mut);
+  white-space: nowrap;
+}
+.b-app.l-saltgrass .sg-head__sp { flex: 1 1 0; min-width: 0; }
+.b-app.l-saltgrass .sg-head__menu {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--t-onacc2);
+  cursor: pointer;
+}
+.b-app.l-saltgrass .sg-head__menu:hover { background: rgba(255, 255, 255, 0.12); }
+/* The sticky bar carries "talk" and "plan" on phones; from 900px the bar goes,
+   so the header takes over: a white call button and a lime plan button. */
+.b-app.l-saltgrass .sg-head__talk {
+  display: none;
+  flex: none;
+  min-height: 48px;
+  padding: 0 1.2rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--t-onacc2);
+  color: var(--t-acc2);
+  font: 700 1rem/1 var(--t-font);
+  cursor: pointer;
+}
+.b-app.l-saltgrass .sg-head__talk:hover { background: color-mix(in srgb, var(--t-onacc2) 90%, var(--t-acc2)); }
+.b-app.l-saltgrass .sg-head__plan {
+  display: none;
+  flex: none;
+  min-height: 48px;
+  padding: 0 1.2rem;
+  align-items: center;
+  border-radius: 8px;
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  font: 700 1rem/1 var(--t-font);
+  text-decoration: none;
+}
+.b-app.l-saltgrass .sg-head__plan:hover { filter: brightness(0.93); }
+.b-app.l-saltgrass .sg-head__open {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 1.1rem;
+  border-radius: 8px;
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  font: 700 0.98rem/1 var(--t-font);
+  text-decoration: none;
+}
+@media (min-width: 900px) {
+  .b-app.l-saltgrass .sg-head__talk,
+  .b-app.l-saltgrass .sg-head__plan { display: inline-flex; align-items: center; }
+}
+
+/* ── sticky bar (phones) ──────────────────────────────────────────────── */
+.b-app.l-saltgrass .sg-stick {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 45;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--sg-deep);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.b-app.l-saltgrass .sg-stick__talk,
+.b-app.l-saltgrass .sg-stick__plan {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: 0;
+  font: 700 1rem/1.1 var(--t-font);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-saltgrass .sg-stick--solo { grid-template-columns: 1fr; }
+.b-app.l-saltgrass .sg-stick__talk { background: var(--t-acc); color: var(--t-onacc); }
+.b-app.l-saltgrass .sg-stick__plan { background: var(--sg-deep); color: var(--t-onacc2); box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.14); }
+@media (min-width: 900px) {
+  .b-app.l-saltgrass .sg-stick { display: none; }
+}
+/* A phone on its side has about 390px of height. The header and the bar would
+   take a third of it, so the header scrolls away and the bar slims down. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .b-app.l-saltgrass .sg-head { position: relative; min-height: 56px; }
+  .b-app.l-saltgrass .sg-stick__talk,
+  .b-app.l-saltgrass .sg-stick__plan { min-height: 48px; }
+}
+@media print {
+  .b-app.l-saltgrass .sg-head,
+  .b-app.l-saltgrass .sg-stick { display: none !important; }
+}
+
+/* ── footer: the dark ground ──────────────────────────────────────────── */
+/* The printed plan's footer (.b-footer--print) keeps the shared print look. */
+.b-app.l-saltgrass .b-footer:not(.b-footer--print) {
+  padding: 3rem max(1rem, calc((100% - 1120px) / 2)) calc(2rem + env(safe-area-inset-bottom));
+  font-size: 0.9rem;
+}
+.b-app.l-saltgrass .b-footer--dark {
+  background: var(--sg-deep);
+  color: var(--t-onacc2);
+  border-top: 0;
+}
+.b-app.l-saltgrass .b-footer--dark .b-footer__fine { color: var(--sg-soft); font-size: 0.82rem; line-height: 1.6; }
+.b-app.l-saltgrass .b-footer--dark a { color: var(--t-onacc2); }
+.b-app.l-saltgrass .b-footer--dark .b-footer__brand { gap: 1.6rem; margin-bottom: 1.3rem; }
+/* The supplied guidance sets the lender mark at 56px tall or more in the
+   footer; the shared component draws it at 44 inline, hence !important. */
+.b-app.l-saltgrass .b-footer--dark .b-footer__brand .b-lender-logo__img { height: 64px !important; }
+.b-app.l-saltgrass .b-footer--dark .b-footer__id { font-size: 0.95rem; color: var(--sg-soft); }
+.b-app.l-saltgrass .b-footer--dark .b-footer__id strong { color: var(--t-onacc2); }
+/* The legal copy starts under a hairline, as the brand's footer does. */
+.b-app.l-saltgrass .b-footer--dark .b-footer__id + .b-footer__fine {
+  margin-top: 1.4rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+.b-app.l-saltgrass .b-footer--dark .b-footer__links a { font-size: 0.9rem; }
+.b-app.l-saltgrass .b-footer--dark .b-footer__fine, .b-app.l-saltgrass .b-footer--dark .b-footer__id { max-width: 78ch; }
+
+/* Room for the bar. The footer is the last thing on every screen that has the
+   bar, so its bottom padding is what keeps the disclosures and the last
+   control clear of it. Without :has() the room is kept on every screen, which
+   only costs a little dark space where the bar is not drawn. */
+@media (max-width: 899px) {
+  .b-app.l-saltgrass .b-footer:not(.b-footer--print) { padding-bottom: calc(32px + 72px + env(safe-area-inset-bottom)); }
+  /* The toast is fixed to the bottom of the screen and would sit under the bar. */
+  .b-app.l-saltgrass > [role='status'] { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+}
+@supports selector(:has(*)) {
+  @media (max-width: 899px) {
+    .b-app.l-saltgrass:not(:has(.sg-stick)) .b-footer:not(.b-footer--print) { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+    .b-app.l-saltgrass:not(:has(.sg-stick)) > [role='status'] { bottom: calc(24px + env(safe-area-inset-bottom)) !important; }
+  }
+}
+/* A control focused from the keyboard must not end up under the header or the
+   sticky bar. */
+@supports selector(:has(*)) {
+  :root:has(.b-app.l-saltgrass) { scroll-padding: 5rem 0; }
+}
+
+/* ── home ─────────────────────────────────────────────────────────────── */
+.b-app.l-saltgrass .sg-hero {
+  background: var(--sg-deep);
+  color: var(--t-onacc2);
+  padding: clamp(2rem, 6vw, 3.6rem) 0 clamp(1.8rem, 5vw, 3rem);
+}
+.b-app.l-saltgrass .sg-hero__h1 {
+  margin: 0;
+  max-width: 16em;
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(2.7rem, 11.5vw, 5rem);
+  line-height: 0.95;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  color: var(--t-onacc2);
+}
+.b-app.l-saltgrass .sg-lead {
+  margin: 1rem 0 0;
+  max-width: 36ch;
+  font-size: 1.15rem;
+  line-height: 1.5;
+  color: var(--t-mut);
+}
+.b-app.l-saltgrass .sg-lead-tools { display: grid; gap: 0.8rem; margin-top: 1.8rem; }
+.b-app.l-saltgrass .sg-lead-tools--two { grid-template-columns: 1fr 1fr; }
+
+/* A tool as a card: a lead one on the dark hero, the rest on the page. */
+.b-app.l-saltgrass .sg-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-height: 132px;
+  padding: 1.1rem;
+  border: 2px solid var(--sg-panel);
+  border-radius: 10px;
+  background: var(--sg-sur);
+  color: var(--sg-ink);
+  font-family: var(--t-font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s var(--sg-ease), transform 0.15s var(--sg-ease);
+}
+.b-app.l-saltgrass .sg-tool:hover { border-color: var(--t-acc2); }
+.b-app.l-saltgrass .sg-tool:active { transform: scale(0.98); }
+.b-app.l-saltgrass .sg-tool--lead { min-height: 168px; border-color: transparent; }
+.b-app.l-saltgrass .sg-tool--lead:hover { border-color: var(--t-acc); }
+.b-app.l-saltgrass .sg-tool__name {
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(1.4rem, 6vw, 1.9rem);
+  line-height: 0.95;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+  color: var(--t-acc2);
+}
+.b-app.l-saltgrass .sg-tool--lead .sg-tool__name { font-size: clamp(1.55rem, 7vw, 2.3rem); }
+.b-app.l-saltgrass .sg-tool__q { font-size: 0.95rem; line-height: 1.4; color: var(--sg-mut); }
+.b-app.l-saltgrass .sg-tag {
+  align-self: flex-start;
+  padding: 0.22rem 0.55rem;
+  border-radius: 4px;
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+/* Three figures on a band, the brand's stat strip. */
+.b-app.l-saltgrass .sg-strip { background: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-saltgrass .sg-strip__grid { display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; text-align: center; }
+.b-app.l-saltgrass .sg-strip__grid > div { padding: 1.3rem 0.4rem; border-right: 1px solid rgba(255, 255, 255, 0.28); }
+.b-app.l-saltgrass .sg-strip__grid > div:last-child { border-right: 0; }
+.b-app.l-saltgrass .sg-strip b {
+  display: block;
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(2rem, 8vw, 3rem);
+  line-height: 1;
+}
+.b-app.l-saltgrass .sg-strip span {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-wrap: balance;
+  text-transform: uppercase;
+  color: var(--t-mut);
+}
+
+/* Grounds alternate down the page. */
+.b-app.l-saltgrass .sg-band {
+  padding: clamp(2.2rem, 6vw, 4rem) 0;
+  background: var(--sg-bg);
+  border-top: 1px solid var(--sg-panel);
+}
+.b-app.l-saltgrass .sg-band--sur { background: var(--sg-sur); }
+
+.b-app.l-saltgrass .sg-explore {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--sg-deep);
+}
+.b-app.l-saltgrass .sg-explore__photo { height: clamp(190px, 42vw, 320px); }
+/* Only the picture is dimmed under the title. Dimming the whole box also dimmed
+   the "Photo coming soon" label of a community with no photo to 1.9:1. */
+.b-app.l-saltgrass .sg-explore__photo .photo-img { opacity: 0.55; }
+/* The scrim is drawn after the photo and covers it with 94% of the deep ground
+   on the left, which left this label at 1.3:1 even in the light ink. The label
+   is lifted above the scrim, and moved to the top right where the scrim is
+   thinnest and clear of the title, so it is read against the plain deep ground. */
+.b-app.l-saltgrass .sg-explore__photo .photo-empty {
+  position: relative;
+  z-index: 1;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 1rem 1.3rem;
+  font-size: 13px;
+  color: var(--t-onacc2);
+}
+.b-app.l-saltgrass .sg-explore__scrim {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 1.2rem 1.3rem;
+  /* From the left, so white type stays legible over any photograph. The photo
+     itself is dimmed to 55% on the deep ground, as the reference's visit banner
+     does, because a gradient alone cannot make white type safe on a daylight
+     picture. */
+  background: linear-gradient(100deg, color-mix(in srgb, var(--sg-deep) 94%, transparent) 0%, color-mix(in srgb, var(--sg-deep) 62%, transparent) 55%, color-mix(in srgb, var(--sg-deep) 10%, transparent) 100%);
+  color: var(--t-onacc2);
+}
+/* On a phone the type runs nearly the full width of the banner, so the scrim is
+   vertical: the whole banner is dark behind it, and darker toward the foot
+   where the text sits. */
+@media (max-width: 780px) {
+  .b-app.l-saltgrass .sg-explore__scrim {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--sg-deep) 72%, transparent) 0%, color-mix(in srgb, var(--sg-deep) 93%, transparent) 55%);
+  }
+}
+.b-app.l-saltgrass .sg-explore__title {
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: clamp(2rem, 8vw, 3rem);
+  line-height: 0.95;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+}
+.b-app.l-saltgrass .sg-explore__sub { font-size: 1rem; }
+.b-app.l-saltgrass .sg-explore:hover .sg-explore__title { text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 3px; }
+
+.b-app.l-saltgrass .sg-rows { display: grid; gap: 0.8rem; margin-top: 1rem; }
+.b-app.l-saltgrass .sg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  width: 100%;
+  min-height: 72px;
+  padding: 1rem 1.2rem;
+  border: 2px solid var(--sg-panel);
+  border-radius: 10px;
+  background: var(--sg-sur);
+  color: var(--sg-ink);
+  font-family: var(--t-font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s var(--sg-ease);
+}
+.b-app.l-saltgrass .sg-row:hover { border-color: var(--t-acc2); }
+.b-app.l-saltgrass .sg-row__text { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.b-app.l-saltgrass .sg-row__title {
+  font-family: var(--t-head);
+  font-weight: var(--t-headwt);
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: var(--t-track);
+  text-transform: var(--t-up);
+  color: var(--t-acc2);
+}
+.b-app.l-saltgrass .sg-row__sub { font-size: 0.95rem; color: var(--sg-mut); }
+.b-app.l-saltgrass .sg-row__go { flex: none; font-size: 1.8rem; line-height: 1; color: var(--sg-accT); }
+
+.b-app.l-saltgrass .sg-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 1rem; }
+/* A last card left alone on its row takes the rest of the row, so the grid
+   never ends on a lone half-width tile. The counts differ with the number of
+   columns, so each breakpoint says its own. */
+.b-app.l-saltgrass .sg-tools > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+.b-app.l-saltgrass .sg-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 1.4rem; }
+.b-app.l-saltgrass .sg-btn-line,
+.b-app.l-saltgrass .sg-btn-deep,
+.b-app.l-saltgrass .sg-btn-white {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font: 700 1rem/1.15 var(--t-font);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s var(--sg-ease), background-color 0.15s var(--sg-ease), border-color 0.15s var(--sg-ease);
+}
+.b-app.l-saltgrass .sg-btn-line:active,
+.b-app.l-saltgrass .sg-btn-deep:active,
+.b-app.l-saltgrass .sg-btn-white:active { transform: scale(0.98); }
+.b-app.l-saltgrass .sg-btn-line { background: transparent; color: var(--sg-ink); border-color: var(--sg-ctl); }
+.b-app.l-saltgrass .sg-btn-line:hover { border-color: var(--t-acc2); }
+.b-app.l-saltgrass .sg-btn-deep { background: var(--t-acc2); color: var(--t-onacc2); border-color: var(--t-acc2); }
+.b-app.l-saltgrass .sg-btn-white { background: var(--t-onacc2); color: var(--t-acc2); border-color: var(--t-onacc2); width: 100%; }
+.b-app.l-saltgrass .sg-btn-white:hover { background: color-mix(in srgb, var(--t-onacc2) 90%, var(--t-acc2)); }
+/* From 900px the sticky bar is gone, so the plan button becomes the one lime
+   primary action on the home screen. */
+@media (min-width: 900px) {
+  .b-app.l-saltgrass .sg-btn-deep { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-acc); }
+  .b-app.l-saltgrass .sg-btn-deep:hover { filter: brightness(0.93); }
+}
+.b-app.l-saltgrass .sg-more { margin-top: 1.2rem; }
+
+/* Resources */
+.b-app.l-saltgrass .sg-res { display: flex; flex-direction: column; gap: 2rem; max-width: 760px; }
+.b-app.l-saltgrass .sg-res__item { display: flex; flex-direction: column; gap: 0.8rem; }
+.b-app.l-saltgrass .sg-res__box { overflow: hidden; border: 2px solid var(--sg-panel); border-radius: 10px; background: var(--sg-sur); }
+.b-app.l-saltgrass .sg-res__video { display: block; width: 100%; background: #000; }
+.b-app.l-saltgrass .sg-res__frame { position: relative; padding-top: 56.25%; }
+.b-app.l-saltgrass .sg-res__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.b-app.l-saltgrass .sg-res__body { margin: 0; padding: 1.1rem; font-size: 1rem; line-height: 1.6; color: var(--sg-mut); white-space: pre-wrap; }
+
+/* Realtors row */
+.b-app.l-saltgrass .b-agents-row {
+  min-height: 80px;
+  padding: 0.9rem 1.2rem;
+  border: 2px solid var(--sg-panel);
+  border-radius: 10px;
+  background: var(--sg-bg);
+  transition: border-color 0.15s var(--sg-ease);
+}
+.b-app.l-saltgrass .b-agents-row:hover { border-color: var(--t-acc2); }
+.b-app.l-saltgrass .b-agents-row__faces > * { width: 44px; height: 44px; border: 3px solid var(--sg-bg); }
+
+/* Lender panel */
+.b-app.l-saltgrass .sg-lender {
+  display: grid;
+  gap: 1rem;
+  max-width: 640px;
+  padding: clamp(1.4rem, 4vw, 2.2rem);
+  border-radius: 10px;
+  background: var(--t-acc2);
+  color: var(--t-onacc2);
+  box-shadow: inset 0 4px 0 var(--t-acc), 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+.b-app.l-saltgrass .sg-lender__tag { margin: 0; font-size: 1.1rem; line-height: 1.5; color: var(--t-ink); overflow-wrap: anywhere; }
+.b-app.l-saltgrass .sg-lender__id { display: flex; align-items: center; gap: 0.9rem; padding-top: 0.4rem; font-size: 0.9rem; line-height: 1.5; color: var(--t-mut); }
+.b-app.l-saltgrass .sg-lender__ehl { flex: none; display: flex; }
+.b-app.l-saltgrass .sg-lender__text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.b-app.l-saltgrass .sg-lender__tel { display: flex; align-items: center; min-height: 44px; color: var(--t-onacc2); font-weight: 700; }
+
+/* ── guides: the calm register ────────────────────────────────────────── */
+/* Where the landing and tools shout, the guides explain: sentence case, a
+   light condensed headline, a reading measure, and quiet cards. */
+.b-app.l-saltgrass .b-glist { gap: 1.2rem; }
+.b-app.l-saltgrass .b-gcard {
+  border: 2px solid var(--sg-panel);
+  border-radius: 10px;
+  background: var(--sg-sur);
+}
+.b-app.l-saltgrass .b-gcard__body { padding: 1.1rem 1.2rem 1.3rem; gap: 0.5rem; }
+.b-app.l-saltgrass .b-gcard__kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--sg-accT);
+}
+.b-app.l-saltgrass .b-gcard__title.b-head {
+  font-size: clamp(1.55rem, 5.2vw, 1.95rem);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.b-app.l-saltgrass .b-gcard__link { display: block; min-height: 44px; }
+.b-app.l-saltgrass .b-gcard__sum { font-size: 1rem; line-height: 1.55; color: var(--sg-mut); }
+
+.b-app.l-saltgrass .b-guides__title {
+  font-weight: 300;
+  font-size: clamp(2.5rem, 10vw, 3.9rem) !important; /* beats the inline 25px */
+  line-height: 1.04 !important;
+  letter-spacing: -0.02em;
+}
+.b-app.l-saltgrass .b-article { max-width: 760px; }
+.b-app.l-saltgrass .b-article__kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+}
+/* The kicker is followed by a short rule, the editorial register's mark. */
+.b-app.l-saltgrass .b-article__kicker::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 4px;
+  margin-top: 0.7rem;
+  background: var(--t-acc);
+}
+.b-app.l-saltgrass .b-article__title {
+  margin: 1rem 0 1rem;
+  font-weight: 300;
+  font-size: clamp(2.5rem, 10vw, 4rem);
+  line-height: 1.03;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.b-app.l-saltgrass .b-article__byline { font-size: 1rem; }
+.b-app.l-saltgrass .b-article__note { font-size: 0.9rem; }
+.b-app.l-saltgrass .b-article__hero { border-radius: 10px; }
+.b-app.l-saltgrass .b-article__cta { background: var(--t-acc2); border: 0; border-radius: 10px; padding: 1.6rem; box-shadow: inset 0 4px 0 var(--t-acc); }
+.b-app.l-saltgrass .b-article__cta > .b-head { font-size: clamp(1.8rem, 6.5vw, 2.4rem) !important; /* beats the inline 19px */ }
+.b-app.l-saltgrass .b-article__cta > p { font-size: 1.05rem !important; /* beats the inline 13.5px */ }
+
+.b-app.l-saltgrass .md {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+.b-app.l-saltgrass .md-h2,
+.b-app.l-saltgrass .md-h3 {
+  font-weight: 300;
+  letter-spacing: -0.017em;
+  line-height: 1.1;
+}
+.b-app.l-saltgrass .md-h2 { font-size: clamp(1.9rem, 6.2vw, 2.6rem); margin-top: 2.4em; }
+.b-app.l-saltgrass .md-h3 { font-weight: 400; font-size: clamp(1.45rem, 4.6vw, 1.85rem); line-height: 1.2; letter-spacing: -0.01em; }
+.b-app.l-saltgrass .md > .md-h2:first-child,
+.b-app.l-saltgrass .md > .md-h3:first-child { margin-top: 0; }
+.b-app.l-saltgrass .md-callout {
+  background: var(--t-tint);
+  border: 2px solid var(--sg-panel);
+  border-left: 6px solid var(--t-acc);
+  border-radius: 10px;
+  color: var(--t-ink);
+}
+.b-app.l-saltgrass .md-callout__title { font-weight: 400; font-size: 1.4rem; letter-spacing: -0.01em; line-height: 1.15; }
+.b-app.l-saltgrass .md-link { color: var(--t-accT); text-decoration-thickness: 1px; }
+.b-app.l-saltgrass .md-link:hover { text-decoration-thickness: 2px; }
+.b-app.l-saltgrass .md-img { border-radius: 10px; }
+
+/* ── realtors ─────────────────────────────────────────────────────────── */
+.b-app.l-saltgrass .b-agent { border: 2px solid var(--sg-panel); border-radius: 10px; }
+.b-app.l-saltgrass .b-agent__photo { width: 88px; height: 88px; border-radius: 8px; }
+.b-app.l-saltgrass .b-agent__name { font-size: 1.6rem; }
+.b-app.l-saltgrass .b-agents__eho { color: var(--sg-mut); }
+
+/* ── wide screens ─────────────────────────────────────────────────────── */
+@media (min-width: 700px) {
+  .b-app.l-saltgrass .sg-tools { grid-template-columns: repeat(3, 1fr); }
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(odd) { grid-column: auto; }
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(3n + 1) { grid-column: 1 / -1; }
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(3n + 2) { grid-column: span 2; }
+  .b-app.l-saltgrass .sg-rows { grid-template-columns: 1fr 1fr; }
+  .b-app.l-saltgrass .b-glist { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1000px) {
+  .b-app.l-saltgrass .sg-tools { grid-template-columns: repeat(4, 1fr); }
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(3n + 1),
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(3n + 2) { grid-column: auto; }
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(4n + 1) { grid-column: 1 / -1; }
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(4n + 2) { grid-column: span 3; }
+  .b-app.l-saltgrass .sg-tools > :last-child:nth-child(4n + 3) { grid-column: span 2; }
+  .b-app.l-saltgrass .b-glist { grid-template-columns: repeat(3, 1fr); }
+  .b-app.l-saltgrass .sg-lead-tools--two { max-width: 760px; }
+}
+@media (min-width: 700px) {
+  /* Guides inside a reading column stay one across. */
+  .b-app.l-saltgrass .b-article .b-glist { grid-template-columns: 1fr; }
+}
+
+/* ── landing and gate: the loud register ──────────────────────────────── */
+/* The QR page and the contact form are the screens that ask for a decision or a
+   phone number, which the brand book draws on the deep ground with the accent
+   rule and a headline that stands alone. The shell is a narrow column, so the
+   ground is carried to the screen's edges by a shadow clipped to the column's
+   height; a shadow adds no scrollable width. The tokens are redefined for the
+   subtree above, and the surfaces the screens paint inline (the inputs, the
+   consent box, the add-to-phone button) become translucent washes so their
+   white text sits on the dark ground. */
+.b-app.l-saltgrass .b-landing,
+.b-app.l-saltgrass .b-gate {
+  --t-sur: rgba(255, 255, 255, 0.08);
+  --t-tint: rgba(255, 255, 255, 0.1);
+  background: var(--sg-deep);
+  box-shadow: 0 0 0 100vmax var(--sg-deep);
+  /* Two pixels past the foot, under the footer, so no hairline of the page
+     shows between the two dark grounds at a fractional pixel. */
+  clip-path: inset(0 -100vmax -2px);
+}
+.b-app.l-saltgrass .b-landing h1.b-head,
+.b-app.l-saltgrass .b-gate h1.b-head { color: var(--t-onacc2); }
+.b-app.l-saltgrass .b-landing h1.b-head {
+  font-size: clamp(3rem, 13vw, 4.6rem) !important; /* beats the inline 34px */
+  line-height: 0.95 !important;
+}
+/* A short accent bar with a hairline above it, so it still reads as a line on
+   the themes whose accent is close to the deep ground. */
+.b-app.l-saltgrass .b-landing h1.b-head::before,
+.b-app.l-saltgrass .b-gate h1.b-head::before {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 4px;
+  margin-bottom: 0.9rem;
+  background: var(--t-acc);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.38);
+}
+/* The brand sets landing headlines with nothing above them. The copy stays, but
+   it drops to the quietest label on the page rather than competing with the
+   headline; the colour is set inline, hence !important. */
+.b-app.l-saltgrass .b-landing > .b-lbl,
+.b-app.l-saltgrass .b-gate > .b-lbl:first-child { color: var(--sg-soft) !important; }
+.b-app.l-saltgrass .b-landing .b-btn-outline {
+  color: var(--t-onacc2);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+.b-app.l-saltgrass .b-landing .b-btn-outline:not(:disabled):hover { border-color: var(--t-onacc2); }
+.b-app.l-saltgrass .b-gate .b-in { border-color: rgba(255, 255, 255, 0.6); }
+.b-app.l-saltgrass .b-gate .b-in:focus-visible { border-color: var(--t-onacc2); }
+.b-app.l-saltgrass .b-gate .b-in::placeholder { color: var(--sg-soft); opacity: 0.8; }
+/* The consent box reads on a wash, so its muted text must not be switched to
+   the page's dark ink by the tint rule above. */
+.b-app.l-saltgrass .b-gate [style*='background: var(--t-tint)'] { --t-mut: var(--sg-soft); }
+/* No rule here for the development's mark on the landing page, on purpose. The
+   page asks CommunityMark for the dark ground, so a logo made for dark grounds
+   is drawn straight onto the deep colour, and an ordinary logo (when no dark one
+   was uploaded) arrives already sitting on its own white plate. A plate painted
+   here as well put a white wordmark on white. */
+
+/* A done Move-in step is drawn at 55% opacity as well as struck through, which
+   leaves its text (and the small "You" line under it, which is already muted)
+   under 4.5:1 on every theme. The strike-through already says it is done, so the
+   step goes to full opacity in the muted ink instead. It is inline, hence
+   !important. */
+.b-app.l-saltgrass [style*='opacity: 0.55'] { opacity: 1 !important; color: var(--t-mut); }

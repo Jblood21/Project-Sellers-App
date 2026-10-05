@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useBuyer } from '../BuyerContext.jsx';
+import { SheetDisclosure } from '../ComplianceFooter.jsx';
+import useDialog from '../useDialog.js';
 import Afford from './Afford.jsx';
 import Compare from './Compare.jsx';
 import Dpa from './Dpa.jsx';
@@ -57,6 +59,9 @@ export default function ToolScreen() {
 export function ToolSheet({ open, toolKey, onClose, label }) {
   const { community, planSaves } = useBuyer();
   const savesAtOpen = useRef(planSaves);
+  const dialogRef = useRef(null);
+  // Focus goes into the sheet, stays there, and Escape closes it.
+  useDialog(open, onClose, dialogRef);
 
   useEffect(() => {
     if (open) savesAtOpen.current = planSaves;
@@ -72,21 +77,19 @@ export function ToolSheet({ open, toolKey, onClose, label }) {
 
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (event) => event.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = previous;
     };
-  }, [onClose, open]);
+  }, [open]);
 
   const Screen = SCREENS[toolKey];
   if (!open || !Screen || !community?.tools?.[toolKey]) return null;
 
   return (
     <div
+      ref={dialogRef}
       className="b-sheet-backdrop"
       role="dialog"
       aria-modal="true"
@@ -100,6 +103,9 @@ export function ToolSheet({ open, toolKey, onClose, label }) {
           aria-label="Close"
           style={{
             position: 'sticky', top: 0, alignSelf: 'flex-end', zIndex: 1, width: 36, height: 36,
+            // The sheet is a scrolling flex column, so without these the button
+            // is squeezed to a 36 by 21 oval, under the 44px touch target.
+            flex: 'none', minWidth: 44, minHeight: 44, padding: 0,
             borderRadius: '50%', border: '1px solid var(--t-line)', background: 'var(--t-bg)',
             color: 'var(--t-ink)', cursor: 'pointer', fontSize: 17, lineHeight: 1,
           }}
@@ -107,6 +113,8 @@ export function ToolSheet({ open, toolKey, onClose, label }) {
           ×
         </button>
         <Screen />
+        {/* The sheet covers the page footer, so the numbers above carry their disclosure with them. */}
+        <SheetDisclosure />
       </div>
     </div>
   );

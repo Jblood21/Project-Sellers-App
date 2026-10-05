@@ -127,7 +127,7 @@ export default function Afford() {
                       style={{
                         flex: 'none', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
                         background: inRange ? 'var(--t-tint)' : 'var(--t-tint2)',
-                        color: inRange ? 'var(--t-accT)' : 'var(--t-mut)',
+                        color: inRange ? 'var(--t-accT)' : 'var(--t-ink)',
                       }}
                     >
                       {inRange ? 'In reach' : close ? 'Worth asking' : 'A stretch for now'}

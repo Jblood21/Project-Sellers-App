@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { normalizeLayout } from '@shared/domain.js';
 import { buyerApi } from '../lib/api.js';
 import { readJson, remove, writeJson } from '../lib/storage.js';
 
@@ -193,6 +194,17 @@ export function BuyerProvider({ communityId, children }) {
       community,
       homes: community?.homes ?? [],
       settings: community?.settings ?? {},
+      // Resolved here so every screen and every layout reads the same answer:
+      // an unknown key from an older payload falls back to the default layout.
+      layout: normalizeLayout(community?.layout),
+      features: community?.features ?? {},
+      // The server sends [] when the builder has the feature switched off, so a
+      // screen only has to ask whether the list is empty.
+      agents: community?.agents ?? [],
+      guides: community?.guides ?? [],
+      // Guides are readable without the contact gate, so "is there a community"
+      // and "is this person known" are different questions for the chrome.
+      signedIn: Boolean(token && lead),
       lead,
       token,
       loading,

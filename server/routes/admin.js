@@ -1,22 +1,182 @@
 import { Router } from 'express';
 
 import {
-  AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_SETTINGS, DEFAULT_THEME,
-  DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, HIGHLIGHT_CATEGORY_KEYS, MAX_PHOTOS_PER_HOME,
-  MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS, VIDEO_TYPES, base64Bytes, megabytes,
-  videoEmbed,
+  AGENT_TEXT_MAX, AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE_ALT,
+  COMPLIANCE_DEFAULTS, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
+  LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
+  VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
   SLOT_TIMES, THEMES, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
+import { uniqueSlug } from '../db/shape.js';
+import { rejectControlCharacters } from '../lib/params.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 const MAX_FLOOR_PLANS = 4;
+// Raster only, and SVG is left out on purpose: an SVG is a document that can
+// carry a script, and these files are served from this site's own origin, so one
+// opened directly would run with the admin app's privileges.
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+// One of each per community: a new upload replaces the old one. `hero`, `icon` and
+// `sitemap` are the original artwork; `logo` is the development's mark, `logolight`
+// the same mark for dark backgrounds, and `lenderlogo` overrides the Summit logo.
+const COMMUNITY_PHOTO_KINDS = ['hero', 'icon', 'sitemap', 'logo', 'logolight', 'lenderlogo'];
+const AGENT_EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
+const AGENT_LABELS = {
+  name: 'Name', brokerage: 'Brokerage', licenseNo: 'License number', licenseState: 'License state',
+  phone: 'Phone', email: 'Email', website: 'Website',
+};
+const GUIDE_LABELS = {
+  title: 'Title', category: 'Category', byline: 'Byline', note: 'Note', summary: 'Summary',
+  body: 'Body', imageAlt: 'Picture description', slug: 'Address',
+};
+const GUIDE_TEXT_FIELDS = ['title', 'category', 'byline', 'note', 'summary', 'body', 'imageAlt'];
+// A slug race loses to the unique index; pg and the file store both raise this.
+const isDuplicate = (err) => err?.code === '23505';
+// How many times a title-derived slug is recomputed after losing a race.
+const SLUG_RETRIES = 12;
 
-const str = (v, fallback = '') => (v === undefined || v === null ? fallback : String(v).trim());
+// Postgres refuses a NUL byte in any text value and throws, so one reaching a
+// query would otherwise be an error the caller can trigger on demand. It has no
+// meaning in anything a builder types, so it is dropped at the door.
+// eslint-disable-next-line no-control-regex -- the NUL is the thing being matched.
+const NUL = /\u0000/g;
+const noNul = (text) => text.replace(NUL, '');
+
+// The first bytes of each format we accept. WebP is a RIFF container, so its
+// marker sits after a four-byte length and is checked separately.
+const IMAGE_SIGNATURES = {
+  'image/jpeg': [[0xff, 0xd8, 0xff]],
+  'image/png': [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
+  'image/gif': [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]],
+};
+const startsWith = (buffer, signature, offset = 0) =>
+  buffer.length >= offset + signature.length && signature.every((byte, i) => buffer[offset + i] === byte);
+
+/** Whether `head` (the leading bytes of the decoded file) is what `contentType` says it is. */
+const looksLike = (contentType, head) => {
+  if (contentType === 'image/webp') {
+    return startsWith(head, [0x52, 0x49, 0x46, 0x46]) && startsWith(head, [0x57, 0x45, 0x42, 0x50], 8);
+  }
+  return (IMAGE_SIGNATURES[contentType] ?? []).some((signature) => startsWith(head, signature));
+};
+
+/**
+ * Express 4 does not catch a promise an async handler rejects: it becomes an
+ * unhandled rejection, and Node exits on those. This wraps every handler a
+ * router registers so a thrown store error reaches the app's 500 handler
+ * instead, which keeps one bad request from taking the whole server down.
+ * Error-handling middleware (four arguments) is passed through untouched.
+ */
+export const catchAsyncErrors = (router) => {
+  for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
+    const register = router[method].bind(router);
+    router[method] = (path, ...handlers) => register(path, ...handlers.map((handler) => (
+      typeof handler !== 'function' || handler.length === 4
+        ? handler
+        : (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next)
+    )));
+  }
+  return router;
+};
+
+/**
+ * A text field from a request body: '' for blank, the trimmed string otherwise,
+ * or an error when the caller sent something that is not text. Coercing instead
+ * would store {a:1} as "[object Object]" and ['x','y'] as "x,y".
+ */
+const textField = (body, key, label) => {
+  const value = body?.[key];
+  if (value === undefined || value === null) return { value: '' };
+  if (typeof value !== 'string') return { error: `${label} must be text.` };
+  return { value: noNul(value).trim() };
+};
+
+/**
+ * A realtor's fields from a request body, validated. Every limit is enforced
+ * here rather than in the form, so a request that skips the form gets the same
+ * answer. `partial` is a PATCH: only the fields present are checked and returned.
+ *
+ * Rejected, not trimmed to fit: silently cutting a licence number in half would
+ * save something that looks right and is wrong.
+ */
+const cleanAgent = (body, { partial = false } = {}) => {
+  const data = {};
+  const has = (key) => body?.[key] !== undefined;
+
+  for (const key of ['name', 'brokerage', 'licenseNo', 'phone']) {
+    if (partial && !has(key)) continue;
+    const { value, error } = textField(body, key, AGENT_LABELS[key]);
+    if (error) return { error };
+    if (value.length > AGENT_TEXT_MAX[key]) {
+      return { error: `${AGENT_LABELS[key]} is too long (up to ${AGENT_TEXT_MAX[key]} characters).` };
+    }
+    data[key] = value;
+  }
+  if ('name' in data && !data.name) return { error: 'Give the realtor a name.' };
+
+  if (!partial || has('licenseState')) {
+    const field = has('licenseState') ? textField(body, 'licenseState', AGENT_LABELS.licenseState) : { value: 'UT' };
+    if (field.error) return { error: field.error };
+    const state = field.value.toUpperCase();
+    if (!/^[A-Z]{0,2}$/.test(state)) {
+      return { error: 'License state is a two-letter abbreviation, like UT.' };
+    }
+    data.licenseState = state;
+  }
+  if (!partial || has('email')) {
+    const { value: email, error } = textField(body, 'email', AGENT_LABELS.email);
+    if (error) return { error };
+    if (email.length > AGENT_TEXT_MAX.email) {
+      return { error: `Email is too long (up to ${AGENT_TEXT_MAX.email} characters).` };
+    }
+    if (email && !AGENT_EMAIL_RE.test(email)) return { error: 'That email address is not valid.' };
+    data.email = email;
+  }
+  if (!partial || has('website')) {
+    const { value: raw, error } = textField(body, 'website', AGENT_LABELS.website);
+    if (error) return { error };
+    // safeHref returns '' for anything that is not http(s), which is how a
+    // javascript: address is refused rather than stored and rendered as a link.
+    const href = raw ? safeHref(raw) : '';
+    if (raw && !href) return { error: 'The website must be an http:// or https:// address.' };
+    if (href.length > AGENT_TEXT_MAX.website) {
+      return { error: `Website is too long (up to ${AGENT_TEXT_MAX.website} characters).` };
+    }
+    data.website = href;
+  }
+  return { data };
+};
+
+/** A guide's text fields, validated the same way: refused when over the cap. */
+const cleanGuideText = (body, { partial = false } = {}) => {
+  const data = {};
+  for (const key of GUIDE_TEXT_FIELDS) {
+    if (partial && body?.[key] === undefined) continue;
+    // The article keeps its own line breaks and indentation, so only the ends are trimmed.
+    const { value, error } = textField(body, key, GUIDE_LABELS[key]);
+    if (error) return { error };
+    if (value.length > GUIDE_TEXT_MAX[key]) {
+      return { error: `${GUIDE_LABELS[key]} is too long (up to ${GUIDE_TEXT_MAX[key]} characters).` };
+    }
+    data[key] = value;
+  }
+  return { data };
+};
+
+/** A real boolean, the fallback when absent, or null for anything else ('false' is not false). */
+const flag = (value, fallback) => {
+  if (value === undefined) return fallback ?? null;
+  return typeof value === 'boolean' ? value : null;
+};
+
+/** Community name, location and builder are published into page titles and structured data, so they are bounded. */
+const COMMUNITY_TEXT_MAX = 200;
+
+const str = (v, fallback = '') => (v === undefined || v === null ? fallback : noNul(String(v)).trim());
 const numOr = (v, fallback) => {
   const n = Number.parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
   return Number.isFinite(n) ? n : fallback;
@@ -77,7 +237,7 @@ const readVideo = (body, longerHint = LINK_INSTEAD) => {
 };
 
 export function adminRouter() {
-  const router = Router();
+  const router = rejectControlCharacters(catchAsyncErrors(Router()));
 
   router.post('/login', async (req, res) => {
     const store = await getStore();
@@ -104,15 +264,15 @@ export function adminRouter() {
   });
 
   router.post('/communities', async (req, res) => {
-    const name = str(req.body?.name);
+    const name = str(req.body?.name).slice(0, COMMUNITY_TEXT_MAX);
     if (!name) return res.status(400).json({ error: 'Give the community a name.' });
     const store = await getStore();
     const community = await store.createCommunity({
       name,
-      location: str(req.body?.location) || 'Location TBD',
+      location: str(req.body?.location).slice(0, COMMUNITY_TEXT_MAX) || 'Location TBD',
       status: COMMUNITY_STATUSES.includes(req.body?.status) ? req.body.status : 'Pre-sale',
       theme: THEMES[req.body?.theme] ? req.body.theme : DEFAULT_THEME,
-      builder: str(req.body?.builder),
+      builder: str(req.body?.builder).slice(0, COMMUNITY_TEXT_MAX),
     });
     res.status(201).json(community);
   });
@@ -121,17 +281,28 @@ export function adminRouter() {
     const store = await getStore();
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
-    const [homes, highlights, resources, heroes, icons, maps] = await Promise.all([
+    const [
+      homes, highlights, resources, heroes, icons, maps, logos, logosLight, lenderLogos, agents, guides,
+    ] = await Promise.all([
       store.listHomes(community.id),
       store.listHighlights(community.id),
       store.listResources(community.id),
       store.listCommunityPhotos(community.id, 'hero'),
       store.listCommunityPhotos(community.id, 'icon'),
       store.listCommunityPhotos(community.id, 'sitemap'),
+      store.listCommunityPhotos(community.id, 'logo'),
+      store.listCommunityPhotos(community.id, 'logolight'),
+      store.listCommunityPhotos(community.id, 'lenderlogo'),
+      store.listAgents(community.id),
+      // Unpublished included: this is the builder's list, and a draft they
+      // cannot see is a draft they cannot finish. No bodies; GET /guides/:id has those.
+      store.listGuides(community.id, { includeUnpublished: true }),
     ]);
     res.json({
       ...community, homes, highlights, resources,
       heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null, siteMap: maps[0] ?? null,
+      logo: logos[0] ?? null, logoLight: logosLight[0] ?? null, lenderLogo: lenderLogos[0] ?? null,
+      agents, guides,
     });
   });
 
@@ -141,17 +312,36 @@ export function adminRouter() {
     if (!community) return res.status(404).json({ error: 'Community not found' });
 
     const patch = {};
-    if (req.body?.name !== undefined) patch.name = str(req.body.name) || community.name;
-    if (req.body?.location !== undefined) patch.location = str(req.body.location);
-    if (req.body?.builder !== undefined) patch.builder = str(req.body.builder);
+    if (req.body?.name !== undefined) patch.name = str(req.body.name).slice(0, COMMUNITY_TEXT_MAX) || community.name;
+    if (req.body?.location !== undefined) patch.location = str(req.body.location).slice(0, COMMUNITY_TEXT_MAX);
+    if (req.body?.builder !== undefined) patch.builder = str(req.body.builder).slice(0, COMMUNITY_TEXT_MAX);
     if (req.body?.websiteUrl !== undefined) patch.websiteUrl = str(req.body.websiteUrl) || null;
     if (req.body?.status !== undefined && COMMUNITY_STATUSES.includes(req.body.status)) patch.status = req.body.status;
     if (req.body?.theme !== undefined && THEMES[req.body.theme]) patch.theme = req.body.theme;
+    // An unknown layout is ignored like an unknown theme, never stored: the buyer
+    // app would have no stylesheet for it.
+    if (req.body?.layout !== undefined && LAYOUT_KEYS.includes(req.body.layout)) {
+      patch.layout = req.body.layout;
+    }
 
     if (req.body?.settings) {
       const settings = { ...community.settings };
       for (const key of SETTING_KEYS) {
-        if (req.body.settings[key] !== undefined) settings[key] = String(req.body.settings[key]);
+        const value = req.body.settings[key];
+        if (value === undefined) continue;
+        // Text or a number (the rate fields arrive as numbers), or null to clear.
+        // Anything else would be stored as "[object Object]" or "x,y" and then
+        // printed in the footer, the plan email and the structured data, which for
+        // regulated wording is worse than a refusal.
+        const plain = value === null || typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value));
+        if (!plain) return res.status(400).json({ error: `${key} must be text.` });
+        // Trimmed here, not in the form, so stray whitespace cannot break a
+        // statement's wording. Only the printed copy has a length cap: it is
+        // shown on every page of the buyer app, so a pasted novel is cut at the
+        // door. A setting that predates the cap (a long program name, say) is
+        // never silently shortened by an unrelated save.
+        const text = str(value);
+        settings[key] = key in COMPLIANCE_DEFAULTS ? text.slice(0, settingMaxLength(key)) : text;
       }
       patch.settings = settings;
     }
@@ -397,6 +587,13 @@ export function adminRouter() {
     const [, contentType, data] = match;
     if (!ALLOWED_IMAGE_TYPES.has(contentType)) return { error: 'Use a JPEG, PNG, WebP or GIF image.' };
     if (Buffer.byteLength(data, 'base64') > MAX_PHOTO_BYTES) return { error: 'That image is over 3 MB.' };
+    // The label is the caller's word for it; the first bytes are the file's own.
+    // An HTML page or a script labelled image/png is refused, and so is a
+    // payload that decodes to nothing, which would otherwise replace a lender
+    // logo or a realtor's portrait with an empty file.
+    if (!looksLike(contentType, Buffer.from(data.slice(0, 128), 'base64'))) {
+      return { error: 'That file is not a valid JPEG, PNG, WebP or GIF image. Try picking it again.' };
+    }
     return { contentType, data };
   };
 
@@ -427,18 +624,24 @@ export function adminRouter() {
     }));
   });
 
-  /** Community-level artwork: `hero` for the QR landing, `icon` for the PWA, `sitemap` for the plat. */
+  /**
+   * Community-level artwork: `hero` for the QR landing, `icon` for the PWA, `sitemap` for the plat,
+   * `logo` / `logolight` for the development's mark and `lenderlogo` for a replacement lender logo.
+   */
   router.post('/communities/:id/photos/:kind', async (req, res) => {
     const kind = req.params.kind;
-    if (!['hero', 'icon', 'sitemap'].includes(kind)) return res.status(400).json({ error: 'Unknown photo slot' });
+    if (!COMMUNITY_PHOTO_KINDS.includes(kind)) return res.status(400).json({ error: 'Unknown photo slot' });
     const store = await getStore();
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
     const image = readImage(req.body);
     if (image.error) return res.status(400).json({ error: image.error });
-    // One hero and one icon per community — replace whatever is there.
-    for (const old of await store.listCommunityPhotos(community.id, kind)) await store.deletePhoto(old.id);
-    res.status(201).json(await store.addPhoto({ communityId: community.id, kind, ...image }));
+    // One of each per community — replace whatever is there. Added first and the
+    // old ones removed after, so a failed write cannot leave the slot empty.
+    const old = await store.listCommunityPhotos(community.id, kind);
+    const added = await store.addPhoto({ communityId: community.id, kind, ...image });
+    for (const photo of old) await store.deletePhoto(photo.id);
+    res.status(201).json(added);
   });
 
   /** One photo per highlight — a second upload replaces the first. */
@@ -452,6 +655,213 @@ export function adminRouter() {
     res.status(201).json(await store.addPhoto({
       communityId: highlight.communityId, highlightId: highlight.id, kind: 'highlight', ...image,
     }));
+  });
+
+  // ── realtors ─────────────────────────────────────────────────────────────
+  /** Up to MAX_AGENTS real estate agents per community, listed on every home. */
+  router.post('/communities/:id/agents', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const full = () => res.status(400).json({ error: `Up to ${MAX_AGENTS} realtors per community.` });
+    // A quick look first so a full community answers "full" before it answers
+    // about the body; it is only a courtesy, the check that holds is below.
+    if ((await store.countAgents(community.id)) >= MAX_AGENTS) return full();
+    const clean = cleanAgent(req.body);
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    // Counting and inserting are one step inside the store, under a lock. Done
+    // here as two calls, a double-click on "Add a realtor" could pass the count
+    // twice and leave five, with two of them sharing a position.
+    const created = await store.createAgentIfRoom(community.id, clean.data, MAX_AGENTS);
+    if (!created) return full();
+    res.status(201).json(created);
+  });
+
+  router.patch('/agents/:id', async (req, res) => {
+    const store = await getStore();
+    const agent = await store.getAgent(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Realtor not found' });
+    const clean = cleanAgent(req.body, { partial: true });
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    const patch = { ...clean.data };
+    if (Number.isInteger(req.body?.position) && req.body.position >= 0 && req.body.position <= 99) {
+      patch.position = req.body.position;
+    }
+    res.json(await store.updateAgent(agent.id, patch));
+  });
+
+  /** Removing the agent removes their picture and logo with them. */
+  router.delete('/agents/:id', async (req, res) => {
+    const store = await getStore();
+    await store.deleteAgent(req.params.id);
+    res.status(204).end();
+  });
+
+  /**
+   * An agent has one portrait and one logo; a second upload replaces the first.
+   * Removing one outright is the existing DELETE /photos/:id.
+   */
+  const agentImageRoute = (kind) => async (req, res) => {
+    const store = await getStore();
+    const agent = await store.getAgent(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Realtor not found' });
+    const image = readImage(req.body);
+    if (image.error) return res.status(400).json({ error: image.error });
+    const old = await store.listAgentPhotos(agent.id, kind);
+    const added = await store.addPhoto({
+      communityId: agent.communityId, agentId: agent.id, kind, ...image,
+    });
+    for (const photo of old) await store.deletePhoto(photo.id);
+    res.status(201).json(added);
+  };
+  router.post('/agents/:id/photo', agentImageRoute('agent'));
+  router.post('/agents/:id/logo', agentImageRoute('agentlogo'));
+
+  // ── buyer guides ─────────────────────────────────────────────────────────
+  const slugsOf = async (store, communityId, exceptId = null) =>
+    new Set(
+      (await store.listGuides(communityId, { includeUnpublished: true }))
+        .filter((g) => g.id !== exceptId)
+        .map((g) => g.slug),
+    );
+
+  router.get('/guides/:id', async (req, res) => {
+    const store = await getStore();
+    const guide = await store.getGuide(req.params.id);
+    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+    res.json(guide);
+  });
+
+  router.post('/communities/:id/guides', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+
+    const clean = cleanGuideText(req.body);
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    if (!clean.data.title) return res.status(400).json({ error: 'Give the guide a title.' });
+
+    const published = flag(req.body?.published, true);
+    if (published === null) return res.status(400).json({ error: 'Published must be true or false.' });
+
+    let taken = await slugsOf(store, community.id);
+    // A slug the builder typed is theirs to get right, so a clash is an error;
+    // one derived from the title is ours to fix, so it gets a suffix instead.
+    const typed = req.body?.slug !== undefined && str(req.body.slug);
+    let slug;
+    if (typed) {
+      slug = slugify(req.body.slug);
+      if (!slug) return res.status(400).json({ error: 'That address has no letters or numbers in it.' });
+      if (taken.has(slug)) return res.status(400).json({ error: 'Another guide already uses that address.' });
+    } else {
+      slug = uniqueSlug(clean.data.title, taken);
+    }
+    const data = { ...clean.data, category: clean.data.category || 'Guide', published };
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return res.status(201).json(await store.createGuide(community.id, { ...data, slug }));
+      } catch (err) {
+        if (!isDuplicate(err)) throw err;
+        // Two requests with the same title picked the same suffix from the same
+        // snapshot and the unique index let one through. Only a derived slug is
+        // ours to move: look again at what is taken now and take the next free one.
+        if (typed || attempt >= SLUG_RETRIES) {
+          return res.status(400).json({ error: 'Another guide already uses that address.' });
+        }
+        taken = await slugsOf(store, community.id);
+        slug = uniqueSlug(clean.data.title, taken);
+      }
+    }
+  });
+
+  /**
+   * Brings back any supplied guide this community no longer has. Registered as
+   * its own path, never a side effect of anything else: it is the only way
+   * deleted guides return, because boot deliberately does not.
+   */
+  router.post('/communities/:id/guides/restore-defaults', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const added = await store.restoreDefaultGuides(community.id);
+    res.json({
+      restored: added.length,
+      guides: await store.listGuides(community.id, { includeUnpublished: true }),
+    });
+  });
+
+  router.patch('/guides/:id', async (req, res) => {
+    const store = await getStore();
+    const guide = await store.getGuide(req.params.id);
+    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+
+    const clean = cleanGuideText(req.body, { partial: true });
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    const patch = { ...clean.data };
+    // The title is what the buyer reads in the list and the browser tab: a guide
+    // with none cannot be told apart from another.
+    if ('title' in patch && !patch.title) return res.status(400).json({ error: 'A guide needs a title.' });
+    // The category is blank-tolerant in the form but falls back, so the list never groups under "".
+    if ('category' in patch && !patch.category) patch.category = 'Guide';
+
+    if (req.body?.slug !== undefined) {
+      const slug = slugify(req.body.slug);
+      if (!slug) return res.status(400).json({ error: 'That address has no letters or numbers in it.' });
+      if (slug !== guide.slug) {
+        if ((await slugsOf(store, guide.communityId, guide.id)).has(slug)) {
+          return res.status(400).json({ error: 'Another guide already uses that address.' });
+        }
+        patch.slug = slug;
+      }
+    }
+    if (req.body?.published !== undefined) {
+      const published = flag(req.body.published);
+      if (published === null) return res.status(400).json({ error: 'Published must be true or false.' });
+      patch.published = published;
+    }
+    if (Number.isInteger(req.body?.position) && req.body.position >= 0 && req.body.position <= 9999) {
+      patch.position = req.body.position;
+    }
+    try {
+      res.json(await store.updateGuide(guide.id, patch));
+    } catch (err) {
+      if (isDuplicate(err)) return res.status(400).json({ error: 'Another guide already uses that address.' });
+      throw err;
+    }
+  });
+
+  router.delete('/guides/:id', async (req, res) => {
+    const store = await getStore();
+    await store.deleteGuide(req.params.id);
+    res.status(204).end();
+  });
+
+  /** One picture per guide: a second upload replaces the first. */
+  router.post('/guides/:id/image', async (req, res) => {
+    const store = await getStore();
+    const guide = await store.getGuide(req.params.id);
+    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+    const image = readImage(req.body);
+    if (image.error) return res.status(400).json({ error: image.error });
+    const old = await store.listGuidePhotos(guide.id);
+    const added = await store.addPhoto({
+      communityId: guide.communityId, guideId: guide.id, kind: 'guide', ...image,
+    });
+    for (const photo of old) await store.deletePhoto(photo.id);
+    // The stock picture's description would otherwise ride along onto the
+    // builder's own photo, in the page and in the ImageObject markup. Blank
+    // makes the guide fall back to its title until the builder writes a real one.
+    if (guide.imageAlt === DEFAULT_GUIDE_IMAGE_ALT) await store.updateGuide(guide.id, { imageAlt: '' });
+    res.status(201).json(added);
+  });
+
+  /** Back to the shared default picture. Answers with the guide so the editor can redraw it. */
+  router.delete('/guides/:id/image', async (req, res) => {
+    const store = await getStore();
+    const guide = await store.getGuide(req.params.id);
+    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+    for (const photo of await store.listGuidePhotos(guide.id)) await store.deletePhoto(photo.id);
+    res.json(await store.updateGuide(guide.id, { image: '' }));
   });
 
   router.delete('/photos/:id', async (req, res) => {

@@ -9,7 +9,8 @@ import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import {
-  describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES, unitsLabel,
+  COMPLIANCE_DEFAULTS, describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES, settingMaxLength,
+  unitsLabel,
 } from '../../shared/domain.js';
 import { createApp } from '../index.js';
 
@@ -1567,4 +1568,123 @@ test('a home can carry how many are left, and zero means sold', async () => {
   const seen = (await api(`/api/c/${cid}`)).body.homes;
   assert.equal(seen.find((h) => h.id === gone.body.id).unitsAvailable, 0);
   assert.equal(seen.find((h) => h.id === single.body.id).unitsAvailable, null);
+});
+
+/** Signs in and makes a community, for the layout, settings and payload tests below. */
+const signedInCommunity = async (name) => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const made = await api('/api/admin/communities', { method: 'POST', token, body: { name } });
+  return { token, cid: made.body.id };
+};
+
+test('the layout defaults to Cornerpost, changes through the admin, and ignores what it does not know', async () => {
+  const { token, cid } = await signedInCommunity('Layout Test');
+  assert.equal((await api(`/api/admin/communities/${cid}`, { token })).body.layout, 'cornerpost');
+  assert.equal((await api(`/api/c/${cid}`)).body.layout, 'cornerpost', 'a buyer gets the default too');
+
+  const patch = (body) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body });
+  const changed = await patch({ layout: 'saltgrass' });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.layout, 'saltgrass');
+  assert.equal((await api(`/api/c/${cid}`)).body.layout, 'saltgrass', 'and the buyer app is told');
+
+  // Anything that is not a known layout is dropped, like an unknown theme. The
+  // buyer app has no stylesheet for it, so storing it would unstyle the site.
+  for (const bad of ['bogus', '', null, 7, {}, 'SALTGRASS', 'saltgrass ']) {
+    const res = await patch({ layout: bad });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.layout, 'saltgrass', `${JSON.stringify(bad)} did not change it`);
+  }
+
+  // Saving something else does not reset it, which the Save-settings button does constantly.
+  assert.equal((await patch({ name: 'Layout Test II' })).body.layout, 'saltgrass');
+  assert.equal((await patch({ layout: 'cornerpost' })).body.layout, 'cornerpost', 'and it can go back');
+});
+
+test('layout and theme are independent choices', async () => {
+  const { token, cid } = await signedInCommunity('Independent Test');
+  const res = await api(`/api/admin/communities/${cid}`, {
+    method: 'PATCH', token, body: { layout: 'saltgrass', theme: 'forest' },
+  });
+  assert.equal(res.body.layout, 'saltgrass');
+  assert.equal(res.body.theme, 'forest');
+  assert.equal((await api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { theme: 'navy' } })).body.layout, 'saltgrass');
+});
+
+test('settings are trimmed, capped at their own length, and unknown keys are ignored', async () => {
+  const { token, cid } = await signedInCommunity('Settings Test');
+  const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
+
+  const res = await patch({
+    lenderName: '   Acme Lending   ',
+    lenderAddress: 'a'.repeat(settingMaxLength('lenderAddress') + 50),
+    complianceNotOffer: `  ${'n'.repeat(settingMaxLength('complianceNotOffer') + 50)}  `,
+    complianceAba: '',
+    rateConv: ' 6.25 ',
+    notASetting: 'sneaky',
+  });
+  assert.equal(res.status, 200);
+  const { settings } = res.body;
+  assert.equal(settings.lenderName, 'Acme Lending', 'surrounding spaces are removed');
+  assert.equal(settings.lenderAddress.length, 300, 'a short field is cut at 300');
+  assert.equal(settings.complianceNotOffer.length, 4000, 'a statement is cut at 4000, after trimming');
+  assert.equal(settings.complianceNotOffer[0], 'n', 'the trim happened before the cut');
+  assert.equal(settings.complianceAba, '', 'a field can be blanked on purpose');
+  assert.equal(settings.rateConv, '6.25', 'older settings are trimmed too');
+  assert.equal(settings.notASetting, undefined);
+
+  // What was stored is what the buyer is served.
+  const seen = (await api(`/api/c/${cid}`)).body.settings;
+  assert.equal(seen.lenderName, 'Acme Lending');
+  assert.equal(seen.complianceNotOffer.length, 4000);
+});
+
+test('the fair housing line under the realtors saves, trims, caps at 300, and can be blanked', async () => {
+  const { token, cid } = await signedInCommunity('Realtor EHO Test');
+  const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
+  assert.equal((await api(`/api/c/${cid}`)).body.settings.agentsEhoLine, 'Equal Housing Opportunity');
+
+  const edited = await patch({ agentsEhoLine: '  Equal Opportunity Housing  ' });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.settings.agentsEhoLine, 'Equal Opportunity Housing');
+  assert.equal((await api(`/api/c/${cid}`)).body.settings.agentsEhoLine, 'Equal Opportunity Housing', 'the buyer is served what was stored');
+
+  const long = await patch({ agentsEhoLine: 'x'.repeat(settingMaxLength('agentsEhoLine') + 40) });
+  assert.equal(long.body.settings.agentsEhoLine.length, 300);
+
+  const blank = await patch({ agentsEhoLine: '' });
+  assert.equal(blank.body.settings.agentsEhoLine, '', 'blank is stored as blank, which hides the line');
+  assert.equal((await patch({ loName: 'Someone Else' })).body.settings.agentsEhoLine, '', 'an unrelated save does not bring it back');
+});
+
+test('a new community starts from the Summit defaults, and unsent keys keep them', async () => {
+  const { token, cid } = await signedInCommunity('Defaults Test');
+  const settings = (await api(`/api/c/${cid}`)).body.settings;
+  for (const [key, value] of Object.entries(COMPLIANCE_DEFAULTS)) {
+    assert.equal(settings[key], value, `${key} defaults to the supplied wording`);
+  }
+  await api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings: { loName: 'Someone Else' } } });
+  const after = (await api(`/api/c/${cid}`)).body.settings;
+  assert.equal(after.loName, 'Someone Else');
+  assert.equal(after.lenderNmls, COMPLIANCE_DEFAULTS.lenderNmls, 'a key not sent is left alone');
+});
+
+test('the buyer payload carries the layout, logos, agents and guide summaries', async () => {
+  const { cid } = await signedInCommunity('Payload Test');
+  const body = (await api(`/api/c/${cid}`)).body;
+  assert.equal(body.layout, 'cornerpost');
+  assert.equal(body.logo, null);
+  assert.equal(body.logoLight, null);
+  assert.equal(body.lenderLogo, null);
+  assert.deepEqual(body.agents, []);
+  assert.equal(body.guides.length, 13);
+  assert.ok(body.guides.every((g) => g.slug && g.title && !('body' in g)));
+  assert.equal(body.features.guides, true);
+  assert.equal(body.features.agents, true);
+  // Nothing that only the builder should hold rides along.
+  assert.equal(body.guidesSeeded, undefined);
+  assert.equal(body.guides_seeded, undefined);
 });

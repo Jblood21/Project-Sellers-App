@@ -35,6 +35,9 @@ export const buyerApi = {
     request(`/api/me/plan/${encodeURIComponent(key)}`, { method: 'PUT', body: { summary }, token }),
   track: (token, text) => request('/api/me/activity', { method: 'POST', body: { text }, token }),
   openSlots: (communityId) => request(`/api/c/${encodeURIComponent(communityId)}/slots`),
+  // One whole guide, body included. The community payload carries only the summaries.
+  guide: (communityId, slug) =>
+    request(`/api/c/${encodeURIComponent(communityId)}/guides/${encodeURIComponent(slug)}`),
   requestTour: (token, slotId, contact, topic = 'community') =>
     request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic }, token }),
   emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
@@ -103,6 +106,36 @@ export const adminApi = {
   deleteResource: (token, id) =>
     request(`/api/admin/resources/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   deletePhoto: (token, id) => request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // ── realtors: up to MAX_AGENTS per community ────────────────────────────
+  createAgent: (token, communityId, body) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/agents`, { method: 'POST', body, token }),
+  updateAgent: (token, id, body) =>
+    request(`/api/admin/agents/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
+  deleteAgent: (token, id) => request(`/api/admin/agents/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // `photo` is the agent's portrait and `logo` their own or their brokerage's mark.
+  // One of each per agent, so a second upload replaces the first.
+  setAgentPhoto: (token, id, body) =>
+    request(`/api/admin/agents/${encodeURIComponent(id)}/photo`, { method: 'POST', body, token }),
+  setAgentLogo: (token, id, body) =>
+    request(`/api/admin/agents/${encodeURIComponent(id)}/logo`, { method: 'POST', body, token }),
+  // ── buyer guides ────────────────────────────────────────────────────────
+  guide: (token, id) => request(`/api/admin/guides/${encodeURIComponent(id)}`, { token }),
+  createGuide: (token, communityId, body) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/guides`, { method: 'POST', body, token }),
+  updateGuide: (token, id, body) =>
+    request(`/api/admin/guides/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
+  deleteGuide: (token, id) => request(`/api/admin/guides/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  setGuideImage: (token, id, body) =>
+    request(`/api/admin/guides/${encodeURIComponent(id)}/image`, { method: 'POST', body, token }),
+  // Back to the shared default picture.
+  clearGuideImage: (token, id) =>
+    request(`/api/admin/guides/${encodeURIComponent(id)}/image`, { method: 'DELETE', token }),
+  // Adds back any supplied guide the community no longer has, by slug. Never
+  // overwrites one that is still there, so an edited guide survives it.
+  restoreGuides: (token, communityId) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/guides/restore-defaults`, {
+      method: 'POST', body: {}, token,
+    }),
   // PUT, not POST: a home has one walkthrough, so sending another replaces it.
   setHomeVideo: (token, homeId, body) =>
     request(`/api/admin/homes/${encodeURIComponent(homeId)}/video`, { method: 'PUT', body, token }),

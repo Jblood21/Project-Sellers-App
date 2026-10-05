@@ -1,18 +1,23 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, consentText,
-  CONTACT_METHOD_KEYS, describeTour, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
+  CONSENT_VERSION, consentText, GUIDE_TEXT_MAX,
+  CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
   PLAN_LABELS, TOOL_KEYS,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
+import { rejectControlCharacters } from '../lib/params.js';
 import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
 import { sendVideo } from '../lib/video.js';
+import { catchAsyncErrors } from './admin.js';
 
+// The only types /api/photos will label an image. SVG is absent on purpose.
+const SERVED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GUIDE_SLUG_RE = new RegExp(`^[a-z0-9-]{1,${GUIDE_TEXT_MAX.slug}}$`);
 
 /** Absolute URL of this deployment, so emails can link back into the app. */
 const baseUrlOf = (req) => {
@@ -74,12 +79,45 @@ const applyFeatures = (homes, features) =>
     floorPlans: features.floorPlans ? home.floorPlans : [],
   }));
 
-const publicCommunity = (community, homes, highlights, resources, heroPhoto, iconPhoto, siteMap, slots) => ({
+/** What a buyer sees of a realtor: no internal ids beyond their own, images as bare URLs. */
+const publicAgent = (agent) => ({
+  id: agent.id,
+  name: agent.name,
+  brokerage: agent.brokerage,
+  licenseNo: agent.licenseNo,
+  licenseState: agent.licenseState,
+  phone: agent.phone,
+  email: agent.email,
+  website: agent.website,
+  photo: agent.photo?.url ?? null,
+  logo: agent.logo?.url ?? null,
+});
+
+/** A guide as the list sees it: enough for a card, never the article itself. */
+const publicGuideSummary = (guide) => ({
+  id: guide.id,
+  slug: guide.slug,
+  title: guide.title,
+  category: guide.category,
+  byline: guide.byline,
+  note: guide.note,
+  summary: guide.summary,
+  image: guide.image,
+  imageAlt: guide.imageAlt,
+  createdAt: guide.createdAt,
+  updatedAt: guide.updatedAt,
+});
+
+const publicCommunity = (
+  community, homes, highlights, resources, heroPhoto, iconPhoto, siteMap, slots,
+  { logo, logoLight, lenderLogo, agents, guides },
+) => ({
   id: community.id,
   name: community.name,
   location: community.location,
   status: community.status,
   theme: community.theme,
+  layout: community.layout,
   builder: community.builder,
   websiteUrl: community.websiteUrl,
   settings: community.settings,
@@ -88,6 +126,13 @@ const publicCommunity = (community, homes, highlights, resources, heroPhoto, ico
   heroPhoto: heroPhoto?.url ?? null,
   iconPhoto: iconPhoto?.url ?? null,
   siteMap: community.features.siteMap ? (siteMap?.url ?? null) : null,
+  logo: logo?.url ?? null,
+  logoLight: logoLight?.url ?? null,
+  lenderLogo: lenderLogo?.url ?? null,
+  // Realtors and guides follow the same rule as the site map: a feature switched
+  // off is not served at all, rather than served and hidden by the client.
+  agents: community.features.agents ? agents.map(publicAgent) : [],
+  guides: community.features.guides ? guides.map(publicGuideSummary) : [],
   // Same rule as the site map: switched off means the buyer is not served it
   // at all, rather than being served it and told not to look.
   resources: community.features.resources ? resources : [],
@@ -96,24 +141,67 @@ const publicCommunity = (community, homes, highlights, resources, heroPhoto, ico
   slots,
 });
 
+/**
+ * The public payload for one community, or null when there is none. Exported so
+ * the server-rendered page head reads exactly what the JSON route serves: the
+ * two cannot drift into describing different communities.
+ */
+export async function loadPublicCommunity(store, communityId) {
+  const community = await store.getCommunity(communityId);
+  if (!community) return null;
+  const [
+    homes, highlights, resources, heroes, icons, maps, slots, logos, logosLight, lenderLogos, agents,
+    guides,
+  ] = await Promise.all([
+    store.listHomes(community.id),
+    store.listHighlights(community.id),
+    store.listResources(community.id),
+    store.listCommunityPhotos(community.id, 'hero'),
+    store.listCommunityPhotos(community.id, 'icon'),
+    store.listCommunityPhotos(community.id, 'sitemap'),
+    store.listOpenSlots(community.id),
+    store.listCommunityPhotos(community.id, 'logo'),
+    store.listCommunityPhotos(community.id, 'logolight'),
+    store.listCommunityPhotos(community.id, 'lenderlogo'),
+    store.listAgents(community.id),
+    store.listGuides(community.id),
+  ]);
+  return publicCommunity(community, homes, highlights, resources, heroes[0], icons[0], maps[0], slots, {
+    logo: logos[0], logoLight: logosLight[0], lenderLogo: lenderLogos[0], agents, guides,
+  });
+}
+
 export function publicRouter() {
-  const router = Router();
+  const router = rejectControlCharacters(catchAsyncErrors(Router()));
 
   /** Everything the buyer app needs to render a community. */
   router.get('/c/:communityId', async (req, res) => {
+    const payload = await loadPublicCommunity(await getStore(), req.params.communityId);
+    if (!payload) return res.status(404).json({ error: 'That community link is no longer active.' });
+    res.json(payload);
+  });
+
+  /**
+   * One whole guide. Public like the list: guides are the part of the app a
+   * search engine and a buyer who has not signed in are meant to reach. An
+   * unpublished guide and a switched-off feature both look like a guide that
+   * does not exist, so a draft's address tells nobody anything.
+   */
+  router.get('/c/:communityId/guides/:slug', async (req, res) => {
     const store = await getStore();
+    // A slug is only ever lowercase letters, digits and hyphens, so anything else
+    // is a guide that cannot exist. Refusing it here keeps a crawler's malformed
+    // address (a stray %00, say) from ever reaching the database driver.
+    if (!GUIDE_SLUG_RE.test(req.params.slug)) {
+      return res.status(404).json({ error: 'That guide could not be found.' });
+    }
     const community = await store.getCommunity(req.params.communityId);
     if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
-    const [homes, highlights, resources, heroes, icons, maps, slots] = await Promise.all([
-      store.listHomes(community.id),
-      store.listHighlights(community.id),
-      store.listResources(community.id),
-      store.listCommunityPhotos(community.id, 'hero'),
-      store.listCommunityPhotos(community.id, 'icon'),
-      store.listCommunityPhotos(community.id, 'sitemap'),
-      store.listOpenSlots(community.id),
-    ]);
-    res.json(publicCommunity(community, homes, highlights, resources, heroes[0], icons[0], maps[0], slots));
+    const guide = community.features.guides
+      ? await store.getGuideBySlug(community.id, req.params.slug)
+      : null;
+    if (!guide || !guide.published) return res.status(404).json({ error: 'That guide could not be found.' });
+    res.json({ ...publicGuideSummary(guide), body: guide.body });
   });
 
   /**
@@ -313,14 +401,14 @@ export function publicRouter() {
       requestedAt: new Date().toISOString(),
     };
     const lead = await store.updateLead(req.leadId, { tour });
+    const community = await store.getCommunity(lead.communityId);
     await store.addActivity(
       req.leadId,
-      `Booked ${describeTour(tour)}`,
+      `Booked ${describeTour(tour, lenderNameOf(community))}`,
     );
 
     // The request is already saved. Telling the builder is best-effort on top of
     // that — sendEmail never throws, so a mail outage cannot cost them the lead.
-    const community = await store.getCommunity(lead.communityId);
     if (community) {
       const homes = await store.listHomes(community.id);
       const result = await notifyCallRequest({
@@ -338,7 +426,18 @@ export function publicRouter() {
     if (!photo) return res.status(404).end();
     if (photo.url) return res.redirect(photo.url);
     if (!photo.data) return res.status(404).end();
-    res.set('Content-Type', photo.content_type || 'image/jpeg');
+    // Anything outside the raster list is served as an opaque download. Nothing
+    // can be stored with another type today; this keeps that true if a future
+    // write path forgets the check.
+    const type = photo.content_type || 'image/jpeg';
+    res.set('Content-Type', SERVED_IMAGE_TYPES.has(type) ? type : 'application/octet-stream');
+    // These bytes come from an upload and are served from this site's own origin.
+    // The type was checked against a raster allow-list on the way in; these two
+    // headers make the browser hold to it instead of sniffing the bytes into
+    // something it would run, and sandbox the response should one ever be opened
+    // as a page.
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
     res.send(Buffer.from(photo.data, 'base64'));
   });
@@ -370,7 +469,7 @@ export function publicRouter() {
  * Guarded by a shared secret so anyone with the community id can't move rates.
  */
 export function ratesRouter() {
-  const router = Router();
+  const router = rejectControlCharacters(catchAsyncErrors(Router()));
 
   router.post('/communities/:id/rates', async (req, res) => {
     const secret = process.env.RATES_WEBHOOK_SECRET;

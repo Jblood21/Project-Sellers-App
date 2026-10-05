@@ -20,7 +20,7 @@ export default function Explore() {
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
-      <h3 className="b-head" style={{ margin: '0 0 12px', fontSize: 22 }}>Explore Homes</h3>
+      <h1 className="b-head" style={{ margin: '0 0 12px', fontSize: 22 }}>Explore Homes</h1>
 
       {homes.length === 0 ? (
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>
@@ -65,7 +65,11 @@ export default function Explore() {
                 <Star filled={saved} />
               </button>
               <div style={{ height: 130, margin: -1, marginBottom: 0 }}>
-                <Photo photo={home.photos[0]} label={`${home.name} photo`} alt={home.name} />
+                <Photo
+                  photo={home.photos[0]}
+                  label={`${home.name} photo`}
+                  alt={`${home.name} photo 1 of ${home.photos.length}`}
+                />
               </div>
               <div style={{ padding: '12px 16px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>

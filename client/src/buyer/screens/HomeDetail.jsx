@@ -7,12 +7,13 @@ import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
+import AgentCard, { AgentsNotice } from '../AgentCard.jsx';
 
 export default function HomeDetail({ onOpenTour }) {
   // Which plan the viewer is showing; null means closed.
   const [planIndex, setPlanIndex] = useState(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const { homes, lead, toggleSave, track, setTool } = useBuyer();
+  const { homes, lead, toggleSave, track, setTool, agents, features } = useBuyer();
   const { communityId, homeId } = useParams();
   const navigate = useNavigate();
 
@@ -39,7 +40,7 @@ export default function HomeDetail({ onOpenTour }) {
               borderRadius: 'var(--t-radlg)', overflow: 'hidden', scrollSnapAlign: 'center',
             }}
           >
-            <Photo photo={photo} label={`${home.name} — photo ${index + 1}`} alt={`${home.name} photo ${index + 1}`} />
+            <Photo photo={photo} label={`${home.name} — photo ${index + 1}`} alt={`${home.name} photo ${index + 1} of ${photos.length}`} />
           </div>
         ))}
       </div>
@@ -50,7 +51,7 @@ export default function HomeDetail({ onOpenTour }) {
       ) : null}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
-        <h3 className="b-head" style={{ fontSize: 24 }}>{home.name}</h3>
+        <h1 className="b-head" style={{ fontSize: 24 }} data-punct={/[.?!]$/.test(home.name ?? '') || undefined}>{home.name}</h1>
         <span style={{ fontWeight: 700, fontSize: 19 }}>{money(home.price)}</span>
       </div>
       <span style={{ fontSize: 13, color: 'var(--t-mut)' }}>
@@ -125,7 +126,7 @@ export default function HomeDetail({ onOpenTour }) {
                   display: 'block', padding: 0, cursor: 'pointer',
                 }}
               >
-                <Photo photo={plan} alt={`${home.name} floor plan ${index + 1}`} fit="contain" />
+                <Photo photo={plan} alt={`${home.name} floor plan ${index + 1} of ${home.floorPlans.length}`} fit="contain" />
               </button>
             ))}
           </div>
@@ -161,6 +162,26 @@ export default function HomeDetail({ onOpenTour }) {
       <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>
         Saving a home adds it to Homes I Like and tells the team you&apos;re interested.
       </p>
+
+      {/*
+        Under the actions rather than above them: a buyer here is deciding about
+        the home first, and who to talk to about buying it comes second. The
+        agents are the community's, not this home's, so every home shows the same.
+      */}
+      {features.agents && agents.length ? (
+        <section style={{ marginTop: 26 }} aria-labelledby="home-agents">
+          <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
+          <h2 id="home-agents" className="b-lbl" style={{ margin: '0 0 12px', color: 'var(--t-accT)' }}>
+            Realtors
+          </h2>
+          <div className="b-stack" style={{ gap: 12 }}>
+            {agents.map((agent) => (
+              <AgentCard key={agent.id} agent={agent} headingLevel={3} />
+            ))}
+          </div>
+          <AgentsNotice />
+        </section>
+      ) : null}
     <ToolSheet
       open={paymentOpen}
       toolKey="payment"
