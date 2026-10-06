@@ -14,6 +14,47 @@ export const FAQ_ANSWER_MAX = 1500;
 /** Room for every item at its longest, plus the JSON around them. */
 export const FAQ_JSON_MAX = FAQ_MAX_ITEMS * (FAQ_QUESTION_MAX + FAQ_ANSWER_MAX + 40);
 
+/**
+ * The questions a new community starts with. They describe what this app does and
+ * promise nothing about a price, a rate or an approval, and they name no lender or
+ * agent, so they stay true for any community. A builder edits, reorders or removes
+ * them in Setup, and "Restore the starter questions" puts these back.
+ */
+export const DEFAULT_FAQ = [
+  {
+    q: 'What can I do in this app?',
+    a: 'Browse the available floorplans, view the community layout, estimate a monthly payment, compare loan options and see what moving in will take. Anything you save goes into My Home Plan, so it is all in one place when you are ready to talk to the team.',
+  },
+  {
+    q: 'Does using the app commit me to anything?',
+    a: 'No. Browsing, saving homes and estimating payments do not commit you to anything. Take a few minutes to find out what works for you.',
+  },
+  {
+    q: 'How do I tour a home?',
+    a: 'Tap Tour this model on any floorplan to pick a day, then a time that suits you. You can also use Schedule your tour on the home screen to call, text or email an agent directly.',
+  },
+  {
+    q: 'Can I change a time I booked?',
+    a: 'Yes. Open Set up a time to talk, then pick a different day and time and your booking moves. To cancel, call or text the team.',
+  },
+  {
+    q: 'What is My Home Plan?',
+    a: 'It is everything you have saved: the homes you like, your payment estimates and the plan you have built. Saving a home also lets the team know you are interested, so they can help with what matters to you.',
+  },
+  {
+    q: 'Is the payment estimate a quote?',
+    a: 'No. It is an estimate to help you plan, based on the price, down payment and rate shown, and it may not include every cost of owning a home. Your actual payment depends on your loan, which is confirmed when you complete a loan application.',
+  },
+  {
+    q: 'How much do I need for a down payment?',
+    a: 'It depends on the home and the loan program. Down Payment Help shows what different amounts mean for your payment, and Which loan option fits me best? compares programs side by side. The lender can tell you which programs you may qualify for.',
+  },
+  {
+    q: 'How do I find out what loan I qualify for?',
+    a: 'Complete a loan application with the preferred lender. This app is not a loan approval or an offer to lend. The application is how you find out what programs you qualify for and get accurate rate quotes for your specific situation.',
+  },
+];
+
 const clean = (value, max) => String(value ?? '').replace(/\u0000/g, '').trim().slice(0, max);
 
 /**
@@ -69,3 +110,6 @@ export function normalizeFaqJson(raw) {
     return null;
   }
 }
+
+/** What a new community stores until its builder edits the list. */
+export const DEFAULT_FAQ_JSON = serializeFaq(DEFAULT_FAQ);

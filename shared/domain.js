@@ -1,7 +1,9 @@
 import { COMPLIANCE_DEFAULTS } from './compliance.js';
+import { DEFAULT_FAQ_JSON } from './faq.js';
 
 export {
-  FAQ_ANSWER_MAX, FAQ_JSON_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, normalizeFaqJson, parseFaq, serializeFaq,
+  DEFAULT_FAQ, DEFAULT_FAQ_JSON, FAQ_ANSWER_MAX, FAQ_JSON_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, normalizeFaqJson,
+  parseFaq, serializeFaq,
 } from './faq.js';
 
 export {
@@ -498,8 +500,8 @@ export const DEFAULT_SETTINGS = {
   incentiveMessage: 'Contact me about the preferred lender incentive for {community}.',
 
   // ── the FAQ shown on the home screen: a JSON list, edited in Setup ───────
-  // Empty until the builder adds questions; see shared/faq.js.
-  faqJson: '[]',
+  // Starts as the starter questions in shared/faq.js; the builder edits them.
+  faqJson: DEFAULT_FAQ_JSON,
 };
 
 /**

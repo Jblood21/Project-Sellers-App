@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { FAQ_ANSWER_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, parseFaq } from '@shared/domain.js';
+import { DEFAULT_FAQ, FAQ_ANSWER_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, parseFaq } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { ErrorNote, TextAreaField, TextField, Toggle } from '../ui.jsx';
@@ -43,6 +43,12 @@ export default function FaqCard({ community, settings, setSettings, reload }) {
     if (!window.confirm('Remove this question?')) return;
     commit(rows.filter((_, i) => i !== index));
   };
+  // Replaces the list with the starter questions. Like every edit here it only goes
+  // live with Save settings, and it asks first when there is something to lose.
+  const restore = () => {
+    if (rows.length && !window.confirm('Replace the questions below with the starter questions? Nothing changes for buyers until you press Save settings.')) return;
+    commit(DEFAULT_FAQ.map((item) => ({ ...item })));
+  };
   const move = (index, by) => {
     const target = index + by;
     if (target < 0 || target >= rows.length) return;
@@ -81,7 +87,8 @@ export default function FaqCard({ community, settings, setSettings, reload }) {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
       <p className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
-        Up to {FAQ_MAX_ITEMS} questions. Answers are plain text; a line break stays a line break. The switch
+        A new community starts with a set of starter questions; change them, reorder them or remove any you do not
+        want. Up to {FAQ_MAX_ITEMS} questions. Answers are plain text; a line break stays a line break. The switch
         saves at once; the questions go live when you press <strong>Save settings</strong>.
       </p>
 
@@ -109,13 +116,18 @@ export default function FaqCard({ community, settings, setSettings, reload }) {
         </div>
       ))}
 
-      <button
-        type="button" className="btn btn-secondary" style={{ minHeight: 44 }}
-        disabled={rows.length >= FAQ_MAX_ITEMS}
-        onClick={() => commit([...rows, { q: '', a: '' }])}
-      >
-        {rows.length >= FAQ_MAX_ITEMS ? `That is the most (${FAQ_MAX_ITEMS})` : 'Add a question'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button" className="btn btn-secondary" style={{ minHeight: 44 }}
+          disabled={rows.length >= FAQ_MAX_ITEMS}
+          onClick={() => commit([...rows, { q: '', a: '' }])}
+        >
+          {rows.length >= FAQ_MAX_ITEMS ? `That is the most (${FAQ_MAX_ITEMS})` : 'Add a question'}
+        </button>
+        <button type="button" className="btn btn-ghost" style={{ minHeight: 44 }} onClick={restore}>
+          Restore the starter questions
+        </button>
+      </div>
     </div>
   );
 }

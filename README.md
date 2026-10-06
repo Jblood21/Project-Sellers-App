@@ -369,9 +369,15 @@ Under **Setup → Home screen**:
   *Find out if I qualify* opens a sheet with **Call** and **Text** on a phone or **Email** on a computer, and the
   message already typed: *Contact me about the preferred lender incentive for* the development (editable). The
   number is the incentive's own, or the lender's when blank; a computer with no email set is shown the number.
-- **FAQ.** Up to twenty questions and answers, shown on the home screen after the financing card. The section
-  appears only when there is at least one complete question and answer. Answers are plain text. It is also
-  in the page's `FAQPage` structured data (the home screen is behind the contact gate, so search engines do not read it).
+- **FAQ.** Up to twenty questions and answers, shown on the home screen after the financing card. A new community
+  starts with eight **starter questions** (what the app does, touring, My Home Plan, the payment estimate, down
+  payment, applying for a loan; `DEFAULT_FAQ` in `shared/faq.js`). They name no lender, rate or amount. Edit, reorder or
+  remove them under **Setup → FAQ**, and **Restore the starter questions** puts them back (it asks first, and
+  nothing changes for buyers until **Save settings**). A community that has already saved its Setup page keeps what
+  it saved, which can be an empty list. The section appears only when there is at least one complete question and
+  answer. Answers are plain text. On a computer the question under the pointer is **highlighted** (and the one with
+  keyboard focus); a phone has no hover, so a tap simply opens the answer. It is also in the page's `FAQPage`
+  structured data (the home screen is behind the contact gate, so search engines do not read it).
 
 ## Realtors
 

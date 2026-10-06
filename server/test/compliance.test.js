@@ -163,6 +163,28 @@ test('a blanked required statement is listed as needing attention, not published
   assert.ok(!complianceOf({}, here).missing.some((m) => /statement$/.test(m)));
 });
 
+test('the starter FAQ is complete, fits its limits, is plain text and promises nothing', async () => {
+  const {
+    DEFAULT_FAQ, DEFAULT_FAQ_JSON, FAQ_ANSWER_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, normalizeFaqJson, parseFaq,
+  } = await import('../../shared/faq.js');
+  const { DEFAULT_SETTINGS } = await import('../../shared/domain.js');
+  assert.ok(DEFAULT_FAQ.length >= 5 && DEFAULT_FAQ.length <= FAQ_MAX_ITEMS);
+  for (const item of DEFAULT_FAQ) {
+    assert.ok(item.q.endsWith('?'), `a question: ${item.q}`);
+    assert.ok(item.q.length <= FAQ_QUESTION_MAX && item.a.length <= FAQ_ANSWER_MAX, item.q);
+    assert.ok(!/[<>{}]/.test(`${item.q} ${item.a}`), `plain text, no markup or tokens: ${item.q}`);
+  }
+  assert.equal(new Set(DEFAULT_FAQ.map((item) => item.q)).size, DEFAULT_FAQ.length, 'no question twice');
+  // Nothing stored is cut short or dropped on the way in.
+  assert.deepEqual(parseFaq(DEFAULT_FAQ_JSON), DEFAULT_FAQ);
+  assert.equal(normalizeFaqJson(DEFAULT_FAQ_JSON), DEFAULT_FAQ_JSON);
+  assert.equal(DEFAULT_SETTINGS.faqJson, DEFAULT_FAQ_JSON, 'a new community starts with them');
+  // No rate, dollar amount or approval is promised, and no lender or agent is named.
+  const all = DEFAULT_FAQ.map((item) => `${item.q} ${item.a}`).join(' ');
+  assert.ok(!/\d+(\.\d+)?\s*%|\$\s*\d|guarantee|pre-?approv|summit|nmls/i.test(all), 'no rate, price, guarantee or lender name');
+  assert.match(all, /not a loan approval or an offer to lend/);
+});
+
 test('FAQ helpers keep only text, never throw, and refuse what is not a list', async () => {
   const { parseFaq, serializeFaq, normalizeFaqJson } = await import('../../shared/faq.js');
   assert.deepEqual(parseFaq(JSON.stringify([{ q: { x: 1 }, a: 'a' }, { q: 'Q?', a: ' A ' }, null, 'x', { q: 'Only', a: '' }])), [{ q: 'Q?', a: 'A' }]);

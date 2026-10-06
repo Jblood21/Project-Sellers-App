@@ -9,8 +9,8 @@ import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import {
-  COMPLIANCE_DEFAULTS, describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES, settingMaxLength,
-  unitsLabel,
+  COMPLIANCE_DEFAULTS, DEFAULT_FAQ, DEFAULT_FAQ_JSON, describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES,
+  settingMaxLength, unitsLabel,
 } from '../../shared/domain.js';
 import { createApp } from '../index.js';
 
@@ -1654,6 +1654,9 @@ test('the incentive card and loan link save, trim and cap, and the FAQ is normal
   assert.equal(before.settings.incentiveButton, 'Find out if I qualify');
   assert.match(before.settings.incentiveMessage, /preferred lender incentive for \{community\}/);
   assert.equal(before.settings.loanApplicationUrl, COMPLIANCE_DEFAULTS.loanApplicationUrl);
+  // A new community starts with the starter FAQ, and buyers are served it.
+  assert.equal(before.settings.faqJson, DEFAULT_FAQ_JSON);
+  assert.deepEqual(JSON.parse((await api(`/api/c/${cid}`)).body.settings.faqJson), DEFAULT_FAQ);
 
   const edited = await patch({
     features: { incentive: true },
