@@ -526,6 +526,20 @@ test('fuzz: thousands of random marker soups never throw, never hang, and never 
   assert.ok(Date.now() - started < 4000, `6000 small inputs took ${Date.now() - started}ms`);
 });
 
+// A wall-clock bound on a shared CI runner: the first run of an input pays for a cold JIT
+// and a garbage collection, and a busy neighbour adds to that (a 130 ms input has been
+// measured at 1.6 s there). A quadratic scan is slow every time, so a run that misses its
+// bound gets up to two more tries and the fastest of them is the one judged.
+function fastest(work, limitMs, tries = 3) {
+  let best = Infinity;
+  for (let attempt = 0; attempt < tries && best >= limitMs; attempt++) {
+    const started = Date.now();
+    work();
+    best = Math.min(best, Date.now() - started);
+  }
+  return best;
+}
+
 test('pathological repeats stay linear: unclosed markers do not go quadratic', () => {
   const big = [
     '*'.repeat(60000),
@@ -552,10 +566,7 @@ test('pathological repeats stay linear: unclosed markers do not go quadratic', (
     'a  \n'.repeat(20000),
   ];
   for (const src of big) {
-    const started = Date.now();
-    parseMarkdown(src);
-    markdownToText(src);
-    const took = Date.now() - started;
+    const took = fastest(() => { parseMarkdown(src); markdownToText(src); }, 1500);
     assert.ok(took < 1500, `${JSON.stringify(src.slice(0, 20))}... (${src.length} chars) took ${took}ms`);
   }
 });
@@ -571,11 +582,7 @@ test('long runs of interior spaces and tabs are cheap: no regex retries from eve
     'a title line padded with spaces': '# a' + ' '.repeat(50000) + '#',
   };
   for (const [name, src] of Object.entries(shapes)) {
-    const started = Date.now();
-    parseMarkdown(src);
-    markdownToText(src);
-    parseGuideMarkdown(src, 'x.md');
-    const took = Date.now() - started;
+    const took = fastest(() => { parseMarkdown(src); markdownToText(src); parseGuideMarkdown(src, 'x.md'); }, 150);
     assert.ok(took < 150, `${name} took ${took}ms`);
   }
 });
@@ -587,9 +594,7 @@ test('unclosed brackets and very many short lines stay cheap', () => {
     'one-letter lines in one paragraph': 'a\n'.repeat(60000),
   };
   for (const [name, src] of Object.entries(shapes)) {
-    const started = Date.now();
-    parseMarkdown(src);
-    const took = Date.now() - started;
+    const took = fastest(() => parseMarkdown(src), 250);
     assert.ok(took < 250, `${name} took ${took}ms`);
   }
 });
