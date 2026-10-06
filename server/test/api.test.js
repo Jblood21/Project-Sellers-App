@@ -1653,7 +1653,7 @@ test('the incentive card and loan link save, trim and cap, and the FAQ is normal
   assert.equal(before.features.faq, true);
   assert.equal(before.settings.incentiveButton, 'Find out if I qualify');
   assert.match(before.settings.incentiveMessage, /preferred lender incentive for \{community\}/);
-  assert.equal(before.settings.loanApplicationUrl, '');
+  assert.equal(before.settings.loanApplicationUrl, COMPLIANCE_DEFAULTS.loanApplicationUrl);
 
   const edited = await patch({
     features: { incentive: true },
