@@ -1063,4 +1063,9 @@
 .b-app.l-saltgrass .sg-btn-apply:hover { background: color-mix(in srgb, var(--t-onacc2) 12%, transparent); }
 .b-app.l-saltgrass .b-tour__meet { font-family: var(--t-head); font-weight: var(--t-headwt); font-size: 1.5rem; line-height: 1; text-transform: var(--t-up); letter-spacing: var(--t-track); }
 .b-app.l-saltgrass .b-faq__item { border: 2px solid var(--sg-panel); border-radius: 10px; }
+/* The border above is more specific than the shared hover rule, so the highlight's border colour is restated here. */
+@media (hover: hover) {
+  .b-app.l-saltgrass .b-faq__item:hover { border-color: var(--t-accT); }
+}
+.b-app.l-saltgrass .b-faq__item:has(> .b-faq__q:focus-visible) { border-color: var(--t-accT); }
 .b-app.l-saltgrass .b-faq__q { min-height: 54px; font-weight: 700; }

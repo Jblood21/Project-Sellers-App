@@ -699,7 +699,29 @@ textarea.input { min-height: auto; resize: vertical; }
 .b-incentive__body { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .b-incentive__fine { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .b-faq { display: flex; flex-direction: column; gap: 8px; }
-.b-faq__item { background: var(--t-sur); border: 1px solid var(--t-line); border-radius: var(--t-rad); }
+.b-faq__item {
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-rad);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+/* The question under the pointer is picked out so a buyer can see which one a click opens.
+   A touch screen has no hover, so it keeps the plain look there; a keyboard user gets the same
+   emphasis from focus (:has keeps it off for a mouse click, which also focuses the summary). */
+@media (hover: hover) {
+  .b-faq__item:hover {
+    background: var(--t-tint);
+    border-color: var(--t-accT);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--t-accT) 18%, transparent);
+  }
+}
+.b-faq__item:has(> .b-faq__q:focus-visible) {
+  background: var(--t-tint);
+  border-color: var(--t-accT);
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-faq__item { transition: none; }
+}
 .b-faq__q {
   min-width: 0;
   overflow-wrap: anywhere;

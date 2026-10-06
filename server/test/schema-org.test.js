@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { DEFAULT_SETTINGS, EHL_MARKS, LENDER_LOGOS } from '../../shared/domain.js';
+import { DEFAULT_FAQ, DEFAULT_SETTINGS, EHL_MARKS, LENDER_LOGOS } from '../../shared/domain.js';
 import { absoluteUrl, pageJsonLd, pageMeta, serializeJsonLd } from '../../shared/schema.js';
 
 const ORIGIN = 'https://app.example.com';
@@ -257,6 +257,9 @@ const SPECS = {
     allowed: [...THING, 'applicationCategory', 'operatingSystem', 'browserRequirements', 'offers', 'isAccessibleForFree', 'publisher', 'inLanguage'],
     required: ['name', 'url'],
   },
+  FAQPage: { allowed: ['@type', '@id', 'name', 'inLanguage', 'mainEntity'], required: ['@id', 'name', 'mainEntity'] },
+  Question: { allowed: ['@type', 'name', 'acceptedAnswer'], required: ['name', 'acceptedAnswer'] },
+  Answer: { allowed: ['@type', 'text'], required: ['text'] },
 };
 const NUMERIC = new Set(['price', 'position', 'numberOfBedrooms', 'numberOfBathroomsTotal', 'value', 'numberOfItems']);
 const URL_KEYS = new Set(['url', 'contentUrl', '@id', 'sameAs', 'hasMap']);
@@ -1264,7 +1267,12 @@ test('tools: the FAQ is described as a FAQPage, and only when there is one', () 
     acceptedAnswer: { '@type': 'Answer', text: 'Yes, where the program allows it.' },
   }], 'a question with no answer is not published');
 
-  assert.equal(byType(pageJsonLd({ page: 'tools', community, origin: ORIGIN }), 'FAQPage').length, 0, 'no FAQ, no FAQPage');
+  const bare = fixture({ settings: { ...DEFAULT_SETTINGS, faqJson: '[]' } });
+  assert.equal(byType(pageJsonLd({ page: 'tools', community: bare, origin: ORIGIN }), 'FAQPage').length, 0, 'no FAQ, no FAQPage');
+  // A community that has not edited its FAQ publishes the starter questions, as a buyer sees them.
+  const starter = byType(pageJsonLd({ page: 'tools', community, origin: ORIGIN }), 'FAQPage')[0];
+  assert.equal(starter.mainEntity.length, DEFAULT_FAQ.length);
+  assert.equal(starter.mainEntity[0].name, DEFAULT_FAQ[0].q);
   const off = fixture({ features: { ...community.features, faq: false }, settings: { ...DEFAULT_SETTINGS, faqJson } });
   assert.equal(byType(pageJsonLd({ page: 'tools', community: off, origin: ORIGIN }), 'FAQPage').length, 0, 'a switched-off FAQ is not published');
 });
