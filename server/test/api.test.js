@@ -562,6 +562,45 @@ test('a buyer can email themselves their plan, and only when asked', async () =>
   );
 });
 
+test('the emailed plan carries the move-in plan the buyer saved, step by step', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Plan Mail Move-In' } });
+  const cid = community.body.id;
+  const entered = await api(`/api/c/${cid}/leads`, {
+    method: 'POST', body: { name: 'Kit Marsh', email: 'kit@test.co', phone: '(801) 555-0166' },
+  });
+  const buyer = entered.body.token;
+
+  await api('/api/me/movein', {
+    method: 'PUT', token: buyer,
+    body: {
+      targetDate: '2030-08-01', payMethod: 'loan', drivers: [], done: ['preapproval'],
+      ownSteps: [{ id: 'own1', label: 'Transfer utilities', date: '2030-07-20' }],
+    },
+  });
+  await api('/api/me/plan/movein', { method: 'PUT', token: buyer, body: { summary: 'In by Aug 1 — offer by Jun 20' } });
+
+  const sent = [];
+  process.env.RESEND_API_KEY = 'test-key';
+  const restore = setTransportForTests(async (payload) => { sent.push(payload); return { id: 'x' }; });
+  try {
+    const res = await api('/api/me/plan/email', { method: 'POST', token: buyer, body: {} });
+    assert.equal(res.status, 200);
+    const text = sent[0].text;
+    assert.match(text, /^Your move-in plan:$/m);
+    assert.match(text, /^Every step, in date order:$/m);
+    assert.match(text, /^\[x\] .*Get pre-approved \(You\)$/m, 'what they ticked is ticked');
+    assert.match(text, /^\[ \] .*Transfer utilities \(You\)$/m, 'their own step came through the store');
+    assert.doesNotMatch(text, /In by Aug 1 — offer by Jun 20/, 'the one-line summary is replaced, not repeated');
+  } finally {
+    restore();
+    delete process.env.RESEND_API_KEY;
+  }
+});
+
 test('slots: the builder publishes times and only those reach buyers', async () => {
   const login = await api('/api/admin/login', {
     method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },

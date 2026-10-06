@@ -185,3 +185,71 @@ test('the plan email follows what Setup says, not a copy of it', async () => {
   assert.doesNotMatch(text, /Summit Home Loans/, 'and the default is gone');
   assert.doesNotMatch(text, /is not an offer for credit/, 'the replaced sentence is not also sent');
 });
+
+const PLAN_DAY = '2027-01-01';
+const MOVE_IN_LEAD = {
+  ...LEAD,
+  plan: { afford: 'Looking at $350,049–$418,115', movein: 'In by Sep 20, 2027 — offer by Aug 9, 2027' },
+  moveIn: {
+    homeId: 'h1', targetDate: '2027-09-20', payMethod: 'loan', drivers: [], done: ['preapproval'],
+    ownSteps: [{ id: 'a1', label: 'Transfer utilities', date: '2027-09-15' }],
+  },
+};
+
+test('the plan email carries the whole move-in plan, not just its summary line', async () => {
+  const sent = captureTransport();
+  await sendPlanToBuyer({
+    community: { ...COMMUNITY, homes: [{ id: 'h1', name: 'The Aspen', price: 429000, availability: 'Move-in ready' }] },
+    lead: MOVE_IN_LEAD,
+    baseUrl: 'https://cornerpost.example',
+    today: PLAN_DAY,
+  });
+  const text = sent[0].text;
+
+  assert.match(text, /^Your move-in plan:$/m);
+  assert.match(text, /To have keys on Sep 20, the offer needs to be in by Aug 9\./);
+  assert.match(text, /^Home:\s+The Aspen$/m);
+  assert.match(text, /^Every step, in date order:$/m);
+  assert.match(text, /^\[x\] Jul 19\s+Get pre-approved \(You\)$/m, 'the step they ticked');
+  assert.match(text, /^\[ \] Aug 23\s+Appraisal ordered \(Your lender\)$/m, 'one they have not, and whose job it is');
+  assert.match(text, /^\[ \] Sep 15\s+Transfer utilities \(You\)$/m, 'their own step is in it');
+  assert.match(text, /1 of 8 steps done\. The dates are estimates/);
+
+  assert.doesNotMatch(text, /In by Sep 20, 2027 — offer by Aug 9, 2027/, 'the summary is not said a second time');
+  assert.match(text, /What you worked out:\n  · Looking at \$350,049/, 'the other tools still list as before');
+  // It sits with the buyer's own numbers, above the lender footer.
+  assert.ok(text.indexOf('Your move-in plan:') < text.indexOf('Equal Housing Lender'));
+  assert.match(text, /not a loan offer or a pre-approval/);
+});
+
+test('a move-in plan with no date of their own falls back to its saved line', async () => {
+  const sent = captureTransport();
+  await sendPlanToBuyer({
+    community: COMMUNITY,
+    lead: { ...MOVE_IN_LEAD, moveIn: { homeId: 'h1', targetDate: '' } },
+    today: PLAN_DAY,
+  });
+  const text = sent[0].text;
+  assert.match(text, /· In by Sep 20, 2027 — offer by Aug 9, 2027/, 'a preview is not their plan, so the line stays');
+  assert.doesNotMatch(text, /Your move-in plan:/);
+  assert.doesNotMatch(text, /Every step/);
+});
+
+test('a move-in plan alone leaves no empty "What you worked out" heading', async () => {
+  const sent = captureTransport();
+  await sendPlanToBuyer({
+    community: COMMUNITY,
+    lead: { ...MOVE_IN_LEAD, plan: { movein: 'In by Sep 20, 2027 — offer by Aug 9, 2027' } },
+    today: PLAN_DAY,
+  });
+  const text = sent[0].text;
+  assert.doesNotMatch(text, /What you worked out:/);
+  assert.match(text, /Your move-in plan:/);
+});
+
+test('someone who never made a move-in plan gets the email they always did', async () => {
+  const sent = captureTransport();
+  await sendPlanToBuyer({ community: COMMUNITY, lead: LEAD, baseUrl: 'https://cornerpost.example' });
+  assert.doesNotMatch(sent[0].text, /Your move-in plan:/);
+  assert.match(sent[0].text, /What you worked out:\n  · Looking at \$350,049/);
+});

@@ -244,7 +244,11 @@ early), and **every step in date order** with a tick box, the date, whose job it
 and whether it is done, their own steps included, ending with a count of steps done. It is built from the plan as it
 stands when the page is opened (`printableMoveIn` in `shared/moveInPrint.js`), so ticks and edits made after it was added to
 the plan are in it. A buyer who added the move-in plan before choosing a date of their own prints only the saved line.
-The plan email still carries the one-line summary.
+
+**The plan email carries the same plan** in plain text (`moveInPlanLines`): the sentence, the choices, any note, then a
+line per step (`[x]` done, `[ ]` not, the date, the step, whose job it is) and the count of steps done, above the lender
+footer. It is built when the buyer presses the button, so it matches the page. Without a date of their own the email
+keeps the saved line. The builder's call alert still lists each tool as one line.
 
 ## Booking a time
 
@@ -470,7 +474,7 @@ buyer: a buyer's token is no longer accepted by any admin route.
 ```
 shared/domain.js     tokens, tool definitions, and every calculator (single source of truth)
 shared/compliance.js the lender block, the disclosure wording and what is still missing (footer, email, JSON-LD)
-shared/moveInPrint.js the whole move-in plan as the printed page shows it
+shared/moveInPrint.js the whole move-in plan as the printed page and the plan email show it
 shared/markdown.js   the guides' markdown parser (no raw HTML, safe links only)
 shared/schema.js     schema.org JSON-LD and page meta, used by the server and the browser
 server/

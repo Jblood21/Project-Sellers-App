@@ -11,6 +11,9 @@ export function dayLabel(value, thisYear) {
   return y === thisYear ? `${MONTHS[m - 1]} ${d}` : `${MONTHS[m - 1]} ${d}, ${y}`;
 }
 
+/** Said under the steps on the printed plan and in the plan email, so both carry the same warning. */
+export const MOVE_IN_ESTIMATE_NOTE = 'The dates are estimates worked back from the day you want keys.';
+
 /**
  * The buyer's whole move-in plan as something a printed page can show: the
  * sentence that matters, the choices behind it, anything the dates cannot
@@ -81,4 +84,27 @@ export function printableMoveIn(plan, { home = null, today = isoDate(new Date())
     done: steps.filter((step) => step.done).length,
     total: steps.length,
   };
+}
+
+/**
+ * The same plan as plain text lines, for the plan email: the sentence, the
+ * choices, any note, then every step with [x]/[ ] in place of a tick box. Columns
+ * are padded with spaces so it lines up in a mail client's fixed-width view and
+ * still reads in a proportional one.
+ */
+export function moveInPlanLines(doc) {
+  if (!doc) return [];
+  const labelWidth = Math.max(0, ...doc.details.map(([label]) => label.length + 1));
+  const dateWidth = Math.max(0, ...doc.steps.map((step) => (step.date || '—').length));
+  return [
+    doc.headline,
+    '',
+    ...doc.details.map(([label, value]) => `${`${label}:`.padEnd(labelWidth)}  ${value}`),
+    '',
+    ...doc.notes.flatMap((note) => [note, '']),
+    'Every step, in date order:',
+    ...doc.steps.map((step) => `${step.done ? '[x]' : '[ ]'} ${(step.date || '—').padEnd(dateWidth)}  ${step.label} (${step.who})`),
+    '',
+    `${doc.done} of ${doc.total} steps done. ${MOVE_IN_ESTIMATE_NOTE}`,
+  ];
 }
