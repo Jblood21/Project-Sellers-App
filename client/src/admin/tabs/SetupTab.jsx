@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { THEMES, THEME_CHIPS, num } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
-import { dateTime } from '../../lib/format.js';
+import { dateTime, fullDate } from '../../lib/format.js';
 import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import ComplianceCard from '../setup/ComplianceCard.jsx';
@@ -12,10 +12,15 @@ import IncentiveCard from '../setup/IncentiveCard.jsx';
 import LayoutCard from '../setup/LayoutCard.jsx';
 import LogoCard from '../setup/LogoCard.jsx';
 import RealtorsCard from '../setup/RealtorsCard.jsx';
-import { ErrorNote, Field, TextField } from '../ui.jsx';
+import { Disclosure, ErrorNote, Field, TextField } from '../ui.jsx';
 
 // What "Check rate inbox" can change; everything else on the form is left alone.
 const RATE_KEYS = ['rateConv', 'rateFha', 'rateVa', 'ratesUpdatedAt'];
+
+// The fields of each section that folds, for its "unsaved" mark and its one-line summary.
+const COST_KEYS = ['taxPctYr', 'insuranceYr', 'hoaMo'];
+const DPA_KEYS = ['dpaProgram', 'dpaIncomeLimit', 'dpaMinCredit', 'dpaPriceCap', 'dpaAmount', 'dpaPct', 'dpaAsOf'];
+const orDash = (value) => (String(value ?? '').trim() || '–');
 
 /** Every value on this tab flows straight into the buyer tools. */
 export default function SetupTab({ community, reload, dirtyRef }) {
@@ -43,6 +48,9 @@ export default function SetupTab({ community, reload, dirtyRef }) {
 
   const dirty = JSON.stringify(settings) !== JSON.stringify(community.settings);
   const set = (key) => (value) => setSettings((prev) => ({ ...prev, [key]: value }));
+  // Whether any of a section's fields differ from what is saved, so a folded section can still say so.
+  const changed = (keys) => keys.some((key) => (settings[key] ?? '') !== (community.settings[key] ?? ''));
+  const unsavedTag = (keys) => (changed(keys) ? <span className="tag tag-accent">Unsaved changes</span> : null);
 
   // CommunityDetail reads this to ask before a tab switch throws the edits away,
   // and the browser is asked to do the same before the page is closed or reloaded.
@@ -161,13 +169,16 @@ export default function SetupTab({ community, reload, dirtyRef }) {
       <FaqCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
 
       <h4 style={{ margin: '6px 0 -4px', fontSize: 17 }}>Rates, costs and rules</h4>
-      <div className="card elev-sm" style={{ gap: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span className="card-kicker">Live rates</span>
+      <Disclosure
+        title="Live rates"
+        summary={`Conv ${orDash(settings.rateConv)}% · FHA ${orDash(settings.rateFha)}% · VA ${orDash(settings.rateVa)}% · updated ${settings.ratesUpdatedAt ? dateTime(settings.ratesUpdatedAt) : 'never'}`}
+        tag={unsavedTag(['rateConv', 'rateFha', 'rateVa'])}
+        actions={(
           <button type="button" className="btn btn-ghost" onClick={checkRates} style={{ minHeight: 34, fontSize: 12.5 }}>
             Check rate inbox
           </button>
-        </div>
+        )}
+      >
         <div className="grid-3">
           <TextField label="Conv %" value={settings.rateConv} onChange={set('rateConv')} inputMode="decimal" />
           <TextField label="FHA %" value={settings.rateFha} onChange={set('rateFha')} inputMode="decimal" />
@@ -177,19 +188,30 @@ export default function SetupTab({ community, reload, dirtyRef }) {
           Updated {settings.ratesUpdatedAt ? dateTime(settings.ratesUpdatedAt) : 'never'} · a Zapier email parser can
           post new rates to this community automatically.
         </span>
-      </div>
+      </Disclosure>
 
-      <div className="card elev-sm" style={{ gap: 10 }}>
-        <span className="card-kicker">Monthly cost assumptions</span>
+      <Disclosure
+        title="Monthly cost assumptions"
+        summary={`Tax ${orDash(settings.taxPctYr)}%/yr · Insurance $${orDash(settings.insuranceYr)}/yr · HOA $${orDash(settings.hoaMo)}/mo`}
+        tag={unsavedTag(COST_KEYS)}
+      >
         <div className="grid-3">
           <TextField label="Tax %/yr" value={settings.taxPctYr} onChange={set('taxPctYr')} inputMode="decimal" />
           <TextField label="Insurance $/yr" value={settings.insuranceYr} onChange={set('insuranceYr')} inputMode="numeric" />
           <TextField label="HOA $/mo" value={settings.hoaMo} onChange={set('hoaMo')} inputMode="numeric" />
         </div>
-      </div>
+      </Disclosure>
 
-      <div className="card elev-sm" style={{ gap: 10 }}>
-        <span className="card-kicker">Down payment assistance rules</span>
+      <Disclosure
+        title="Down payment assistance rules"
+        summary={[
+          String(settings.dpaProgram ?? '').trim() || 'Community assistance program',
+          String(settings.dpaAmount ?? '').trim() ? `$${settings.dpaAmount.trim()}` : String(settings.dpaPct ?? '').trim() ? `${settings.dpaPct.trim()}% of loan` : 'no amount set',
+          String(settings.dpaPriceCap ?? '').trim() ? `price cap $${settings.dpaPriceCap.trim()}` : null,
+          settings.dpaAsOf ? `checked ${fullDate(`${settings.dpaAsOf}T00:00:00`)}` : null,
+        ].filter(Boolean).join(' · ')}
+        tag={unsavedTag(DPA_KEYS)}
+      >
         <TextField
           label="Program name"
           hint="Shown to buyers by name. Leave blank and it reads as “this community’s assistance program”."
@@ -233,7 +255,7 @@ export default function SetupTab({ community, reload, dirtyRef }) {
             type="date"
           />
         </div>
-      </div>
+      </Disclosure>
 
       <div className="card elev-sm" style={{ gap: 10 }}>
         <span className="card-kicker">Call request alerts</span>

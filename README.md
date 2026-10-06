@@ -294,6 +294,17 @@ This is the builder's own list of nearby places, and is a different thing from t
 created them, with a card on the buyer home screen and an entry in the menu. Both disappear when a
 community has no entries, so a builder who skips this never ships an empty screen.
 
+## The Setup page
+
+Setup is a long page, so the sections that are mostly read and seldom changed are **folded** until you open
+them: the **FAQ**, the **Statements printed in the footer** (inside Lender & compliance), **Live rates**,
+**Monthly cost assumptions** and **Down payment assistance rules**. A folded section still shows its name, a
+one-line summary of what is in it (for example *Conv 6.875% · FHA 6.5% · VA 6.25% · updated Oct 6*), an
+**Unsaved changes** mark if you have edited it, and, for Live rates, the **Check rate inbox** button. Opening one
+does not change anything; what you type stays on the form when you fold it, and the page's **Save settings**
+button saves every section whether it is open or not. Choosing an item in *Needs your attention before launch*
+opens the section it is in. Sections start folded each time the page is opened.
+
 ## Layouts
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are

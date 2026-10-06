@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import {
   COMPLIANCE_DEFAULTS, LENDER_LOGOS, LONG_SETTING_KEYS, complianceOf, settingMaxLength,
 } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
-import { TextAreaField, TextField } from '../ui.jsx';
+import { Disclosure, TextAreaField, TextField } from '../ui.jsx';
 import ImageSlot from './ImageSlot.jsx';
 import { logoToDataUrl } from './readImage.js';
 
@@ -71,6 +72,8 @@ const GROUPS = [
     id: 'statements',
     title: 'Statements printed in the footer',
     restore: 'Restore Summit defaults',
+    // Six long paragraphs: folded until the builder wants to edit them.
+    fold: true,
     note: true,
     fields: [
       { key: 'complianceEhl', label: 'Equal Housing Lender statement', rows: 6 },
@@ -97,6 +100,9 @@ const GROUPS = [
   },
 ];
 
+/** The fields inside the folded group, so a jump to one of them can open it first. */
+const FOLDED_KEYS = GROUPS.filter((group) => group.fold).flatMap((group) => group.fields.map((field) => field.key));
+
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 // The rest of this page, like the product, uses the American spelling.
 const shownAs = (label) => capital(label.replace('licence', 'license'));
@@ -111,13 +117,18 @@ const grouped = (n) => n.toLocaleString('en-US');
 export default function ComplianceCard({ community, settings, setSettings, reload }) {
   const { token } = useAdmin();
   const [restored, setRestored] = useState('');
+  const [foldOpen, setFoldOpen] = useState(false);
 
   const saved = community.settings;
   const result = complianceOf(settings, { community });
   const unsaved = Object.keys(COMPLIANCE_DEFAULTS).some((key) => (settings[key] ?? '') !== (saved[key] ?? ''));
 
   const jumpTo = (label) => {
-    const field = document.getElementById(`setting-${MISSING_FIELD[label]}`);
+    const key = MISSING_FIELD[label];
+    // A field inside a folded group is not on screen until the group is open; open it
+    // now (flushSync, so it is in the page before focus is asked for).
+    if (FOLDED_KEYS.includes(key)) flushSync(() => setFoldOpen(true));
+    const field = document.getElementById(`setting-${key}`);
     field?.scrollIntoView({ block: 'center' });
     field?.focus({ preventScroll: true });
   };
@@ -216,21 +227,17 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
         const keys = group.fields.filter((f) => !f.keep).map((f) => f.key);
         const atDefaults = keys.every((key) => (settings[key] ?? '') === COMPLIANCE_DEFAULTS[key]);
         const groupUnsaved = keys.some((key) => (settings[key] ?? '') !== (saved[key] ?? ''));
-        return (
-          <section key={group.id} className="ax-group" aria-labelledby={`ax-g-${group.id}`}>
-            <div className="ax-group-head">
-              <h5 id={`ax-g-${group.id}`}>
-                {group.title}{' '}
-                {groupUnsaved ? <span className="tag tag-accent" style={{ marginLeft: 4 }}>Unsaved</span> : null}
-              </h5>
-              <button
-                type="button" className="btn btn-ghost" disabled={atDefaults} onClick={() => restore(group)}
-                aria-label={`${group.restore} for ${group.title.toLowerCase()}`}
-                style={{ minHeight: 44, fontSize: 12.5 }}
-              >
-                {group.restore}
-              </button>
-            </div>
+        const restoreButton = (
+          <button
+            type="button" className="btn btn-ghost" disabled={atDefaults} onClick={() => restore(group)}
+            aria-label={`${group.restore} for ${group.title.toLowerCase()}`}
+            style={{ minHeight: 44, fontSize: 12.5 }}
+          >
+            {group.restore}
+          </button>
+        );
+        const body = (
+          <>
             {restored === group.id && atDefaults ? (
               <span className="ax-status" role="status">
                 Put back on the form. Press Save settings to make it live.
@@ -258,6 +265,32 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
                 hint="Saves as soon as it uploads. Leave it alone to keep the supplied Summit logo. PNG, WebP, JPEG or GIF up to 3 MB, shown at least 30 pixels tall."
               />
             ) : null}
+          </>
+        );
+        if (group.fold) {
+          const filled = group.fields.filter((f) => (settings[f.key] ?? '').trim()).length;
+          return (
+            <Disclosure
+              key={group.id} className="ax-group" heading="h5" titleClass="ax-fold__gtitle" title={group.title}
+              summary={`${filled} of ${group.fields.length} filled in`}
+              tag={groupUnsaved ? <span className="tag tag-accent">Unsaved</span> : null}
+              open={foldOpen} onOpenChange={setFoldOpen}
+            >
+              <div>{restoreButton}</div>
+              {body}
+            </Disclosure>
+          );
+        }
+        return (
+          <section key={group.id} className="ax-group" aria-labelledby={`ax-g-${group.id}`}>
+            <div className="ax-group-head">
+              <h5 id={`ax-g-${group.id}`}>
+                {group.title}{' '}
+                {groupUnsaved ? <span className="tag tag-accent" style={{ marginLeft: 4 }}>Unsaved</span> : null}
+              </h5>
+              {restoreButton}
+            </div>
+            {body}
           </section>
         );
       })}
