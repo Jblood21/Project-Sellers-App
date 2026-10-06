@@ -1651,7 +1651,10 @@ test('the incentive card and loan link save, trim and cap, and the FAQ is normal
   const before = (await api(`/api/admin/communities/${cid}`, { token })).body;
   assert.equal(before.features.incentive, false);
   assert.equal(before.features.faq, true);
-  assert.equal(before.settings.incentiveButton, 'Find out if I qualify');
+  assert.equal(before.settings.incentiveButton, 'Find out if you qualify');
+  // The loan team's address is the lender's, so the incentive reaches it without anyone typing it in.
+  assert.equal(before.settings.lenderEmail, 'myloanteam@summithomeloans.com');
+  assert.equal(before.settings.incentiveEmail, '', 'the card has no address of its own until one is typed');
   assert.match(before.settings.incentiveMessage, /preferred lender incentive for \{community\}/);
   assert.equal(before.settings.loanApplicationUrl, COMPLIANCE_DEFAULTS.loanApplicationUrl);
   // A new community starts with the starter FAQ, and buyers are served it.
@@ -1721,6 +1724,18 @@ test('a switched-off incentive or FAQ is not served, and the builder\'s alert ad
   assert.equal(JSON.parse(on.settings.faqJson).length, 1);
 });
 
+test('a button label saved while it was the old default reads as the new default, and an edited one is left alone', async () => {
+  const { token, cid } = await signedInCommunity('Reworded Default Test');
+  const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
+  const label = async () => (await api(`/api/admin/communities/${cid}`, { token })).body.settings.incentiveButton;
+
+  // What a Setup save made before the wording changed left behind: the old default, stored as if chosen.
+  await patch({ incentiveButton: 'Find out if I qualify' });
+  assert.equal(await label(), 'Find out if you qualify');
+  await patch({ incentiveButton: 'See my savings' });
+  assert.equal(await label(), 'See my savings', 'a label the builder wrote is never touched');
+});
+
 test('the loan link, incentive email and FAQ are validated, not stored and silently ignored', async () => {
   const { token, cid } = await signedInCommunity('Validation Test');
   const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
@@ -1737,6 +1752,14 @@ test('the loan link, incentive email and FAQ are validated, not stored and silen
     assert.equal((await patch({ incentiveEmail: bad })).status, 400, bad);
   }
   assert.equal((await patch({ incentiveEmail: "o'brien@x.co" })).status, 200);
+  // The loan team email gets the same refusal, and blank is allowed (it removes the button).
+  for (const bad of ['a@b.co?bcc=x@y.z', 'a@b.co, c@d.co', 'no-at.example']) {
+    const res = await patch({ lenderEmail: bad });
+    assert.equal(res.status, 400, bad);
+    assert.match(res.body.error, /loan team email/i);
+  }
+  assert.equal((await patch({ lenderEmail: ' loans@lender.example ' })).body.settings.lenderEmail, 'loans@lender.example');
+  assert.equal((await patch({ lenderEmail: '' })).body.settings.lenderEmail, '', 'blank is kept, not put back');
 
   // Only text becomes an FAQ item: an object or a list is dropped, not printed as "[object Object]".
   const mixed = await patch({ faqJson: JSON.stringify([{ q: { x: 1 }, a: [1, 2] }, { q: 'Real?', a: 'Yes.' }, { q: 5, a: 'No' }]) });

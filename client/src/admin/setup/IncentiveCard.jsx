@@ -10,7 +10,7 @@ const grouped = (n) => n.toLocaleString('en-US');
 
 /**
  * The builder incentive: a card above Explore Homes on the buyer's home screen,
- * with a "Find out if I qualify" button that opens a message to the team.
+ * with a "Find out if you qualify" button that opens a message to the team.
  *
  * The switch saves the moment it is flipped, like the logo and layout cards; the
  * words go live together with the rest of the page's Save settings button, so
@@ -102,9 +102,9 @@ export default function IncentiveCard({ community, settings, setSettings, reload
         {field('incentivePhone', 'Phone to call or text', {
           inputMode: 'tel', hint: 'Blank uses the lender’s phone.',
         })}
-        {field('incentiveEmail', 'Email for desktop visitors', {
+        {field('incentiveEmail', 'Email', {
           inputMode: 'email', placeholder: 'team@yourcompany.com',
-          hint: 'On a computer the button writes an email to this address. Blank shows the phone number instead.',
+          hint: 'The button writes an email to this address, on a phone and on a computer. Blank uses the loan team email under Lender & compliance.',
         })}
         {field('incentiveMessage', 'Message the buyer sends', {
           rows: 2, hint: 'Already typed into the text or email when the buyer taps. {community} is the development name.',

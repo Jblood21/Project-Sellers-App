@@ -377,9 +377,12 @@ Under **Setup → Home screen**:
 
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
   shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state.
-  *Find out if I qualify* opens a sheet with **Call** and **Text** on a phone or **Email** on a computer, and the
-  message already typed: *Contact me about the preferred lender incentive for* the development (editable). The
-  number is the incentive's own, or the lender's when blank; a computer with no email set is shown the number.
+  *Find out if you qualify* opens a sheet with **Call**, **Text** and **Email** on a phone, or **Email** on a
+  computer, and the message already typed: *Contact me about the preferred lender incentive for* the development
+  (editable). The number is the incentive's own, or the lender's when blank. The email is the incentive's own, or
+  the lender's **Loan team email** (Setup → Lender & compliance → Lender, `myloanteam@summithomeloans.com` to start)
+  when blank; with neither set, a computer is shown the number to call. A label saved while it was the old default
+  (*Find out if I qualify*) reads as the new one.
 - **FAQ.** Up to twenty questions and answers, shown on the home screen after the financing card. A new community
   starts with eight **starter questions** (what the app does, touring, My Home Plan, the payment estimate, down
   payment, applying for a loan; `DEFAULT_FAQ` in `shared/faq.js`). They name no lender, rate or amount. Edit, reorder or

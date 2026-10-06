@@ -8,8 +8,8 @@ import ContactSheet from './ContactSheet.jsx';
  * The builder's incentive, above Explore Homes when Setup has it switched on.
  *
  * The words are the builder's own (Setup → Builder incentive) and no amount or
- * terms are ever assumed, so the card says only what they wrote. "Find out if I
- * qualify" opens a sheet with a Call and a Text button on a phone and an Email
+ * terms are ever assumed, so the card says only what they wrote. "Find out if you
+ * qualify" opens a sheet with Call, Text and Email buttons on a phone and an Email
  * button on a computer, and the message each one starts is already written:
  * "Contact me about the preferred lender incentive for <development>."
  *
@@ -36,6 +36,8 @@ export default function IncentiveCard({ className = '' }) {
   // incentive is the lender's to qualify a buyer for.
   const own = String(settings.incentivePhone ?? '').trim();
   const phone = telHref(own) ? own : lender.phone;
+  // Likewise the email: the card's own address if it has one, else the lender's loan team.
+  const email = String(settings.incentiveEmail ?? '').trim() || lender.email;
 
   return (
     <section
@@ -63,7 +65,7 @@ export default function IncentiveCard({ className = '' }) {
         title={button}
         intro="Send the team a message, already written for you."
         phone={phone}
-        email={settings.incentiveEmail}
+        email={email}
         subject={`Preferred lender incentive — ${community?.name ?? ''}`.trim()}
         message={message}
         onAct={(how) => track(`Asked about the builder incentive (${how})`)}

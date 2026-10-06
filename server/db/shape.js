@@ -1,7 +1,16 @@
 import {
-  DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE, DEFAULT_GUIDE_IMAGE_ALT, DEFAULT_SETTINGS,
+  DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE, DEFAULT_GUIDE_IMAGE_ALT, DEFAULT_SETTINGS, REPLACED_DEFAULTS,
   DEFAULT_TOOLS_ENABLED, GUIDE_TEXT_MAX, normalizeLayout, normalizeTheme, slugify,
 } from '../../shared/domain.js';
+
+/** A community's settings: the defaults, then what it saved, with any reworded default brought up to date. */
+function currentSettings(saved) {
+  const settings = { ...DEFAULT_SETTINGS, ...(saved || {}) };
+  for (const [key, replaced] of Object.entries(REPLACED_DEFAULTS)) {
+    if (replaced.includes(settings[key])) settings[key] = DEFAULT_SETTINGS[key];
+  }
+  return settings;
+}
 
 export function shapeCommunity(row, extra = {}) {
   if (!row) return null;
@@ -16,7 +25,7 @@ export function shapeCommunity(row, extra = {}) {
     layout: normalizeLayout(row.layout),
     websiteUrl: row.website_url ?? row.websiteUrl ?? null,
     builder: row.builder || '',
-    settings: { ...DEFAULT_SETTINGS, ...(row.settings || {}) },
+    settings: currentSettings(row.settings),
     tools: { ...DEFAULT_TOOLS_ENABLED, ...(row.tools || {}) },
     features: { ...DEFAULT_FEATURES, ...(row.features || {}) },
     createdAt: row.created_at ?? row.createdAt ?? null,

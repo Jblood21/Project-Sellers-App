@@ -351,6 +351,9 @@ export function adminRouter() {
         if (key === 'incentiveEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The incentive email must be a single email address.' });
         }
+        if (key === 'lenderEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+          return res.status(400).json({ error: 'The loan team email must be a single email address.' });
+        }
         if (key === 'faqJson') {
           // A list, normalised: items trimmed, half-finished ones dropped, counts
           // capped. Anything that is not a list is refused rather than stored,
