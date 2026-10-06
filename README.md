@@ -234,6 +234,18 @@ Filters are **Active** (the default), **Unread**, the call queue, and **Closed**
 only appear when they would show something, because a pill that always reads zero is one more
 thing to scan past.
 
+## The printed plan
+
+**My Home Plan → Print / Save as PDF** prints one document: the buyer's details, the homes they like, a line for each
+tool they added, and the lender footer. The **move-in plan prints in full**, not as its one-line summary: the sentence
+*To have keys on Sep 20, the offer needs to be in by Aug 9*, the choices behind it (home, loan or cash, what is driving
+the date, the lease end), anything the dates cannot deliver (a home still being built, a lease that overlaps or ends
+early), and **every step in date order** with a tick box, the date, whose job it is (you, your lender, the builder)
+and whether it is done, their own steps included, ending with a count of steps done. It is built from the plan as it
+stands when the page is opened (`printableMoveIn` in `shared/moveInPrint.js`), so ticks and edits made after it was added to
+the plan are in it. A buyer who added the move-in plan before choosing a date of their own prints only the saved line.
+The plan email still carries the one-line summary.
+
 ## Booking a time
 
 Buyers no longer pick from vague options ("this weekend", "a phone call first"). They pick a
@@ -377,9 +389,12 @@ Under **Setup → Home screen**:
 
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
   shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state.
-  *Find out if I qualify* opens a sheet with **Call** and **Text** on a phone or **Email** on a computer, and the
-  message already typed: *Contact me about the preferred lender incentive for* the development (editable). The
-  number is the incentive's own, or the lender's when blank; a computer with no email set is shown the number.
+  *Find out if you qualify* opens a sheet with **Call**, **Text** and **Email** on a phone, or **Email** on a
+  computer, and the message already typed: *Contact me about the preferred lender incentive for* the development
+  (editable). The number is the incentive's own, or the lender's when blank. The email is the incentive's own, or
+  the lender's **Loan team email** (Setup → Lender & compliance → Lender, `myloanteam@summithomeloans.com` to start)
+  when blank; with neither set, a computer is shown the number to call. A label saved while it was the old default
+  (*Find out if I qualify*) reads as the new one.
 - **FAQ.** Up to twenty questions and answers, shown on the home screen after the financing card. A new community
   starts with eight **starter questions** (what the app does, touring, My Home Plan, the payment estimate, down
   payment, applying for a loan; `DEFAULT_FAQ` in `shared/faq.js`). They name no lender, rate or amount. Edit, reorder or
@@ -455,6 +470,7 @@ buyer: a buyer's token is no longer accepted by any admin route.
 ```
 shared/domain.js     tokens, tool definitions, and every calculator (single source of truth)
 shared/compliance.js the lender block, the disclosure wording and what is still missing (footer, email, JSON-LD)
+shared/moveInPrint.js the whole move-in plan as the printed page shows it
 shared/markdown.js   the guides' markdown parser (no raw HTML, safe links only)
 shared/schema.js     schema.org JSON-LD and page meta, used by the server and the browser
 server/

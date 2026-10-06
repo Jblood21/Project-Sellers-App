@@ -39,6 +39,9 @@ export const COMPLIANCE_DEFAULTS = {
   lenderAddress: '375 N Main St, Suite 201, Kaysville, UT 84037',
   lenderPhone: '801-855-8535',
   lenderWebsite: '',
+  // The loan team's own address. The builder incentive's Email button sends here unless that card has its
+  // own address, so a community that never touched the incentive still reaches the lender. Blank hides it.
+  lenderEmail: 'myloanteam@summithomeloans.com',
   lenderTagline: 'Financing for buyers at this community.',
   // A named loan officer, shown with their own NMLS ID. Blank by default: the
   // page identifies the company, and a community that wants an individual named
@@ -201,6 +204,8 @@ export function complianceOf(settings = {}, { year, community = {} } = {}) {
     phoneHref: telHref(s.lenderPhone),
     website: text(s.lenderWebsite),
     websiteHref: safeHref(s.lenderWebsite),
+    // Checked where it is used (emailHref), not here, so a typo is never turned into a link.
+    email: text(s.lenderEmail),
     // Where "Start my loan process" goes; '' hides the link.
     applyHref: safeHref(s.loanApplicationUrl),
     tagline: text(s.lenderTagline),

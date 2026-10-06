@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PLAN_LABELS, TOOL_KEYS } from '@shared/domain.js';
+import { PLAN_LABELS, TOOL_KEYS, isoDate } from '@shared/domain.js';
+import { printableMoveIn } from '@shared/moveInPrint.js';
 import { longDate, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import CommunityMark from '../CommunityMark.jsx';
@@ -9,7 +10,10 @@ import ComplianceFooter from '../ComplianceFooter.jsx';
 
 /**
  * The printable plan. Print CSS hides everything but #plan-doc, so "Save as PDF"
- * in the browser's print dialog produces a clean one-page document.
+ * in the browser's print dialog produces a clean document. Each tool the buyer
+ * added is one summary line, except the move-in plan, which prints in full (the
+ * date, the choices behind it and every step) because that is the part they take
+ * away and work through.
  */
 export default function PlanPrint() {
   const { community, homes, lead } = useBuyer();
@@ -29,6 +33,14 @@ export default function PlanPrint() {
     label: PLAN_LABELS[key],
     summary: lead.plan[key],
   }));
+  // The whole move-in plan as it stands now (not the line saved when it was added to the plan),
+  // for a buyer who has set their own date; otherwise the saved line is all there is to print.
+  const moveIn = lead?.plan?.movein
+    ? printableMoveIn(lead.moveIn, {
+      home: homes.find((h) => h.id === lead.moveIn?.homeId) ?? null,
+      today: isoDate(new Date()),
+    })
+    : null;
 
   return (
     <div style={{ background: '#f1f1ee', minHeight: '100vh', padding: '20px 16px 60px' }}>
@@ -93,7 +105,7 @@ export default function PlanPrint() {
             <h2 style={{ margin: '0 0 4px', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5f5c52' }}>
               {item.label}
             </h2>
-            <p style={{ margin: 0, fontSize: 14 }}>{item.summary}</p>
+            {item.key === 'movein' && moveIn ? <MoveInPlan doc={moveIn} /> : <p style={{ margin: 0, fontSize: 14 }}>{item.summary}</p>}
           </div>
         ))}
 
@@ -109,6 +121,60 @@ export default function PlanPrint() {
         */}
         <ComplianceFooter print />
       </div>
+    </div>
+  );
+}
+
+/** The move-in plan, in full: what to do, by when, and whose job it is. */
+function MoveInPlan({ doc }) {
+  const cell = { padding: '6px 8px 6px 0', borderBottom: '1px solid #eae8e0', verticalAlign: 'top', fontSize: 13.5 };
+  return (
+    <div>
+      <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700 }}>{doc.headline}</p>
+      <dl
+        style={{
+          display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '3px 14px', margin: '0 0 12px', fontSize: 13.5,
+        }}
+      >
+        {doc.details.map(([label, value]) => (
+          <div key={label} style={{ display: 'contents' }}>
+            <dt style={{ color: '#5f5c52' }}>{label}</dt>
+            <dd style={{ margin: 0 }}>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {doc.notes.map((note) => (
+        <p key={note} style={{ margin: '0 0 10px', padding: '8px 10px', background: '#f6f4ec', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5 }}>
+          {note}
+        </p>
+      ))}
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ textAlign: 'left', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#5f5c52' }}>
+            <th aria-label="Done" style={{ ...cell, width: 22, fontWeight: 700 }} />
+            <th style={{ ...cell, width: 96, fontWeight: 700 }}>By</th>
+            <th style={{ ...cell, fontWeight: 700 }}>Step</th>
+            <th style={{ ...cell, width: 110, fontWeight: 700 }}>Whose job</th>
+          </tr>
+        </thead>
+        <tbody>
+          {doc.steps.map((step, index) => (
+            <tr key={`${index}-${step.label}`} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+              <td style={{ ...cell, fontSize: 15, lineHeight: 1.2 }} aria-label={step.done ? 'Done' : 'Not done'}>
+                {step.done ? '☑' : '☐'}
+              </td>
+              <td style={{ ...cell, whiteSpace: 'nowrap', fontWeight: 700 }}>{step.date || '—'}</td>
+              <td style={{ ...cell, textDecoration: step.done ? 'line-through' : 'none', color: step.done ? '#5f5c52' : 'inherit' }}>
+                {step.label}
+              </td>
+              <td style={{ ...cell, color: '#5f5c52' }}>{step.who}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p style={{ margin: '8px 0 0', fontSize: 11.5, color: '#5f5c52' }}>
+        {doc.done} of {doc.total} steps done. The dates are estimates worked back from the day you want keys.
+      </p>
     </div>
   );
 }

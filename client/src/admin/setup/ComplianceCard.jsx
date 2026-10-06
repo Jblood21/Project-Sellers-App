@@ -41,6 +41,10 @@ const GROUPS = [
       { key: 'lenderAddress', label: 'Address' },
       { key: 'lenderPhone', label: 'Phone', inputMode: 'tel' },
       { key: 'lenderWebsite', label: 'Website', inputMode: 'url', placeholder: 'https://…' },
+      {
+        key: 'lenderEmail', label: 'Loan team email', inputMode: 'email', placeholder: 'team@lender.com',
+        hint: 'Where the builder incentive’s Email button goes unless that card has its own address. Blank means no email button.',
+      },
       { key: 'lenderTagline', label: 'Tagline', hint: 'Shown on the lender card inside the buyer app.' },
       {
         key: 'lenderLicense', label: 'State licensing statement', rows: 3,

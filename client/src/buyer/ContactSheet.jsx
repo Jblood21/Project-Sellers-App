@@ -6,7 +6,7 @@ import useDialog from './useDialog.js';
 
 /**
  * A small sheet that gets a buyer talking to someone, with the message already
- * written: a Call and a Text button on a phone, an Email button on a computer.
+ * written: Call, Text and Email buttons on a phone, an Email button on a computer.
  *
  * The same sheet serves any "contact the team about X" button; the caller says
  * who, and what the message says. When the person has no email, a computer is
@@ -26,7 +26,7 @@ export default function ContactSheet({ open, onClose, title, intro, phone, email
   if (mobile) {
     if (dial) actions.push(['Call', dial, 'call']);
     if (text) actions.push(['Text us', text, 'text']);
-    if (!dial && !text && mail) actions.push(['Email us', mail, 'email']);
+    if (mail) actions.push(['Email us', mail, 'email']);
   } else if (mail) {
     actions.push(['Email us', mail, 'email']);
   } else if (dial) {

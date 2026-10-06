@@ -96,6 +96,13 @@ test('a phone number becomes a link only when it can be dialled exactly', () => 
   assert.equal(telHref('call us'), '');
 });
 
+test('the lender\'s loan team email defaults to Summit\'s, comes through complianceOf, and blank means none', () => {
+  assert.equal(COMPLIANCE_DEFAULTS.lenderEmail, 'myloanteam@summithomeloans.com');
+  assert.equal(complianceOf({}, here).lender.email, 'myloanteam@summithomeloans.com');
+  assert.equal(complianceOf({ lenderEmail: '  loans@lender.example ' }, here).lender.email, 'loans@lender.example');
+  assert.equal(complianceOf({ lenderEmail: '' }, here).lender.email, '', 'cleared in Setup, it stays cleared');
+});
+
 test('the loan application link is the lender\'s, only ever http(s), and blank hides it', () => {
   assert.ok(safeHref(COMPLIANCE_DEFAULTS.loanApplicationUrl), 'the default is a link a buyer can follow');
   assert.equal(complianceOf({}, here).lender.applyHref, safeHref(COMPLIANCE_DEFAULTS.loanApplicationUrl));

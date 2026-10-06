@@ -491,7 +491,7 @@ export const DEFAULT_SETTINGS = {
   incentiveTitle: 'Preferred lender incentive',
   incentiveBody: 'Buy a home at {community} with our preferred lender and ask what you could save.',
   incentiveFinePrint: '',
-  incentiveButton: 'Find out if I qualify',
+  incentiveButton: 'Find out if you qualify',
   // Who the buyer reaches. A blank phone falls back to the lender's; a blank
   // email means a desktop visitor is shown the number to call instead.
   incentivePhone: '',
@@ -502,6 +502,15 @@ export const DEFAULT_SETTINGS = {
   // ── the FAQ shown on the home screen: a JSON list, edited in Setup ───────
   // Starts as the starter questions in shared/faq.js; the builder edits them.
   faqJson: DEFAULT_FAQ_JSON,
+};
+
+/**
+ * Defaults that were reworded. A community that saved Setup while the old wording was the default holds
+ * that wording as if it were its own choice; read back exactly, it is shown the new default instead.
+ * (Typing the old wording again after the change reads as the new one, which is the price of the rule.)
+ */
+export const REPLACED_DEFAULTS = {
+  incentiveButton: ['Find out if I qualify'],
 };
 
 /**
