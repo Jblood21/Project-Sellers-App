@@ -3,21 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   isoDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PAY_METHODS, WHO_LABELS,
 } from '@shared/domain.js';
+import { dayLabel } from '@shared/moveInPrint.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { Field, PillGroup, SaveToPlan, ToolHeader } from './ToolUI.jsx';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const EMPTY_PLAN = {
   homeId: '', targetDate: '', leaseEnd: '', payMethod: 'loan', drivers: [], done: [], ownSteps: [],
 };
-
-/** 'Sep 20', or 'Sep 20, 2027' once the year stops being obvious. */
-function dayLabel(value, thisYear) {
-  const [y, m, d] = String(value ?? '').split('-').map(Number);
-  if (!y || !m || !d) return '—';
-  return y === thisYear ? `${MONTHS[m - 1]} ${d}` : `${MONTHS[m - 1]} ${d}, ${y}`;
-}
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 
