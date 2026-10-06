@@ -352,10 +352,11 @@ Access*, *Privacy Policy*, *Terms of Use*, *Accessibility*) are fixed and not se
   and prints only the statements.
 
 **Starting a loan.** Under **Setup → Lender & compliance → Lender** the **Loan application link** is the lender's
-online application (Arive). With it set, buyers see **Start my loan process** under *Set up a time to talk* on
+online application (Arive). Buyers see **Start my loan process** under *Set up a time to talk* on
 the home screen, under *Add to My Home Plan* in **Find My Loan Options** and in **See My Payment**, and the words
-*Complete a loan application* in the loan note link to it (in a new tab, so their plan is still here). It is blank
-until you set it, and a blank link hides all of those: nothing is guessed. The loan note under *Add to My Home Plan*
+*Complete a loan application* in the loan note link to it (in a new tab, so their plan is still here). It starts
+as the link Summit Home Loans supplied (`COMPLIANCE_DEFAULTS.loanApplicationUrl` in `shared/compliance.js`);
+paste a different address to change it, and clear the field to hide all of those links. The loan note under *Add to My Home Plan*
 reads that this is not a loan approval or offer to lend, and ends with **Rates effective:** the date the rates
 above it were last updated (from Setup → Live rates), left out if rates have never been set.
 

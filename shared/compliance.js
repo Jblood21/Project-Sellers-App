@@ -87,9 +87,10 @@ export const COMPLIANCE_DEFAULTS = {
   complianceAccessibilityUrl: '',
 
   // ── where a buyer starts a loan ─────────────────────────────────────────
-  // The lender's online application. Blank hides every "Start my loan process"
-  // link and the link in the loan note: a link that goes nowhere is worse than none.
-  loanApplicationUrl: '',
+  // The lender's online application, as supplied by Summit Home Loans. Clearing
+  // the field in Setup hides every "Start my loan process" link and the link in
+  // the loan note: a link that goes nowhere is worse than none.
+  loanApplicationUrl: 'https://summit.my1003app.com?time=1791312371101',
 };
 
 /** Keys whose values are paragraphs rather than a line, so they get a longer cap. */

@@ -97,8 +97,9 @@ test('a phone number becomes a link only when it can be dialled exactly', () => 
 });
 
 test('the loan application link is the lender\'s, only ever http(s), and blank hides it', () => {
-  assert.equal(COMPLIANCE_DEFAULTS.loanApplicationUrl, '', 'no address is guessed for the lender');
-  assert.equal(complianceOf({}, here).lender.applyHref, '');
+  assert.ok(safeHref(COMPLIANCE_DEFAULTS.loanApplicationUrl), 'the default is a link a buyer can follow');
+  assert.equal(complianceOf({}, here).lender.applyHref, safeHref(COMPLIANCE_DEFAULTS.loanApplicationUrl));
+  assert.equal(complianceOf({ loanApplicationUrl: '' }, here).lender.applyHref, '', 'clearing the field hides every link');
   assert.equal(complianceOf({ loanApplicationUrl: ' https://apply.example.com/loan?x=1 ' }, here).lender.applyHref,
     'https://apply.example.com/loan?x=1');
   for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'ftp://a.example', 'vbscript:x']) {
