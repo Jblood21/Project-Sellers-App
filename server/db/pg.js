@@ -21,6 +21,14 @@ export function createPostgresStore(connectionString) {
     ssl: /localhost|127\.0\.0\.1/.test(connectionString) ? false : { rejectUnauthorized: false },
     max: 8,
   });
+  // A connection the database ends while the pool is only holding it idle (a restart,
+  // a failover, a maintenance window) comes up as an 'error' on the pool. With no
+  // listener Node treats that as an uncaught exception and the whole server exits.
+  // The pool has already discarded that connection and opens a new one for the next
+  // query, so there is nothing to do but say so.
+  pool.on('error', (error) => {
+    console.error(`[pg] an idle connection was lost: ${error.message}`);
+  });
   const q = (text, params) => pool.query(text, params);
 
   // Every photo column but the bytes. A picture is listed on every page load
