@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import '../styles/admin-extras.css';
 
@@ -126,6 +126,50 @@ export function TextAreaField({ label, hint, counter, value, onChange, rows = 4,
           {counter ? <span className="ax-counter">{counter}</span> : null}
         </span>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A section that stays folded until the person wants to edit it, so a long page of
+ * settings reads as a short list. The title, a one-line `summary` of what is in
+ * there now, an unsaved `tag` and any `actions` stay in view; the fields open
+ * underneath.
+ *
+ * The body stays mounted while folded (just hidden), so nothing typed is lost by
+ * folding and a caller can open it and then move focus to a field inside. Pass
+ * `open` and `onOpenChange` to control it from outside (the "needs your
+ * attention" list does), or leave them out and it keeps its own state, folded.
+ * `heading` wraps the toggle in that heading element (for a section that was one).
+ */
+export function Disclosure({
+  title, summary, tag, actions, children, open, onOpenChange, heading: Heading, className = 'card elev-sm',
+  titleClass = 'card-kicker',
+}) {
+  const [own, setOwn] = useState(false);
+  const isOpen = open ?? own;
+  const bodyId = `${useId()}-body`;
+  const toggle = () => {
+    if (open === undefined) setOwn(!isOpen);
+    onOpenChange?.(!isOpen);
+  };
+  const button = (
+    <button type="button" className="ax-fold__toggle" aria-expanded={isOpen} aria-controls={bodyId} onClick={toggle}>
+      <span className="ax-fold__chev" aria-hidden="true" />
+      <span className="ax-fold__text">
+        <span className={titleClass}>{title}</span>
+        {summary ? <span className="ax-fold__summary">{summary}</span> : null}
+      </span>
+    </button>
+  );
+  return (
+    <div className={`${className} ax-fold`}>
+      <div className="ax-fold__head">
+        {Heading ? <Heading className="ax-fold__h">{button}</Heading> : button}
+        {tag}
+        {actions}
+      </div>
+      <div id={bodyId} className="ax-fold__body" hidden={!isOpen}>{children}</div>
     </div>
   );
 }

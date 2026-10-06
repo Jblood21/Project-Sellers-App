@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { DEFAULT_FAQ, FAQ_ANSWER_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, parseFaq } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
-import { ErrorNote, TextAreaField, TextField, Toggle } from '../ui.jsx';
+import { Disclosure, ErrorNote, TextAreaField, TextField, Toggle } from '../ui.jsx';
 
 const grouped = (n) => n.toLocaleString('en-US');
 
@@ -70,13 +70,16 @@ export default function FaqCard({ community, settings, setSettings, reload }) {
     }
   };
 
-  return (
-    <div className="card elev-sm" style={{ gap: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="card-kicker">FAQ</span>
-        {unsaved ? <span className="tag tag-accent">Unsaved changes</span> : null}
-      </div>
+  // What a buyer would get from the form as it is now, so the folded heading tells the truth.
+  const complete = parseFaq(settings.faqJson).length;
+  const summary = `${complete ? `${complete} question${complete === 1 ? '' : 's'}` : 'No questions yet'} · ${on ? 'Shown on the home screen' : 'Hidden'}`;
 
+  return (
+    <Disclosure
+      title="FAQ"
+      summary={summary}
+      tag={unsaved ? <span className="tag tag-accent">Unsaved changes</span> : null}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Toggle on={on} onChange={flip} label="Show the FAQ to buyers" />
         <span style={{ fontSize: 13 }}>
@@ -128,6 +131,6 @@ export default function FaqCard({ community, settings, setSettings, reload }) {
           Restore the starter questions
         </button>
       </div>
-    </div>
+    </Disclosure>
   );
 }
