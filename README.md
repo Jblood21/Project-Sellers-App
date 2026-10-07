@@ -1,7 +1,6 @@
-# Cornerpost
+# Touradoor
 
-*A cornerpost is the first post set on a site — the fixed reference every other line is squared
-from. This one turns the sign at a community entrance into the builder's lead engine.*
+*Turns the sign at a community entrance into the builder's lead engine.*
 
 A mobile-first web app for individual builder communities, with two sides sharing one backend:
 
@@ -19,7 +18,7 @@ A mobile-first web app for individual builder communities, with two sides sharin
   assumptions, DPA rules and credit cutoffs.
 
 The buyer app is **white-labeled per community** — a buyer scanning the sign at Willow Creek sees
-"Willow Creek," never "Cornerpost." The name is for the builder: their login, the invoice, the
+"Willow Creek," never "Touradoor." The name is for the builder: their login, the invoice, the
 sales conversation.
 
 Every buyer action — home views, saves, tool runs, price points tested, loan types explored,

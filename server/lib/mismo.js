@@ -101,7 +101,7 @@ export function buildMismo34({ lead, community, home = null, now = new Date() })
     lead?.moveIn?.targetDate ? `Wants to be moved in by ${lead.moveIn.targetDate}` : '',
     lead?.moveIn?.leaseEnd ? `Current lease ends ${lead.moveIn.leaseEnd}` : '',
     (lead?.savedHomeIds?.length ?? 0) > 1 ? `Saved ${lead.savedHomeIds.length} homes` : '',
-    'Source: Cornerpost community app. Contact and plan only — no income, assets or credit collected.',
+    'Source: Touradoor community app. Contact and plan only — no income, assets or credit collected.',
   ].filter(Boolean).join(' | ');
 
   const body = `<MESSAGE xmlns="http://www.mismo.org/residential/2009/schemas" xmlns:xlink="http://www.w3.org/1999/xlink" MISMOReferenceModelIdentifier="3.4.0322">
