@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { PLAN_LABELS, TOOL_KEYS, isoDate } from '@shared/domain.js';
-import { printableMoveIn } from '@shared/moveInPrint.js';
+import { MOVE_IN_ESTIMATE_NOTE, printableMoveIn } from '@shared/moveInPrint.js';
 import { longDate, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import CommunityMark from '../CommunityMark.jsx';
@@ -173,7 +173,7 @@ function MoveInPlan({ doc }) {
         </tbody>
       </table>
       <p style={{ margin: '8px 0 0', fontSize: 11.5, color: '#5f5c52' }}>
-        {doc.done} of {doc.total} steps done. The dates are estimates worked back from the day you want keys.
+        {doc.done} of {doc.total} steps done. {MOVE_IN_ESTIMATE_NOTE}
       </p>
     </div>
   );

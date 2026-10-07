@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { dayLabel, printableMoveIn } from '../../shared/moveInPrint.js';
+import {
+  MOVE_IN_ESTIMATE_NOTE, dayLabel, moveInPlanLines, printableMoveIn,
+} from '../../shared/moveInPrint.js';
 
 const TODAY = '2027-01-01';
 const ASPEN = { name: 'The Aspen', availability: 'Move-in ready' };
@@ -103,4 +105,32 @@ test('dates in another year say so, and the same inputs always give the same pag
   const doc = printableMoveIn(plan({ targetDate: '2028-02-14' }), { home: ASPEN, today: TODAY });
   assert.equal(doc.headline, 'To have keys on Feb 14, 2028, the offer needs to be in by Jan 3, 2028.');
   assert.deepEqual(printableMoveIn(plan(), { home: ASPEN, today: TODAY }), printableMoveIn(plan(), { home: ASPEN, today: TODAY }));
+});
+
+test('the text form carries everything the page does, one step to a line', () => {
+  assert.deepEqual(moveInPlanLines(null), [], 'no plan, no lines');
+
+  const doc = printableMoveIn(
+    plan({
+      drivers: ['lease'], leaseEnd: '2027-10-05',
+      ownSteps: [{ id: 'a1', label: 'Transfer utilities', date: '2027-09-15' }, { id: 'b2', label: 'Change my address', date: '' }],
+      done: ['preapproval', 'own:a1'],
+    }),
+    { home: ASPEN, today: TODAY },
+  );
+  const lines = moveInPlanLines(doc);
+  assert.equal(lines[0], doc.headline);
+  // Choices line up: every value starts in the same column.
+  const detailLines = doc.details.map(([label, value]) => lines.find((line) => line.startsWith(`${label}:`) && line.endsWith(value)));
+  assert.ok(detailLines.every(Boolean), 'every choice is a line of its own');
+  assert.equal(new Set(detailLines.map((line, i) => line.indexOf(doc.details[i][1], doc.details[i][0].length + 1))).size, 1);
+  assert.ok(lines.includes(doc.notes[0]), 'the lease note is in it');
+
+  const steps = lines.slice(lines.indexOf('Every step, in date order:') + 1, -2);
+  assert.equal(steps.length, doc.total, 'a line per step, none dropped');
+  assert.equal(steps[0], '[x] Jul 19  Get pre-approved (You)', 'done steps are ticked');
+  assert.ok(steps.includes('[x] Sep 15  Transfer utilities (You)'), 'their own step, ticked');
+  assert.equal(steps.at(-1), '[ ] —       Change my address (You)', 'an undated step has a dash, not a blank');
+  assert.ok(steps.some((step) => step.startsWith('[ ] Aug 23  Appraisal ordered (Your lender)')), 'whose job it is');
+  assert.equal(lines.at(-1), `2 of ${doc.total} steps done. ${MOVE_IN_ESTIMATE_NOTE}`);
 });

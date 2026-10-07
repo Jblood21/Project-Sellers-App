@@ -1,7 +1,6 @@
-# Cornerpost
+# Touradoor
 
-*A cornerpost is the first post set on a site — the fixed reference every other line is squared
-from. This one turns the sign at a community entrance into the builder's lead engine.*
+*Turns the sign at a community entrance into the builder's lead engine.*
 
 A mobile-first web app for individual builder communities, with two sides sharing one backend:
 
@@ -19,7 +18,7 @@ A mobile-first web app for individual builder communities, with two sides sharin
   assumptions, DPA rules and credit cutoffs.
 
 The buyer app is **white-labeled per community** — a buyer scanning the sign at Willow Creek sees
-"Willow Creek," never "Cornerpost." The name is for the builder: their login, the invoice, the
+"Willow Creek," never "Touradoor." The name is for the builder: their login, the invoice, the
 sales conversation.
 
 Every buyer action — home views, saves, tool runs, price points tested, loan types explored,
@@ -244,7 +243,11 @@ early), and **every step in date order** with a tick box, the date, whose job it
 and whether it is done, their own steps included, ending with a count of steps done. It is built from the plan as it
 stands when the page is opened (`printableMoveIn` in `shared/moveInPrint.js`), so ticks and edits made after it was added to
 the plan are in it. A buyer who added the move-in plan before choosing a date of their own prints only the saved line.
-The plan email still carries the one-line summary.
+
+**The plan email carries the same plan** in plain text (`moveInPlanLines`): the sentence, the choices, any note, then a
+line per step (`[x]` done, `[ ]` not, the date, the step, whose job it is) and the count of steps done, above the lender
+footer. It is built when the buyer presses the button, so it matches the page. Without a date of their own the email
+keeps the saved line. The builder's call alert still lists each tool as one line.
 
 ## Booking a time
 
@@ -322,7 +325,7 @@ opens the section it is in. Sections start folded each time the page is opened.
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
 two, and the choice saves the moment it is made:
 
-- **Cornerpost Default** (what every community starts on) — one phone-width column of soft, rounded
+- **Touradoor Default** (what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Talk to the Team* button in the header of every page.
 - **Salt Grass** — condensed uppercase headlines, a dark header and footer with an accent rule, large
   payment figures, and a two-button bar fixed to the foot of the screen on phones.
@@ -332,7 +335,7 @@ does or what it calculates, and every screen reachable in one layout is reachabl
 
 A layout is **independent of the theme**. The ten themes are palettes and a layout takes its colours
 from whichever theme is chosen, so any layout works with any theme. One consequence to know about:
-Cornerpost Default is Manrope only, so a community whose theme brought its own serif face loses that
+Touradoor Default is Manrope only, so a community whose theme brought its own serif face loses that
 face under the default layout. Salt Grass reads best on the Navy & Gold, Ice Blue & Dark Navy and Slate Blue & Soft Green themes.
 
 ## Development logo
@@ -453,7 +456,7 @@ so the canonical address is one address.
 ## Upgrading
 
 Nothing needs doing by hand. On boot the server adds the new columns and tables, gives every existing community the
-Cornerpost Default layout, and copies the thirteen guides into each community that has not had them (it then
+Touradoor Default layout, and copies the thirteen guides into each community that has not had them (it then
 records that it has, so later restarts add nothing). Afterwards, **for each community**:
 
 1. Open **Setup → Lender & compliance** and fill in everything under *Needs your attention before launch*
@@ -470,7 +473,7 @@ buyer: a buyer's token is no longer accepted by any admin route.
 ```
 shared/domain.js     tokens, tool definitions, and every calculator (single source of truth)
 shared/compliance.js the lender block, the disclosure wording and what is still missing (footer, email, JSON-LD)
-shared/moveInPrint.js the whole move-in plan as the printed page shows it
+shared/moveInPrint.js the whole move-in plan as the printed page and the plan email show it
 shared/markdown.js   the guides' markdown parser (no raw HTML, safe links only)
 shared/schema.js     schema.org JSON-LD and page meta, used by the server and the browser
 server/
@@ -484,7 +487,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Cornerpost Default and Salt Grass: header and home screen per layout
+  buyer/layouts/     Touradoor Default and Salt Grass: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: communities, 8 tabs (Homes, Area, Learn, Times, Tools, Leads, Stats,
                      Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and

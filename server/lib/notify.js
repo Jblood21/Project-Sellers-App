@@ -1,4 +1,7 @@
-import { complianceText, contactMethodLabel, describeTour, lenderNameOf, money } from '../../shared/domain.js';
+import {
+  complianceText, contactMethodLabel, describeTour, isoDate, lenderNameOf, money,
+} from '../../shared/domain.js';
+import { moveInPlanLines, printableMoveIn } from '../../shared/moveInPrint.js';
 import { sendEmail } from './email.js';
 
 /** Where a community's call requests go: its own address, else the dashboard account. */
@@ -67,9 +70,21 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
  * Sends a buyer the plan they built. Explicit only — triggered by a button they
  * press, never automatically, because an unrequested email is spam and this app
  * already has their address.
+ *
+ * The move-in plan goes in whole, every step with its date and whose job it is,
+ * as on the printed plan; the saved one-line summary stands in only for a buyer
+ * who added it before choosing a date of their own. `today` is a parameter so the
+ * dates a test sees do not depend on the day it runs.
  */
-export async function sendPlanToBuyer({ community, lead, baseUrl }) {
-  const entries = Object.entries(lead.plan ?? {});
+export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDate(new Date()) }) {
+  const moveIn = lead.plan?.movein
+    ? printableMoveIn(lead.moveIn, {
+      home: community.homes?.find((h) => h.id === lead.moveIn?.homeId) ?? null,
+      today,
+    })
+    : null;
+  // The full plan replaces its own summary line, so it is not said twice.
+  const entries = Object.entries(lead.plan ?? {}).filter(([key]) => !(key === 'movein' && moveIn));
   const savedNames = (lead.savedHomeIds ?? [])
     .map((id) => community.homes?.find((h) => h.id === id))
     .filter(Boolean)
@@ -81,6 +96,7 @@ export async function sendPlanToBuyer({ community, lead, baseUrl }) {
     `Here is the home plan you put together for ${community.name}.`,
     '',
     ...(entries.length ? ['What you worked out:', ...entries.map(([, s]) => `  · ${s}`), ''] : []),
+    ...(moveIn ? ['Your move-in plan:', '', ...moveInPlanLines(moveIn), ''] : []),
     ...(savedNames.length ? ['Homes you liked:', ...savedNames, ''] : []),
     baseUrl ? `Pick up where you left off: ${baseUrl}/c/${community.id}` : '',
     '',

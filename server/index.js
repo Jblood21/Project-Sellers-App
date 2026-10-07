@@ -221,6 +221,6 @@ if (isMain) {
     if (seeded) console.log(`Seeded demo community: ${seeded.name} (/c/${seeded.id})`);
   }
   createApp().listen(port, () => {
-    console.log(`Cornerpost listening on :${port} (${store.kind} store)`);
+    console.log(`Touradoor listening on :${port} (${store.kind} store)`);
   });
 }

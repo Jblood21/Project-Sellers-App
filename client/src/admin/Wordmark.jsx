@@ -1,5 +1,5 @@
 /**
- * The Cornerpost mark: a driven post with its two squared lines running off it.
+ * The Touradoor mark: a driven post with its two squared lines running off it.
  * Admin-side only — the buyer app is white-labeled to the community, so the
  * platform name never appears on a screen a homebuyer sees.
  */
@@ -29,7 +29,7 @@ export default function Wordmark({ size = 20, showName = true }) {
             letterSpacing: '-0.01em',
           }}
         >
-          Cornerpost
+          Touradoor
         </span>
       ) : null}
     </span>

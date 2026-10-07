@@ -46,7 +46,7 @@ export async function sendEmail({ to, subject, text, replyTo }) {
   if (!to) return { sent: false, skipped: 'no recipient' };
 
   const payload = {
-    from: process.env.EMAIL_FROM || 'Cornerpost <onboarding@resend.dev>',
+    from: process.env.EMAIL_FROM || 'Touradoor <onboarding@resend.dev>',
     to: [to],
     subject,
     text,

@@ -356,7 +356,7 @@ export function isSold(home) {
 export const LAYOUTS = [
   {
     k: 'cornerpost',
-    name: 'Cornerpost Default',
+    name: 'Touradoor Default',
     note: 'One phone-width column of soft, rounded tiles. Manrope throughout, with a Talk to the Team button on every page.',
   },
   {
