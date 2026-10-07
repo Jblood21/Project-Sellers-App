@@ -325,7 +325,7 @@ opens the section it is in. Sections start folded each time the page is opened.
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
 two, and the choice saves the moment it is made:
 
-- **Cornerpost Default** (what every community starts on) — one phone-width column of soft, rounded
+- **Touradoor Default** (what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Talk to the Team* button in the header of every page.
 - **Salt Grass** — condensed uppercase headlines, a dark header and footer with an accent rule, large
   payment figures, and a two-button bar fixed to the foot of the screen on phones.
@@ -335,7 +335,7 @@ does or what it calculates, and every screen reachable in one layout is reachabl
 
 A layout is **independent of the theme**. The ten themes are palettes and a layout takes its colours
 from whichever theme is chosen, so any layout works with any theme. One consequence to know about:
-Cornerpost Default is Manrope only, so a community whose theme brought its own serif face loses that
+Touradoor Default is Manrope only, so a community whose theme brought its own serif face loses that
 face under the default layout. Salt Grass reads best on the Navy & Gold, Ice Blue & Dark Navy and Slate Blue & Soft Green themes.
 
 ## Development logo
@@ -456,7 +456,7 @@ so the canonical address is one address.
 ## Upgrading
 
 Nothing needs doing by hand. On boot the server adds the new columns and tables, gives every existing community the
-Cornerpost Default layout, and copies the thirteen guides into each community that has not had them (it then
+Touradoor Default layout, and copies the thirteen guides into each community that has not had them (it then
 records that it has, so later restarts add nothing). Afterwards, **for each community**:
 
 1. Open **Setup → Lender & compliance** and fill in everything under *Needs your attention before launch*
@@ -487,7 +487,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Cornerpost Default and Salt Grass: header and home screen per layout
+  buyer/layouts/     Touradoor Default and Salt Grass: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: communities, 8 tabs (Homes, Area, Learn, Times, Tools, Leads, Stats,
                      Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
