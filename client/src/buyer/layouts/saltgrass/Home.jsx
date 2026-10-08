@@ -176,7 +176,7 @@ export default function Home({ model }) {
         <div className="sg-wrap">
           <h1 className="sg-hero__h1">Hi {model.firstName} — can you buy one of these?</h1>
           <p className="sg-lead">
-            Take a few minutes to find out what works for you and create your personalized home plan.
+            Take a few minutes to find out what works for you and build your own home plan.
           </p>
           {leadTools.length ? (
             <div className={`sg-lead-tools${leadTools.length > 1 ? ' sg-lead-tools--two' : ''}`}>

@@ -56,7 +56,7 @@ export default function Gate({ onEntered }) {
       <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>Almost there</span>
       <h1 className="b-head" style={{ margin: '4px 0 8px', fontSize: 27 }}>Let&apos;s introduce you</h1>
       <p style={{ margin: '0 0 18px', color: 'var(--t-mut)', fontSize: 13.5, lineHeight: 1.5 }}>
-        Tell us who you are to open the {community?.name} app, so your home plan saves and the
+        Add your name and email to open the {community?.name} app. That way your home plan saves and the
         team can send it to you.
       </p>
       <div className="b-stack" style={{ gap: 12 }}>

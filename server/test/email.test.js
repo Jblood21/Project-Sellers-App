@@ -207,7 +207,7 @@ test('the plan email carries the whole move-in plan, not just its summary line',
   const text = sent[0].text;
 
   assert.match(text, /^Your move-in plan:$/m);
-  assert.match(text, /To have keys on Sep 20, the offer needs to be in by Aug 9\./);
+  assert.match(text, /To have keys on Sep 20, your offer needs to be in by Aug 9\./);
   assert.match(text, /^Home:\s+The Aspen$/m);
   assert.match(text, /^Every step, in date order:$/m);
   assert.match(text, /^\[x\] Jul 19\s+Get pre-approved \(You\)$/m, 'the step they ticked');

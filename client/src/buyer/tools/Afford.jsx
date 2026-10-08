@@ -101,7 +101,7 @@ export default function Afford() {
             </span>
             <span style={{ fontSize: 12.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
               The lower number is the comfortable end — about {money(result.comfortable.maxPayment)}/mo
-              including taxes and insurance. The higher end is what lenders here will often approve,
+              including taxes and insurance. The higher end is what lenders will often approve,
               at {money(result.lenderMax.maxPayment)}/mo, which leaves less room in your budget each
               month. Both assume{' '}
               {hasCash ? `${money(result.comfortable.down)} down` : '5% down'} at{' '}

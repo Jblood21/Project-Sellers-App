@@ -93,7 +93,7 @@ export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDat
   const text = [
     `Hi ${lead.name.split(' ')[0]},`,
     '',
-    `Here is the home plan you put together for ${community.name}.`,
+    `Here’s the home plan you put together for ${community.name}.`,
     '',
     ...(entries.length ? ['What you worked out:', ...entries.map(([, s]) => `  · ${s}`), ''] : []),
     ...(moveIn ? ['Your move-in plan:', '', ...moveInPlanLines(moveIn), ''] : []),

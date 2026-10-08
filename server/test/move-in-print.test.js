@@ -23,7 +23,7 @@ test('without a date of their own there is no plan to print', () => {
 
 test('a loan plan prints the sentence, the choices and every step in date order', () => {
   const doc = printableMoveIn(plan(), { home: ASPEN, today: TODAY });
-  assert.equal(doc.headline, 'To have keys on Sep 20, the offer needs to be in by Aug 9.');
+  assert.equal(doc.headline, 'To have keys on Sep 20, your offer needs to be in by Aug 9.');
   assert.deepEqual(doc.details, [['Keys', 'Sep 20'], ['Offer in by', 'Aug 9'], ['Home', 'The Aspen'], ['Paying', 'With a loan']]);
   assert.deepEqual(doc.steps.map((s) => [s.date, s.label, s.who]), [
     ['Jul 19', 'Get pre-approved', 'You'],
@@ -32,7 +32,7 @@ test('a loan plan prints the sentence, the choices and every step in date order'
     ['Aug 23', 'Appraisal ordered', 'Your lender'],
     ['Sep 6', 'Loan underwriting & approval', 'Your lender'],
     ['Sep 13', 'Final walkthrough', 'You'],
-    ['Sep 20', 'Closing day — keys', 'You'],
+    ['Sep 20', 'Closing day: you get your keys', 'You'],
   ]);
   assert.equal(doc.total, 7);
   assert.equal(doc.done, 0);
@@ -59,12 +59,12 @@ test('what is driving the date adds its steps, and a lease prints its end and th
   assert.match(doc.notes[0], /^Your lease runs 30 days past your keys, which is about 1 month of paying for both places\./);
 
   const short = printableMoveIn(plan({ drivers: ['lease'], leaseEnd: '2027-10-05' }), { home: ASPEN, today: TODAY });
-  assert.match(short.notes[0], /^Your lease runs 15 days past your keys, so you would pay for both places for that long\. /, 'no "15 days ... about 15 days"');
+  assert.match(short.notes[0], /^Your lease runs 15 days past your keys, so you’d be paying for both places for that long\. /, 'no "15 days ... about 15 days"');
   const long = printableMoveIn(plan({ drivers: ['lease'], leaseEnd: '2027-11-24' }), { home: ASPEN, today: TODAY });
   assert.match(long.notes[0], /^Your lease runs 65 days past your keys, which is about 2 months of paying for both places\. /);
 
   const gap = printableMoveIn(plan({ drivers: ['lease'], leaseEnd: '2027-09-10' }), { home: ASPEN, today: TODAY });
-  assert.match(gap.notes[0], /^Your lease ends 10 days before your keys, so you would need somewhere to stay in between\./);
+  assert.match(gap.notes[0], /^Your lease ends 10 days before your keys, so you’d need somewhere to stay in between\./);
   const same = printableMoveIn(plan({ drivers: ['lease'], leaseEnd: '2027-09-20' }), { home: ASPEN, today: TODAY });
   assert.match(same.notes[0], /^Your lease ends the same day you get keys\./);
   // A lease date left over after the driver was switched off is not printed.
@@ -90,7 +90,7 @@ test('their own steps are folded in by date, and done steps are counted', () => 
 
 test('a home still being built is said plainly, whether or not its date is known', () => {
   const unknown = printableMoveIn(plan(), { home: { name: 'The Birch', availability: 'Under construction' }, today: TODAY });
-  assert.match(unknown.notes[0], /^The Birch is still being built and the team has not set a completion date yet\./);
+  assert.match(unknown.notes[0], /^The Birch is still being built and the team hasn’t set a completion date yet\./);
 
   const late = printableMoveIn(
     plan({ targetDate: '2027-03-01' }),
@@ -103,7 +103,7 @@ test('a home still being built is said plainly, whether or not its date is known
 
 test('dates in another year say so, and the same inputs always give the same page', () => {
   const doc = printableMoveIn(plan({ targetDate: '2028-02-14' }), { home: ASPEN, today: TODAY });
-  assert.equal(doc.headline, 'To have keys on Feb 14, 2028, the offer needs to be in by Jan 3, 2028.');
+  assert.equal(doc.headline, 'To have keys on Feb 14, 2028, your offer needs to be in by Jan 3, 2028.');
   assert.deepEqual(printableMoveIn(plan(), { home: ASPEN, today: TODAY }), printableMoveIn(plan(), { home: ASPEN, today: TODAY }));
 });
 

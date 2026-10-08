@@ -43,7 +43,7 @@ export default function Savings() {
             state.cash
               ? 'Your number — edit anytime.'
               : scenarioHome
-                ? `Pre-filled from your payment scenario on ${scenarioHome.name}.`
+                ? `We filled this in from your payment estimate for ${scenarioHome.name}.`
                 : 'Run See My Payment first and we’ll fill this in.'
           }
         >

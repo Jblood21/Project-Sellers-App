@@ -24,7 +24,7 @@ export default function ContactSheet({ open, onClose, title, intro, phone, email
   const act = (what) => () => onAct?.(what);
   const actions = [];
   if (mobile) {
-    if (dial) actions.push(['Call', dial, 'call']);
+    if (dial) actions.push(['Call us', dial, 'call']);
     if (text) actions.push(['Text us', text, 'text']);
     if (mail) actions.push(['Email us', mail, 'email']);
   } else if (mail) {
@@ -62,7 +62,7 @@ export default function ContactSheet({ open, onClose, title, intro, phone, email
           </div>
         ) : (
           <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-            The team has not listed a way to reach them here yet. Ask them in person or through the community website.
+            The team hasn’t added a phone number or email here yet. You can ask them in person.
           </span>
         )}
         {!mobile && dial && mail ? (

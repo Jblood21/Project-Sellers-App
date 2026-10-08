@@ -241,7 +241,7 @@ export function publicRouter() {
   /** Everything the buyer app needs to render a community. */
   router.get('/c/:communityId', async (req, res) => {
     const payload = await loadPublicCommunity(await getStore(), req.params.communityId);
-    if (!payload) return res.status(404).json({ error: 'That community link is no longer active.' });
+    if (!payload) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
     res.json(payload);
   });
 
@@ -260,7 +260,7 @@ export function publicRouter() {
       return res.status(404).json({ error: 'That guide could not be found.' });
     }
     const community = await store.getCommunity(req.params.communityId);
-    if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
+    if (!community) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
     const guide = community.features.guides
       ? await store.getGuideBySlug(community.id, req.params.slug)
       : null;
@@ -278,7 +278,7 @@ export function publicRouter() {
   ], 'sign-up attempts'), async (req, res) => {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
-    if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
+    if (!community) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
 
     const name = String(req.body?.name ?? '').trim();
     const email = String(req.body?.email ?? '').trim();
@@ -358,7 +358,7 @@ export function publicRouter() {
   router.get('/me', requireLead, async (req, res) => {
     const store = await getStore();
     const lead = await store.getLead(req.leadId);
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
     res.json(publicLead(lead));
   });
 
@@ -366,11 +366,11 @@ export function publicRouter() {
   router.post('/me/saves', requireLead, async (req, res) => {
     const store = await getStore();
     const lead = await store.getLead(req.leadId);
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
 
     const homeId = String(req.body?.homeId ?? '');
     const home = await store.getHome(homeId);
-    if (!home || home.communityId !== lead.communityId) return res.status(404).json({ error: 'Home not found' });
+    if (!home || home.communityId !== lead.communityId) return res.status(404).json({ error: 'We couldn’t find that home. Reload the page and try again.' });
 
     const saved = new Set(lead.savedHomeIds);
     const wasSaved = saved.has(homeId);
@@ -403,7 +403,7 @@ export function publicRouter() {
   router.put('/me/movein', requireLead, async (req, res) => {
     const store = await getStore();
     const lead = await store.getLead(req.leadId);
-    if (!lead) return res.status(404).json({ error: 'We could not find your plan.' });
+    if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
 
     const homes = await store.listHomes(lead.communityId);
     const plan = cleanMoveIn(req.body, new Set(homes.map((h) => h.id)));
@@ -431,9 +431,9 @@ export function publicRouter() {
   router.post('/me/plan/email', requireLead, async (req, res) => {
     const store = await getStore();
     const lead = await store.getLead(req.leadId);
-    if (!lead) return res.status(404).json({ error: 'We could not find your plan.' });
+    if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
     const community = await store.getCommunity(lead.communityId);
-    if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
+    if (!community) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
 
     // Only an email that went out counts against the caps: a provider outage or a missing sender
     // must not use up a buyer's five for the day, or hide itself behind "too many" for everyone
@@ -459,7 +459,7 @@ export function publicRouter() {
     }
     if (!result.sent) {
       return res.status(503).json({
-        error: 'We could not send that right now. You can still download it as a PDF.',
+        error: 'We couldn’t email your plan right now. You can still download it as a PDF, or try again later.',
       });
     }
     await store.addActivity(req.leadId, 'Emailed their home plan to themselves');
@@ -479,7 +479,7 @@ export function publicRouter() {
     if (!slotId) return res.status(400).json({ error: 'Pick a time that works' });
 
     const buyer = await store.getLead(req.leadId);
-    if (!buyer) return res.status(404).json({ error: 'We could not find your plan.' });
+    if (!buyer) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
     const slot = await store.getSlot(slotId);
     // A time belongs to one community. Its id is published on that community's page, so
     // without this a buyer from one development could take another's appointment.

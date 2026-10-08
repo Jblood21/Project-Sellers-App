@@ -1,5 +1,5 @@
 import { COMPLIANCE_DEFAULTS } from './compliance.js';
-import { DEFAULT_FAQ_JSON } from './faq.js';
+import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
 
 export {
   DEFAULT_FAQ, DEFAULT_FAQ_JSON, FAQ_ANSWER_MAX, FAQ_JSON_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, normalizeFaqJson,
@@ -129,7 +129,7 @@ export const TOOL_KEYS = TOOLS.map((t) => t.k);
 
 export const PLAN_LABELS = {
   homes: 'Homes I Like',
-  afford: 'My Buying Power',
+  afford: 'My Price Range',
   payment: 'My Payment',
   loans: 'My Loan Options',
   compare: 'Compare My Options',
@@ -156,8 +156,8 @@ export const PROGRAMS = { conv: 'Conventional', fha: 'FHA', va: 'VA' };
 
 export const PROGRAM_DESCRIPTIONS = {
   va: 'For veterans and active military — no down payment required, no monthly mortgage insurance.',
-  fha: 'Easier credit requirements and as little as 3.5% down. Adds monthly mortgage insurance.',
-  conv: 'The standard loan — best rates with stronger credit; mortgage insurance drops off at 20% equity.',
+  fha: 'Easier on credit, with as little as 3.5% down. It adds monthly mortgage insurance.',
+  conv: 'The standard loan. The best rates go to stronger credit, and mortgage insurance drops off once you reach 20% equity.',
 };
 
 /**
@@ -536,6 +536,7 @@ export const DEFAULT_SETTINGS = {
  */
 export const REPLACED_DEFAULTS = {
   incentiveButton: ['Find out if I qualify'],
+  faqJson: PREVIOUS_DEFAULT_FAQ_JSONS,
 };
 
 /**
@@ -939,10 +940,10 @@ export function screenDpa({ income, credit, firstTime, military, settings }) {
 export function suggestPrograms({ veteran, downPct, credit }) {
   const out = [];
   if (veteran === 'yes') {
-    out.push({ k: 'va', why: 'You may have VA eligibility — usually the strongest option: $0 down and no monthly mortgage insurance.' });
+    out.push({ k: 'va', why: 'You may be eligible for a VA loan, which is usually the strongest option: $0 down and no monthly mortgage insurance.' });
   }
   if (credit === 'exc' || (credit === 'good' && num(downPct) >= 5)) {
-    out.push({ k: 'conv', why: 'Your credit range gets competitive conventional pricing, and insurance can drop off later.' });
+    out.push({ k: 'conv', why: 'With your credit range, conventional rates tend to be competitive, and mortgage insurance can drop off later.' });
   }
   if (credit === 'fair' || num(downPct) < 5) {
     out.push({
@@ -950,7 +951,7 @@ export function suggestPrograms({ veteran, downPct, credit }) {
       why: `FHA is friendlier to ${credit === 'fair' ? 'fair credit' : 'smaller down payments'} — 3.5% down works.`,
     });
   }
-  if (!out.length) out.push({ k: 'conv', why: 'A solid default — ask the lender to price FHA alongside it.' });
+  if (!out.length) out.push({ k: 'conv', why: 'A solid place to start. Ask the lender to show you FHA numbers too, so you can compare.' });
   return out.slice(0, 2);
 }
 
@@ -983,7 +984,7 @@ export const MOVE_IN_STEPS = [
   { key: 'appraisal', label: 'Appraisal ordered', who: 'lender', weeks: { loan: 2, cash: null } },
   { key: 'underwriting', label: 'Loan underwriting & approval', who: 'lender', weeks: { loan: 4, cash: null } },
   { key: 'walkthrough', label: 'Final walkthrough', who: 'you', weeks: { loan: 5, cash: 2 } },
-  { key: 'closing', label: 'Closing day — keys', who: 'you', weeks: { loan: 6, cash: 3 } },
+  { key: 'closing', label: 'Closing day: you get your keys', who: 'you', weeks: { loan: 6, cash: 3 } },
 ];
 
 export const MOVE_IN_STEP_KEYS = MOVE_IN_STEPS.map((s) => s.key);

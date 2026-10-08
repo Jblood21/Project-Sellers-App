@@ -15,8 +15,8 @@ const TUTORIAL = [
     body: 'Browse every home in this community with photos, prices and details. Tap the star on any home you like — it saves to "Homes I Like" so you can come back to it.',
   },
   {
-    title: 'Answer natural questions',
-    body: 'Each tool answers one question: what would it cost me each month, what can I afford, what financing could work, could I get down payment help. No mortgage jargon required.',
+    title: 'Get plain answers',
+    body: 'Each tool answers one question. What would it cost me each month? What can I afford? What financing could work? Could I get help with a down payment? No mortgage jargon.',
   },
   {
     title: 'Your plan builds itself',
@@ -411,8 +411,8 @@ export function TourDialog({ topic, onClose }) {
         {byDate.length === 0 ? (
           <>
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-              The {community?.name} team has not published any times yet. Check back shortly —
-              or reach them through the community website.
+              The {community?.name} team hasn’t posted any times yet. Check back soon,
+              or ask them in person.
             </span>
             <button type="button" className="b-btn" onClick={onClose} style={{ marginTop: 8 }}>
               Close
@@ -422,7 +422,7 @@ export function TourDialog({ topic, onClose }) {
           <>
             {lead?.tour?.date && lead?.tour?.time ? (
               <span style={{ fontSize: 13.5, color: 'var(--t-ink)', lineHeight: 1.5, fontWeight: 600 }}>
-                You are booked for {formatSlotDate(lead.tour.date)} at {formatSlotTime(lead.tour.time)}. Pick another time to move it.
+                You’re booked for {formatSlotDate(lead.tour.date)} at {formatSlotTime(lead.tour.time)}. To move it, pick another time.
               </span>
             ) : null}
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
@@ -574,8 +574,8 @@ export function AddToPhoneDialog({ open, onClose }) {
         </div>
         <span className="b-head" style={{ fontSize: 19 }}>Keep {community?.name} on your phone</span>
         <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.55 }}>
-          It appears as an app icon on your home screen — one tap brings you right back to this community.
-          On iPhone: Share <ArrowUp size={13} /> → “Add to Home Screen”. On Android: tap “Install app”.
+          It shows up as an icon on your home screen, so one tap brings you right back to this community.
+          On iPhone, tap Share <ArrowUp size={13} /> and choose “Add to Home Screen”. On Android, tap “Install app”.
         </span>
         <button type="button" className="b-btn" onClick={onClose} style={{ marginTop: 6 }}>
           Got it

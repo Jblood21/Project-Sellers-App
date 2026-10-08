@@ -28,7 +28,7 @@ export default function Explore() {
 
       {homes.length === 0 ? (
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>
-          Homes for this community are being added — check back soon.
+          We’re still adding homes to this community. Check back soon.
         </p>
       ) : null}
       <div className="b-stack" style={{ gap: 14 }}>
@@ -139,7 +139,7 @@ export default function Explore() {
           </button>
           <span style={{ display: 'block', marginTop: 7, fontSize: 12, color: 'var(--t-mut)' }}>
             {placed
-              ? 'Tap the site map to open it full screen, then match a lot number below.'
+              ? 'Tap the site map to open it full screen, then match the lot numbers to the homes above.'
               : 'Tap the site map to open it full screen.'}
           </span>
         </div>

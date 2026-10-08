@@ -47,7 +47,7 @@ export default function Loans() {
         ? state.picked
           ? `${PROGRAMS[state.picked]} at ${rates[state.picked].toFixed(2)}%`
           : 'Reviewed all programs'
-        : `${suggested.map((s) => PROGRAMS[s.k]).join(' or ')} suggested`;
+        : `Worth a look: ${suggested.map((s) => PROGRAMS[s.k]).join(' or ')}`;
     savePlan('loans', summary);
   };
 

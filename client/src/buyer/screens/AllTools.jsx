@@ -109,7 +109,7 @@ export function HomeScreen({ model }) {
         Hi {model.firstName} — can you buy one of these?
       </h1>
       <p style={{ margin: '0 0 16px', color: 'var(--t-mut)', fontSize: 13 }}>
-        Take a few minutes to find out what works for you and create your personalized home plan.
+        Take a few minutes to find out what works for you and build your own home plan.
       </p>
 
       {lead2.length ? (

@@ -79,7 +79,7 @@ function BuyerShell() {
 
   if (loading) return <Centered>Loading…</Centered>;
   if (loadError) return <Centered>{loadError}</Centered>;
-  if (!community) return <Centered>That community link is no longer active.</Centered>;
+  if (!community) return <Centered>This community link isn’t active anymore. Ask the team for a new one.</Centered>;
 
   const isLanding = location.pathname === `/c/${communityId}`;
   const isGate = location.pathname === `/c/${communityId}/start`;

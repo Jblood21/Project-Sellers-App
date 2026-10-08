@@ -47,8 +47,8 @@ export default function Landing() {
         </button>
       </div>
       <p style={{ margin: '16px 0 0', fontSize: 12.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-        The app helps you explore homes, see what one would cost you, find financing that fits and build your own
-        move-in plan — free, no sign-in.
+        The app helps you explore homes, see what each home would cost you, find financing that fits and build your own
+        move-in plan. It’s free.
       </p>
       {/* The guides need no sign-in, so the front door is where they are offered. */}
       {features.guides && guides.length ? (

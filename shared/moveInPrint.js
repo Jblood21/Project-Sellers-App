@@ -49,7 +49,7 @@ export function printableMoveIn(plan, { home = null, today = isoDate(new Date())
   // What the dates cannot deliver, said plainly, as the tool says it on screen.
   const notes = [];
   if (timeline.unknownReady) {
-    notes.push(`${homeName || 'This home'} is still being built and the team has not set a completion date yet. These dates cover the paperwork only; ask them when the home will be finished before you plan around it.`);
+    notes.push(`${homeName || 'This home'} is still being built and the team hasn’t set a completion date yet. These dates only cover the paperwork, so ask them when the home will be finished before you plan around it.`);
   } else if (!timeline.feasible) {
     notes.push(`The earliest ${homeName || 'a home'} could hand over keys is ${day(timeline.earliest)}${home && home.availability !== 'Move-in ready' ? ', because it is still being built' : ''}.`);
   }
@@ -61,10 +61,10 @@ export function printableMoveIn(plan, { home = null, today = isoDate(new Date())
     } else if (overlap.kind === 'overlap') {
       const paying = days >= 28
         ? `which is about ${Math.round(days / 30)} month${days >= 45 ? 's' : ''} of paying for both places`
-        : 'so you would pay for both places for that long';
-      notes.push(`Your lease runs ${days} days past your keys, ${paying}. Moving your date earlier, or asking the landlord about a shorter final term, closes the gap.`);
+        : 'so you’d be paying for both places for that long';
+      notes.push(`Your lease runs ${days} days past your keys, ${paying}. Moving your move-in date later, or asking your landlord about a shorter final term, closes the gap.`);
     } else {
-      notes.push(`Your lease ends ${days} days before your keys, so you would need somewhere to stay in between. Ask the landlord about going month-to-month, or aim for an earlier date.`);
+      notes.push(`Your lease ends ${days} days before your keys, so you’d need somewhere to stay in between. Ask the landlord about going month-to-month, or aim for an earlier date.`);
     }
   }
 
@@ -77,7 +77,7 @@ export function printableMoveIn(plan, { home = null, today = isoDate(new Date())
   }));
 
   return {
-    headline: `To have keys on ${day(timeline.keys)}, the offer needs to be in by ${day(timeline.offerBy)}.`,
+    headline: `To have keys on ${day(timeline.keys)}, your offer needs to be in by ${day(timeline.offerBy)}.`,
     details,
     notes,
     steps,

@@ -12,6 +12,7 @@ import {
   COMPLIANCE_DEFAULTS, DEFAULT_FAQ, DEFAULT_FAQ_JSON, describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES,
   settingMaxLength, unitsLabel, videoTypeOf,
 } from '../../shared/domain.js';
+import { PREVIOUS_DEFAULT_FAQ_JSONS } from '../../shared/faq.js';
 import { createApp } from '../index.js';
 
 let server;
@@ -1834,6 +1835,21 @@ test('a button label saved while it was the old default reads as the new default
   assert.equal(await label(), 'Find out if you qualify');
   await patch({ incentiveButton: 'See my savings' });
   assert.equal(await label(), 'See my savings', 'a label the builder wrote is never touched');
+});
+
+test('starter questions saved while they were the old default read as the new ones, and an edited list is left alone', async () => {
+  const { token, cid } = await signedInCommunity('Reworded Faq Test');
+  const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
+  const faq = async () => (await api(`/api/admin/communities/${cid}`, { token })).body.settings.faqJson;
+
+  // A Setup save from before the reword left the old starter list stored as if it were chosen.
+  await patch({ faqJson: PREVIOUS_DEFAULT_FAQ_JSONS[0] });
+  assert.equal(await faq(), DEFAULT_FAQ_JSON, 'the old default is brought up to date');
+  assert.doesNotMatch(await faq(), /Tour this model/, 'and no longer points at a button that is gone');
+
+  const edited = JSON.stringify([{ q: 'Do you allow pets?', a: 'Yes, two per home.' }]);
+  await patch({ faqJson: edited });
+  assert.equal(await faq(), edited, 'a list the builder wrote is never touched');
 });
 
 test('the loan link, incentive email and FAQ are validated, not stored and silently ignored', async () => {
