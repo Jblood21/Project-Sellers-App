@@ -10,7 +10,7 @@ import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import {
   COMPLIANCE_DEFAULTS, DEFAULT_FAQ, DEFAULT_FAQ_JSON, describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES,
-  settingMaxLength, unitsLabel,
+  settingMaxLength, unitsLabel, videoTypeOf,
 } from '../../shared/domain.js';
 import { createApp } from '../index.js';
 
@@ -1221,12 +1221,12 @@ test('an uploaded video is stored, capped, and served in byte ranges', async () 
   const made = await post({ kind: 'video', title: 'A walk through', dataUrl });
   assert.equal(made.status, 201);
   assert.equal(made.body.sizeBytes, 1000, 'the decoded size is what gets recorded');
-  assert.equal(made.body.videoUrl, `/api/resources/${made.body.id}/video`);
+  assert.match(made.body.videoUrl, new RegExp(`^/api/resources/${made.body.id}/video\\?v=\\d+$`));
   assert.equal(made.body.url, '', 'an uploaded video carries no link');
 
   // The bytes never ride along in a list — that payload goes to every buyer.
   const listed = (await api(`/api/c/${cid}`)).body.resources[0];
-  assert.equal(listed.videoUrl, `/api/resources/${made.body.id}/video`);
+  assert.match(listed.videoUrl, new RegExp(`^/api/resources/${made.body.id}/video\\?v=\\d+$`));
   assert.ok(!('data' in listed), 'the file itself is not in the community payload');
   assert.ok(JSON.stringify(listed).length < 400, 'and the row stays small');
 
@@ -1298,7 +1298,7 @@ test('an uploaded video is stored, capped, and served in byte ranges', async () 
     method: 'PATCH', token, body: { dataUrl },
   });
   assert.equal(toFile.body.url, '', 'and the link is gone again');
-  assert.equal(toFile.body.videoUrl, `/api/resources/${made.body.id}/video`);
+  assert.match(toFile.body.videoUrl, new RegExp(`^/api/resources/${made.body.id}/video\\?v=\\d+$`));
 });
 
 test('a home walkthrough uploads, replaces, serves ranges and is capped', async () => {
@@ -1326,14 +1326,14 @@ test('a home walkthrough uploads, replaces, serves ranges and is capped', async 
 
   const stored = await put(cedar.id, { dataUrl });
   assert.equal(stored.status, 200);
-  assert.equal(stored.body.videoUrl, `/api/homes/${cedar.id}/video`);
+  assert.match(stored.body.videoUrl, new RegExp(`^/api/homes/${cedar.id}/video\\?v=\\d+$`));
   assert.equal(stored.body.videoSizeBytes, 1000, 'the decoded size is what gets recorded');
 
   // The bytes never ride along with the homes — that payload goes to every
   // buyer on every page load, which is why the video has its own table.
   const buyerView = await api(`/api/c/${cid}`);
   const seen = buyerView.body.homes.find((h) => h.id === cedar.id);
-  assert.equal(seen.videoUrl, `/api/homes/${cedar.id}/video`);
+  assert.match(seen.videoUrl, new RegExp(`^/api/homes/${cedar.id}/video\\?v=\\d+$`));
   assert.ok(!JSON.stringify(buyerView.body.homes).includes(bytes.toString('base64').slice(0, 64)),
     'the file itself is not in the community payload');
   assert.equal(buyerView.body.homes.find((h) => h.id === oak.id).videoUrl, '',
@@ -1393,6 +1393,62 @@ test('a home walkthrough uploads, replaces, serves ranges and is capped', async 
   assert.equal((await api(`/api/admin/homes/${cedar.id}/video`, { method: 'DELETE', token })).status, 204);
   assert.equal((await fetch(`${base}/api/homes/${cedar.id}/video`)).status, 404);
   assert.equal((await api(`/api/c/${cid}`)).body.homes.find((h) => h.id === cedar.id).videoUrl, '');
+});
+
+test('a picked video file is judged by its type or, failing that, its extension', () => {
+  // File.type comes from the operating system's extension table, not the file.
+  assert.equal(videoTypeOf('walk.mp4', 'video/mp4'), 'video/mp4');
+  assert.equal(videoTypeOf('IMG_2041.MOV', ''), 'video/quicktime', 'an empty type is the extension\'s to decide');
+  assert.equal(videoTypeOf('IMG_2041.mp4', ''), 'video/mp4');
+  assert.equal(videoTypeOf('clip.m4v', 'video/x-m4v'), 'video/mp4', 'a vendor name for MP4 is MP4');
+  assert.equal(videoTypeOf('walk.mp4', 'application/octet-stream'), 'video/mp4');
+  assert.equal(videoTypeOf('walk.webm', 'video/webm;codecs=vp8'), 'video/webm', 'parameters are not part of the type');
+  assert.equal(videoTypeOf('clip.mkv', 'video/x-matroska'), '', 'a container we do not keep stays refused');
+  assert.equal(videoTypeOf('clip.avi', 'video/x-msvideo'), '');
+  assert.equal(videoTypeOf('notes.pdf', 'application/pdf'), '');
+  assert.equal(videoTypeOf('noextension', ''), '');
+});
+
+test('a replaced video arrives at a new address, because the old one is cached for a year', async () => {
+  const login = await api('/api/admin/login', {
+    method: 'POST', body: { email: 'admin@test.co', password: 'pw123456' },
+  });
+  const token = login.body.token;
+  const community = await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Replace Test' } });
+  const cid = community.body.id;
+  const home = (await api(`/api/admin/communities/${cid}/homes`, {
+    method: 'POST', token, body: { name: 'The Birch', price: 500000, beds: 3, baths: 2, sqft: 2000 },
+  })).body;
+  const dataUrl = (type, size) => `data:${type};base64,${Buffer.alloc(size, 5).toString('base64')}`;
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 15));
+
+  // A browser keys its cache on the address alone and the file is served as
+  // immutable, so a replacement under the same address is never fetched.
+  const putHome = (body) => api(`/api/admin/homes/${home.id}/video`, { method: 'PUT', token, body });
+  const first = (await putHome({ dataUrl: dataUrl('video/mp4', 300) })).body.videoUrl;
+  await tick();
+  const second = (await putHome({ dataUrl: dataUrl('video/mp4', 300) })).body.videoUrl;
+  assert.notEqual(second, first, 'even a same-size replacement is a new address');
+
+  const versioned = await fetch(`${base}${second}`);
+  assert.match(versioned.headers.get('cache-control'), /immutable/, 'a versioned address may be kept');
+  const bare = await fetch(`${base}/api/homes/${home.id}/video`);
+  assert.equal(bare.headers.get('cache-control'), 'no-cache', 'an unversioned one must be asked about again');
+
+  // The same for a resource's file, replaced in place by a PATCH.
+  const res = (await api(`/api/admin/communities/${cid}/resources`, {
+    method: 'POST', token, body: { kind: 'video', title: 'A walk', dataUrl: dataUrl('video/mp4', 300) },
+  })).body;
+  await tick();
+  const replaced = (await api(`/api/admin/resources/${res.id}`, {
+    method: 'PATCH', token, body: { dataUrl: dataUrl('video/webm', 300) },
+  })).body;
+  assert.notEqual(replaced.videoUrl, res.videoUrl);
+  await tick();
+  const retitled = (await api(`/api/admin/resources/${res.id}`, {
+    method: 'PATCH', token, body: { title: 'A longer walk' },
+  })).body;
+  assert.equal(retitled.videoUrl, replaced.videoUrl, 'renaming it does not throw away every cached copy');
 });
 
 test('consent to calls and texts is recorded with the words the buyer saw', async () => {

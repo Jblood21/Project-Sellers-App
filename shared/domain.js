@@ -257,6 +257,30 @@ export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
 
 export const VIDEO_TYPES = new Set(['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg']);
 
+const VIDEO_EXTENSIONS = {
+  mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
+  ogv: 'video/ogg', ogg: 'video/ogg',
+};
+
+/**
+ * The type to store a picked file under, or '' when it is not one we keep.
+ *
+ * `File.type` is whatever the operating system's extension table says, and that
+ * table is not reliable: it is '' for a .mov on a machine with nothing
+ * registered for it, `video/x-m4v` for an .m4v, and anything at all on a file
+ * with a custom extension. The extension is what the person actually picked, so
+ * it decides whenever the reported type is empty, generic or not one of ours.
+ */
+export function videoTypeOf(name, type) {
+  const base = String(type ?? '').split(';')[0].trim().toLowerCase();
+  if (VIDEO_TYPES.has(base)) return base;
+  if (base === '' || base === 'application/octet-stream' || base.startsWith('video/')) {
+    const extension = String(name ?? '').split('.').pop().toLowerCase();
+    return VIDEO_EXTENSIONS[extension] ?? '';
+  }
+  return '';
+}
+
 /**
  * How many bytes a base64 string decodes to, without decoding it: 4 characters
  * carry 3 bytes, less whatever padding ends the string. Worth computing rather

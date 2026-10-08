@@ -216,12 +216,37 @@ const readyDate = (value) => {
 const LINK_INSTEAD = 'for a longer one, paste a YouTube or Vimeo link instead.';
 const TRIM_INSTEAD = 'try a shorter clip.';
 
+/**
+ * What the first bytes say the file is, or null if they say nothing we know.
+ *
+ * The type a browser reports comes from the file's extension and the operating
+ * system's registry, so a perfectly good clip arrives as '' or
+ * application/octet-stream (an upper-case .MOV on Linux, a Windows machine with no
+ * registered type) and as video/x-m4v or video/3gpp for files that play fine as
+ * MP4. The container's own signature is the better witness.
+ */
+const sniffVideoType = (base64) => {
+  const head = Buffer.from(base64.slice(0, 96), 'base64');
+  if (head.length >= 12 && head.toString('latin1', 4, 8) === 'ftyp') {
+    return head.toString('latin1', 8, 12) === 'qt  ' ? 'video/quicktime' : 'video/mp4';
+  }
+  if (head.length >= 4 && head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) {
+    return head.includes('webm') ? 'video/webm' : null; // Matroska shares the signature but not the browser support
+  }
+  if (head.length >= 4 && head.toString('latin1', 0, 4) === 'OggS') return 'video/ogg';
+  return null;
+};
+
 const readVideo = (body, longerHint = LINK_INSTEAD) => {
   const dataUrl = String(body?.dataUrl ?? '');
   const match = /^data:([^;,]+);base64,(.+)$/s.exec(dataUrl);
   if (!match) return { error: 'That file could not be read. Try picking it again.' };
 
-  const [, contentType, base64] = match;
+  const [, declared, base64] = match;
+  // A label that is missing or unhelpful yields to what the file says it is; a label
+  // that says something else entirely (an image, a PDF) is never overruled.
+  const sniffed = declared.startsWith('video/') || declared === 'application/octet-stream' ? sniffVideoType(base64) : null;
+  const contentType = sniffed ?? declared;
   if (!VIDEO_TYPES.has(contentType)) {
     return { error: 'That is not a video file. MP4 works everywhere; WebM and MOV also play.' };
   }

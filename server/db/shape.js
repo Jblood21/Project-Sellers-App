@@ -46,6 +46,15 @@ const units = (value) => {
   return Number.isInteger(n) && n >= 0 ? n : null;
 };
 
+/**
+ * Milliseconds since the epoch for a stored timestamp (a Date from pg, an ISO
+ * string from the file store), or 0 when there is none.
+ */
+const stamp = (value) => {
+  const ms = new Date(value ?? 0).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+};
+
 export function shapeHome(row, photos = [], floorPlans = [], video = null) {
   if (!row) return null;
   return {
@@ -66,7 +75,11 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     position: Number(row.position) || 0,
     photos,
     floorPlans,
-    videoUrl: video ? `/api/homes/${row.id}/video` : '',
+    // `v` is when this file was stored. The route sends the bytes as immutable for
+    // a year, and the address is the only cache key a browser has, so a replaced
+    // walkthrough has to arrive under a new address or every browser that already
+    // played the old one keeps playing it.
+    videoUrl: video ? `/api/homes/${row.id}/video?v=${stamp(video.createdAt ?? video.created_at)}` : '',
     videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
   };
 }
@@ -171,7 +184,11 @@ export function shapeResource(row) {
     // buyer on every page load, and a base64 video in that payload would be
     // megabytes of JSON nobody asked for. Callers that want the file fetch it
     // from its own route, where it can stream.
-    videoUrl: hasVideo(row) ? `/api/resources/${row.id}/video` : '',
+    // Versioned for the reason shapeHome gives: the same id keeps its address when
+    // the file is replaced, and the bytes are served as immutable.
+    videoUrl: hasVideo(row)
+      ? `/api/resources/${row.id}/video?v=${stamp(row.updated_at ?? row.updatedAt)}`
+      : '',
     contentType: row.content_type ?? row.contentType ?? '',
     sizeBytes: Number(row.size_bytes ?? row.sizeBytes) || 0,
     position: Number(row.position) || 0,

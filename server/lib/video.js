@@ -20,8 +20,11 @@
 export function sendVideo(req, res, video) {
   const buffer = Buffer.from(video.data, 'base64');
   res.set('Content-Type', video.content_type || 'video/mp4');
-  // The bytes never change once uploaded — a replacement writes a new file.
-  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  // The bytes behind a versioned address (?v=<stored-at>) never change: a
+  // replacement is a new version and so a new address. An address with no version
+  // is an old link or a bookmark, and a replacement DOES change what is behind
+  // it, so it must be asked about again rather than kept for a year.
+  res.set('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'no-cache');
   res.set('Accept-Ranges', 'bytes');
 
   const range = req.headers.range;

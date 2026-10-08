@@ -72,7 +72,7 @@ export function createPostgresStore(connectionString) {
     const byHome = new Map();
     if (!homeIds.length) return byHome;
     const { rows } = await q(
-      `SELECT home_id, content_type, size_bytes FROM home_videos WHERE home_id = ANY($1::text[])`,
+      `SELECT home_id, content_type, size_bytes, created_at FROM home_videos WHERE home_id = ANY($1::text[])`,
       [homeIds],
     );
     for (const row of rows) byHome.set(row.home_id, row);
@@ -563,7 +563,7 @@ export function createPostgresStore(connectionString) {
     // exactly why the column list is written out rather than left to a star.
     async listResources(communityId) {
       const { rows } = await q(
-        `SELECT id, community_id, kind, title, body, url, content_type, size_bytes, position,
+        `SELECT id, community_id, kind, title, body, url, content_type, size_bytes, position, updated_at,
                 (data IS NOT NULL) AS has_video
            FROM resources WHERE community_id = $1 ORDER BY position, created_at`,
         [communityId],
@@ -573,7 +573,7 @@ export function createPostgresStore(connectionString) {
 
     async getResource(id) {
       const { rows } = await q(
-        `SELECT id, community_id, kind, title, body, url, content_type, size_bytes, position,
+        `SELECT id, community_id, kind, title, body, url, content_type, size_bytes, position, updated_at,
                 (data IS NOT NULL) AS has_video
            FROM resources WHERE id = $1`,
         [id],
@@ -606,7 +606,7 @@ export function createPostgresStore(connectionString) {
         `INSERT INTO resources (id, community_id, kind, title, body, url, content_type, data,
                                 size_bytes, position)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         RETURNING id, community_id, kind, title, body, url, content_type, size_bytes, position,
+         RETURNING id, community_id, kind, title, body, url, content_type, size_bytes, position, updated_at,
                    (data IS NOT NULL) AS has_video`,
         [`r_${shortId(10)}`, communityId, data.kind, data.title ?? '', data.body ?? '',
           data.url ?? '', data.contentType ?? '', data.data ?? null, data.sizeBytes ?? 0,
@@ -629,10 +629,13 @@ export function createPostgresStore(connectionString) {
         }
       }
       if (!sets.length) return this.getResource(id);
+      // The file is served as immutable under an address that carries this stamp,
+      // so a changed file has to move it (see shapeResource).
+      if (patch.data !== undefined) sets.push('updated_at = now()');
       values.push(id);
       const { rows } = await q(
         `UPDATE resources SET ${sets.join(', ')} WHERE id = $${values.length}
-         RETURNING id, community_id, kind, title, body, url, content_type, size_bytes, position,
+         RETURNING id, community_id, kind, title, body, url, content_type, size_bytes, position, updated_at,
                    (data IS NOT NULL) AS has_video`,
         values,
       );

@@ -1,14 +1,30 @@
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
+// What a person should read when the answer is not ours. A proxy in front of the app
+// answers with an HTML page of its own, and a dropped connection has no answer at all.
+const PROXY_ANSWERS = {
+  413: 'That upload is too large for the server to accept. Try a smaller file.',
+  502: 'The server did not answer. Wait a minute and try again.',
+  503: 'The server is busy. Wait a minute and try again.',
+  504: 'The server took too long to answer. Try again, or try a smaller file.',
+};
+
 async function request(path, { method = 'GET', body, token } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: {
-      ...(body === undefined ? {} : JSON_HEADERS),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: {
+        ...(body === undefined ? {} : JSON_HEADERS),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    // The browser's own text for this is "Failed to fetch" (Chrome), "Load failed"
+    // (Safari) or "NetworkError when attempting to fetch resource." (Firefox).
+    throw new Error('Could not reach the server. Check your connection and try again.');
+  }
   if (res.status === 204) return null;
   const text = await res.text();
   let data = null;
@@ -18,7 +34,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
     data = null;
   }
   if (!res.ok) {
-    const error = new Error(data?.error || `Request failed (${res.status})`);
+    const error = new Error(data?.error || PROXY_ANSWERS[res.status] || `Request failed (${res.status})`);
     error.status = res.status;
     throw error;
   }

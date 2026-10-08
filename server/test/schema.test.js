@@ -413,7 +413,7 @@ test('videos and articles round-trip through Postgres', opts, async () => {
         kind: 'video', title: 'Uploaded clip', contentType: 'video/mp4',
         data: Buffer.alloc(64 * 1024, 3).toString('base64'), sizeBytes: 64 * 1024,
       });
-      assert.equal(uploaded.videoUrl, `/api/resources/${uploaded.id}/video`);
+      assert.match(uploaded.videoUrl, new RegExp(`^/api/resources/${uploaded.id}/video\\?v=\\d+$`));
       assert.equal(uploaded.sizeBytes, 64 * 1024);
 
       // The shaped row never carries the file, whatever the query selected —
@@ -514,7 +514,7 @@ test('a home walkthrough round-trips through Postgres', opts, async () => {
         communityId: community.id, contentType: 'video/mp4',
         data: first.toString('base64'), sizeBytes: first.length,
       });
-      assert.equal(stored.videoUrl, `/api/homes/${cedar.id}/video`);
+      assert.match(stored.videoUrl, new RegExp(`^/api/homes/${cedar.id}/video\\?v=\\d+$`));
       assert.equal(stored.videoSizeBytes, first.length);
 
       // The reason the video lives in its own table: the home list is read on
@@ -522,7 +522,7 @@ test('a home walkthrough round-trips through Postgres', opts, async () => {
       // home has a walkthrough.
       const listed = await store.listHomes(community.id);
       const listedCedar = listed.find((h) => h.id === cedar.id);
-      assert.equal(listedCedar.videoUrl, `/api/homes/${cedar.id}/video`);
+      assert.match(listedCedar.videoUrl, new RegExp(`^/api/homes/${cedar.id}/video\\?v=\\d+$`));
       assert.ok(!JSON.stringify(listed).includes(first.toString('base64').slice(0, 64)),
         'and the file is nowhere in it');
       assert.equal(listed.find((h) => h.id === oak.id).videoUrl, '',

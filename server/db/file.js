@@ -66,7 +66,7 @@ export function createFileStore(path) {
   // the Postgres store draws by keeping the file out of its column list.
   const videoOf = (homeId) => {
     const row = db.homeVideos.find((v) => v.homeId === homeId);
-    return row ? { contentType: row.contentType, sizeBytes: row.sizeBytes } : null;
+    return row ? { contentType: row.contentType, sizeBytes: row.sizeBytes, createdAt: row.createdAt } : null;
   };
   // A highlight carries at most one photo, so take the first rather than a gallery.
   const photoOf = (highlightId) => {
@@ -367,7 +367,7 @@ export function createFileStore(path) {
         title: data.title ?? '', body: data.body ?? '', url: data.url ?? '',
         contentType: data.contentType ?? '', data: data.data ?? null,
         sizeBytes: data.sizeBytes ?? 0,
-        position, createdAt: now(),
+        position, createdAt: now(), updatedAt: now(),
       };
       db.resources.push(row);
       save();
@@ -380,6 +380,7 @@ export function createFileStore(path) {
       for (const key of ['kind', 'title', 'body', 'url', 'position', 'contentType', 'data', 'sizeBytes']) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
+      if (patch.data !== undefined) row.updatedAt = now();
       save();
       return shapeResource(row);
     },

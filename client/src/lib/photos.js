@@ -1,3 +1,5 @@
+import { videoTypeOf } from '@shared/domain.js';
+
 // A hero photo renders at most ~1290 physical pixels (a 430px-wide phone at DPR 3),
 // and home photos far less, so 1280 is the point past which extra pixels are paid
 // for in upload time and never seen.
@@ -90,7 +92,11 @@ export async function fileToDataUrl(file) {
  * string to then refuse it is how a phone runs out of memory.
  */
 export async function videoToDataUrl(file, maxBytes, longerHint = 'for a longer one, paste a YouTube or Vimeo link instead.') {
-  if (!file.type.startsWith('video/')) throw new Error('Pick a video file.');
+  // The browser's own File.type is empty for some perfectly good files (a .mov
+  // on a machine with no handler for it) and a non-standard name for others
+  // (video/x-m4v), so judge by type-or-extension and say which type to store.
+  const type = videoTypeOf(file.name, file.type);
+  if (!type) throw new Error('That is not a video we can use. MP4 works everywhere; WebM and MOV also play.');
   if (file.size > maxBytes) {
     const mb = (n) => `${(n / (1024 * 1024)).toFixed(1)} MB`;
     // The hint depends on where the video is going: a home walkthrough has no
@@ -99,7 +105,9 @@ export async function videoToDataUrl(file, maxBytes, longerHint = 'for a longer 
   }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
+    // FileReader labels the data URL with File.type, which is the very thing
+    // that was empty or odd; relabel it with the type decided above.
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, `data:${type};base64,`));
     reader.onerror = () => reject(new Error('That file could not be read. Try picking it again.'));
     reader.readAsDataURL(file);
   });
