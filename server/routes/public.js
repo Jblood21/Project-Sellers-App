@@ -286,9 +286,15 @@ export function publicRouter() {
     ) {
       return res.status(400).json({ error: 'Please check your name, email and cell number and try again.' });
     }
+    // A cell number is optional here: nothing in the app needs one to work. It is asked for when a buyer
+    // wants to meet with the team (POST /me/tour), because then the team has to be able to reach them.
+    // One that is given has to look like a number.
     const digits = (phone.match(/\d/g) || []).length;
-    if (!name || !EMAIL_RE.test(email) || digits < 7) {
-      return res.status(400).json({ error: 'Please add your full name, a valid email and a cell number.' });
+    if (!name || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'Please add your full name and a valid email.' });
+    }
+    if (phone && digits < 7) {
+      return res.status(400).json({ error: 'That cell number looks too short. Check it, or leave it blank for now.' });
     }
 
     // The consent paragraph is rendered HERE, from this community's own name,
@@ -296,7 +302,9 @@ export function publicRouter() {
     // server put on the screen: text supplied by the caller would make the
     // record say whatever a modified client felt like claiming, which is worth
     // less than no record at all.
-    const granted = req.body?.consent === true;
+    // Consent to calls and texts is about a number. Without one there is nothing to agree to, so the
+    // answer is not taken and no row is written; it is asked for again when a number is given.
+    const granted = Boolean(phone) && req.body?.consent === true;
     const consent = {
       granted,
       text: consentText(community.builder || community.name),
@@ -315,7 +323,7 @@ export function publicRouter() {
       // Only a real change is written: re-recording an identical answer on
       // every visit would bury the moment they actually decided under noise.
       const current = existing.consent;
-      if (!current || current.granted !== granted || current.version !== consent.version) {
+      if (phone && (!current || current.granted !== granted || current.version !== consent.version)) {
         await store.recordConsent(existing.id, consent);
         await store.addActivity(
           existing.id,
@@ -336,7 +344,7 @@ export function publicRouter() {
     // and it is the feed the builder actually reads; the consent record is the
     // record, and the lead screen puts it next to the phone number. Only a
     // CHANGE of mind is news, and that is logged below on a return visit.
-    await store.recordConsent(created.id, consent);
+    if (phone) await store.recordConsent(created.id, consent);
     const lead = await store.getLead(created.id);
     res.status(201).json({ lead: publicLead(lead), token: issueLeadToken(lead), returning: false });
   });
@@ -459,6 +467,19 @@ export function publicRouter() {
       return res.status(404).json({ error: 'That time is no longer available.' });
     }
 
+    // Meeting with the team needs a way to reach the buyer. Someone who signed up without a number gives it
+    // here; it is checked before anything is booked, and saved on their record with the answer to the calls
+    // and texts question, in the community's own words, exactly as at the sign-up form.
+    const community = await store.getCommunity(buyer.communityId);
+    let newPhone = '';
+    if (!buyer.phone) {
+      const given = String(req.body?.phone ?? '').trim();
+      if ((given.match(/\d/g) || []).length < 7 || given.length > FIELD_MAX.phone || hasControlCharacter(given)) {
+        return res.status(400).json({ error: 'To set up a time, we need a cell number we can reach you on.' });
+      }
+      newPhone = given;
+    }
+
     // Book first, release afterwards. The other order would hand back the
     // appointment they already had and then fail to get them a new one, leaving
     // a buyer who tried to reschedule with nothing at all.
@@ -479,8 +500,18 @@ export function publicRouter() {
       topic: TOUR_TOPICS.includes(req.body?.topic) ? req.body.topic : 'community',
       requestedAt: new Date().toISOString(),
     };
-    const lead = await store.updateLead(req.leadId, { tour });
-    const community = await store.getCommunity(lead.communityId);
+    const lead = await store.updateLead(req.leadId, { tour, ...(newPhone ? { phone: newPhone } : {}) });
+    if (newPhone) {
+      const granted = req.body?.consent === true;
+      await store.recordConsent(req.leadId, {
+        granted,
+        text: consentText(community?.builder || community?.name),
+        version: CONSENT_VERSION,
+        ip: req.ip ?? '',
+        userAgent: String(req.get('user-agent') ?? '').slice(0, 400),
+      });
+      await store.addActivity(req.leadId, granted ? 'Gave a cell number and agreed to calls and texts' : 'Gave a cell number to book a time');
+    }
     await store.addActivity(
       req.leadId,
       `Booked ${describeTour(tour, lenderNameOf(community))}`,

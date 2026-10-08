@@ -151,10 +151,14 @@ export default function LeadDetail({ community, reload }) {
       <div className="card elev-sm" style={{ gap: 8, marginBottom: 12 }}>
         <span className="card-kicker">Contact</span>
         <div style={{ fontSize: 14 }}>{lead.email}</div>
-        <div style={{ fontSize: 14 }}>{lead.phone}</div>
-        <ConsentNote consent={lead.consent} />
+        {lead.phone ? (
+          <div style={{ fontSize: 14 }}>{lead.phone}</div>
+        ) : (
+          <div className="text-muted" style={{ fontSize: 13 }}>No cell number yet. They signed up with just an email.</div>
+        )}
+        <ConsentNote consent={lead.consent} hasPhone={Boolean(lead.phone)} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-          <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a>
+          {lead.phone ? <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a> : null}
           {/* emailHref refuses an address that carries ?bcc= or similar, which the server's check lets through */}
           {emailHref(lead.email) ? <a className="btn btn-secondary" href={emailHref(lead.email)}>Email</a> : null}
           <button type="button" className="btn btn-ghost" onClick={toggleStatus}>
@@ -315,9 +319,18 @@ function MoveInCard({ lead, homes }) {
  * box existed -- also do not call, but for a different reason, and worth telling
  * apart when deciding what to do about the older leads.
  */
-function ConsentNote({ consent }) {
+function ConsentNote({ consent, hasPhone = true }) {
   const [open, setOpen] = useState(false);
   const stamp = consent?.at ? new Date(consent.at).toLocaleString() : '';
+
+  // No number, so no calls or texts to agree to. Not the same as a "no": nobody was asked.
+  if (!hasPhone && !consent) {
+    return (
+      <div style={{ padding: '9px 11px', borderRadius: 8, background: '#f1f0ea', color: '#4a4a42', fontSize: 12.5, lineHeight: 1.45 }}>
+        Nobody has asked about calls and texts yet, because there is no number. They are asked when they give one to book a time.
+      </div>
+    );
+  }
 
   if (!consent || !consent.granted) {
     return (

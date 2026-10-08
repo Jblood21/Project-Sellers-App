@@ -110,7 +110,7 @@ function BuyerShell() {
 
       <main id="b-main" tabIndex={-1} className="b-main">
         <Routes>
-          <Route index element={<Landing onAddToPhone={() => setAddToPhoneOpen(true)} />} />
+          <Route index element={<Landing />} />
           <Route
             path="start"
             element={
@@ -125,7 +125,7 @@ function BuyerShell() {
           <Route path="explore" element={guard(<Explore />)} />
           <Route path="area" element={guard(<Area />)} />
           <Route path="map" element={guard(<SiteMap />)} />
-          <Route path="homes/:homeId" element={guard(<HomeDetail onOpenTour={() => setTourTopic('community')} />)} />
+          <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} />)} />
           <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
           <Route path="saved" element={guard(<Saved />)} />
           <Route path="plan" element={guard(<Plan onOpenTour={() => setTourTopic('community')} />)} />

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { CONTACT_METHODS, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
+import { CONTACT_METHODS, consentText, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
 import { complianceOf } from '@shared/compliance.js';
 import { buyerApi } from '../lib/api.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
@@ -328,6 +328,12 @@ export function TourDialog({ topic, onClose }) {
   const [moreDays, setMoreDays] = useState(false);
   const [contact, setContact] = useState('phone');
   const [busy, setBusy] = useState(false);
+  // Meeting with the team needs a number to reach them on. A buyer who signed up without one is
+  // asked here, with the same calls-and-texts question the sign-up form asks.
+  const needsPhone = Boolean(lead) && !lead.phone;
+  const [phone, setPhone] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const phoneOk = (phone.match(/\d/g) || []).length >= 7;
   const dialogRef = useRef(null);
   useDialog(open, onClose, dialogRef);
 
@@ -350,6 +356,8 @@ export function TourDialog({ topic, onClose }) {
       setDay(null);
       setPicked(null);
       setMoreDays(false);
+      setPhone('');
+      setAgreed(false);
     }
   }, [open]);
 
@@ -377,7 +385,10 @@ export function TourDialog({ topic, onClose }) {
   const send = async () => {
     if (!picked) return;
     setBusy(true);
-    const done = await requestTour(picked, contact, lender ? 'lender' : 'community');
+    const done = await requestTour(
+      picked, contact, lender ? 'lender' : 'community',
+      needsPhone ? { phone: phone.trim(), consent: agreed } : {},
+    );
     setBusy(false);
     if (done) onClose();
     // On a clash the dialog stays open with a fresh list, so they can pick again.
@@ -488,6 +499,36 @@ export function TourDialog({ topic, onClose }) {
               ))}
             </div>
 
+            {needsPhone ? (
+              <>
+                <label className="b-field" style={{ marginTop: 4 }}>
+                  <span className="b-lbl">Your cell number</span>
+                  <input
+                    className="b-in" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)}
+                    placeholder="(801) 555-0100" autoComplete="tel" inputMode="tel"
+                  />
+                </label>
+                <span style={{ fontSize: 12, color: 'var(--t-mut)', lineHeight: 1.45, margin: '2px 0 4px' }}>
+                  We need a number so the team can reach you about your time.
+                </span>
+                <label
+                  style={{
+                    display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px',
+                    borderRadius: 'var(--t-rad)', background: 'var(--t-tint)',
+                    border: '1px solid var(--t-line)', cursor: 'pointer', marginBottom: 8,
+                  }}
+                >
+                  <input
+                    type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)}
+                    style={{ marginTop: 2, width: 18, height: 18, flex: 'none', accentColor: 'var(--t-acc)' }}
+                  />
+                  <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--t-ink)' }}>
+                    {consentText(community?.builder || community?.name)}
+                  </span>
+                </label>
+              </>
+            ) : null}
+
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="button" className="b-btn b-btn-outline" onClick={onClose} style={{ flex: 1 }}>
                 Cancel
@@ -496,7 +537,7 @@ export function TourDialog({ topic, onClose }) {
                 type="button"
                 className="b-btn"
                 style={{ flex: 1 }}
-                disabled={!picked || busy}
+                disabled={!picked || busy || (needsPhone && !phoneOk)}
                 onClick={send}
               >
                 {busy ? 'Booking…' : 'Book it'}

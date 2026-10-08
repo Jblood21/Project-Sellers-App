@@ -78,7 +78,7 @@ export default function PlanPrint() {
           <div style={{ fontSize: 12.5, color: '#5f5c53', textAlign: 'right' }}>
             <div style={{ fontWeight: 700, color: '#1f221d' }}>{lead?.name}</div>
             <div>{lead?.email}</div>
-            <div>{lead?.phone}</div>
+            {lead?.phone ? <div>{lead.phone}</div> : null}
             <div>{longDate()}</div>
           </div>
         </div>

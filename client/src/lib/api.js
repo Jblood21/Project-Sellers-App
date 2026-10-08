@@ -57,8 +57,8 @@ export const buyerApi = {
   // One whole guide, body included. The community payload carries only the summaries.
   guide: (communityId, slug) =>
     request(`/api/c/${encodeURIComponent(communityId)}/guides/${encodeURIComponent(slug)}`),
-  requestTour: (token, slotId, contact, topic = 'community') =>
-    request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic }, token }),
+  requestTour: (token, slotId, contact, topic = 'community', extra = {}) =>
+    request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic, ...extra }, token }),
   emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
   saveMoveIn: (token, plan) => request('/api/me/movein', { method: 'PUT', body: plan, token }),
 };
