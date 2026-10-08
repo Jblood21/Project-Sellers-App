@@ -16,7 +16,7 @@ export function bootWarnings(env = process.env) {
       + 'https://touradoor.com): canonical links, share previews and the links in emails use it. '
       + 'Until then they follow whichever address a visitor used.',
     );
-  } else if (String(env.PUBLIC_ORIGIN ?? '').trim() && !pinnedOrigin()) {
+  } else if (String(env.PUBLIC_ORIGIN ?? '').trim() && !pinnedOrigin(env.PUBLIC_ORIGIN)) {
     warnings.push(
       'PUBLIC_ORIGIN is set but is not a full http(s) address (it needs the https:// in front), '
       + 'so it is being ignored.',

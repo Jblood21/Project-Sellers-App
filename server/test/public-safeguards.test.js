@@ -10,6 +10,7 @@ import { createFileStore } from '../db/file.js';
 import { resetStoreForTests } from '../db/index.js';
 import { hashPassword, readToken } from '../lib/auth.js';
 import { bootWarnings } from '../lib/bootcheck.js';
+import { clientKey, tooMany } from '../lib/limits.js';
 import { setTransportForTests } from '../lib/email.js';
 import { createApp } from '../index.js';
 
@@ -271,7 +272,7 @@ test('wrong passwords are counted, and a locked-out guesser cannot lock out the 
   assert.equal(owner.status, 200);
 });
 
-test('the sign-up form and "email me my plan" are limited per person, so neither is a way to send mail to a stranger', async () => {
+test('the sign-up form and "email me my plan" are limited per person', async () => {
   const { community, token, enter } = await scene();
   // Five plan emails a day for one buyer.
   for (let n = 1; n <= 5; n += 1) {
@@ -288,6 +289,104 @@ test('the sign-up form and "email me my plan" are limited per person, so neither
   assert.equal((await api(`/api/c/${community.id}/leads`, {
     method: 'POST', body: { name: 'Different Person', email: 'different@test.co', phone: '801-555-0188' },
   })).status, 201);
+});
+
+test('a visitor is one address, however many an IPv6 block hands out', async () => {
+  const key = (ip) => clientKey({ ip });
+  assert.equal(key('203.0.113.9'), '203.0.113.9');
+  assert.equal(key('::ffff:203.0.113.9'), '203.0.113.9', 'an IPv4 address wrapped in IPv6 is the IPv4 address');
+  assert.equal(key('::ffff:cb00:7109'), '203.0.113.9', 'in either spelling');
+  assert.equal(key('2001:db8:abcd:12::1'), key('2001:db8:abcd:12:ffff:ffff:ffff:ffff'), 'one /64 is one visitor');
+  assert.equal(key('2001:db8:abcd:12::1'), '2001:db8:abcd:12::/64');
+  assert.notEqual(key('2001:db8:abcd:12::1'), key('2001:db8:abcd:13::1'), 'the next /64 is somebody else');
+  assert.equal(key('2001:db8::1'), '2001:db8:0:0::/64', 'a :: that hides zero groups is expanded first');
+  assert.equal(key('::1'), '0:0:0:0::/64');
+  assert.equal(key('fe80::1%eth0'), 'fe80:0:0:0::/64', 'a zone id is ignored');
+  assert.equal(key(undefined), '');
+});
+
+test('guessing the owner\'s password from many addresses of one IPv6 block is still guessing from one address', async () => {
+  for (let n = 1; n <= 8; n += 1) {
+    const res = await raw('/api/admin/login', {
+      method: 'POST', body: { email: 'blockguess@test.co', password: 'nope' },
+      headers: { 'X-Forwarded-For': `2001:db8:feed:1::${n}` },
+    });
+    assert.equal(res.status, 401, `guess ${n}`);
+  }
+  const ninth = await raw('/api/admin/login', {
+    method: 'POST', body: { email: 'blockguess@test.co', password: 'nope' },
+    headers: { 'X-Forwarded-For': '2001:db8:feed:1::99' },
+  });
+  assert.equal(ninth.status, 429, 'a new address in the same block does not start a new count');
+});
+
+test('a caller who is not signed in cannot make the server read a big body', async () => {
+  const big = { filler: 'x'.repeat(1024 * 1024) };
+  // The sign-in form takes the small parser: over 64 KB is refused before it is parsed.
+  const login = await raw('/api/admin/login', { method: 'POST', body: big });
+  assert.equal(login.status, 413);
+  // Everything else under /api/admin is refused for want of a token before the body is read.
+  const noToken = await raw('/api/admin/communities', { method: 'POST', body: big });
+  assert.equal(noToken.status, 401);
+  // Over the 6 MB limit the old arrangement said 413, having read the lot; now it never looks.
+  const enormous = await raw('/api/admin/communities', { method: 'POST', body: { filler: 'x'.repeat(7 * 1024 * 1024) } });
+  assert.equal(enormous.status, 401);
+  const badToken = await raw('/api/admin/communities', { method: 'POST', token: 'not.valid', body: big });
+  assert.equal(badToken.status, 401);
+  // A signed-in admin still gets the larger parser: this body is far over 64 KB and is accepted.
+  const signedIn = await raw('/api/admin/communities', {
+    method: 'POST', token: adminToken, body: { name: 'Big Body Test', filler: 'x'.repeat(200 * 1024) },
+  });
+  assert.equal(signedIn.status, 201);
+});
+
+test('a plan email that could not be sent does not use up the buyer\'s five for the day', async () => {
+  const { token } = await scene('Failing Send');
+  const ok = restoreMail;
+  restoreMail = setTransportForTests(async () => { throw new Error('provider down'); });
+  for (let n = 1; n <= 6; n += 1) {
+    const down = await api('/api/me/plan/email', { method: 'POST', token, body: {} });
+    assert.equal(down.status, 503, `attempt ${n} says it could not send, never "too many"`);
+  }
+  restoreMail();
+  restoreMail = setTransportForTests(async (payload) => { sent.push(payload); return { id: 'x' }; });
+  void ok;
+  for (let n = 1; n <= 5; n += 1) {
+    assert.equal((await api('/api/me/plan/email', { method: 'POST', token, body: {} })).status, 200, `send ${n} once it is back`);
+  }
+  assert.equal((await api('/api/me/plan/email', { method: 'POST', token, body: {} })).status, 429);
+});
+
+test('one inbox gets five plan emails a day however many sign-ups point at it', async () => {
+  const { community } = await scene('Victim Inbox');
+  const tokens = [];
+  for (let n = 1; n <= 4; n += 1) {
+    const res = await api(`/api/c/${community.id}/leads`, {
+      method: 'POST', body: { name: `Stranger ${n}`, email: 'victim@example.org', phone: `(801) 555-02${n}0` },
+    });
+    assert.equal(res.status, 201);
+    tokens.push(res.body.token);
+  }
+  let delivered = 0;
+  let refused = 0;
+  for (const token of tokens) {
+    for (let n = 1; n <= 3; n += 1) {
+      const res = await api('/api/me/plan/email', { method: 'POST', token, body: {} });
+      if (res.status === 200) delivered += 1;
+      else if (res.status === 429) refused += 1;
+    }
+  }
+  assert.equal(delivered, 5, 'twelve requests, five delivered');
+  assert.equal(refused, 7);
+  assert.equal(sent.filter((mail) => /victim@example.org/.test(String(mail.to))).length, 5);
+});
+
+test('a wait is described honestly, whether minutes, hours or days', () => {
+  assert.match(tooMany('things', 30), /in a minute/);
+  assert.match(tooMany('things', 20 * 60), /in about 20 minutes/);
+  assert.match(tooMany('things', 5 * 3600), /in about 5 hours/);
+  assert.match(tooMany('things', 86400), /tomorrow/);
+  assert.doesNotMatch(tooMany('things', 86400), /later today/);
 });
 
 test('a forged token with multibyte characters is turned away, not an error', async () => {

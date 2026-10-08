@@ -9,7 +9,7 @@ import {
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
-import { createLimiter, limitRequests } from '../lib/limits.js';
+import { clientKey, createLimiter, limitRequests, reserve, tooMany } from '../lib/limits.js';
 import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } from '../lib/params.js';
 import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
@@ -218,19 +218,24 @@ export async function loadPublicCommunity(store, communityId) {
 export function publicRouter() {
   const router = rejectControlCharacters(catchAsyncErrors(Router()));
 
-  // What a stranger can make this server do is limited per address and, where there is
-  // one, per buyer. The numbers leave a busy sales trailer (one shared wifi address,
-  // dozens of visitors an hour) alone and stop a script.
-  const gatePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 60 });
+  // What a stranger can make this server do is limited per visitor (an address; an IPv6 block counts as
+  // one) and, where there is one, per buyer. A model-home trailer is one wifi address with many buyers on
+  // it, and a launch day puts a few hundred through the gate, so the per-address numbers are generous
+  // and the per-person ones are what stop a script from repeating itself.
+  const gatePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 400 });
   const gatePerPerson = createLimiter({ windowMs: 60 * 60 * 1000, max: 8 });
-  const writesPerIp = createLimiter({ windowMs: 10 * 60 * 1000, max: 900 });
+  const writesPerIp = createLimiter({ windowMs: 10 * 60 * 1000, max: 3000 });
+  const activityPerLead = createLimiter({ windowMs: 10 * 60 * 1000, max: 300 });
   const planMailPerLead = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 5 });
-  const planMailPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
+  // A plan goes to the email typed at the gate, which nobody has verified, so the cap that matters for a
+  // stranger's inbox is on the recipient, whichever lead or address asked.
+  const planMailPerRecipient = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 5 });
+  const planMailPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 30 });
   const toursPerLead = createLimiter({ windowMs: 60 * 60 * 1000, max: 12 });
   router.use((req, res, next) => (
     req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
       ? next()
-      : limitRequests(() => [[writesPerIp, req.ip]], 'requests')(req, res, next)
+      : limitRequests(() => [[writesPerIp, clientKey(req)]], 'requests')(req, res, next)
   ));
 
   /** Everything the buyer app needs to render a community. */
@@ -268,8 +273,8 @@ export function publicRouter() {
    * existing record back rather than a duplicate lead.
    */
   router.post('/c/:communityId/leads', limitRequests((req) => [
-    [gatePerIp, req.ip],
-    [gatePerPerson, `${req.ip}|${String(req.body?.email ?? '').trim().toLowerCase().slice(0, FIELD_MAX.email)}`],
+    [gatePerIp, clientKey(req)],
+    [gatePerPerson, `${clientKey(req)}|${String(req.body?.email ?? '').trim().toLowerCase().slice(0, FIELD_MAX.email)}`],
   ], 'sign-up attempts'), async (req, res) => {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
@@ -414,7 +419,7 @@ export function publicRouter() {
   });
 
   /** Behavioral tracking — price points tested, loan types explored, views. */
-  router.post('/me/activity', requireLead, async (req, res) => {
+  router.post('/me/activity', requireLead, limitRequests((req) => [[activityPerLead, req.leadId]], 'requests'), async (req, res) => {
     const text = stripControlCharacters(req.body?.text).trim().slice(0, 300);
     if (!text) return res.status(400).json({ error: 'Nothing to log' });
     const store = await getStore();
@@ -423,20 +428,35 @@ export function publicRouter() {
   });
 
   /** The buyer asks for their own plan. Never sent unprompted. */
-  router.post('/me/plan/email', requireLead, limitRequests((req) => [
-    [planMailPerLead, req.leadId],
-    [planMailPerIp, req.ip],
-  ], 'plan emails'), async (req, res) => {
+  router.post('/me/plan/email', requireLead, async (req, res) => {
     const store = await getStore();
     const lead = await store.getLead(req.leadId);
     if (!lead) return res.status(404).json({ error: 'We could not find your plan.' });
     const community = await store.getCommunity(lead.communityId);
     if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
 
-    const homes = await store.listHomes(community.id);
-    const result = await sendPlanToBuyer({
-      community: { ...community, homes }, lead, baseUrl: linkOriginOf(req),
-    });
+    // Only an email that went out counts against the caps: a provider outage or a missing sender
+    // must not use up a buyer's five for the day, or hide itself behind "too many" for everyone
+    // on their wifi. The uses are held while the send is in flight and given back if it fails.
+    const hold = reserve([
+      [planMailPerLead, req.leadId],
+      [planMailPerRecipient, String(lead.email).trim().toLowerCase()],
+      [planMailPerIp, clientKey(req)],
+    ]);
+    if (hold.wait) {
+      res.set('Retry-After', String(hold.wait));
+      return res.status(429).json({ error: tooMany('plan emails', hold.wait) });
+    }
+    let result;
+    try {
+      const homes = await store.listHomes(community.id);
+      result = await sendPlanToBuyer({
+        community: { ...community, homes }, lead, baseUrl: linkOriginOf(req),
+      });
+    } finally {
+      // Also on a throw: nothing was sent either way.
+      if (!result?.sent) hold.release();
+    }
     if (!result.sent) {
       return res.status(503).json({
         error: 'We could not send that right now. You can still download it as a PDF.',

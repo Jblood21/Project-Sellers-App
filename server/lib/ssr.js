@@ -48,8 +48,8 @@ const firstOf = (value) => String(value ?? '').split(',')[0].trim();
  * address. A misconfigured value is ignored rather than trusted, because it ends
  * up in every canonical and every JSON-LD @id.
  */
-export function pinnedOrigin() {
-  const raw = String(process.env.PUBLIC_ORIGIN ?? '').trim();
+export function pinnedOrigin(value = process.env.PUBLIC_ORIGIN) {
+  const raw = String(value ?? '').trim();
   if (!raw) return '';
   try {
     const url = new URL(raw);
@@ -69,7 +69,10 @@ export function originOfRequest(req) {
   // A deployment answers on every name it has (Render's own and a custom domain),
   // and a canonical that follows the Host header is a different canonical on each
   // of them, which defeats the point of having one. When PUBLIC_ORIGIN is set it
-  // is the one answer; the request only decides in development, where it is unset.
+  // is the one answer. Unset (development), a page behind a proxy is addressed as the
+  // browser addressed it, which is what the forwarded headers carry. The links in
+  // emails do not take that road: they are written for a third party to click, so they
+  // never follow a header the caller chose (see linkOriginOf).
   const pinned = pinnedOrigin();
   if (pinned) return pinned;
   const host = firstOf(req.get('x-forwarded-host')) || firstOf(req.get('host'));

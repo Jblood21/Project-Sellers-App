@@ -46,9 +46,9 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   // what refuses an oversized file rather than the parser.
   const smallJson = express.json({ limit: '6mb' });
   const videoJson = express.json({ limit: '36mb' });
-  // Everything outside /api/admin is open to the public and takes small forms: a sign-up,
-  // a plan item, a booking. 64 KB is far more than any of them needs, and it is the most a
-  // stranger can make the server read and parse in one request.
+  // Everything a stranger can reach (the buyer app, the sign-in form) takes small forms: a sign-up,
+  // a plan item, a booking, an email and a password. 64 KB is far more than any of them needs, and it
+  // is the most a stranger can make the server read and parse in one request.
   const publicJson = express.json({ limit: '64kb' });
   // The 36 MB parser is for the three admin routes that take a video as a data URL, and only
   // once the caller has proved they are an admin. Left global it was a door anyone could open:
@@ -62,9 +62,15 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     || (req.method === 'POST' && /^\/api\/admin\/communities\/[^/]+\/resources\/*$/i.test(req.path))
     || (req.method === 'PATCH' && /^\/api\/admin\/resources\/[^/]+\/*$/i.test(req.path));
   const isAdminPath = (req) => /^\/api\/admin(\/|$)/i.test(req.path);
+  // The one admin request a stranger legitimately makes. It carries an email and a password.
+  const isLogin = (req) => req.method === 'POST' && /^\/api\/admin\/login\/*$/i.test(req.path);
+  // The 6 MB parser is for a caller who has already proved they are an admin, for the same reason as
+  // the video one: the limits on the sign-in form run after the body is read, so a body read first is
+  // a body anyone can make this server hold in memory, a few at a time, on a 512 MB instance.
   app.use((req, res, next) => {
     if (carriesVideo(req)) return requireAdmin(req, res, () => videoJson(req, res, next));
-    return (isAdminPath(req) ? smallJson : publicJson)(req, res, next);
+    if (isAdminPath(req) && !isLogin(req)) return requireAdmin(req, res, () => smallJson(req, res, next));
+    return publicJson(req, res, next);
   });
 
   // `commit` answers the question the deploy hook exists to make answerable: is
