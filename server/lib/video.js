@@ -12,6 +12,25 @@
  */
 
 /**
+ * Milliseconds since the epoch for a stored timestamp (a Date from pg, an ISO
+ * string from the file store), or 0 when there is none.
+ */
+export const revisionOf = (value) => {
+  const ms = new Date(value ?? 0).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+};
+
+/**
+ * The version of a stored file: when it was last written. A home's walkthrough
+ * only has a created_at (the upsert resets it on every replacement); a Learn
+ * video has an updated_at that moves only when the FILE changes, so renaming it
+ * does not throw away every browser's cached copy. Both the address handed to the
+ * browser (shape.js) and the check below read it from here, so they cannot differ.
+ */
+export const revisionOfFile = (row) =>
+  revisionOf(row?.updated_at ?? row?.updatedAt ?? row?.created_at ?? row?.createdAt);
+
+/**
  * Write `video` ({ content_type, data }, data being base64) to the response,
  * honouring a Range header. Whole file as 200, a slice as 206, and anything
  * unparseable or out of bounds as 416 with the length — never a silent clamp,
@@ -20,8 +39,13 @@
 export function sendVideo(req, res, video) {
   const buffer = Buffer.from(video.data, 'base64');
   res.set('Content-Type', video.content_type || 'video/mp4');
-  // The bytes never change once uploaded — a replacement writes a new file.
-  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  // The bytes behind the file's CURRENT version (?v=<stored-at>) never change: a
+  // replacement is a new version and so a new address, which is what lets them be
+  // kept for a year. A request with no version, or with one that is no longer
+  // current (an old link, a bookmark, a page loaded before a replacement), still
+  // gets the file as it is now but is not allowed to keep it under that address.
+  const immutable = req.query.v !== undefined && String(req.query.v) === String(revisionOfFile(video));
+  res.set('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-cache');
   res.set('Accept-Ranges', 'bytes');
 
   const range = req.headers.range;

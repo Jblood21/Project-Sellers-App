@@ -7,7 +7,7 @@ import express from 'express';
 
 import { getStore } from './db/index.js';
 import { seedIfEmpty } from './db/seed.js';
-import { hashPassword } from './lib/auth.js';
+import { hashPassword, requireAdmin } from './lib/auth.js';
 import { hasControlCharacter } from './lib/params.js';
 import { originOfRequest, renderBuyerPage, unavailablePage } from './lib/ssr.js';
 import { adminRouter } from './routes/admin.js';
@@ -39,11 +39,26 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     });
     next();
   });
-  // Photo uploads arrive as data URLs, so the JSON body limit has to clear 3 MB.
-  // 6mb covered photos. A 25MB video arrives base64-encoded, which is a third
-  // bigger again, so the ceiling has to clear 34MB for the cap in shared/domain
-  // to be the thing that refuses an oversized file rather than the parser.
-  app.use(express.json({ limit: '36mb' }));
+  // Photo uploads arrive as data URLs (a 3 MB cap, 4 MB once encoded), so ordinary JSON
+  // gets 6 MB. A 25 MB video arrives base64-encoded, which is a third bigger again, so the
+  // routes that take one get a ceiling that clears 34 MB, for the cap in shared/domain to be
+  // what refuses an oversized file rather than the parser.
+  const smallJson = express.json({ limit: '6mb' });
+  const videoJson = express.json({ limit: '36mb' });
+  // The 36 MB parser is for the three admin routes that take a video as a data URL, and only
+  // once the caller has proved they are an admin. Left global it was a door anyone could open:
+  // an anonymous 34 MB POST to ANY endpoint (the login form, the buyer contact gate) was read
+  // and parsed in full before the handler could say no, and a handful at once exhausts a 512 MB
+  // instance, which restarts and drops whatever upload was in flight.
+  // Express routes without regard to case or a trailing slash, so this must too, or a
+  // legitimate upload to '/video/' would meet the 6 MB parser and be refused.
+  const carriesVideo = (req) =>
+    (req.method === 'PUT' && /^\/api\/admin\/homes\/[^/]+\/video\/*$/i.test(req.path))
+    || (req.method === 'POST' && /^\/api\/admin\/communities\/[^/]+\/resources\/*$/i.test(req.path))
+    || (req.method === 'PATCH' && /^\/api\/admin\/resources\/[^/]+\/*$/i.test(req.path));
+  app.use((req, res, next) => (
+    carriesVideo(req) ? requireAdmin(req, res, () => videoJson(req, res, next)) : smallJson(req, res, next)
+  ));
 
   // `commit` answers the question the deploy hook exists to make answerable: is
   // what is live the code that was merged? Render sets RENDER_GIT_COMMIT on every
@@ -220,7 +235,14 @@ if (isMain) {
     const seeded = await seedIfEmpty(store);
     if (seeded) console.log(`Seeded demo community: ${seeded.name} (/c/${seeded.id})`);
   }
-  createApp().listen(port, () => {
+  const server = createApp().listen(port, () => {
     console.log(`Touradoor listening on :${port} (${store.kind} store)`);
   });
+  // Node closes a request that has not finished arriving after 5 minutes (408), and an
+  // idle connection after 5 seconds. A 25 MB video over a weak phone signal needs far
+  // longer than the first, and the second is shorter than any proxy's idle timeout, which
+  // is how a proxy ends up reusing a socket Node has just closed (a sporadic 502).
+  server.requestTimeout = 15 * 60 * 1000;
+  server.headersTimeout = 66 * 1000;
+  server.keepAliveTimeout = 65 * 1000;
 }

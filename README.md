@@ -93,6 +93,12 @@ Caching: the hashed files under `/assets` are cached for a long time. The artwor
 Equal Housing mark) and `/guides` (artwork no longer shown on the guides) keeps its file name when it changes, so the server marks
 it `Cache-Control: no-cache`: a browser keeps a copy but asks first, and an unchanged file answers `304` with no body.
 
+Uploaded videos (a home's walkthrough, a Learn video) are served from an address that ends `?v=<when the file was stored>`.
+The file at its *current* version is cached for a year; a replacement moves the version, so it arrives under a new address. A request
+with no version, or an old one, still gets the file as it is now but is `no-cache`. Uploads are capped at 25 MB (about 12 to 25
+seconds of phone video) and travel as base64 inside JSON, so only the admin routes that take one accept a body bigger than 6 MB,
+and only after sign-in; for anything longer, paste a YouTube or Vimeo link in the Learn tab.
+
 ## Deploying to Render
 
 1. Push this repo to GitHub.

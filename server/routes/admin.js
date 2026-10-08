@@ -216,12 +216,48 @@ const readyDate = (value) => {
 const LINK_INSTEAD = 'for a longer one, paste a YouTube or Vimeo link instead.';
 const TRIM_INSTEAD = 'try a shorter clip.';
 
+/**
+ * What the first bytes say the file is, or null if they say nothing we know.
+ *
+ * The type a browser reports comes from the file's extension and the operating
+ * system's registry, so a perfectly good clip arrives as '' or
+ * application/octet-stream (an upper-case .MOV on Linux, a Windows machine with no
+ * registered type) and as video/x-m4v for a file that plays fine as MP4. The
+ * container's own signature is the better witness.
+ *
+ * It answers with a type that is NOT allowed for the files it recognises as
+ * something else (a HEIC/AVIF picture or an M4A recording shares MP4's `ftyp` box,
+ * and Matroska shares WebM's header), so a wrong label cannot talk them in.
+ */
+const NOT_VIDEO_BRANDS = new Set([
+  'heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'mif1', 'msf1', 'avif', 'avis', 'crx ',
+]);
+const AUDIO_BRANDS = new Set(['M4A ', 'M4B ', 'M4P ']);
+const sniffVideoType = (base64) => {
+  const head = Buffer.from(base64.slice(0, 96), 'base64');
+  if (head.length >= 12 && head.toString('latin1', 4, 8) === 'ftyp') {
+    const brand = head.toString('latin1', 8, 12);
+    if (NOT_VIDEO_BRANDS.has(brand)) return 'image/heif';
+    if (AUDIO_BRANDS.has(brand)) return 'audio/mp4';
+    return brand === 'qt  ' ? 'video/quicktime' : 'video/mp4';
+  }
+  if (head.length >= 4 && head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) {
+    return head.includes('webm') ? 'video/webm' : 'video/x-matroska'; // browsers play WebM, not Matroska
+  }
+  if (head.length >= 4 && head.toString('latin1', 0, 4) === 'OggS') return 'video/ogg';
+  return null;
+};
+
 const readVideo = (body, longerHint = LINK_INSTEAD) => {
   const dataUrl = String(body?.dataUrl ?? '');
   const match = /^data:([^;,]+);base64,(.+)$/s.exec(dataUrl);
   if (!match) return { error: 'That file could not be read. Try picking it again.' };
 
-  const [, contentType, base64] = match;
+  const [, declared, base64] = match;
+  // A label that is missing or unhelpful yields to what the file says it is; a label
+  // that says something else entirely (an image, a PDF) is never overruled.
+  const sniffed = declared.startsWith('video/') || declared === 'application/octet-stream' ? sniffVideoType(base64) : null;
+  const contentType = sniffed ?? declared;
   if (!VIDEO_TYPES.has(contentType)) {
     return { error: 'That is not a video file. MP4 works everywhere; WebM and MOV also play.' };
   }

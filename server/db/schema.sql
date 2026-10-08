@@ -217,6 +217,9 @@ CREATE TABLE IF NOT EXISTS resources (
 ALTER TABLE resources ADD COLUMN IF NOT EXISTS content_type TEXT NOT NULL DEFAULT '';
 ALTER TABLE resources ADD COLUMN IF NOT EXISTS data TEXT;
 ALTER TABLE resources ADD COLUMN IF NOT EXISTS size_bytes INTEGER NOT NULL DEFAULT 0;
+-- When the file was last replaced. The video route serves it as immutable under
+-- an address that carries this stamp, so replacing it has to change the stamp.
+ALTER TABLE resources ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 CREATE INDEX IF NOT EXISTS resources_community_idx ON resources(community_id, position);
 
 -- Appointment slots the builder publishes. slot_date and slot_time are literal

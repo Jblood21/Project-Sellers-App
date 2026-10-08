@@ -2,6 +2,7 @@ import {
   DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE, DEFAULT_GUIDE_IMAGE_ALT, DEFAULT_SETTINGS, REPLACED_DEFAULTS,
   DEFAULT_TOOLS_ENABLED, GUIDE_TEXT_MAX, normalizeLayout, normalizeTheme, slugify,
 } from '../../shared/domain.js';
+import { revisionOfFile } from '../lib/video.js';
 
 /** A community's settings: the defaults, then what it saved, with any reworded default brought up to date. */
 function currentSettings(saved) {
@@ -66,7 +67,11 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     position: Number(row.position) || 0,
     photos,
     floorPlans,
-    videoUrl: video ? `/api/homes/${row.id}/video` : '',
+    // `v` is when this file was stored. The route sends the bytes as immutable for
+    // a year, and the address is the only cache key a browser has, so a replaced
+    // walkthrough has to arrive under a new address or every browser that already
+    // played the old one keeps playing it.
+    videoUrl: video ? `/api/homes/${row.id}/video?v=${revisionOfFile(video)}` : '',
     videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
   };
 }
@@ -171,7 +176,11 @@ export function shapeResource(row) {
     // buyer on every page load, and a base64 video in that payload would be
     // megabytes of JSON nobody asked for. Callers that want the file fetch it
     // from its own route, where it can stream.
-    videoUrl: hasVideo(row) ? `/api/resources/${row.id}/video` : '',
+    // Versioned for the reason shapeHome gives: the same id keeps its address when
+    // the file is replaced, and the bytes are served as immutable.
+    videoUrl: hasVideo(row)
+      ? `/api/resources/${row.id}/video?v=${revisionOfFile(row)}`
+      : '',
     contentType: row.content_type ?? row.contentType ?? '',
     sizeBytes: Number(row.size_bytes ?? row.sizeBytes) || 0,
     position: Number(row.position) || 0,
