@@ -106,12 +106,16 @@ time), never the builder's notes, status, activity feed or the consent evidence 
 The sign-up form caps what it stores (name 120, email 254, phone 40 characters; a plan note 500) and refuses control
 characters; every body a stranger can send (the buyer app and the sign-in form) is limited to 64 KB, and nothing under
 `/api/admin` is read until the caller has signed in. Requests are counted in memory per visitor (an address; an IPv6 block counts as
-one) and, where there is one, per person (`server/lib/limits.js`): 8 wrong admin passwords per address and email per 15 minutes
-(and 60 per email from anywhere), 400 sign-ups an hour per address (8 per address and email), 5 plan emails a day per buyer and
-5 a day to any one inbox (a failed send does not count), 12 booking attempts an hour per buyer. A busy sales trailer on one wifi
-address is well inside these. A restart clears the counts. The links written into emails come from `PUBLIC_ORIGIN` or the plain
-`Host` header, never from a header the caller chose; the address a page writes for itself in its own head still follows the proxy's
-forwarded headers when `PUBLIC_ORIGIN` is unset, so set it in production.
+one) and, where there is one, per person (`server/lib/limits.js`). Admin sign-in: 8 wrong passwords per address and email per 15 minutes, 30 per address, 60
+per email from anywhere (a right password gives its own count back, and guesses sent all at once are held before the
+account is looked up). Buyers: 400 sign-up attempts an hour per address and 8 per address and email; 5 plan emails a day
+per buyer and 5 a day to any one inbox, 30 an hour per address (a send that fails does not count); 12 booking attempts an
+hour per buyer; 300 activity taps per buyer per 10 minutes; 3000 writes per address per 10 minutes. These are set for a
+sales trailer on one wifi address with many buyers on it, and they are guesses about real traffic, not measurements: if
+a buyer reports "Too many requests", look for the number here first. A restart clears the counts. The links written
+into emails come from `PUBLIC_ORIGIN` or the plain `Host` header, never from a header the caller chose; the address a page
+writes for itself in its own head still follows the proxy's forwarded headers when `PUBLIC_ORIGIN` is unset, so set it in
+production.
 
 Uploaded videos (a home's walkthrough, a Learn video) are served from an address that ends `?v=<when the file was stored>`.
 The file at its *current* version is cached for a year; a replacement moves the version, so it arrives under a new address. A request
@@ -125,8 +129,13 @@ and only after sign-in; for anything longer, paste a YouTube or Vimeo link in th
 2. Render → **New → Blueprint**, select the repo. [`render.yaml`](render.yaml) provisions the
    web service and a Postgres instance, and generates `SESSION_SECRET` and
    `RATES_WEBHOOK_SECRET`.
-3. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the service's environment before the first deploy
-   (they are marked `sync: false` so they never live in the repo).
+3. Render asks for five values the blueprint leaves blank (`sync: false`, so they never live in the repo).
+   Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first deploy. `PUBLIC_ORIGIN`, `RESEND_API_KEY` and
+   `EMAIL_FROM` can be left empty until the domain and the email account exist; the server logs a `WARNING:` for each
+   at boot, and email stays off until both email values are set (put nothing in them rather than something made up).
+   `SEED_DEMO` and `NODE_VERSION` come from the file, not from the form. After the first deploy, find the log line
+   `First API request: req.ip=…`: `req.ip` should be the visitor's own address. If it is the same for different people,
+   the request limits would treat everyone as one visitor and `trust proxy` in `server/index.js` needs another hop count.
 4. Deploy. Build runs `npm install && npm run build`; start runs `node server/index.js`, which
    serves the API, both SPAs and the per-community manifests from one service.
 5. Sign in at `https://<your-domain>/admin`, create a community, add homes and photos, then use

@@ -24,6 +24,21 @@ const defaultClientDist = join(root, 'client', 'dist');
 export function createApp({ clientDist = defaultClientDist } = {}) {
   const app = express();
   app.set('trust proxy', 1);
+  // The request limits count a visitor by req.ip, which with one trusted proxy hop is the last
+  // X-Forwarded-For entry. If the host puts more than one hop in front of the app, that entry is
+  // not the visitor and everyone would share one count. Say what the first live request looked
+  // like, once, so the owner can check it in the log instead of finding out from a buyer.
+  if (process.env.NODE_ENV === 'production') {
+    let seen = false;
+    app.use((req, _res, next) => {
+      if (!seen && req.path.startsWith('/api/')) {
+        seen = true;
+        console.log(`First API request: req.ip=${req.ip} X-Forwarded-For=${req.get('x-forwarded-for') ?? '(none)'}. `
+          + 'req.ip should be the visitor\'s own address; if it is the same for different people, trust proxy needs a different hop count.');
+      }
+      next();
+    });
+  }
   app.disable('x-powered-by');
 
   // The cheap, always-safe headers on every response, static files and the SPA

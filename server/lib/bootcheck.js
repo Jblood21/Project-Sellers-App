@@ -21,6 +21,11 @@ export function bootWarnings(env = process.env) {
       'PUBLIC_ORIGIN is set but is not a full http(s) address (it needs the https:// in front), '
       + 'so it is being ignored.',
     );
+  } else if (production && pinnedOrigin(env.PUBLIC_ORIGIN).startsWith('http:')) {
+    warnings.push(
+      'PUBLIC_ORIGIN starts with http://, so every link in an email and every canonical address '
+      + 'will too. A live site should use https://.',
+    );
   }
   if (production && !env.SESSION_SECRET) {
     warnings.push(

@@ -9,7 +9,7 @@ import {
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
-import { clientKey, createLimiter, tooMany } from '../lib/limits.js';
+import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
@@ -295,18 +295,24 @@ export function adminRouter() {
     const visitor = clientKey(req);
     const emailKey = email.toLowerCase().slice(0, 254);
     const personKey = `${visitor}|${emailKey}`;
-    const wait = Math.max(failuresPerIp.wait(visitor), failuresPerPerson.wait(personKey), failuresPerEmail.wait(emailKey));
-    if (wait) {
-      res.set('Retry-After', String(wait));
-      return res.status(429).json({ error: tooMany('sign-in attempts', wait) });
+    // Held before anything is awaited, and given back on a right password. Counting after the lookup
+    // would let a burst of guesses sent at once all pass the check before the first is counted.
+    const attempt = reserve([[failuresPerIp, visitor], [failuresPerPerson, personKey], [failuresPerEmail, emailKey]]);
+    if (attempt.wait) {
+      res.set('Retry-After', String(attempt.wait));
+      return res.status(429).json({ error: tooMany('sign-in attempts', attempt.wait) });
     }
-    const admin = email && (await store.getAdminByEmail(email));
+    let admin;
+    try {
+      admin = email && (await store.getAdminByEmail(email));
+    } catch (err) {
+      attempt.release(); // our failure, not a wrong password
+      throw err;
+    }
     if (!admin || !verifyPassword(password, admin.password_hash)) {
-      failuresPerIp.hit(visitor);
-      failuresPerPerson.hit(personKey);
-      failuresPerEmail.hit(emailKey);
       return res.status(401).json({ error: 'That email and password do not match.' });
     }
+    attempt.release();
     failuresPerPerson.reset(personKey);
     res.json({ token: issueToken(admin), admin: { id: admin.id, email: admin.email } });
   });

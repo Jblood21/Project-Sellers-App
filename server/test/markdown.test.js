@@ -532,12 +532,14 @@ test('fuzz: thousands of random marker soups never throw, never hang, and never 
 // What does not depend on the machine is HOW the time grows. A linear scan takes four times as long
 // on four times the input; a quadratic one takes sixteen. Timing the same shape at two sizes, back
 // to back on the same machine, cancels out how fast or how busy it is.
-function fastest(work, tries = 5) {
+function fastest(work, tries = 3) {
   let best = Infinity;
   for (let attempt = 0; attempt < tries; attempt++) {
     const started = Date.now();
     work();
     best = Math.min(best, Date.now() - started);
+    // Quick enough that it will not be compared anyway: more runs only cost time.
+    if (best < TOO_QUICK_MS) break;
   }
   return best;
 }
@@ -554,12 +556,15 @@ function assertLinear(label, count, build, work) {
   const large = build(count);
   const tSmall = fastest(() => work(small));
   const tLarge = fastest(() => work(large));
-  assert.ok(tLarge < CEILING_MS, `${label}: ${tLarge}ms for ${large.length} characters`);
   if (tSmall >= TOO_QUICK_MS) {
+    // Measurable at both sizes: judged by how the time grew, which a slow or busy machine does not change.
     assert.ok(
       tLarge < tSmall * MAX_GROWTH,
       `${label}: ${large.length / small.length}x the input took ${(tLarge / tSmall).toFixed(1)}x as long (${tSmall}ms to ${tLarge}ms), which is not linear`,
     );
+  } else {
+    // Too quick to compare, so all that can be said is that the larger one did not run away.
+    assert.ok(tLarge < CEILING_MS, `${label}: ${tLarge}ms for ${large.length} characters`);
   }
 }
 
@@ -600,6 +605,7 @@ test('long runs of interior spaces and tabs are cheap: no regex retries from eve
     'interior spaces': [50000, (n) => 'a' + ' '.repeat(n) + 'b'],
     'interior tabs (four spaces each once expanded)': [15000, (n) => 'a' + '\t'.repeat(n) + 'b'],
     'a title line padded with spaces': [50000, (n) => '# a' + ' '.repeat(n) + '#'],
+    'a title with a run of spaces in the middle of its text': [50000, (n) => '# a' + ' '.repeat(n) + 'b'],
   };
   for (const [name, [count, build]] of Object.entries(shapes)) {
     assertLinear(name, count, build, (src) => { parseMarkdown(src); markdownToText(src); parseGuideMarkdown(src, 'x.md'); });
