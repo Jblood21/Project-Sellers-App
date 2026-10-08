@@ -523,16 +523,18 @@ test('fuzz: thousands of random marker soups never throw, never hang, and never 
     parsed++;
   }
   assert.equal(parsed, 6000);
-  assert.ok(Date.now() - started < 4000, `6000 small inputs took ${Date.now() - started}ms`);
+  // Measured at about 350 ms; the ceiling is only there to catch a parser that has gone wrong, not to time the machine.
+  assert.ok(Date.now() - started < 20000, `6000 small inputs took ${Date.now() - started}ms`);
 });
 
-// A wall-clock bound on a shared CI runner: the first run of an input pays for a cold JIT
-// and a garbage collection, and a busy neighbour adds to that (a 130 ms input has been
-// measured at 1.6 s there). A quadratic scan is slow every time, so a run that misses its
-// bound gets up to two more tries and the fastest of them is the one judged.
-function fastest(work, limitMs, tries = 3) {
+// How long a parse takes depends on the machine and on what else it is doing: a 130 ms input has
+// been measured at 1.6 s on a busy CI runner, so a fixed millisecond bound is a coin flip there.
+// What does not depend on the machine is HOW the time grows. A linear scan takes four times as long
+// on four times the input; a quadratic one takes sixteen. Timing the same shape at two sizes, back
+// to back on the same machine, cancels out how fast or how busy it is.
+function fastest(work, tries = 5) {
   let best = Infinity;
-  for (let attempt = 0; attempt < tries && best >= limitMs; attempt++) {
+  for (let attempt = 0; attempt < tries; attempt++) {
     const started = Date.now();
     work();
     best = Math.min(best, Date.now() - started);
@@ -540,62 +542,78 @@ function fastest(work, limitMs, tries = 3) {
   return best;
 }
 
+// Below this a run is too quick to time (a millisecond of noise is a large fraction of it), so a
+// shape that small is held to a generous ceiling on the larger run instead of to a ratio.
+const TOO_QUICK_MS = 20;
+const CEILING_MS = 5000;
+const MAX_GROWTH = 9; // linear is about 4, quadratic about 16
+
+/** `build(n)` makes the shape from a count; it is timed at count/4 and at count. */
+function assertLinear(label, count, build, work) {
+  const small = build(Math.round(count / 4));
+  const large = build(count);
+  const tSmall = fastest(() => work(small));
+  const tLarge = fastest(() => work(large));
+  assert.ok(tLarge < CEILING_MS, `${label}: ${tLarge}ms for ${large.length} characters`);
+  if (tSmall >= TOO_QUICK_MS) {
+    assert.ok(
+      tLarge < tSmall * MAX_GROWTH,
+      `${label}: ${large.length / small.length}x the input took ${(tLarge / tSmall).toFixed(1)}x as long (${tSmall}ms to ${tLarge}ms), which is not linear`,
+    );
+  }
+}
+
 test('pathological repeats stay linear: unclosed markers do not go quadratic', () => {
-  const big = [
-    '*'.repeat(60000),
-    '**a '.repeat(15000),
-    '*a '.repeat(20000),
-    '***x '.repeat(10000),
-    '['.repeat(30000),
-    '[a]('.repeat(8000),
-    '![a]('.repeat(8000),
-    '[a](' + 'b '.repeat(20000),
-    '`'.repeat(40000),
-    '`a '.repeat(20000),
-    '> '.repeat(20000),
-    '>\n'.repeat(20000),
-    '- '.repeat(20000),
-    '1. '.repeat(20000),
-    '\\'.repeat(40000),
-    '\n'.repeat(60000),
-    ' '.repeat(120000) + '#',
-    '# ' + ' '.repeat(80000) + 'x #',
-    '> **' + 'a '.repeat(30000),
-    '**' + ' '.repeat(80000),
-    '(' .repeat(40000) + '[x](' + ')'.repeat(40000),
-    'a  \n'.repeat(20000),
+  const shapes = [
+    [60000, (n) => '*'.repeat(n)],
+    [15000, (n) => '**a '.repeat(n)],
+    [20000, (n) => '*a '.repeat(n)],
+    [10000, (n) => '***x '.repeat(n)],
+    [30000, (n) => '['.repeat(n)],
+    [8000, (n) => '[a]('.repeat(n)],
+    [8000, (n) => '![a]('.repeat(n)],
+    [20000, (n) => '[a](' + 'b '.repeat(n)],
+    [40000, (n) => '`'.repeat(n)],
+    [20000, (n) => '`a '.repeat(n)],
+    [20000, (n) => '> '.repeat(n)],
+    [20000, (n) => '>\n'.repeat(n)],
+    [20000, (n) => '- '.repeat(n)],
+    [20000, (n) => '1. '.repeat(n)],
+    [40000, (n) => '\\'.repeat(n)],
+    [60000, (n) => '\n'.repeat(n)],
+    [120000, (n) => ' '.repeat(n) + '#'],
+    [80000, (n) => '# ' + ' '.repeat(n) + 'x #'],
+    [30000, (n) => '> **' + 'a '.repeat(n)],
+    [80000, (n) => '**' + ' '.repeat(n)],
+    [40000, (n) => '('.repeat(n) + '[x](' + ')'.repeat(n)],
+    [20000, (n) => 'a  \n'.repeat(n)],
   ];
-  for (const src of big) {
-    const took = fastest(() => { parseMarkdown(src); markdownToText(src); }, 1500);
-    assert.ok(took < 1500, `${JSON.stringify(src.slice(0, 20))}... (${src.length} chars) took ${took}ms`);
+  for (const [count, build] of shapes) {
+    assertLinear(JSON.stringify(build(3).slice(0, 20)), count, build, (src) => { parseMarkdown(src); markdownToText(src); });
   }
 });
 
-// The bound above is loose on purpose (CI machines vary), which is exactly how a
-// trailing-space regex that took 3 to 50 seconds on a 60KB body slipped through: its
-// inputs were never of this shape. These shapes are the ones that went quadratic, each
-// with a bound a linear scan clears by a wide margin and a quadratic one cannot.
+// The shapes that took 3 to 50 seconds on a 60KB body (a trailing-space regex that retried from every
+// space) went unnoticed because their inputs were never of this form. Each is held to linear growth.
 test('long runs of interior spaces and tabs are cheap: no regex retries from every space', () => {
   const shapes = {
-    'interior spaces': 'a' + ' '.repeat(50000) + 'b',
-    'interior tabs (four spaces each once expanded)': 'a' + '\t'.repeat(15000) + 'b',
-    'a title line padded with spaces': '# a' + ' '.repeat(50000) + '#',
+    'interior spaces': [50000, (n) => 'a' + ' '.repeat(n) + 'b'],
+    'interior tabs (four spaces each once expanded)': [15000, (n) => 'a' + '\t'.repeat(n) + 'b'],
+    'a title line padded with spaces': [50000, (n) => '# a' + ' '.repeat(n) + '#'],
   };
-  for (const [name, src] of Object.entries(shapes)) {
-    const took = fastest(() => { parseMarkdown(src); markdownToText(src); parseGuideMarkdown(src, 'x.md'); }, 150);
-    assert.ok(took < 150, `${name} took ${took}ms`);
+  for (const [name, [count, build]] of Object.entries(shapes)) {
+    assertLinear(name, count, build, (src) => { parseMarkdown(src); markdownToText(src); parseGuideMarkdown(src, 'x.md'); });
   }
 });
 
 test('unclosed brackets and very many short lines stay cheap', () => {
   const shapes = {
-    'a wall of [': '['.repeat(120000),
-    'a [ on every line': '\n['.repeat(60000),
-    'one-letter lines in one paragraph': 'a\n'.repeat(60000),
+    'a wall of [': [120000, (n) => '['.repeat(n)],
+    'a [ on every line': [60000, (n) => '\n['.repeat(n)],
+    'one-letter lines in one paragraph': [60000, (n) => 'a\n'.repeat(n)],
   };
-  for (const [name, src] of Object.entries(shapes)) {
-    const took = fastest(() => parseMarkdown(src), 250);
-    assert.ok(took < 250, `${name} took ${took}ms`);
+  for (const [name, [count, build]] of Object.entries(shapes)) {
+    assertLinear(name, count, build, (src) => parseMarkdown(src));
   }
 });
 

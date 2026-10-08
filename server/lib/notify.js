@@ -50,7 +50,7 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     planLines.length ? 'What they have worked out so far:' : 'They have not run any tools yet.',
     ...planLines,
     '',
-    baseUrl ? `Open the lead: ${baseUrl}/admin/leads/${lead.id}` : '',
+    baseUrl ? `Open the lead: ${baseUrl}/admin/communities/${community.id}/leads/${lead.id}` : '',
     '',
     `Mark it handled in the dashboard once you have ${prefersEmail ? 'emailed' : 'called'} them, so it leaves the queue.`,
   ].filter((line) => line !== undefined).join('\n');

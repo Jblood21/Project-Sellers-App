@@ -7,6 +7,7 @@ import {
 } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
+import { emailHref } from '../../lib/contact.js';
 import { money, shortDate } from '../../lib/format.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { ErrorNote, Spinner } from '../ui.jsx';
@@ -154,7 +155,8 @@ export default function LeadDetail({ community, reload }) {
         <ConsentNote consent={lead.consent} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
           <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a>
-          <a className="btn btn-secondary" href={`mailto:${lead.email}`}>Email</a>
+          {/* emailHref refuses an address that carries ?bcc= or similar, which the server's check lets through */}
+          {emailHref(lead.email) ? <a className="btn btn-secondary" href={emailHref(lead.email)}>Email</a> : null}
           <button type="button" className="btn btn-ghost" onClick={toggleStatus}>
             {lead.status === 'new' ? 'Mark contacted' : 'Mark not contacted'}
           </button>

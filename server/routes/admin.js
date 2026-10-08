@@ -9,6 +9,7 @@ import {
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
+import { createLimiter, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
@@ -277,14 +278,29 @@ const readVideo = (body, longerHint = LINK_INSTEAD) => {
 export function adminRouter() {
   const router = rejectControlCharacters(catchAsyncErrors(Router()));
 
+  // Wrong passwords are counted per address, and per address AND email. The second is keyed
+  // on both so that someone failing against the owner's email locks out only themselves, not
+  // the owner. A right password clears its own count.
+  const failuresPerIp = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+  const failuresPerPerson = createLimiter({ windowMs: 15 * 60 * 1000, max: 8 });
+
   router.post('/login', async (req, res) => {
     const store = await getStore();
     const email = str(req.body?.email);
     const password = String(req.body?.password ?? '');
+    const personKey = `${req.ip}|${email.toLowerCase().slice(0, 254)}`;
+    const wait = Math.max(failuresPerIp.wait(req.ip), failuresPerPerson.wait(personKey));
+    if (wait) {
+      res.set('Retry-After', String(wait));
+      return res.status(429).json({ error: tooMany('sign-in attempts', wait) });
+    }
     const admin = email && (await store.getAdminByEmail(email));
     if (!admin || !verifyPassword(password, admin.password_hash)) {
+      failuresPerIp.hit(req.ip);
+      failuresPerPerson.hit(personKey);
       return res.status(401).json({ error: 'That email and password do not match.' });
     }
+    failuresPerPerson.reset(personKey);
     res.json({ token: issueToken(admin), admin: { id: admin.id, email: admin.email } });
   });
 

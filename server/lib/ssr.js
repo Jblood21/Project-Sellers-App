@@ -48,7 +48,7 @@ const firstOf = (value) => String(value ?? '').split(',')[0].trim();
  * address. A misconfigured value is ignored rather than trusted, because it ends
  * up in every canonical and every JSON-LD @id.
  */
-function pinnedOrigin() {
+export function pinnedOrigin() {
   const raw = String(process.env.PUBLIC_ORIGIN ?? '').trim();
   if (!raw) return '';
   try {
@@ -77,6 +77,24 @@ export function originOfRequest(req) {
   const forwarded = firstOf(req.get('x-forwarded-proto')).toLowerCase();
   const proto = forwarded === 'http' || forwarded === 'https' ? forwarded : req.protocol || 'https';
   return `${proto}://${host}`;
+}
+
+/**
+ * The address a link in an EMAIL points at. PUBLIC_ORIGIN when it is set; otherwise
+ * the Host header alone, and never X-Forwarded-Host: that header is whatever the
+ * caller sent, and a buyer who can pick the host in the builder's "Open the lead"
+ * link has been handed a way to send the builder to a page of their own choosing.
+ * (The platform routes on Host, so only the site's own names reach this server.)
+ * Returns '' when nothing trustworthy is known, and the email then carries no link.
+ */
+export function linkOriginOf(req) {
+  const pinned = pinnedOrigin();
+  if (pinned) return pinned;
+  const host = String(req.get('host') ?? '').trim();
+  if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/i.test(host)) return '';
+  // X-Forwarded-Proto is a header like any other. A production site is https, whatever it says.
+  const plain = process.env.NODE_ENV !== 'production' && req.protocol === 'http';
+  return `${plain ? 'http' : 'https'}://${host}`;
 }
 
 /**

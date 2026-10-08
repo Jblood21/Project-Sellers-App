@@ -8,6 +8,7 @@ import express from 'express';
 import { getStore } from './db/index.js';
 import { seedIfEmpty } from './db/seed.js';
 import { hashPassword, requireAdmin } from './lib/auth.js';
+import { bootWarnings } from './lib/bootcheck.js';
 import { hasControlCharacter } from './lib/params.js';
 import { originOfRequest, renderBuyerPage, unavailablePage } from './lib/ssr.js';
 import { adminRouter } from './routes/admin.js';
@@ -45,6 +46,10 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   // what refuses an oversized file rather than the parser.
   const smallJson = express.json({ limit: '6mb' });
   const videoJson = express.json({ limit: '36mb' });
+  // Everything outside /api/admin is open to the public and takes small forms: a sign-up,
+  // a plan item, a booking. 64 KB is far more than any of them needs, and it is the most a
+  // stranger can make the server read and parse in one request.
+  const publicJson = express.json({ limit: '64kb' });
   // The 36 MB parser is for the three admin routes that take a video as a data URL, and only
   // once the caller has proved they are an admin. Left global it was a door anyone could open:
   // an anonymous 34 MB POST to ANY endpoint (the login form, the buyer contact gate) was read
@@ -56,9 +61,11 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     (req.method === 'PUT' && /^\/api\/admin\/homes\/[^/]+\/video\/*$/i.test(req.path))
     || (req.method === 'POST' && /^\/api\/admin\/communities\/[^/]+\/resources\/*$/i.test(req.path))
     || (req.method === 'PATCH' && /^\/api\/admin\/resources\/[^/]+\/*$/i.test(req.path));
-  app.use((req, res, next) => (
-    carriesVideo(req) ? requireAdmin(req, res, () => videoJson(req, res, next)) : smallJson(req, res, next)
-  ));
+  const isAdminPath = (req) => /^\/api\/admin(\/|$)/i.test(req.path);
+  app.use((req, res, next) => {
+    if (carriesVideo(req)) return requireAdmin(req, res, () => videoJson(req, res, next));
+    return (isAdminPath(req) ? smallJson : publicJson)(req, res, next);
+  });
 
   // `commit` answers the question the deploy hook exists to make answerable: is
   // what is live the code that was merged? Render sets RENDER_GIT_COMMIT on every
@@ -229,6 +236,7 @@ async function ensureAdmin(store) {
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
   const port = Number(process.env.PORT) || 3000;
+  for (const warning of bootWarnings()) console.warn(`WARNING: ${warning}`);
   const store = await getStore();
   await ensureAdmin(store);
   if (process.env.SEED_DEMO !== 'false') {

@@ -86,12 +86,27 @@ See [`.env.example`](.env.example).
 | `RESEND_API_KEY` | Enables outbound email. Omit and the app sends nothing, breaking nothing. |
 | `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
 | `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
-| `PUBLIC_ORIGIN` | The one public address of the site, e.g. `https://homes.example.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. |
+| `PUBLIC_ORIGIN` | The one public address of the site with the `https://`, e.g. `https://touradoor.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data, and into the links in emails; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. A value without `https://` is ignored, and the server says so at boot. |
 | `PORT` | Defaults to 3000; Render sets this. |
+| `RATE_LIMITS` | `off` turns the request limits off, `on` forces them on. Unset they are on, except under `node --test`. |
+| `DATA_FILE` | Where the JSON-file store keeps its data when `DATABASE_URL` is unset (default `data/db.json`). |
+| `RESEND_ENDPOINT` | Overrides the Resend API address; only tests and local mail catchers need it. |
+| `RENDER_GIT_COMMIT` | Set by Render on every build. `/api/health` reports it as `commit`, so you can check that a merge is the code that is live. |
 
-Caching: the hashed files under `/assets` are cached for a long time. The artwork under `/brand` (logos, the
+At boot the server logs a `WARNING:` line for each of these that is missing and quietly costs something: `PUBLIC_ORIGIN`,
+`SESSION_SECRET` and `DATABASE_URL` in production, and `RESEND_API_KEY` / `EMAIL_FROM` for email. Check the Render log after a deploy.
+
+Caching: the hashed files under `/assets` are cached for an hour. The artwork under `/brand` (logos, the
 Equal Housing mark) and `/guides` (artwork no longer shown on the guides) keeps its file name when it changes, so the server marks
 it `Cache-Control: no-cache`: a browser keeps a copy but asks first, and an unchanged file answers `304` with no body.
+
+**Safeguards on the public side.** A buyer is only ever sent their own record (their details, plan, saved homes and booked
+time), never the builder's notes, status, activity feed or the consent evidence (`publicLead` in `server/routes/public.js`).
+The sign-up form caps what it stores (name 120, email 254, phone 40 characters; a plan note 500) and refuses control
+characters; every public request body is limited to 64 KB. Requests are counted in memory per address and, where there is one,
+per person (`server/lib/limits.js`): 8 wrong admin passwords per address and email per 15 minutes, 60 sign-ups an hour per
+address (8 per address and email), 5 plan emails a day per buyer, 12 booking attempts an hour per buyer. A busy sales trailer
+on one wifi address is well inside these. A restart clears the counts.
 
 Uploaded videos (a home's walkthrough, a Learn video) are served from an address that ends `?v=<when the file was stored>`.
 The file at its *current* version is cached for a year; a replacement moves the version, so it arrives under a new address. A request
@@ -173,7 +188,7 @@ Three things a buyer standing at a sign asks before they ask about financing:
 
 - **Lot numbers** — a field on each home, shown beside the beds/baths line.
 - **Floor plans** — up to four drawings per home, stored under their own photo kind so
-  they never appear in the photo carousel and never count against the 12-photo gallery limit.
+  they never appear in the photo carousel and never count against the 8-photo gallery limit.
 - **Site map** — the community plat, uploaded under **Setup**, with a list of the lots that have
   a home on them.
 

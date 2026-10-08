@@ -9,8 +9,10 @@ import {
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
-import { rejectControlCharacters } from '../lib/params.js';
+import { createLimiter, limitRequests } from '../lib/limits.js';
+import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } from '../lib/params.js';
 import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
+import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { sendVideo } from '../lib/video.js';
 import { catchAsyncErrors } from './admin.js';
 
@@ -19,13 +21,38 @@ const SERVED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'im
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GUIDE_SLUG_RE = new RegExp(`^[a-z0-9-]{1,${GUIDE_TEXT_MAX.slug}}$`);
 
-/** Absolute URL of this deployment, so emails can link back into the app. */
-const baseUrlOf = (req) => {
-  const host = req.get('x-forwarded-host') || req.get('host');
-  if (!host) return '';
-  const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
-  return `${proto}://${host}`;
-};
+// How much of each thing a stranger may hand us. The gate is open to anyone with a
+// community link and the fields are stored, shown to the builder and emailed, so each
+// one is bounded to what a real person types.
+const FIELD_MAX = { name: 120, email: 254, phone: 40, summary: 500 };
+
+/**
+ * A lead as the BUYER may see it: their own details and what they built. The record the
+ * builder works from also holds that builder's private notes, the lead's status, read and
+ * archive stamps, internal activity lines and the IP address on the consent row, none of
+ * which is for the person they are about. Every buyer-facing response goes through this.
+ */
+export const publicLead = (lead) => (lead ? {
+  id: lead.id,
+  communityId: lead.communityId,
+  name: lead.name,
+  email: lead.email,
+  phone: lead.phone,
+  savedHomeIds: lead.savedHomeIds ?? [],
+  plan: lead.plan ?? {},
+  moveIn: lead.moveIn ?? null,
+  tour: lead.tour
+    ? {
+      slotId: lead.tour.slotId,
+      date: lead.tour.date,
+      time: lead.tour.time,
+      contact: lead.tour.contact,
+      topic: lead.tour.topic,
+      requestedAt: lead.tour.requestedAt,
+    }
+    : null,
+  consent: lead.consent ? { granted: Boolean(lead.consent.granted), at: lead.consent.at ?? null } : null,
+} : null);
 const PLAN_KEYS = new Set([...TOOL_KEYS, 'homes']);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DRIVER_STEP_KEYS = new Set(MOVE_IN_DRIVER_STEP_KEYS);
@@ -58,10 +85,10 @@ const cleanMoveIn = (body, homeIds) => {
     targetDate: cleanDate(body?.targetDate),
     leaseEnd: cleanDate(body?.leaseEnd),
     payMethod: PAY_METHOD_KEYS.includes(body?.payMethod) ? body.payMethod : 'loan',
-    drivers: (Array.isArray(body?.drivers) ? body.drivers : []).filter((d) => MOVE_IN_DRIVER_KEYS.includes(d)),
+    drivers: [...new Set(Array.isArray(body?.drivers) ? body.drivers : [])].filter((d) => MOVE_IN_DRIVER_KEYS.includes(d)),
     // A step can be ticked only if it still exists -- deleting one of their own
     // items should not leave a tick behind that nothing can ever untick.
-    done: (Array.isArray(body?.done) ? body.done : [])
+    done: [...new Set(Array.isArray(body?.done) ? body.done : [])]
       .filter((k) => MOVE_IN_STEP_KEYS.includes(k) || ownKeys.has(k) || DRIVER_STEP_KEYS.has(k))
       .slice(0, 60),
     ownSteps,
@@ -127,6 +154,9 @@ const publicCommunity = (
   { logo, logoLight, lenderLogo, agents, guides },
 ) => ({
   id: community.id,
+  // The one public address when PUBLIC_ORIGIN pins it, so the browser writes the same
+  // canonical and structured-data id the server wrote instead of whichever host it loaded from.
+  siteOrigin: pinnedOrigin(),
   name: community.name,
   location: community.location,
   status: community.status,
@@ -188,6 +218,21 @@ export async function loadPublicCommunity(store, communityId) {
 export function publicRouter() {
   const router = rejectControlCharacters(catchAsyncErrors(Router()));
 
+  // What a stranger can make this server do is limited per address and, where there is
+  // one, per buyer. The numbers leave a busy sales trailer (one shared wifi address,
+  // dozens of visitors an hour) alone and stop a script.
+  const gatePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 60 });
+  const gatePerPerson = createLimiter({ windowMs: 60 * 60 * 1000, max: 8 });
+  const writesPerIp = createLimiter({ windowMs: 10 * 60 * 1000, max: 900 });
+  const planMailPerLead = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 5 });
+  const planMailPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
+  const toursPerLead = createLimiter({ windowMs: 60 * 60 * 1000, max: 12 });
+  router.use((req, res, next) => (
+    req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
+      ? next()
+      : limitRequests(() => [[writesPerIp, req.ip]], 'requests')(req, res, next)
+  ));
+
   /** Everything the buyer app needs to render a community. */
   router.get('/c/:communityId', async (req, res) => {
     const payload = await loadPublicCommunity(await getStore(), req.params.communityId);
@@ -222,7 +267,10 @@ export function publicRouter() {
    * The contact gate. Returning buyers who re-enter the same email get their
    * existing record back rather than a duplicate lead.
    */
-  router.post('/c/:communityId/leads', async (req, res) => {
+  router.post('/c/:communityId/leads', limitRequests((req) => [
+    [gatePerIp, req.ip],
+    [gatePerPerson, `${req.ip}|${String(req.body?.email ?? '').trim().toLowerCase().slice(0, FIELD_MAX.email)}`],
+  ], 'sign-up attempts'), async (req, res) => {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
     if (!community) return res.status(404).json({ error: 'That community link is no longer active.' });
@@ -230,6 +278,14 @@ export function publicRouter() {
     const name = String(req.body?.name ?? '').trim();
     const email = String(req.body?.email ?? '').trim();
     const phone = String(req.body?.phone ?? '').trim();
+    // Bounded, and free of control characters (a NUL byte is refused by Postgres and would
+    // otherwise surface as a server error for what is only a malformed form).
+    if (
+      name.length > FIELD_MAX.name || email.length > FIELD_MAX.email || phone.length > FIELD_MAX.phone
+      || hasControlCharacter(name) || hasControlCharacter(email) || hasControlCharacter(phone)
+    ) {
+      return res.status(400).json({ error: 'Please check your name, email and cell number and try again.' });
+    }
     const digits = (phone.match(/\d/g) || []).length;
     if (!name || !EMAIL_RE.test(email) || digits < 7) {
       return res.status(400).json({ error: 'Please add your full name, a valid email and a cell number.' });
@@ -267,7 +323,7 @@ export function publicRouter() {
         );
       }
       const lead = await store.getLead(existing.id);
-      return res.json({ lead, token: issueLeadToken(lead), returning: true });
+      return res.json({ lead: publicLead(lead), token: issueLeadToken(lead), returning: true });
     }
 
     const created = await store.createLead(community.id, { name, email, phone });
@@ -282,7 +338,7 @@ export function publicRouter() {
     // CHANGE of mind is news, and that is logged below on a return visit.
     await store.recordConsent(created.id, consent);
     const lead = await store.getLead(created.id);
-    res.status(201).json({ lead, token: issueLeadToken(lead), returning: false });
+    res.status(201).json({ lead: publicLead(lead), token: issueLeadToken(lead), returning: false });
   });
 
   // ── the buyer's own record ───────────────────────────────────────────────
@@ -290,7 +346,7 @@ export function publicRouter() {
     const store = await getStore();
     const lead = await store.getLead(req.leadId);
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
-    res.json(lead);
+    res.json(publicLead(lead));
   });
 
   /** Toggle a saved home. Returns the new saved list so the client can reconcile. */
@@ -317,13 +373,13 @@ export function publicRouter() {
   router.put('/me/plan/:key', requireLead, async (req, res) => {
     const key = req.params.key;
     if (!PLAN_KEYS.has(key)) return res.status(400).json({ error: 'Unknown plan item' });
-    const summary = String(req.body?.summary ?? '').trim();
+    const summary = stripControlCharacters(req.body?.summary).trim().slice(0, FIELD_MAX.summary);
     if (!summary) return res.status(400).json({ error: 'Nothing to save yet' });
 
     const store = await getStore();
     await store.upsertPlanItem(req.leadId, key, summary);
     await store.addActivity(req.leadId, `${PLAN_LABELS[key] || key} saved: ${summary}`);
-    res.json(await store.getLead(req.leadId));
+    res.json(publicLead(await store.getLead(req.leadId)));
   });
 
   /**
@@ -346,12 +402,12 @@ export function publicRouter() {
     if (plan.targetDate && plan.targetDate !== before?.targetDate) {
       await store.addActivity(req.leadId, `Wants to be moved in by ${plan.targetDate}`);
     }
-    res.json(await store.getLead(req.leadId));
+    res.json(publicLead(await store.getLead(req.leadId)));
   });
 
   /** Behavioral tracking — price points tested, loan types explored, views. */
   router.post('/me/activity', requireLead, async (req, res) => {
-    const text = String(req.body?.text ?? '').trim().slice(0, 300);
+    const text = stripControlCharacters(req.body?.text).trim().slice(0, 300);
     if (!text) return res.status(400).json({ error: 'Nothing to log' });
     const store = await getStore();
     await store.addActivity(req.leadId, text);
@@ -359,7 +415,10 @@ export function publicRouter() {
   });
 
   /** The buyer asks for their own plan. Never sent unprompted. */
-  router.post('/me/plan/email', requireLead, async (req, res) => {
+  router.post('/me/plan/email', requireLead, limitRequests((req) => [
+    [planMailPerLead, req.leadId],
+    [planMailPerIp, req.ip],
+  ], 'plan emails'), async (req, res) => {
     const store = await getStore();
     const lead = await store.getLead(req.leadId);
     if (!lead) return res.status(404).json({ error: 'We could not find your plan.' });
@@ -368,7 +427,7 @@ export function publicRouter() {
 
     const homes = await store.listHomes(community.id);
     const result = await sendPlanToBuyer({
-      community: { ...community, homes }, lead, baseUrl: baseUrlOf(req),
+      community: { ...community, homes }, lead, baseUrl: linkOriginOf(req),
     });
     if (!result.sent) {
       return res.status(503).json({
@@ -385,14 +444,20 @@ export function publicRouter() {
     res.json(await store.listOpenSlots(req.params.communityId));
   });
 
-  router.post('/me/tour', requireLead, async (req, res) => {
+  router.post('/me/tour', requireLead, limitRequests((req) => [[toursPerLead, req.leadId]], 'booking attempts'), async (req, res) => {
     const store = await getStore();
     const slotId = String(req.body?.slotId ?? '').trim();
     const contact = CONTACT_METHOD_KEYS.includes(req.body?.contact) ? req.body.contact : 'phone';
     if (!slotId) return res.status(400).json({ error: 'Pick a time that works' });
 
+    const buyer = await store.getLead(req.leadId);
+    if (!buyer) return res.status(404).json({ error: 'We could not find your plan.' });
     const slot = await store.getSlot(slotId);
-    if (!slot) return res.status(404).json({ error: 'That time is no longer available.' });
+    // A time belongs to one community. Its id is published on that community's page, so
+    // without this a buyer from one development could take another's appointment.
+    if (!slot || slot.communityId !== buyer.communityId) {
+      return res.status(404).json({ error: 'That time is no longer available.' });
+    }
 
     // Book first, release afterwards. The other order would hand back the
     // appointment they already had and then fail to get them a new one, leaving
@@ -426,11 +491,11 @@ export function publicRouter() {
     if (community) {
       const homes = await store.listHomes(community.id);
       const result = await notifyCallRequest({
-        store, community: { ...community, homes }, lead, baseUrl: baseUrlOf(req),
+        store, community: { ...community, homes }, lead, baseUrl: linkOriginOf(req),
       });
       if (result.sent) await store.addActivity(req.leadId, 'Builder emailed about the call request');
     }
-    res.json(lead);
+    res.json(publicLead(lead));
   });
 
   // ── photos ───────────────────────────────────────────────────────────────

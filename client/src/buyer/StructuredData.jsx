@@ -134,7 +134,9 @@ export default function StructuredData() {
     let cancelled = false;
 
     try {
-      const origin = window.location.origin;
+      // The server pins the site's one public address (PUBLIC_ORIGIN) into the page it renders;
+      // writing the browser's own host over it would put a second canonical on the same page.
+      const origin = community.siteOrigin || window.location.origin;
       const route = routeOf(rest);
       const homes = Array.isArray(community.homes) ? community.homes : [];
       const guides = Array.isArray(community.guides) ? community.guides : [];
