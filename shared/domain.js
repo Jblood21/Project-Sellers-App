@@ -249,9 +249,10 @@ export const MAX_VIDEOS = 4;
 
 /**
  * An uploaded video is stored in the database, so the cap is a storage decision
- * rather than a technical ceiling: 25MB is roughly a minute of phone video, and
- * every one of them is a minute of database that never shrinks. Anything longer
- * belongs behind a link, which is why the link field is still there.
+ * rather than a technical ceiling: 25MB is only about 12 to 25 seconds of a
+ * modern phone's 1080p video (roughly 8 to 17 megabits a second), and every one of
+ * them is database that never shrinks. Anything longer belongs behind a link,
+ * which is why the link field is still there.
  */
 export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
 
@@ -276,7 +277,7 @@ export function videoTypeOf(name, type) {
   if (VIDEO_TYPES.has(base)) return base;
   if (base === '' || base === 'application/octet-stream' || base.startsWith('video/')) {
     const extension = String(name ?? '').split('.').pop().toLowerCase();
-    return VIDEO_EXTENSIONS[extension] ?? '';
+    return Object.prototype.hasOwnProperty.call(VIDEO_EXTENSIONS, extension) ? VIDEO_EXTENSIONS[extension] : '';
   }
   return '';
 }

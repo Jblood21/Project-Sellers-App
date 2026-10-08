@@ -284,8 +284,26 @@ function WalkthroughRow({ home, reload }) {
   const [busy, setBusy] = useState(false);
   // The upload can succeed and still be a file this browser cannot decode (an
   // iPhone's default HEVC .mov in most non-Apple browsers). Without this the
-  // builder just sees a black box and concludes the upload failed.
-  const [unplayable, setUnplayable] = useState(false);
+  // builder just sees a black box and concludes the upload failed. The fault is
+  // remembered against the address that failed, so it goes with the video: removing
+  // or replacing it gives a different address and the note no longer applies.
+  const [playFault, setPlayFault] = useState({ url: '', kind: '' });
+
+  // A player error means one of two things that need opposite advice: the file cannot
+  // be decoded (re-export it) or it could not be fetched (a dropped connection; the
+  // file is fine). Ask for its first byte to tell them apart.
+  const diagnose = async (event) => {
+    const url = home.videoUrl;
+    const code = event.currentTarget.error?.code;
+    let reachable = false;
+    try {
+      reachable = (await fetch(url, { headers: { Range: 'bytes=0-0' } })).ok;
+    } catch {
+      reachable = false;
+    }
+    setPlayFault({ url, kind: reachable && (code === 3 || code === 4) ? 'codec' : 'load' });
+  };
+  const fault = playFault.url && playFault.url === home.videoUrl ? playFault.kind : '';
 
   const upload = async (event) => {
     const file = event.target.files?.[0];
@@ -293,7 +311,6 @@ function WalkthroughRow({ home, reload }) {
     if (!file) return;
     setBusy(true);
     setError('');
-    setUnplayable(false);
     try {
       const dataUrl = await videoToDataUrl(file, MAX_VIDEO_BYTES, 'try a shorter clip.');
       await adminApi.setHomeVideo(token, home.id, { dataUrl });
@@ -324,7 +341,7 @@ function WalkthroughRow({ home, reload }) {
               src={home.videoUrl}
               controls
               preload="metadata"
-              onError={() => setUnplayable(true)}
+              onError={diagnose}
               style={{ width: 150, borderRadius: 8, background: '#000', flex: 'none' }}
             />
             <span className="text-muted" style={{ fontSize: 11.5 }}>
@@ -359,9 +376,9 @@ function WalkthroughRow({ home, reload }) {
       <input ref={inputRef} type="file" accept="video/*" hidden onChange={upload} />
       <ErrorNote>{error}</ErrorNote>
       <ErrorNote>
-        {unplayable && !error
+        {error || !fault ? '' : fault === 'codec'
           ? 'This browser cannot play that file, so buyers on it will not see it either. Re-export it as MP4 (H.264) and replace it.'
-          : ''}
+          : 'The video did not load. Check your connection and reload the page.'}
       </ErrorNote>
     </>
   );

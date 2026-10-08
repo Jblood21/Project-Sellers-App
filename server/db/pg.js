@@ -416,7 +416,7 @@ export function createPostgresStore(connectionString) {
     /** The file itself, asked for only by the route that streams it. */
     async getHomeVideo(homeId) {
       const { rows } = await q(
-        `SELECT content_type, data FROM home_videos WHERE home_id = $1`, [homeId],
+        `SELECT content_type, data, created_at FROM home_videos WHERE home_id = $1`, [homeId],
       );
       return rows[0] ?? null;
     },
@@ -584,7 +584,7 @@ export function createPostgresStore(connectionString) {
     /** The file itself, asked for only by the route that streams it. */
     async getResourceVideo(id) {
       const { rows } = await q(
-        `SELECT content_type, data FROM resources WHERE id = $1 AND data IS NOT NULL`, [id],
+        `SELECT content_type, data, created_at, updated_at FROM resources WHERE id = $1 AND data IS NOT NULL`, [id],
       );
       return rows[0] ?? null;
     },

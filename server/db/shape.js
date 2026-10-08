@@ -2,6 +2,7 @@ import {
   DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE, DEFAULT_GUIDE_IMAGE_ALT, DEFAULT_SETTINGS, REPLACED_DEFAULTS,
   DEFAULT_TOOLS_ENABLED, GUIDE_TEXT_MAX, normalizeLayout, normalizeTheme, slugify,
 } from '../../shared/domain.js';
+import { revisionOfFile } from '../lib/video.js';
 
 /** A community's settings: the defaults, then what it saved, with any reworded default brought up to date. */
 function currentSettings(saved) {
@@ -46,15 +47,6 @@ const units = (value) => {
   return Number.isInteger(n) && n >= 0 ? n : null;
 };
 
-/**
- * Milliseconds since the epoch for a stored timestamp (a Date from pg, an ISO
- * string from the file store), or 0 when there is none.
- */
-const stamp = (value) => {
-  const ms = new Date(value ?? 0).getTime();
-  return Number.isFinite(ms) ? ms : 0;
-};
-
 export function shapeHome(row, photos = [], floorPlans = [], video = null) {
   if (!row) return null;
   return {
@@ -79,7 +71,7 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     // a year, and the address is the only cache key a browser has, so a replaced
     // walkthrough has to arrive under a new address or every browser that already
     // played the old one keeps playing it.
-    videoUrl: video ? `/api/homes/${row.id}/video?v=${stamp(video.createdAt ?? video.created_at)}` : '',
+    videoUrl: video ? `/api/homes/${row.id}/video?v=${revisionOfFile(video)}` : '',
     videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
   };
 }
@@ -187,7 +179,7 @@ export function shapeResource(row) {
     // Versioned for the reason shapeHome gives: the same id keeps its address when
     // the file is replaced, and the bytes are served as immutable.
     videoUrl: hasVideo(row)
-      ? `/api/resources/${row.id}/video?v=${stamp(row.updated_at ?? row.updatedAt)}`
+      ? `/api/resources/${row.id}/video?v=${revisionOfFile(row)}`
       : '',
     contentType: row.content_type ?? row.contentType ?? '',
     sizeBytes: Number(row.size_bytes ?? row.sizeBytes) || 0,

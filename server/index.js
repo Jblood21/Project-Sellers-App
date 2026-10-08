@@ -50,10 +50,12 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   // an anonymous 34 MB POST to ANY endpoint (the login form, the buyer contact gate) was read
   // and parsed in full before the handler could say no, and a handful at once exhausts a 512 MB
   // instance, which restarts and drops whatever upload was in flight.
+  // Express routes without regard to case or a trailing slash, so this must too, or a
+  // legitimate upload to '/video/' would meet the 6 MB parser and be refused.
   const carriesVideo = (req) =>
-    (req.method === 'PUT' && /^\/api\/admin\/homes\/[^/]+\/video$/.test(req.path))
-    || (req.method === 'POST' && /^\/api\/admin\/communities\/[^/]+\/resources$/.test(req.path))
-    || (req.method === 'PATCH' && /^\/api\/admin\/resources\/[^/]+$/.test(req.path));
+    (req.method === 'PUT' && /^\/api\/admin\/homes\/[^/]+\/video\/*$/i.test(req.path))
+    || (req.method === 'POST' && /^\/api\/admin\/communities\/[^/]+\/resources\/*$/i.test(req.path))
+    || (req.method === 'PATCH' && /^\/api\/admin\/resources\/[^/]+\/*$/i.test(req.path));
   app.use((req, res, next) => (
     carriesVideo(req) ? requireAdmin(req, res, () => videoJson(req, res, next)) : smallJson(req, res, next)
   ));

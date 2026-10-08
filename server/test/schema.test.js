@@ -101,7 +101,7 @@ test('the schema applies to a database created by an older release', opts, async
     // Every column added by ALTER since the baseline has to land here too.
     for (const [tableName, columnName] of [
       ['homes', 'lot_number'], ['communities', 'features'],
-      ['leads', 'opened_at'], ['leads', 'archived_at'],
+      ['leads', 'opened_at'], ['leads', 'archived_at'], ['resources', 'updated_at'],
     ]) {
       const added = await client.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
@@ -556,6 +556,51 @@ test('a home walkthrough round-trips through Postgres', opts, async () => {
       });
       await store.deleteHome(oak.id);
       assert.equal(await store.getHomeVideo(oak.id), null);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+test('a replaced video is a new address in Postgres, and a rename is not', opts, async () => {
+  await withDatabase('schema_video_revision', async (url) => {
+    const store = await createPostgresStore(url);
+    try {
+      await store.init();
+      const community = await store.createCommunity({ name: 'Video Revision' });
+      const home = await store.createHome(community.id, {
+        name: 'The Alder', price: 500000, beds: 3, baths: 2, sqft: 2000, description: '', availability: 'Ready',
+      });
+      const wait = () => new Promise((resolve) => setTimeout(resolve, 15));
+      const versionOf = (address) => Number(new global.URL(address, 'http://x').searchParams.get('v'));
+      const bytes = (fill) => Buffer.alloc(2048, fill).toString('base64');
+      const putHome = (fill) => store.setHomeVideo(home.id, {
+        communityId: community.id, contentType: 'video/mp4', data: bytes(fill), sizeBytes: 2048,
+      });
+
+      // The version must be a real moment, not the 0 that an unselected column gives:
+      // a store that dropped created_at would stamp every video v=0 and bring back
+      // the original bug (a replaced video never shows) with a passing regex.
+      const first = (await putHome(1)).videoUrl;
+      assert.ok(versionOf(first) > 0, 'a walkthrough has a version');
+      assert.equal((await store.getHome(home.id)).videoUrl, first, 'reading it again does not move it');
+      await wait();
+      const second = (await putHome(2)).videoUrl;
+      assert.ok(versionOf(second) > versionOf(first), 'a replacement is a later version');
+      assert.ok((await store.getHomeVideo(home.id)).created_at, 'the file route can see which version is current');
+
+      const made = await store.createResource(community.id, {
+        kind: 'video', title: 'A walk', contentType: 'video/mp4', data: bytes(1), sizeBytes: 2048,
+      });
+      assert.ok(versionOf(made.videoUrl) > 0, 'a Learn video has a version');
+      await wait();
+      const renamed = await store.updateResource(made.id, { title: 'A longer walk' });
+      assert.equal(renamed.videoUrl, made.videoUrl, 'renaming keeps every browser\'s cached copy');
+      await wait();
+      const replaced = await store.updateResource(made.id, { contentType: 'video/webm', data: bytes(2), sizeBytes: 2048 });
+      assert.ok(versionOf(replaced.videoUrl) > versionOf(made.videoUrl), 'replacing the file moves the version');
+      assert.equal((await store.getResourceVideo(made.id)).updated_at.getTime(), versionOf(replaced.videoUrl),
+        'the file route compares against the same moment the address carries');
     } finally {
       await store.close();
     }

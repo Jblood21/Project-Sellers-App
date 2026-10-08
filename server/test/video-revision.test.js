@@ -140,3 +140,56 @@ test('a huge body is refused before it is read, unless it is an admin uploading 
   assert.equal(put.status, 200);
   assert.equal(put.body.videoSizeBytes, file.length);
 });
+
+test('only the file\'s current version is cached for a year', async () => {
+  const cid = (await api('/api/admin/communities', { method: 'POST', body: { name: 'Version Match' } })).body.id;
+  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Ash', price: 1, beds: 1, baths: 1, sqft: 1 } })).body;
+  const put = (bytes) => api(`/api/admin/homes/${home.id}/video`, { method: 'PUT', body: { dataUrl: dataUrl('video/mp4', bytes) } });
+  const old = (await put(Buffer.alloc(100, 1))).body.videoUrl;
+  await tick();
+  const current = (await put(Buffer.alloc(200, 2))).body.videoUrl;
+  const cacheOf = async (url) => (await fetch(`${base}${url}`)).headers.get('cache-control');
+  assert.match(await cacheOf(current), /immutable/, 'the current version is kept');
+  assert.equal(await cacheOf(old), 'no-cache', 'a page loaded before the replacement may not keep the new bytes under the old address');
+  const bare = `/api/homes/${home.id}/video`;
+  for (const url of [bare, `${bare}?v=`, `${bare}?v=0`, `${bare}?v=junk`, `${bare}?v=1&v=2`]) {
+    assert.equal(await cacheOf(url), 'no-cache', url);
+  }
+  const served = await fetch(`${base}${old}`);
+  assert.equal((await served.arrayBuffer()).byteLength, 200, 'and it still gets the file as it is now');
+});
+
+test('a video is accepted for what it is, not for what it is called', async () => {
+  const cid = (await api('/api/admin/communities', { method: 'POST', body: { name: 'Not Video' } })).body.id;
+  const post = (type, bytes) => api(`/api/admin/communities/${cid}/resources`, { method: 'POST', body: { kind: 'video', title: 't', dataUrl: dataUrl(type, bytes) } });
+  // A picture and a recording share MP4's `ftyp` box; a Matroska file shares WebM's header.
+  assert.equal((await post('application/octet-stream', ftyp('heic'))).status, 400, 'HEIC picture');
+  assert.equal((await post('video/mp4', ftyp('avif'))).status, 400, 'AVIF picture');
+  assert.equal((await post('application/octet-stream', ftyp('M4A '))).status, 400, 'M4A audio');
+  const mkv = [0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81, 0x01, 0x42, 0x82, 0x88, ...Buffer.from('matroska')];
+  assert.equal((await post('video/mp4', mkv)).status, 400, 'Matroska called MP4');
+  assert.equal((await post('video/webm', mkv)).status, 400, 'Matroska called WebM');
+  assert.equal((await post('video/mp4', ftyp('isom'))).status, 201, 'and a real MP4 still goes through');
+});
+
+test('every route that takes a video takes a big one, signed in, however the path is written', async () => {
+  const cid = (await api('/api/admin/communities', { method: 'POST', body: { name: 'Big Routes' } })).body.id;
+  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Pine', price: 1, beds: 1, baths: 1, sqft: 1 } })).body;
+  const big = Buffer.alloc(8 * 1024 * 1024, 3); // 11 MB once encoded: past the 6 MB parser, inside the 36 MB one
+  const body = { dataUrl: dataUrl('video/mp4', big) };
+
+  const created = await api(`/api/admin/communities/${cid}/resources`, { method: 'POST', body: { kind: 'video', title: 'Big', ...body } });
+  assert.equal(created.status, 201, 'POST a resource video');
+  assert.equal((await api(`/api/admin/resources/${created.body.id}`, { method: 'PATCH', body })).status, 200, 'PATCH a resource video');
+  assert.equal((await api(`/api/admin/homes/${home.id}/video`, { method: 'PUT', body })).status, 200, 'PUT a home video');
+  // Express routes without regard to case or a trailing slash; the parser has to agree.
+  assert.equal((await api(`/api/admin/homes/${home.id}/video/`, { method: 'PUT', body })).status, 200, 'trailing slash');
+  assert.equal((await api(`/API/ADMIN/homes/${home.id}/video`, { method: 'PUT', body })).status, 200, 'upper case');
+});
+
+test('a body past the biggest allowed is turned away by sign-in first, not by size', async () => {
+  const huge = JSON.stringify({ dataUrl: `data:video/mp4;base64,${'A'.repeat(37 * 1024 * 1024)}` });
+  const send = (path, headers = {}) => fetch(`${base}${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...headers }, body: huge });
+  assert.equal((await send('/api/admin/homes/h_x/video')).status, 401, 'no token: refused before the 36 MB parser reads it');
+  assert.equal((await send('/api/admin/homes/h_x/video', { Authorization: 'Bearer nonsense' })).status, 401, 'a bad token the same');
+});

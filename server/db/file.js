@@ -300,7 +300,7 @@ export function createFileStore(path) {
 
     async getHomeVideo(homeId) {
       const row = db.homeVideos.find((v) => v.homeId === homeId);
-      return row ? { content_type: row.contentType, data: row.data } : null;
+      return row ? { content_type: row.contentType, data: row.data, createdAt: row.createdAt } : null;
     },
 
     async deleteHomeVideo(homeId) {
@@ -352,7 +352,7 @@ export function createFileStore(path) {
 
     async getResourceVideo(id) {
       const row = (db.resources ?? []).find((r) => r.id === id);
-      return row?.data ? { content_type: row.contentType || '', data: row.data } : null;
+      return row?.data ? { content_type: row.contentType || '', data: row.data, createdAt: row.createdAt, updatedAt: row.updatedAt } : null;
     },
 
     async countResourcesOfKind(communityId, kind) {

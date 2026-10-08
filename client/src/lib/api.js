@@ -3,10 +3,13 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 // What a person should read when the answer is not ours. A proxy in front of the app
 // answers with an HTML page of its own, and a dropped connection has no answer at all.
 const PROXY_ANSWERS = {
+  408: 'The upload took too long to arrive. Try again on a stronger connection, or with a smaller file.',
   413: 'That upload is too large for the server to accept. Try a smaller file.',
+  500: 'The server ran into a problem. Wait a minute and try again.',
   502: 'The server did not answer. Wait a minute and try again.',
   503: 'The server is busy. Wait a minute and try again.',
   504: 'The server took too long to answer. Try again, or try a smaller file.',
+  524: 'The server took too long to answer. Try again, or try a smaller file.',
 };
 
 async function request(path, { method = 'GET', body, token } = {}) {
