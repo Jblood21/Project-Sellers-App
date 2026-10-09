@@ -38,6 +38,7 @@ export const publicLead = (lead) => (lead ? {
   name: lead.name,
   email: lead.email,
   phone: lead.phone,
+  extraEmails: lead.extraEmails ?? [],
   savedHomeIds: lead.savedHomeIds ?? [],
   plan: lead.plan ?? {},
   moveIn: lead.moveIn ?? null,

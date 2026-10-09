@@ -1024,14 +1024,14 @@ export function createPostgresStore(connectionString) {
     async updateLead(id, patch) {
       const map = {
         name: 'name', phone: 'phone', status: 'status', notes: 'notes',
-        tour: 'tour', savedHomeIds: 'saved_home_ids',
+        tour: 'tour', savedHomeIds: 'saved_home_ids', extraEmails: 'extra_emails',
         openedAt: 'opened_at', archivedAt: 'archived_at',
       };
       const sets = [];
       const params = [];
       for (const [key, column] of Object.entries(map)) {
         if (patch[key] === undefined) continue;
-        params.push(key === 'savedHomeIds' || key === 'tour' ? JSON.stringify(patch[key]) : patch[key]);
+        params.push(key === 'savedHomeIds' || key === 'tour' || key === 'extraEmails' ? JSON.stringify(patch[key]) : patch[key]);
         sets.push(`${column} = $${params.length}`);
       }
       if (!sets.length) return this.getLead(id);

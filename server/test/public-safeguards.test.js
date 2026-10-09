@@ -610,3 +610,36 @@ test('a production site on an http:// PUBLIC_ORIGIN is told so at boot', () => {
   assert.match(bootWarnings({ ...base, PUBLIC_ORIGIN: 'http://touradoor.com' }).join(' '), /http:\/\//);
   assert.match(bootWarnings({ ...base, PUBLIC_ORIGIN: 'touradoor.com' }).join(' '), /https:\/\/ in front/, 'judged from the env it was handed');
 });
+
+test('the old Render address sends a page visit to the public domain, and only that', async () => {
+  process.env.PUBLIC_ORIGIN = 'https://touradoor.example';
+  try {
+    const html = { Accept: 'text/html,application/xhtml+xml', Host: 'cornerpost-abc1.onrender.com' };
+    const moved = await raw('/c/salt-grass-zoxa/tools?tab=1', { headers: html });
+    assert.equal(moved.status, 302);
+    assert.equal(moved.headers.location, 'https://touradoor.example/c/salt-grass-zoxa/tools?tab=1', 'path and query follow');
+    assert.equal((await raw('/', { headers: html })).headers.location, 'https://touradoor.example/');
+    assert.equal((await raw('/c/x', { method: 'HEAD', headers: html })).status, 302);
+
+    // Not a page visit, or not that address: left alone.
+    assert.notEqual((await raw('/api/health', { headers: html })).status, 302, 'a health check is never redirected');
+    assert.notEqual((await raw('/api/c/nothing', { headers: html })).status, 302, 'neither is the API');
+    assert.notEqual((await raw('/c/x', { headers: { Host: 'cornerpost-abc1.onrender.com', Accept: '*/*' } })).status, 302, 'a script or image is not a visit');
+    assert.notEqual((await raw('/api/admin/login', { method: 'POST', body: {}, headers: html })).status, 302, 'a POST is never redirected');
+    assert.notEqual((await raw('/c/x', { headers: { ...html, Host: 'touradoor.example' } })).status, 302, 'the domain itself is not sent anywhere');
+    assert.notEqual((await raw('/c/x', { headers: { ...html, Host: 'localhost:3000' } })).status, 302);
+
+    // The way back, without a deploy.
+    process.env.REDIRECT_TO_PUBLIC_ORIGIN = 'off';
+    assert.notEqual((await raw('/c/x', { headers: html })).status, 302);
+    delete process.env.REDIRECT_TO_PUBLIC_ORIGIN;
+
+    // Nothing pinned, nothing to redirect to. And a pinned Render address is not redirected to itself.
+    delete process.env.PUBLIC_ORIGIN;
+    assert.notEqual((await raw('/c/x', { headers: html })).status, 302);
+    process.env.PUBLIC_ORIGIN = 'https://cornerpost-abc1.onrender.com';
+    assert.notEqual((await raw('/c/x', { headers: html })).status, 302, 'no loop');
+  } finally {
+    delete process.env.REDIRECT_TO_PUBLIC_ORIGIN;
+  }
+});

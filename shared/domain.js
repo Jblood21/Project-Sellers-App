@@ -1204,6 +1204,36 @@ export function leadIdentity(input) {
   };
 }
 
+/**
+ * A buyer can add one more email (a spouse, a co-buyer) to receive the plan and be reached about
+ * a time. The same strict single-address shape the incentive and loan-team emails use: no spaces,
+ * no commas or semicolons (two addresses in one), nothing that would turn a mailto: into more.
+ */
+export const SAFE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;]+$/;
+export const MAX_EXTRA_EMAILS = 1;
+
+/**
+ * The extra emails to keep, from what was sent. `{ emails }`, or `{ error }` for something that is
+ * not an address. Lower-cased; an address equal to the buyer's own, or repeated, is dropped rather
+ * than refused (it is harmless and the buyer meant to give someone else); blank clears.
+ */
+export function cleanExtraEmails(input, primaryEmail = '') {
+  const raw = Array.isArray(input) ? input : [input];
+  const primary = String(primaryEmail ?? '').trim().toLowerCase();
+  const emails = [];
+  for (const item of raw) {
+    if (item === undefined || item === null) continue;
+    if (typeof item !== 'string') return { error: 'That email doesn’t look right.' };
+    const email = item.trim().toLowerCase();
+    if (!email) continue;
+    if (email.length > 254 || !SAFE_EMAIL_RE.test(email)) return { error: 'That email doesn’t look right. Check it and try again.' };
+    if (email === primary || emails.includes(email)) continue;
+    emails.push(email);
+  }
+  if (emails.length > MAX_EXTRA_EMAILS) return { error: 'You can add one more email.' };
+  return { emails };
+}
+
 /** True when this lead is the same person as the details just typed in. */
 export function isSameLead(lead, input) {
   const a = leadIdentity(lead);

@@ -709,7 +709,7 @@ export function createFileStore(path) {
     async createLead(communityId, { name, email, phone }) {
       const row = {
         id: `l_${shortId(12)}`, communityId, name, email, phone,
-        status: 'new', notes: '', tour: null, savedHomeIds: [],
+        status: 'new', notes: '', tour: null, savedHomeIds: [], extraEmails: [],
         firstVisitAt: now(), updatedAt: now(),
       };
       db.leads.push(row);
@@ -739,7 +739,7 @@ export function createFileStore(path) {
       const row = db.leads.find((l) => l.id === id);
       if (!row) return null;
       for (const key of [
-        'name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds', 'openedAt', 'archivedAt',
+        'name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds', 'extraEmails', 'openedAt', 'archivedAt',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }

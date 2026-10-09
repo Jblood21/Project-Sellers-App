@@ -88,6 +88,7 @@ See [`.env.example`](.env.example).
 | `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
 | `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
 | `PUBLIC_ORIGIN` | The one public address of the site with the `https://`, e.g. `https://touradoor.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data, and into the links in emails; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. A value without `https://` is ignored, and the server says so at boot. |
+| `REDIRECT_TO_PUBLIC_ORIGIN` | `off` stops the site sending a visit to its Render address (`*.onrender.com`) on to `PUBLIC_ORIGIN`. Set it first if the custom domain ever has to be taken offline, so the Render address works again without a deploy. |
 | `PORT` | Defaults to 3000; Render sets this. |
 | `RATE_LIMITS` | `off` turns the request limits off, `on` forces them on. Unset they are on, except under `node --test`. |
 | `DATA_FILE` | Where the JSON-file store keeps its data when `DATABASE_URL` is unset (default `data/db.json`). |
@@ -129,10 +130,14 @@ and only after sign-in; for anything longer, paste a YouTube or Vimeo link in th
 2. Render → **New → Blueprint**, select the repo. [`render.yaml`](render.yaml) provisions the
    web service and a Postgres instance, and generates `SESSION_SECRET` and
    `RATES_WEBHOOK_SECRET`.
-3. Render asks for five values the blueprint leaves blank (`sync: false`, so they never live in the repo).
-   Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first deploy. `PUBLIC_ORIGIN`, `RESEND_API_KEY` and
-   `EMAIL_FROM` can be left empty until the domain and the email account exist; the server logs a `WARNING:` for each
-   at boot, and email stays off until both email values are set (put nothing in them rather than something made up).
+3. Render asks for four values the blueprint leaves blank (`sync: false`, so they never live in the repo).
+   Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first deploy. `RESEND_API_KEY` and `EMAIL_FROM` can be left
+   empty until the email account exists; the server logs a `WARNING:` for each at boot, and email stays off until
+   both are set (put nothing in them rather than something made up). `PUBLIC_ORIGIN` is set in `render.yaml`
+   (`https://touradoor.com`): links, QR codes and emails use it, and a visit to the Render address
+   (`*.onrender.com`) is redirected to it. Renaming the service from `cornerpost` is done in the dashboard
+   (Service → Settings → Name), after the QR codes point at the domain; renaming it in `render.yaml` would make Render create
+   a second, empty service.
    `SEED_DEMO` and `NODE_VERSION` come from the file, not from the form. After the first deploy, find the log line
    `First API request: req.ip=…`: `req.ip` should be the visitor's own address. If it is the same for different people,
    the request limits would treat everyone as one visitor and `trust proxy` in `server/index.js` needs another hop count.

@@ -118,6 +118,7 @@ export function shapeLead(row, { plan = {}, activity = [], moveIn = null, consen
     notes: row.notes || '',
     tour: row.tour ?? null,
     savedHomeIds: row.saved_home_ids ?? row.savedHomeIds ?? [],
+    extraEmails: row.extra_emails ?? row.extraEmails ?? [],
     openedAt: row.opened_at ?? row.openedAt ?? null,
     archivedAt: row.archived_at ?? row.archivedAt ?? null,
     firstVisitAt: row.first_visit_at ?? row.firstVisitAt ?? null,

@@ -10,7 +10,7 @@ import { seedIfEmpty } from './db/seed.js';
 import { hashPassword, requireAdmin } from './lib/auth.js';
 import { bootWarnings } from './lib/bootcheck.js';
 import { hasControlCharacter } from './lib/params.js';
-import { originOfRequest, renderBuyerPage, unavailablePage } from './lib/ssr.js';
+import { originOfRequest, pinnedOrigin, renderBuyerPage, unavailablePage } from './lib/ssr.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter, ratesRouter } from './routes/public.js';
 
@@ -40,6 +40,23 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     });
   }
   app.disable('x-powered-by');
+
+  // The site has its own address (PUBLIC_ORIGIN), and Render also answers on its own, older one
+  // (a *.onrender.com name). A page opened there is sent to the real address, so the address bar, a
+  // shared link and a scanned QR code all end up on the domain, not the Render name. Only a visit to a
+  // page: the API, uploads and scripts are left alone (a health check or the rate webhook must not be
+  // redirected, and a script moved to another origin would be refused). It is a 302, not a 301, so a
+  // browser does not remember it forever if the domain ever has to be switched off, and
+  // REDIRECT_TO_PUBLIC_ORIGIN=off turns it off at once without a deploy.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (req.path.startsWith('/api/') || process.env.REDIRECT_TO_PUBLIC_ORIGIN === 'off') return next();
+    if (!String(req.get('accept') ?? '').includes('text/html')) return next();
+    const pinned = pinnedOrigin();
+    const host = String(req.get('host') ?? '').toLowerCase();
+    if (!pinned || !/\.onrender\.com(:\d+)?$/.test(host) || host === new URL(pinned).host.toLowerCase()) return next();
+    return res.redirect(302, `${pinned}${req.originalUrl}`);
+  });
 
   // The cheap, always-safe headers on every response, static files and the SPA
   // included. Pictures an admin uploads are served from this origin, so nosniff
