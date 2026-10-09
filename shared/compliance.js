@@ -178,6 +178,28 @@ export function telHref(phone) {
  * `year` is passed in rather than read from the clock so the result is a pure
  * function of its inputs, which is what lets the server and the browser agree.
  */
+/**
+ * One email address and nothing else: no spaces, no comma or semicolon (two addresses in one), nothing
+ * that would turn a mailto: link into more. The rule for every address the builder or a buyer gives
+ * that the app later writes to or links.
+ */
+export const SAFE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;]+$/;
+
+/**
+ * Where a buyer's "Find out if you qualify" message goes: the incentive card's own address when it has
+ * a usable one, otherwise the loan team's. Chosen here, from settings, never from the request, so the
+ * form cannot be used to send mail anywhere else. An unusable address is skipped rather than hiding the
+ * fallback. Null when neither is usable.
+ */
+export function incentiveRecipient(settings, { community } = {}) {
+  const own = String(settings?.incentiveEmail ?? '').trim();
+  if (own && SAFE_EMAIL_RE.test(own)) return { to: own, kind: 'team' };
+  const lender = complianceOf(settings, { community }).lender;
+  const email = String(lender.email ?? '').trim();
+  if (email && SAFE_EMAIL_RE.test(email)) return { to: email, kind: 'lender', name: lender.name };
+  return null;
+}
+
 export function complianceOf(settings = {}, { year, community = {} } = {}) {
   const s = { ...COMPLIANCE_DEFAULTS, ...(settings || {}) };
 

@@ -1,5 +1,5 @@
 import {
-  complianceText, contactMethodLabel, describeTour, isoDate, lenderNameOf, money,
+  complianceOf, complianceText, contactMethodLabel, describeTour, fillTokens, isoDate, lenderNameOf, money,
 } from '../../shared/domain.js';
 import { moveInPlanLines, printableMoveIn } from '../../shared/moveInPrint.js';
 import { sendEmail } from './email.js';
@@ -119,5 +119,47 @@ export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDat
     text,
     // A reply to a shared plan goes to the person who shared it.
     ...(sharedBy ? { replyTo: lead.email } : {}),
+  });
+}
+
+/**
+ * A buyer's message from the "Find out if you qualify" form, sent to the person who answers it: the
+ * incentive email set in Setup, else the loan team. The buyer's own address is the reply-to, so answering
+ * reaches them, and everything the recipient needs is in the message (who, how to reach them, what the
+ * incentive said). The subject is one line whatever the name contains. Text only; no admin link, because
+ * the loan team has no admin login.
+ */
+export async function emailLoanTeam({ community, lead, to, name, email, message, baseUrl }) {
+  const settings = community.settings ?? {};
+  const tokens = {
+    community: community.name ?? '',
+    builder: community.builder ?? '',
+    lender: complianceOf(settings, { community }).lender.name || 'the lender',
+  };
+  const fill = (value) => fillTokens(value, tokens).trim();
+  const clean = (value) => String(value ?? '').replace(/[\r\n]+/g, ' ').trim();
+  const asked = fill(settings.incentiveTitle);
+  const text = [
+    `${clean(name)} asked about the builder incentive at ${community.name}${community.builder ? ` (${community.builder})` : ''}.`,
+    '',
+    'Their message:',
+    String(message ?? '').trim(),
+    '',
+    'Reach them:',
+    `  Name:  ${clean(name)}`,
+    `  Email: ${clean(email)}  (reply to this email to answer them)`,
+    `  Phone: ${lead.phone || 'not given'}`,
+    '',
+    ...(asked || fill(settings.incentiveBody)
+      ? ['The incentive they were looking at:', ...[asked, fill(settings.incentiveBody), fill(settings.incentiveFinePrint)].filter(Boolean).map((line) => `  ${line}`), '']
+      : []),
+    `Sent from the Touradoor app${baseUrl ? ` (${baseUrl}/c/${community.urlKey ?? community.id})` : ''} after they pressed Send. The app told them their name, email and phone would be shared so you can reply.`,
+  ].join('\n');
+
+  return sendEmail({
+    to,
+    subject: `Builder incentive question: ${clean(name).slice(0, 80)} — ${clean(community.name).slice(0, 60)}`.slice(0, 150),
+    text,
+    replyTo: clean(email),
   });
 }

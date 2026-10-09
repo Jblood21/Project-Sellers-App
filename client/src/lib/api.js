@@ -59,6 +59,8 @@ export const buyerApi = {
     request(`/api/c/${encodeURIComponent(communityId)}/guides/${encodeURIComponent(slug)}`),
   requestTour: (token, slotId, contact, topic = 'community', extra = {}) =>
     request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic, ...extra }, token }),
+  // The "Find out if you qualify" message, sent for the buyer. The server chooses who it goes to.
+  emailIncentive: (token, body) => request('/api/me/incentive/email', { method: 'POST', body, token }),
   // `also`: one more address to send it to (kept on the buyer's record); '' removes it; leave it out to change nothing.
   emailPlan: (token, also) => request('/api/me/plan/email', { method: 'POST', body: also === undefined ? {} : { also }, token }),
   saveMoveIn: (token, plan) => request('/api/me/movein', { method: 'PUT', body: plan, token }),

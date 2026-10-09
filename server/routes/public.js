@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX,
+  CONSENT_VERSION, cleanExtraEmails, complianceOf, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, SAFE_EMAIL_RE,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
@@ -11,7 +11,8 @@ import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
 import { clientKey, createLimiter, limitRequests, reserve, tooMany } from '../lib/limits.js';
 import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } from '../lib/params.js';
-import { notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
+import { emailConfigured } from '../lib/email.js';
+import { emailLoanTeam, notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { sendVideo } from '../lib/video.js';
 import { catchAsyncErrors } from './admin.js';
@@ -189,6 +190,9 @@ const publicCommunity = (
   highlights,
   // Same rule as the site map: switched off means the buyer is not served the times at all.
   slots: community.features.booking === false ? [] : slots,
+  // Whether this server can send mail at all, so the buyer app shows a message form only when it can.
+  // A fact about the server, not a secret.
+  emailReady: emailConfigured(),
 });
 
 /**
@@ -252,6 +256,12 @@ export function publicRouter() {
   const planMailPerRecipient = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 5 });
   const planMailPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 30 });
   const toursPerLead = createLimiter({ windowMs: 60 * 60 * 1000, max: 12 });
+  // "Find out if you qualify" mail goes to a real inbox, and anyone can mint a buyer record at the gate,
+  // so it is limited per buyer (and not twice in a breath), per visitor and per community.
+  const incentiveBurst = createLimiter({ windowMs: 20 * 1000, max: 1 });
+  const incentivePerLead = createLimiter({ windowMs: 60 * 60 * 1000, max: 3 });
+  const incentivePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
+  const incentivePerCommunity = createLimiter({ windowMs: 60 * 60 * 1000, max: 60 });
   router.use((req, res, next) => (
     req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
       ? next()
@@ -506,6 +516,69 @@ export function publicRouter() {
     const alsoSent = also.some((entry) => entry.sent);
     await store.addActivity(req.leadId, alsoSent ? 'Emailed their home plan to themselves and a second email' : 'Emailed their home plan to themselves');
     res.json({ sent: true, to: lead.email, also, lead: publicLead(lead) });
+  });
+
+  /**
+   * "Find out if you qualify" → a message from the buyer to the incentive email (else the loan team),
+   * sent for them so it works without a mail program. The address it goes to is chosen here from the
+   * community's settings, never from the request. The buyer is told "sent" only when the mail provider
+   * took it; when email is not set up or the send fails they are told so and shown another way, and a
+   * failed send does not use up their limit.
+   */
+  router.post('/me/incentive/email', requireLead, async (req, res) => {
+    const store = await getStore();
+    const lead = await store.getLead(req.leadId);
+    if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
+    const community = await store.getCommunity(lead.communityId);
+    if (!community || !community.features.incentive) {
+      return res.status(404).json({ error: 'This isn’t available right now.' });
+    }
+    const recipient = incentiveRecipient(community.settings, { community });
+    if (!recipient) {
+      return res.status(409).json({ error: 'The team hasn’t listed an email address yet. Please call or text instead.' });
+    }
+    const lenderPhone = complianceOf(community.settings, { community }).lender.phone;
+    const callInstead = lenderPhone ? ` You can also call ${lenderPhone}.` : '';
+
+    // A blank name or email is theirs from the sign-up, so the form can be sent as it was prefilled.
+    const name = stripControlCharacters(String(req.body?.name ?? '').trim() || lead.name).replace(/\s+/g, ' ').trim();
+    const email = String(req.body?.email ?? '').trim() || lead.email;
+    // Newlines are fine in a message; every other control character is not.
+    const message = String(req.body?.message ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim();
+    if (!name || name.length > FIELD_MAX.name) return res.status(400).json({ error: 'Please add your name.' });
+    if (!SAFE_EMAIL_RE.test(email) || email.length > FIELD_MAX.email) return res.status(400).json({ error: 'Please check your email address.' });
+    if (message.length < 3) return res.status(400).json({ error: 'Please write a short message.' });
+    if (message.length > 1000) return res.status(400).json({ error: 'That message is a little long. Please keep it under 1,000 characters.' });
+
+    if (!emailConfigured()) {
+      return res.status(503).json({ error: `Messages can’t be sent from here yet.${callInstead}` });
+    }
+    const hold = reserve([
+      [incentiveBurst, req.leadId],
+      [incentivePerLead, req.leadId],
+      [incentivePerIp, clientKey(req)],
+      [incentivePerCommunity, community.id],
+    ]);
+    if (hold.wait) {
+      res.set('Retry-After', String(hold.wait));
+      return res.status(429).json({ error: `You’ve sent a few messages already. Please try again ${hold.wait < 90 ? 'in a minute' : 'later'}.${callInstead}` });
+    }
+    let result;
+    try {
+      result = await emailLoanTeam({
+        community, lead, to: recipient.to, name, email, message, baseUrl: linkOriginOf(req),
+      });
+    } finally {
+      if (!result?.sent) hold.release();
+    }
+    const label = recipient.kind === 'lender' ? (recipient.name || 'the loan team') : 'the team';
+    const snippet = message.replace(/\s+/g, ' ').slice(0, 120);
+    if (!result.sent) {
+      await store.addActivity(lead.id, `Tried to email ${label} about the builder incentive (it could not be sent): “${snippet}”`);
+      return res.status(503).json({ error: `We couldn’t send that right now.${callInstead}` });
+    }
+    await store.addActivity(lead.id, `Emailed ${label} about the builder incentive: “${snippet}”`);
+    res.json({ sent: true, to: label });
   });
 
   /** Live open slots, so a buyer with the dialog open does not book a stale one. */

@@ -503,6 +503,10 @@ a.b-btn { display: flex; align-items: center; justify-content: center; text-deco
   text-decoration: none;
 }
 button.b-agent__act { font-family: var(--t-font); cursor: pointer; }
+/* The in-app message form in the contact sheet. */
+.b-contactform { display: flex; flex-direction: column; gap: 10px; }
+textarea.b-contactform__msg { min-height: 96px; resize: vertical; line-height: 1.45; font-family: var(--t-font); }
+.b-contactform__err { font-size: 12.5px; line-height: 1.5; color: var(--t-ink); padding: 10px 12px; border-radius: var(--t-rad); background: var(--t-tint); }
 /* The people a buyer can reach when there is no time to pick: one box each, Call / Text / Email under the name. */
 .b-reach__list { display: flex; flex-direction: column; gap: 10px; }
 .b-reach {

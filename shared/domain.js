@@ -1,4 +1,4 @@
-import { COMPLIANCE_DEFAULTS } from './compliance.js';
+import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE } from './compliance.js';
 import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
 
 export {
@@ -7,7 +7,7 @@ export {
 } from './faq.js';
 
 export {
-  COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens,
+  COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens, incentiveRecipient,
   nmlsConsumerUrl, safeHref, settingMaxLength, telHref,
 } from './compliance.js';
 
@@ -1218,7 +1218,7 @@ export function leadIdentity(input) {
  * a time. The same strict single-address shape the incentive and loan-team emails use: no spaces,
  * no commas or semicolons (two addresses in one), nothing that would turn a mailto: into more.
  */
-export const SAFE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;]+$/;
+export { SAFE_EMAIL_RE };
 export const MAX_EXTRA_EMAILS = 1;
 
 /**
