@@ -26,6 +26,10 @@ export function shapeCommunity(row, extra = {}) {
     layout: normalizeLayout(row.layout),
     websiteUrl: row.website_url ?? row.websiteUrl ?? null,
     builder: row.builder || '',
+    // The clean buyer link, when the community has one. `urlKey` is what every public address is
+    // written with; the id (above) is what everything is stored under and never changes.
+    slug: row.slug || null,
+    urlKey: row.slug || row.id,
     settings: currentSettings(row.settings),
     tools: { ...DEFAULT_TOOLS_ENABLED, ...(row.tools || {}) },
     features: { ...DEFAULT_FEATURES, ...(row.features || {}) },

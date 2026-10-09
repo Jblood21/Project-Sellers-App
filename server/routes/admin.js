@@ -5,12 +5,13 @@ import {
   COMPLIANCE_DEFAULTS, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
-  SLOT_TIMES, THEMES, TOOL_KEYS, normalizeFaqJson,
+  SLOT_TIMES, THEMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
+import { pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
@@ -365,11 +366,18 @@ export function adminRouter() {
       // cannot see is a draft they cannot finish. No bodies; GET /guides/:id has those.
       store.listGuides(community.id, { includeUnpublished: true }),
     ]);
+    const slugs = await store.listCommunitySlugs(community.id);
     res.json({
       ...community, homes, highlights, resources,
       heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null, siteMap: maps[0] ?? null,
       logo: logos[0] ?? null, logoLight: logosLight[0] ?? null, lenderLogo: lenderLogos[0] ?? null,
       agents, guides,
+      // The buyer link: its clean address, the addresses it used to have (which still work), what the
+      // name suggests, and the public origin when the site pins one (so a link is written with the
+      // domain it is meant to be shared on, not whichever address the admin happens to be using).
+      formerSlugs: slugs.filter((slug) => slug !== community.slug),
+      suggestedSlug: suggestCommunitySlug(community.name),
+      siteOrigin: pinnedOrigin(),
     });
   });
 
@@ -383,6 +391,16 @@ export function adminRouter() {
     if (req.body?.location !== undefined) patch.location = str(req.body.location).slice(0, COMMUNITY_TEXT_MAX);
     if (req.body?.builder !== undefined) patch.builder = str(req.body.builder).slice(0, COMMUNITY_TEXT_MAX);
     if (req.body?.websiteUrl !== undefined) patch.websiteUrl = str(req.body.websiteUrl) || null;
+    // The buyer link. Checked before anything else is saved, so a refusal changes nothing.
+    let newSlug = '';
+    if (req.body?.slug !== undefined && str(req.body.slug) !== (community.slug ?? '')) {
+      newSlug = normalizeCommunitySlug(req.body.slug);
+      if (!newSlug) {
+        return res.status(400).json({
+          error: 'The buyer link needs 3 to 40 letters, numbers or hyphens, and cannot be a word the site uses itself, like admin.',
+        });
+      }
+    }
     if (req.body?.status !== undefined && COMMUNITY_STATUSES.includes(req.body.status)) patch.status = req.body.status;
     if (req.body?.theme !== undefined && THEMES[req.body.theme]) patch.theme = req.body.theme;
     // An unknown layout is ignored like an unknown theme, never stored: the buyer
@@ -447,6 +465,10 @@ export function adminRouter() {
         if (req.body.features[key] !== undefined) features[key] = Boolean(req.body.features[key]);
       }
       patch.features = features;
+    }
+    if (newSlug) {
+      const claimed = await store.setCommunitySlug(community.id, newSlug);
+      if (claimed.error) return res.status(409).json({ error: 'That link is already used by another community. Pick a different one.' });
     }
     res.json(await store.updateCommunity(community.id, patch));
   });

@@ -117,16 +117,18 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
       // below answer it with the plain shell; this one is JSON, so it is a 404.
       if (hasControlCharacter(req.params.communityId)) return res.status(404).json({ error: 'Community not found' });
       const store = await getStore();
-      const community = await store.getCommunity(req.params.communityId);
+      const community = await store.resolveCommunity(req.params.communityId);
       if (!community) return res.status(404).json({ error: 'Community not found' });
       const icons = await store.listCommunityPhotos(community.id, 'icon');
-      const start = `/c/${community.id}`;
+      const start = `/c/${community.urlKey}`;
       return res.type('application/manifest+json').json({
         name: community.name,
         short_name: community.name.slice(0, 12),
         description: `Explore homes at ${community.name} and build your own home plan.`,
         start_url: start,
-        scope: start,
+        // Wider than the start address, so an app installed from one address of a community stays
+        // inside its scope when the page moves to the other one.
+        scope: '/c/',
         display: 'standalone',
         background_color: '#ffffff',
         theme_color: '#1d63e0',

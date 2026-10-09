@@ -23,6 +23,17 @@ CREATE TABLE IF NOT EXISTS communities (
 -- to arrive by ALTER. Keep these directly under their table and above any index
 -- or constraint that names them.
 ALTER TABLE communities ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '{}'::jsonb;
+-- The clean buyer link (see normalizeCommunitySlug). NULL until one is chosen; the id still works.
+ALTER TABLE communities ADD COLUMN IF NOT EXISTS slug TEXT;
+-- Every address a community has had, current and former, lower-case. A printed sign made from one
+-- keeps working after the builder picks another. The primary key is what keeps two communities from
+-- ever sharing one; it is checked against communities.id in code, since those are a different column.
+CREATE TABLE IF NOT EXISTS community_slugs (
+  slug         TEXT PRIMARY KEY,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS community_slugs_community_idx ON community_slugs (community_id);
 -- The column default still named 'classic', a theme retired two palettes ago.
 -- Nothing reads it (both stores pass a theme explicitly) but a default that
 -- names a dead theme is a trap for the next person who inserts a row by hand.

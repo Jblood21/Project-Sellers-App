@@ -98,7 +98,7 @@ export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDat
     ...(entries.length ? ['What you worked out:', ...entries.map(([, s]) => `  · ${s}`), ''] : []),
     ...(moveIn ? ['Your move-in plan:', '', ...moveInPlanLines(moveIn), ''] : []),
     ...(savedNames.length ? ['Homes you liked:', ...savedNames, ''] : []),
-    baseUrl ? `Pick up where you left off: ${baseUrl}/c/${community.id}` : '',
+    baseUrl ? `Pick up where you left off: ${baseUrl}/c/${community.urlKey ?? community.id}` : '',
     '',
     'These are estimates to help you plan — not a loan offer or a pre-approval.',
     '',

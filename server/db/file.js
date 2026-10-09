@@ -2,8 +2,8 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
-  DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED,
-  isoDate, isSameLead,
+  communitySlugCandidates, DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME,
+  DEFAULT_TOOLS_ENABLED, isoDate, isSameLead,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
@@ -15,7 +15,7 @@ import {
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
-  consents: [], agents: [], guides: [],
+  consents: [], agents: [], guides: [], communitySlugs: [],
 };
 
 /**
@@ -189,9 +189,46 @@ export function createFileStore(path) {
       return shapeCommunity(db.communities.find((c) => c.id === id));
     },
 
+    /** See the Postgres store: an id, the id in other case, or any slug the community has had. */
+    async resolveCommunity(key) {
+      const text = String(key ?? '').trim().slice(0, 80);
+      if (!text) return null;
+      const lower = text.toLowerCase();
+      const row = db.communities.find((c) => c.id === text)
+        ?? db.communities.find((c) => c.id === lower)
+        ?? db.communities.find((c) => c.id === db.communitySlugs.find((s) => s.slug === lower)?.communityId);
+      return shapeCommunity(row);
+    },
+
+    async listCommunitySlugs(id) {
+      return db.communitySlugs.filter((s) => s.communityId === id).map((s) => s.slug);
+    },
+
+    async setCommunitySlug(id, slug) {
+      if (db.communities.some((c) => c.id.toLowerCase() === slug && c.id !== id)) return { error: 'taken' };
+      const owner = db.communitySlugs.find((s) => s.slug === slug);
+      if (owner && owner.communityId !== id) return { error: 'taken' };
+      const row = db.communities.find((c) => c.id === id);
+      if (!row) return { error: 'missing' };
+      if (!owner) db.communitySlugs.push({ slug, communityId: id });
+      row.slug = slug;
+      row.updatedAt = now();
+      save();
+      return { ok: true };
+    },
+
     async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '' }) {
+      const id = slugId(name);
+      let slug = null;
+      for (const candidate of communitySlugCandidates(name)) {
+        if (db.communities.some((c) => c.id.toLowerCase() === candidate)) continue;
+        if (db.communitySlugs.some((s) => s.slug === candidate)) continue;
+        db.communitySlugs.push({ slug: candidate, communityId: id });
+        slug = candidate;
+        break;
+      }
       const row = {
-        id: slugId(name), name, location, status, theme, builder,
+        id, slug, name, location, status, theme, builder,
         websiteUrl: null,
         settings: { ...DEFAULT_SETTINGS },
         tools: { ...DEFAULT_TOOLS_ENABLED },
@@ -224,6 +261,7 @@ export function createFileStore(path) {
       const homeIds = db.homes.filter((h) => h.communityId === id).map((h) => h.id);
       const leadIds = db.leads.filter((l) => l.communityId === id).map((l) => l.id);
       db.communities = db.communities.filter((c) => c.id !== id);
+      db.communitySlugs = db.communitySlugs.filter((s) => s.communityId !== id);
       db.homes = db.homes.filter((h) => h.communityId !== id);
       db.highlights = db.highlights.filter((h) => h.communityId !== id);
       db.slots = db.slots.filter((s) => s.communityId !== id);

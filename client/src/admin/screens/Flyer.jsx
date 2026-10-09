@@ -7,7 +7,7 @@ import { buyerUrl, useQrDataUrl } from './QrDialog.jsx';
 export default function Flyer({ community }) {
   const navigate = useNavigate();
   const { communityId } = useParams();
-  const dataUrl = useQrDataUrl(communityId, 8);
+  const dataUrl = useQrDataUrl(community, 8);
 
   return (
     <div className="a-shell">
@@ -49,7 +49,7 @@ export default function Flyer({ community }) {
             />
           ) : null}
         </div>
-        <span style={{ fontSize: 13, wordBreak: 'break-all' }}>{buyerUrl(community.id)}</span>
+        <span style={{ fontSize: 13, wordBreak: 'break-all' }}>{buyerUrl(community)}</span>
         <p className="text-muted" style={{ fontSize: 14, maxWidth: 420, lineHeight: 1.6, margin: '8px 0 0' }}>
           Scan to explore every home, see what it would cost you and build your own home plan.
         </p>

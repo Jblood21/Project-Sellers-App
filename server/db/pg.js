@@ -3,7 +3,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
-import { DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead } from '../../shared/domain.js';
+import {
+  communitySlugCandidates, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead,
+} from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
@@ -292,6 +294,55 @@ export function createPostgresStore(connectionString) {
       return shapeCommunity(rows[0]);
     },
 
+    /**
+     * The community behind whatever address a visitor used: its id, the same id in other case, or
+     * any slug it has ever had. Everything stored is keyed on the id, which never changes; this is
+     * only how an address becomes one.
+     */
+    async resolveCommunity(key) {
+      const text = String(key ?? '').trim().slice(0, 80);
+      if (!text) return null;
+      const { rows } = await q(
+        `SELECT c.* FROM communities c
+          WHERE c.id = $1 OR c.id = lower($1)
+             OR c.id = (SELECT community_id FROM community_slugs WHERE slug = lower($1))
+          ORDER BY (c.id = $1) DESC, (c.id = lower($1)) DESC
+          LIMIT 1`,
+        [text],
+      );
+      return shapeCommunity(rows[0]);
+    },
+
+    /** Every slug the community has had, oldest first, the current one included. */
+    async listCommunitySlugs(id) {
+      const { rows } = await q(
+        `SELECT slug FROM community_slugs WHERE community_id = $1 ORDER BY created_at, slug`, [id],
+      );
+      return rows.map((r) => r.slug);
+    },
+
+    /**
+     * Make `slug` the community's address. { ok: true }, or { error: 'taken' } when another community
+     * has it as an id or as a slug (current or former). The former one stays reserved for the
+     * community that had it, so a printed sign is never handed to somebody else.
+     */
+    async setCommunitySlug(id, slug) {
+      return inTransaction(async (db) => {
+        const other = await db.query(`SELECT 1 FROM communities WHERE lower(id) = $1 AND id <> $2`, [slug, id]);
+        if (other.rows.length) return { error: 'taken' };
+        const claimed = await db.query(
+          `INSERT INTO community_slugs (slug, community_id) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING RETURNING slug`,
+          [slug, id],
+        );
+        if (!claimed.rows.length) {
+          const owner = await db.query(`SELECT community_id FROM community_slugs WHERE slug = $1`, [slug]);
+          if (owner.rows[0]?.community_id !== id) return { error: 'taken' };
+        }
+        await db.query(`UPDATE communities SET slug = $1, updated_at = now() WHERE id = $2`, [slug, id]);
+        return { ok: true };
+      });
+    },
+
     async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '' }) {
       const id = slugId(name);
       // The community and its guides land together or not at all, with the flag
@@ -304,7 +355,21 @@ export function createPostgresStore(connectionString) {
           [id, name, location, status, theme, builder, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED],
         );
         await addMissingDefaults(db, id);
-        return rows[0];
+        // A clean address from the name, or the next free variation of it. The id stays as it is.
+        let slug = null;
+        for (const candidate of communitySlugCandidates(name)) {
+          const used = await db.query(`SELECT 1 FROM communities WHERE lower(id) = $1`, [candidate]);
+          if (used.rows.length) continue;
+          const claimed = await db.query(
+            `INSERT INTO community_slugs (slug, community_id) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING RETURNING slug`,
+            [candidate, id],
+          );
+          if (!claimed.rows.length) continue;
+          await db.query(`UPDATE communities SET slug = $1 WHERE id = $2`, [candidate, id]);
+          slug = candidate;
+          break;
+        }
+        return { ...rows[0], slug };
       });
       return shapeCommunity(row);
     },

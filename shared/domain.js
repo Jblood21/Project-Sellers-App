@@ -447,6 +447,42 @@ export function slugify(value) {
     .slice(0, GUIDE_TEXT_MAX.slug);
 }
 
+/**
+ * The address a community is reached at. Its id (a name plus four random letters, like
+ * `salt-grass-zoxa`) never changes: it keys every table and every printed sign. The buyer
+ * link can be a cleaner name of the builder's choosing (`/c/salt-grass`) that resolves to
+ * the same community, and every earlier link keeps working.
+ */
+export const COMMUNITY_SLUG_MIN = 3;
+export const COMMUNITY_SLUG_MAX = 40;
+/** Words that would only confuse in an address. */
+export const RESERVED_COMMUNITY_SLUGS = ['admin', 'api', 'assets', 'c', 'guides', 'login', 'new', 'start', 'tools'];
+
+/** The cleaned slug, or '' when what was typed cannot be one. */
+export function normalizeCommunitySlug(value) {
+  const slug = slugify(value);
+  if (slug.length < COMMUNITY_SLUG_MIN || slug.length > COMMUNITY_SLUG_MAX) return '';
+  if (RESERVED_COMMUNITY_SLUGS.includes(slug)) return '';
+  return slug;
+}
+
+/** What a name suggests: 'Salt Grass' gives 'salt-grass'. Always a usable slug. */
+export function suggestCommunitySlug(name) {
+  const base = slugify(name).slice(0, COMMUNITY_SLUG_MAX).replace(/-+$/, '');
+  return normalizeCommunitySlug(base) || 'community';
+}
+
+/** The suggestion, then the same with -2, -3, ... for when it is taken. */
+export function communitySlugCandidates(name, count = 30) {
+  const base = suggestCommunitySlug(name);
+  const out = [base];
+  for (let n = 2; n <= count; n += 1) {
+    const tail = `-${n}`;
+    out.push(`${base.slice(0, COMMUNITY_SLUG_MAX - tail.length).replace(/-+$/, '')}${tail}`);
+  }
+  return out;
+}
+
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 
 /**

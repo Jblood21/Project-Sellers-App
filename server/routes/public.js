@@ -154,6 +154,10 @@ const publicCommunity = (
   { logo, logoLight, lenderLogo, agents, guides },
 ) => ({
   id: community.id,
+  // How its address is written: the clean slug when it has one. The browser swaps the address bar to
+  // this, so a printed link made from the id keeps working and quietly becomes the clean one.
+  slug: community.slug,
+  urlKey: community.urlKey,
   // The one public address when PUBLIC_ORIGIN pins it, so the browser writes the same
   // canonical and structured-data id the server wrote instead of whichever host it loaded from.
   siteOrigin: pinnedOrigin(),
@@ -191,7 +195,8 @@ const publicCommunity = (
  * two cannot drift into describing different communities.
  */
 export async function loadPublicCommunity(store, communityId) {
-  const community = await store.getCommunity(communityId);
+  // An id, the id in other case, or any slug the community has had.
+  const community = await store.resolveCommunity(communityId);
   if (!community) return null;
   const [
     homes, highlights, resources, heroes, icons, maps, slots, logos, logosLight, lenderLogos, agents,
@@ -217,6 +222,19 @@ export async function loadPublicCommunity(store, communityId) {
 
 export function publicRouter() {
   const router = rejectControlCharacters(catchAsyncErrors(Router()));
+
+  // A community is reached by its id or by a clean slug it was given (and any slug it has had). Every
+  // route below works on the real id, so the address is turned into it once, here. An address that is
+  // neither is left as it is and each route answers 404 as before.
+  router.param('communityId', async (req, _res, next, value) => {
+    try {
+      const found = await (await getStore()).resolveCommunity(value);
+      if (found) req.params.communityId = found.id;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // What a stranger can make this server do is limited per visitor (an address; an IPv6 block counts as
   // one) and, where there is one, per buyer. A model-home trailer is one wifi address with many buyers on

@@ -19,8 +19,33 @@ const sessionKey = (communityId) => `psa:session:${communityId}`;
 const toolsKey = (communityId) => `psa:tools:${communityId}`;
 const tutorialKey = (communityId) => `psa:tutorial:${communityId}`;
 
+/**
+ * A community can be reached by its id or by its clean link, and what a buyer saved on this device
+ * (their sign-in, their tool figures, whether they saw the tour) is stored under whichever they
+ * used. Opened by the other one, it would look like a stranger: so whatever is stored under the
+ * community's other addresses is copied under this one first, when this one has nothing of its own.
+ */
+function adoptSavedState(communityId, community) {
+  const others = [community.id, community.urlKey].filter((key) => key && key !== communityId);
+  const adopted = {};
+  for (const [name, keyOf] of [['session', sessionKey], ['tools', toolsKey], ['tutorial', tutorialKey]]) {
+    if (readJson(keyOf(communityId)) != null) continue;
+    for (const other of others) {
+      const saved = readJson(keyOf(other));
+      if (saved == null) continue;
+      writeJson(keyOf(communityId), saved);
+      adopted[name] = saved;
+      break;
+    }
+  }
+  return adopted;
+}
+
 export function BuyerProvider({ communityId, children }) {
   const [community, setCommunity] = useState(null);
+  // Which community is already on screen, so that swapping the address bar from its id to its clean
+  // link does not read as a different community and load the whole thing a second time.
+  const loaded = useRef(null);
   const [lead, setLead] = useState(null);
   const [token, setToken] = useState(() => readJson(sessionKey(communityId))?.token ?? null);
   const [loadError, setLoadError] = useState(null);
@@ -34,12 +59,17 @@ export function BuyerProvider({ communityId, children }) {
 
   // Load the community, and the buyer's own record when we already hold a token.
   useEffect(() => {
+    const known = loaded.current;
+    if (known && (communityId === known.urlKey || communityId === known.id)) return undefined;
     let cancelled = false;
     setLoading(true);
     buyerApi
       .community(communityId)
       .then(async (data) => {
         if (cancelled) return;
+        loaded.current = { id: data.id, urlKey: data.urlKey };
+        const adopted = adoptSavedState(communityId, data);
+        if (adopted.tools) setTools((prev) => ({ ...prev, ...adopted.tools }));
         setCommunity(data);
         const stored = readJson(sessionKey(communityId));
         if (stored?.token) {
