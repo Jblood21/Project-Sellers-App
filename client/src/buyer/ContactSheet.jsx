@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { telHref } from '@shared/compliance.js';
+import { SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
 import { copyText, emailHref, useIsMobile } from '../lib/contact.js';
 import { useBuyer } from './BuyerContext.jsx';
 import TextAction from './TextAction.jsx';
 import useDialog from './useDialog.js';
 
-const EMAIL_LOOKS_RIGHT = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// The same rule the server applies to the address a message is sent from.
+const EMAIL_LOOKS_RIGHT = SAFE_EMAIL_RE;
 
 /**
  * A small sheet that gets a buyer talking to someone, with the message already
@@ -116,7 +117,7 @@ export default function ContactSheet({
                   />
                 </label>
                 <span style={{ fontSize: 11.5, color: 'var(--t-mut)', lineHeight: 1.45 }}>
-                  Sending shares your name, email{lead?.phone ? ' and phone number' : ''} with {compose.recipientName || 'the team'} so they can reply.
+                  Sending shares your {lead?.phone ? 'name, email and phone number' : 'name and email'} with {compose.recipientName || 'the team'} so they can reply.
                 </span>
                 {state === 'error' ? (
                   <div role="alert" className="b-contactform__err">

@@ -47,10 +47,13 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   // page: the API, uploads and scripts are left alone (a health check or the rate webhook must not be
   // redirected, and a script moved to another origin would be refused). It is a 302, not a 301, so a
   // browser does not remember it forever if the domain ever has to be switched off, and
-  // REDIRECT_TO_PUBLIC_ORIGIN=off turns it off at once without a deploy.
+  // REDIRECT_TO_PUBLIC_ORIGIN=off (set in the Render dashboard; the service restarts and the Render
+  // address works again within a minute or two) turns it off. The admin pages are never redirected,
+  // so the owner keeps a working way in to the leads and settings whatever the domain is doing.
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-    if (req.path.startsWith('/api/') || process.env.REDIRECT_TO_PUBLIC_ORIGIN === 'off') return next();
+    // Routes are matched without regard to letter case, so the API exemption is too.
+    if (/^\/(api(\/|$)|admin(\/|$))/i.test(req.path) || process.env.REDIRECT_TO_PUBLIC_ORIGIN === 'off') return next();
     if (!String(req.get('accept') ?? '').includes('text/html')) return next();
     const pinned = pinnedOrigin();
     const host = String(req.get('host') ?? '').toLowerCase();

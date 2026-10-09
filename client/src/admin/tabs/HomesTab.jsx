@@ -331,6 +331,8 @@ function WalkthroughRow({ home, reload }) {
     try {
       const dataUrl = await videoToDataUrl(file, MAX_VIDEO_BYTES, 'try a shorter clip.');
       await adminApi.setHomeVideo(token, home.id, { dataUrl });
+      // A home has one source: the file replaced the link, so the field empties with it.
+      setLink('');
       await reload();
     } catch (err) {
       setError(err.message);
@@ -572,7 +574,7 @@ function SiteMapCard({ community, reload }) {
 }
 
 const moveButton = {
-  minWidth: 32, minHeight: 32, borderRadius: 999, border: 'none', background: 'rgba(20,22,19,.7)', color: '#fff',
+  minWidth: 40, minHeight: 40, borderRadius: 999, border: 'none', background: 'rgba(20,22,19,.7)', color: '#fff',
   fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
@@ -635,26 +637,26 @@ function PhotoStrip({ home, reload }) {
               <span
                 style={{
                   position: 'absolute', left: 6, top: 6, padding: '3px 8px', borderRadius: 999, fontSize: 11,
-                  fontWeight: 700, background: 'var(--color-accent, #D4A72C)', color: '#111',
+                  fontWeight: 700, background: 'rgba(20,22,19,.85)', color: '#fff',
                 }}
               >
-                Hero
+                ★ Hero
               </span>
             ) : null}
             {home.photos.length > 1 ? (
               <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 4 }}>
                 {index > 0 ? (
                   <>
-                    <button type="button" aria-label={`Make photo ${index + 1} the hero`} onClick={() => move(index, 0)} style={moveButton}>
+                    <button type="button" aria-label={`Make photo ${index + 1} the hero`} title={`Make photo ${index + 1} the hero`} onClick={() => move(index, 0)} style={moveButton}>
                       ★
                     </button>
-                    <button type="button" aria-label={`Move photo ${index + 1} earlier`} onClick={() => move(index, index - 1)} style={moveButton}>
+                    <button type="button" aria-label={`Move photo ${index + 1} earlier`} title={`Move photo ${index + 1} earlier`} onClick={() => move(index, index - 1)} style={moveButton}>
                       ‹
                     </button>
                   </>
                 ) : null}
                 {index < home.photos.length - 1 ? (
-                  <button type="button" aria-label={`Move photo ${index + 1} later`} onClick={() => move(index, index + 1)} style={moveButton}>
+                  <button type="button" aria-label={`Move photo ${index + 1} later`} title={`Move photo ${index + 1} later`} onClick={() => move(index, index + 1)} style={moveButton}>
                     ›
                   </button>
                 ) : null}

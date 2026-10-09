@@ -93,7 +93,7 @@ test('the message goes to the incentive email, from the buyer, with what the tea
   assert.equal(mail.reply_to, `pat${counter}@test.co`, 'answering reaches the buyer');
   assert.match(mail.subject, /^Builder incentive question: Pat Vale — Qualify Test$/);
   assert.match(mail.text, /Pat Vale asked about the builder incentive at Qualify Test \(Acme Homes\)/);
-  assert.match(mail.text, /Hi, I would like to know if I qualify\.\nMy budget is 450k\./, 'the message, with its line break');
+  assert.match(mail.text, / {2}> Hi, I would like to know if I qualify\.\n {2}> My budget is 450k\./, 'the message, quoted line by line');
   assert.match(mail.text, /Phone: not given/);
   assert.match(mail.text, /Up to \$20,000 toward closing costs/);
   assert.match(mail.text, /With our preferred lender at Qualify Test\./, 'the incentive as the buyer saw it, tokens filled');

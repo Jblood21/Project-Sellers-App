@@ -31,7 +31,7 @@ export const DEFAULT_FAQ = [
   },
   {
     q: 'How do I tour a home?',
-    a: 'Tap Book a tour at the top of the screen to pick a day and a time, or open any home and scroll to Want a Tour? to call, text or email an agent.',
+    a: 'Tap Book a tour (in the bar or at the top of the screen) to pick a day and a time, or open any home and scroll to Want a Tour? to call, text or email an agent.',
   },
   {
     q: 'Can I change a time I booked?',

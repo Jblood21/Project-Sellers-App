@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { formatSlotDate, formatSlotTime, isoDate, SLOT_TIMES } from '@shared/domain.js';
+import { SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
 import { Trash } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
@@ -86,6 +87,13 @@ export default function AvailabilityTab({ community, reload }) {
   const upcoming = byDate.filter(([date]) => date >= today);
   const past = byDate.filter(([date]) => date < today);
 
+  // Whether a buyer who taps "Book a tour" has anything to do: a time to pick, or someone to reach.
+  const hasTeamContact = Boolean(telHref(community.settings?.teamPhone) || SAFE_EMAIL_RE.test(String(community.settings?.teamEmail ?? '').trim()));
+  const hasAgentContact = Boolean(community.features?.agents) && (community.agents ?? [])
+    .some((agent) => telHref(agent.phone) || SAFE_EMAIL_RE.test(String(agent.email ?? '').trim()));
+  const hasTimes = bookingOn && upcoming.length > 0;
+  const nothingToOffer = slots && !hasTimes && !hasTeamContact && !hasAgentContact;
+
   const remove = async (slot) => {
     if (slot.leadId && !window.confirm('Someone has booked this time. Remove it anyway?')) return;
     await adminApi.deleteSlot(token, slot.id);
@@ -101,7 +109,7 @@ export default function AvailabilityTab({ community, reload }) {
             <div className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
               {bookingOn
                 ? 'On: the “Book a tour” buttons let buyers pick a day and a time from the list below.'
-                : 'Off: buyers are shown your phone, text and email instead. The times below are kept for when you switch it back on.'}
+                : 'Off: buyers are shown your phone, text and email instead. The times below are kept for when you switch it back on. You are not emailed when someone taps Call, Text or Email; it shows in their activity on the lead.'}
             </div>
           </div>
           <Toggle on={bookingOn} onChange={flip} label="Buyers can book times" />
@@ -111,9 +119,17 @@ export default function AvailabilityTab({ community, reload }) {
             No times are published, so buyers are shown your phone, text and email until you add some.
           </p>
         ) : null}
-        <p className="text-muted" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5 }}>
-          When buyers call, text or email instead, they see your realtors (if you have added any) and the sales team contact below.
-        </p>
+        {nothingToOffer ? (
+          <p role="alert" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5, fontWeight: 600, color: '#8a1c11' }}>
+            Buyers have nothing to book or to call yet. Add a sales team phone or email below, add a realtor with a phone or email, or publish some times.
+          </p>
+        ) : (
+          <p className="text-muted" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5 }}>
+            {hasTeamContact || hasAgentContact
+              ? 'When buyers call, text or email instead, they see your realtors (if you have added any) and the sales team contact below.'
+              : 'When buyers call, text or email instead, they see your realtors. Add a sales team phone or email below to show theirs too.'}
+          </p>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
           <TextField
             label="Sales team phone" value={team.teamPhone} inputMode="tel" placeholder="(801) 555-0100"
@@ -130,6 +146,8 @@ export default function AvailabilityTab({ community, reload }) {
             {teamSaved && !teamChanged ? <span className="text-muted" style={{ fontSize: 12.5 }}>Saved ✓</span> : null}
           </div>
         ) : null}
+        {/* Here, beside the switch and the contact fields that can fail, not at the foot of the list of times. */}
+        <ErrorNote>{error}</ErrorNote>
       </div>
       <p className="text-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
         Times you publish here are the only times buyers can choose. Nothing else is offered,
@@ -186,7 +204,6 @@ export default function AvailabilityTab({ community, reload }) {
       <button type="button" className="btn btn-primary btn-block" onClick={() => setOpen(true)} style={{ minHeight: 46 }}>
         ＋ Add available times
       </button>
-      <ErrorNote>{error}</ErrorNote>
 
       {open ? (
         <AddSlots

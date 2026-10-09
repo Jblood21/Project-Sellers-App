@@ -26,7 +26,8 @@ const tutorialKey = (communityId) => `psa:tutorial:${communityId}`;
  * community's other addresses is copied under this one first, when this one has nothing of its own.
  */
 function adoptSavedState(communityId, community) {
-  const others = [community.id, community.urlKey].filter((key) => key && key !== communityId);
+  // Earlier clean links count too: a builder can change the link, and a buyer who signed in under the old one is the same buyer.
+  const others = [community.id, community.urlKey, ...(community.formerSlugs ?? [])].filter((key) => key && key !== communityId);
   const adopted = {};
   for (const [name, keyOf] of [['session', sessionKey], ['tools', toolsKey], ['tutorial', tutorialKey]]) {
     if (readJson(keyOf(communityId)) != null) continue;
@@ -46,6 +47,9 @@ export function BuyerProvider({ communityId, children }) {
   // Which community is already on screen, so that swapping the address bar from its id to its clean
   // link does not read as a different community and load the whole thing a second time.
   const loaded = useRef(null);
+  // Counts the loads that actually started. A load is abandoned only when a newer one has started, never
+  // because the address bar was swapped to the same community's clean link while it was still waiting.
+  const requestId = useRef(0);
   const [lead, setLead] = useState(null);
   const [token, setToken] = useState(() => readJson(sessionKey(communityId))?.token ?? null);
   const [loadError, setLoadError] = useState(null);
@@ -60,13 +64,15 @@ export function BuyerProvider({ communityId, children }) {
   // Load the community, and the buyer's own record when we already hold a token.
   useEffect(() => {
     const known = loaded.current;
-    if (known && (communityId === known.urlKey || communityId === known.id)) return undefined;
-    let cancelled = false;
+    if (known && (communityId === known.urlKey || communityId === known.id)) return;
+    requestId.current += 1;
+    const mine = requestId.current;
+    const current = () => requestId.current === mine;
     setLoading(true);
     buyerApi
       .community(communityId)
       .then(async (data) => {
-        if (cancelled) return;
+        if (!current()) return;
         loaded.current = { id: data.id, urlKey: data.urlKey };
         const adopted = adoptSavedState(communityId, data);
         if (adopted.tools) setTools((prev) => ({ ...prev, ...adopted.tools }));
@@ -75,26 +81,29 @@ export function BuyerProvider({ communityId, children }) {
         if (stored?.token) {
           try {
             const me = await buyerApi.me(stored.token);
-            if (!cancelled) {
+            if (current()) {
               setLead(me);
               setToken(stored.token);
             }
           } catch {
             // Token expired or the lead was removed — fall back to the gate.
             remove(sessionKey(communityId));
-            if (!cancelled) setToken(null);
+            if (current()) setToken(null);
           }
         }
       })
-      .catch((err) => !cancelled && setLoadError(err.message))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
+      .catch((err) => current() && setLoadError(err.message))
+      .finally(() => current() && setLoading(false));
   }, [communityId]);
 
+  // Saved under every address the community has once it has loaded, so the figures cannot end up
+  // different under its id and its clean link. Not before: a write on mount would put the defaults
+  // under the new address and hide whatever the buyer saved under the other one.
   useEffect(() => {
-    writeJson(toolsKey(communityId), tools);
+    if (!loaded.current) return;
+    for (const key of new Set([communityId, loaded.current.id, loaded.current.urlKey])) {
+      if (key) writeJson(toolsKey(key), tools);
+    }
   }, [communityId, tools]);
 
   const showToast = useCallback((message) => {
@@ -224,6 +233,10 @@ export function BuyerProvider({ communityId, children }) {
       } catch (err) {
         // A clash is the interesting case: the dialog stays open so they can
         // pick again rather than being dropped back with nothing booked.
+        // Refused because the builder switched booking off while the sheet was open: the page learns it.
+        if (err?.status === 403) {
+          setCommunity((prev) => (prev ? { ...prev, slots: [], features: { ...prev.features, booking: false } } : prev));
+        }
         showToast(err.message);
         return false;
       }

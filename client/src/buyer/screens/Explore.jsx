@@ -4,9 +4,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Star } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
+import { canMessage } from '../../lib/contact.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import ImageViewer from '../ImageViewer.jsx';
-import { complianceOf } from '@shared/compliance.js';
+import { complianceOf, telHref } from '@shared/compliance.js';
 
 export default function Explore({ onOpenTour, onOpenLender }) {
   const { community, homes, lead, toggleSave, track, agents, features, settings } = useBuyer();
@@ -21,12 +22,14 @@ export default function Explore({ onOpenTour, onOpenLender }) {
   // Two ways forward from the list, each offered only when it leads somewhere: the realtors (who do
   // the touring) when there are some, else the sheet that books a time or shows who to call; and the
   // lender, by their contact or by booking a time to talk.
-  const bookingOn = features.booking !== false;
+  // Offered only when the sheet or page it opens has something to do: times to pick from (booking on and
+  // some posted), or someone with a phone or an email. A button into a dead end is worse than none.
+  const hasTimes = features.booking !== false && (community?.slots?.length ?? 0) > 0;
   const lender = complianceOf(settings, { community }).lender;
   const hasTeamContact = Boolean(String(settings.teamPhone ?? '').trim() || String(settings.teamEmail ?? '').trim());
-  const toRealtors = features.agents && agents.length > 0;
-  const canSchedule = toRealtors || bookingOn || hasTeamContact;
-  const canAskFinancing = bookingOn || Boolean(lender.phone || lender.email);
+  const toRealtors = features.agents && agents.some((agent) => canMessage(agent) || telHref(agent.phone));
+  const canSchedule = toRealtors || hasTimes || hasTeamContact;
+  const canAskFinancing = hasTimes || Boolean(telHref(lender.phone) || lender.email);
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>

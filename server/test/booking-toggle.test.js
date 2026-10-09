@@ -95,11 +95,16 @@ for (const kind of backends()) {
     });
 
     test('a community that never heard of the switch is on', async () => {
-      // What a payload from before the switch looks like: no booking key at all.
+      // What a community saved before the switch existed holds: features with no booking key at all.
+      const row = await app.store.getCommunity(cid);
+      const { booking: _gone, ...before } = row.features;
+      await app.store.updateCommunity(cid, { features: before });
+      // The row really has no key (the stores fill in defaults only on the way out).
       const page = (await api(`/api/c/${cid}`)).body;
-      const old = { ...page.features };
-      delete old.booking;
-      assert.notEqual(old.booking, false, 'the buyer app treats a missing key as on');
+      assert.notEqual(page.features.booking, false, 'the buyer app treats a missing key as on');
+      assert.ok(page.slots.length > 0, 'and the times are served');
+      const tried = await api('/api/me/tour', { method: 'POST', token: buyer.token, body: { slotId: page.slots[0].id, contact: 'phone' } });
+      assert.equal(tried.status, 200, 'and a time can be taken');
     });
   });
 }

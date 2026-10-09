@@ -270,6 +270,7 @@ export default function SetupTab({ community, reload, dirtyRef }) {
           Leave blank to use the account you sign in with. A buyer asking for a call is
           time-sensitive, so this is the one thing the app will email you about.
         </span>
+        <EmailStatus status={community.emailStatus} />
       </div>
 
       <div className="card elev-sm" style={{ gap: 10 }}>
@@ -347,4 +348,30 @@ function CommunityArtwork({ community, reload }) {
       <ErrorNote>{error}</ErrorNote>
     </div>
   );
+}
+
+/**
+ * Whether the site can send email, said plainly. Alerts, a buyer's emailed plan and the "Email us" form all
+ * depend on it, and it is set in Render, not here, so without this a builder finds out by an alert that never comes.
+ */
+function EmailStatus({ status }) {
+  if (!status) return null;
+  const style = { fontSize: 12, lineHeight: 1.45, fontWeight: 600, margin: 0 };
+  if (!status.ready) {
+    return (
+      <p role="status" style={{ ...style, color: '#8a1c11' }}>
+        Email is off for this site, so no alerts, emailed plans or “Email us” messages are being sent. In Render, open Environment and add
+        RESEND_API_KEY and EMAIL_FROM (an address on a domain you verified in Resend), then redeploy.
+      </p>
+    );
+  }
+  if (!status.senderSet) {
+    return (
+      <p role="status" style={{ ...style, color: '#8a1c11' }}>
+        Email is on, but EMAIL_FROM is not set in Render, so it goes out from Resend’s test address, which only delivers to your own Resend
+        account. Set EMAIL_FROM to an address on a domain you verified in Resend.
+      </p>
+    );
+  }
+  return <p role="status" style={style} className="text-muted">Email is on.</p>;
 }

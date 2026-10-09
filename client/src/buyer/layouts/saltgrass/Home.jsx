@@ -69,7 +69,7 @@ function LenderPanel({ onOpen }) {
           </div>
           {lender.tagline ? <p className="sg-lender__tag">{lender.tagline}</p> : null}
           <button type="button" className="sg-btn-white" onClick={onOpen}>
-            Set up a time to talk
+            Talk about financing
           </button>
           <LoanProcessLink className="sg-btn-apply" />
           <div className="sg-lender__id">

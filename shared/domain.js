@@ -217,29 +217,29 @@ export function videoEmbed(url) {
     return null;
   }
   const host = parsed.hostname.replace(/^www\./, '');
+  // A YouTube id is letters, digits, "-" and "_"; anything else would be a path or a query of the
+  // link's own, spliced into the frame address.
+  const youtube = (id) => (/^[\w-]{6,20}$/.test(id ?? '') ? `https://www.youtube.com/embed/${id}` : null);
+  // An unlisted Vimeo video needs the hash that comes after its id, as a path or as ?h=.
+  const vimeo = (id, hash) => {
+    if (!/^\d+$/.test(id ?? '')) return null;
+    const key = /^[\w]{6,20}$/.test(hash ?? '') ? `?h=${hash}` : '';
+    return `https://player.vimeo.com/video/${id}${key}`;
+  };
 
-  if (host === 'youtu.be') {
-    const id = parsed.pathname.slice(1).split('/')[0];
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
+  if (host === 'youtu.be') return youtube(parsed.pathname.slice(1).split('/')[0]);
   if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
-    if (parsed.pathname === '/watch') {
-      const id = parsed.searchParams.get('v');
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
+    if (parsed.pathname === '/watch') return youtube(parsed.searchParams.get('v'));
     const [, kind, id] = parsed.pathname.split('/');
-    if ((kind === 'embed' || kind === 'shorts' || kind === 'live' || kind === 'v') && id) {
-      return `https://www.youtube.com/embed/${id}`;
-    }
-    return null;
+    return kind === 'embed' || kind === 'shorts' || kind === 'live' || kind === 'v' ? youtube(id) : null;
   }
   if (host === 'vimeo.com') {
-    const id = parsed.pathname.split('/').filter(Boolean)[0];
-    return /^\d+$/.test(id ?? '') ? `https://player.vimeo.com/video/${id}` : null;
+    const [id, hash] = parsed.pathname.split('/').filter(Boolean);
+    return vimeo(id, /^[\w]+$/.test(hash ?? '') && !/^\d+$/.test(hash) ? hash : parsed.searchParams.get('h'));
   }
   if (host === 'player.vimeo.com') {
     const id = parsed.pathname.split('/').filter(Boolean)[1];
-    return /^\d+$/.test(id ?? '') ? `https://player.vimeo.com/video/${id}` : null;
+    return vimeo(id, parsed.searchParams.get('h'));
   }
   return null;
 }
@@ -382,7 +382,7 @@ export const LAYOUTS = [
   {
     k: 'cornerpost',
     name: 'Touradoor Default',
-    note: 'One phone-width column of soft, rounded tiles. Manrope throughout, with a Talk to the Team button on every page.',
+    note: 'One phone-width column of soft, rounded tiles. Manrope throughout, with a Book a tour button on every page.',
   },
   {
     k: 'saltgrass',

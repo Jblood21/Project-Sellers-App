@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
+import useDialog from './useDialog.js';
 
 /**
  * A home's video tour, played inside the app: either the file the builder uploaded or a YouTube or
@@ -7,17 +9,18 @@ import { useEffect } from 'react';
  * Escape), none of which leaves the app; closing it unmounts the player, which stops the video.
  */
 export default function VideoViewer({ open, onClose, label = 'Video tour', src = '', embed = '' }) {
+  const dialogRef = useRef(null);
+  // Focus moves in, Tab stays inside, Escape closes, and focus goes back to the button that opened it.
+  useDialog(open, onClose, dialogRef);
+
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (event) => { if (event.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = previous;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open || (!src && !embed)) return null;
   // The embed addresses come from videoEmbed (YouTube and Vimeo only). No related videos at the end,
@@ -26,6 +29,7 @@ export default function VideoViewer({ open, onClose, label = 'Video tour', src =
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={label}
@@ -51,7 +55,6 @@ export default function VideoViewer({ open, onClose, label = 'Video tour', src =
         </button>
       </div>
       <div
-        onClick={(event) => event.stopPropagation()}
         style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}
       >
         {embed ? (
@@ -65,6 +68,7 @@ export default function VideoViewer({ open, onClose, label = 'Video tour', src =
         ) : (
           // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
+            onClick={(event) => event.stopPropagation()}
             src={src} controls playsInline autoPlay preload="auto"
             style={{ width: '100%', maxWidth: 960, maxHeight: '100%', background: '#000', borderRadius: 8 }}
           />

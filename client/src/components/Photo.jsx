@@ -10,8 +10,10 @@ import { useState } from 'react';
  *
  * `eager` is for the one picture a page exists to show (a hero): it loads at once, ahead of the rest,
  * instead of waiting to be scrolled near. A picture that fails to load falls back to the placeholder.
+ * `quiet` is for a picture that is only a picture: when there is none (or it fails) the box is left
+ * empty rather than saying "Photo coming soon", and whatever is behind it shows.
  */
-export default function Photo({ photo, alt, label, radius, style, fit, className = '', eager = false }) {
+export default function Photo({ photo, alt, label, radius, style, fit, className = '', eager = false, quiet = false }) {
   const [failed, setFailed] = useState(null);
   const wrapperStyle = {
     width: '100%',
@@ -35,7 +37,7 @@ export default function Photo({ photo, alt, label, radius, style, fit, className
           // photograph can be, so they ask for `contain`.
           style={fit ? { objectFit: fit } : undefined}
         />
-      ) : (
+      ) : quiet ? null : (
         <div className="photo-empty">{label || 'Photo coming soon'}</div>
       )}
     </div>

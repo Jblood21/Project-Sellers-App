@@ -89,7 +89,7 @@ See [`.env.example`](.env.example).
 | `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
 | `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
 | `PUBLIC_ORIGIN` | The one public address of the site with the `https://`, e.g. `https://touradoor.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data, and into the links in emails; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. A value without `https://` is ignored, and the server says so at boot. |
-| `REDIRECT_TO_PUBLIC_ORIGIN` | `off` stops the site sending a visit to its Render address (`*.onrender.com`) on to `PUBLIC_ORIGIN`. Set it first if the custom domain ever has to be taken offline, so the Render address works again without a deploy. |
+| `REDIRECT_TO_PUBLIC_ORIGIN` | `off` stops the site sending a visit to its Render address (`*.onrender.com`) on to `PUBLIC_ORIGIN`. It is listed in `render.yaml` as `on`; if the custom domain ever has to be taken offline, change it to `off` in the Render dashboard (Environment). The service restarts and the Render address works again within a minute or two. The admin pages (`/admin`) and the API are never redirected, so the owner always has a way in. It assumes the domain forwards the Render host name as it received it; a proxy in front (Cloudflare, a Worker) that rewrites `Host` to the `*.onrender.com` name would send every visit round in a loop, so set it to `off` there. Buyers signed in at the Render address have to sign in again at the domain (and an app added to the home screen from the old address has to be added again): a browser keeps a visitor's saved details per address. |
 | `PORT` | Defaults to 3000; Render sets this. |
 | `RATE_LIMITS` | `off` turns the request limits off, `on` forces them on. Unset they are on, except under `node --test`. |
 | `DATA_FILE` | Where the JSON-file store keeps its data when `DATABASE_URL` is unset (default `data/db.json`). |
@@ -111,7 +111,9 @@ characters; every body a stranger can send (the buyer app and the sign-in form) 
 one) and, where there is one, per person (`server/lib/limits.js`). Admin sign-in: 8 wrong passwords per address and email per 15 minutes, 30 per address, 60
 per email from anywhere (a right password gives its own count back, and guesses sent all at once are held before the
 account is looked up). Buyers: 400 sign-up attempts an hour per address and 8 per address and email; 5 plan emails a day
-per buyer and 5 a day to any one inbox, 30 an hour per address (a send that fails does not count); 12 booking attempts an
+per buyer and 5 a day to any one inbox (`name+anything@` counts as `name@`), 2 a day to any one inbox for a copy sent to a second address,
+and 30 an hour per address, counted once per message sent (a send that fails does not count); "Find out if you qualify" messages: one
+every 20 seconds, 3 an hour per buyer, 20 an hour per address and 300 an hour per community; 12 booking attempts an
 hour per buyer; 300 activity taps per buyer per 10 minutes; 3000 writes per address per 10 minutes. These are set for a
 sales trailer on one wifi address with many buyers on it, and they are guesses about real traffic, not measurements: if
 a buyer reports "Too many requests", look for the number here first. A restart clears the counts. The links written
@@ -123,7 +125,7 @@ Uploaded videos (a home's walkthrough, a Learn video) are served from an address
 The file at its *current* version is cached for a year; a replacement moves the version, so it arrives under a new address. A request
 with no version, or an old one, still gets the file as it is now but is `no-cache`. Uploads are capped at 25 MB (about 12 to 25
 seconds of phone video) and travel as base64 inside JSON, so only the admin routes that take one accept a body bigger than 6 MB,
-and only after sign-in; for anything longer, paste a YouTube or Vimeo link in the Learn tab.
+and only after sign-in; for anything longer, paste a YouTube or Vimeo link (a home's own link field is on the Homes tab; the Learn tab takes the community's videos).
 
 ## Deploying to Render
 
@@ -154,7 +156,11 @@ and only after sign-in; for anything longer, paste a YouTube or Vimeo link in th
    existing one shows what it would be with a button to use it. The link resolves to the same community as the id and as
    every link it has had, so nothing printed or shared has to be redone; a buyer who opens the older address is shown the
    clean one in the address bar without a reload, and what they saved on the device follows them. A clean link is
-   guessable from the name, so a community that must stay unlisted before launch should keep its id. The QR dialog and
+   guessable from the name, and **nothing can switch an address off**: a community made from now on is reachable by its
+   name from the moment it is created (its homes, prices and incentive are served to anyone who types it), the earlier
+   addresses of a community keep working for good so printed signs are never orphaned, and the id itself always opens it.
+   So keep a community's details private until you are ready to share them. Only a community that was made before this
+   release and has not taken a clean link is reachable by its id alone. The QR dialog offers that button too, and it and
    the sign write the link with `PUBLIC_ORIGIN` when it is set, not whichever address the admin was opened on.
 6. Test **Add to Home Screen** on iOS Safari and Android Chrome.
 
@@ -381,7 +387,7 @@ opens the section it is in. Sections start folded each time the page is opened.
 two, and the choice saves the moment it is made:
 
 - **Touradoor Default** (what every community starts on) — one phone-width column of soft, rounded
-  tiles, Manrope throughout, a *Talk to the Team* button in the header of every page.
+  tiles, Manrope throughout, a *Book a tour* button in the header of every page.
 - **Salt Grass** — condensed uppercase headlines, a dark header and footer with an accent rule, large
   payment figures, and a two-button bar fixed to the foot of the screen on phones.
 
@@ -464,7 +470,9 @@ Under **Setup → Home screen**:
   payment, applying for a loan; `DEFAULT_FAQ` in `shared/faq.js`). They name no lender, rate or amount. Edit, reorder or
   remove them under **Setup → FAQ**, and **Restore the starter questions** puts them back (it asks first, and
   nothing changes for buyers until **Save settings**). A community that has already saved its Setup page keeps what
-  it saved, which can be an empty list. The section appears only when there is at least one complete question and
+  it saved, which can be an empty list. The exception: a saved copy of an *older starter list* that nobody edited is shown as the current one
+  (the starter questions have been reworded, and `PREVIOUS_DEFAULT_FAQ_JSONS` lists the earlier ones); a list the builder changed is always kept,
+  and typing an old starter list back in reads as the current one too. The section appears only when there is at least one complete question and
   answer. Answers are plain text. On a computer the question under the pointer is **highlighted** (and the one with
   keyboard focus); a phone has no hover, so a tap simply opens the answer. It is also in the page's `FAQPage`
   structured data (the home screen is behind the contact gate, so search engines do not read it).
@@ -480,8 +488,8 @@ Buyers see them **listed in full on the page**, never behind a link: on the home
 are several), on every home, and on a **Meet the agent** page. Each card has the licence line and
 **Call**, **Text** (phones only) and **Email** buttons, and a **Tour the homes** button that opens a message to
 the agent that is already written: a text on a phone, an email on a computer (whichever the agent has, if only
-one). The **Explore Homes** screen has *Ready to look at homes?* under the homes (one button per agent a message can
-reach), now two buttons: **Schedule a Tour** (the realtors page; the booking sheet when there are no realtors) and **Find out
+one). The **Explore Homes** screen has *Ready to look at homes?* under the homes, with two buttons, each shown only when it leads somewhere
+(times to pick, or someone with a phone or an email): **Schedule a Tour** (the realtors page; the booking sheet when there are no realtors) and **Find out
 about financing** (the lender sheet). Each model's page starts its buttons with **Talk about financing**, which opens the
 same sheet for a conversation with the lender. A tour is asked for further down the model's page, under **Want a Tour?**,
 through the agent cards (Call, Text and Email, not a tour button), or from **Book a tour** in the header or bottom bar.

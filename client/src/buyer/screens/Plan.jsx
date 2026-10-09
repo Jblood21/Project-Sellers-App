@@ -125,13 +125,18 @@ function EmailPlanButton() {
   const [also, setAlso] = useState(saved);
   const [alsoOpen, setAlsoOpen] = useState(Boolean(saved));
   const [sentTo, setSentTo] = useState([]);
+  // An address the plan reached the buyer's own inbox but not this one. Said, because "Sent" alone would
+  // read as though their spouse has it.
+  const [missed, setMissed] = useState([]);
 
   const send = async () => {
     setState('sending');
     setError('');
     try {
       const result = await emailPlan(alsoOpen ? also.trim() : undefined);
-      setSentTo([result.to, ...(result.also ?? []).filter((entry) => entry.sent).map((entry) => entry.to)]);
+      const outcomes = result.also ?? [];
+      setSentTo([result.to, ...outcomes.filter((entry) => entry.sent).map((entry) => entry.to)]);
+      setMissed(outcomes.filter((entry) => !entry.sent).map((entry) => entry.to));
       setState('sent');
     } catch (err) {
       setError(err.message);
@@ -141,9 +146,21 @@ function EmailPlanButton() {
 
   if (state === 'sent') {
     return (
-      <p role="status" style={{ fontSize: 12.5, color: 'var(--t-acc2)', textAlign: 'center', margin: '0 0 14px', fontWeight: 600 }}>
-        Sent to {sentTo.join(' and ')} ✓
-      </p>
+      <>
+        <p role="status" style={{ fontSize: 12.5, color: 'var(--t-acc2)', textAlign: 'center', margin: '0 0 14px', fontWeight: 600 }}>
+          Sent to {sentTo.join(' and ')} ✓
+        </p>
+        {missed.length ? (
+          <>
+            <p role="alert" style={{ fontSize: 12.5, color: 'var(--t-mut)', textAlign: 'center', margin: '-6px 0 8px', lineHeight: 1.45 }}>
+              We couldn’t reach {missed.join(' or ')}. Check the address, then try again.
+            </p>
+            <button type="button" className="b-btn b-btn-outline" style={{ marginBottom: 14 }} onClick={() => setState('idle')}>
+              Try again
+            </button>
+          </>
+        ) : null}
+      </>
     );
   }
 
@@ -175,7 +192,7 @@ function EmailPlanButton() {
         disabled={state === 'sending'}
         style={{ marginBottom: error ? 6 : 14 }}
       >
-        {state === 'sending' ? 'Sending…' : 'Email this plan to me'}
+        {state === 'sending' ? 'Sending…' : (alsoOpen && also.trim() ? 'Email this plan' : 'Email this plan to me')}
       </button>
       {error ? (
         <p style={{ fontSize: 12, color: 'var(--t-mut)', textAlign: 'center', margin: '0 0 14px', lineHeight: 1.45 }}>

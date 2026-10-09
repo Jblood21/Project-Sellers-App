@@ -301,7 +301,8 @@ export function createPostgresStore(connectionString) {
      */
     async resolveCommunity(key) {
       const text = String(key ?? '').trim().slice(0, 80);
-      if (!text) return null;
+      // Printable ASCII only, as in the other store: the two fold letter case differently outside it.
+      if (!text || !/^[\x21-\x7e]+$/.test(text)) return null;
       const { rows } = await q(
         `SELECT c.* FROM communities c
           WHERE c.id = $1 OR c.id = lower($1)
@@ -328,6 +329,9 @@ export function createPostgresStore(connectionString) {
      */
     async setCommunitySlug(id, slug) {
       return inTransaction(async (db) => {
+        // A community deleted a moment ago is "missing", as in the other store, not a failed insert.
+        const exists = await db.query(`SELECT 1 FROM communities WHERE id = $1 FOR SHARE`, [id]);
+        if (!exists.rows.length) return { error: 'missing' };
         const other = await db.query(`SELECT 1 FROM communities WHERE lower(id) = $1 AND id <> $2`, [slug, id]);
         if (other.rows.length) return { error: 'taken' };
         const claimed = await db.query(

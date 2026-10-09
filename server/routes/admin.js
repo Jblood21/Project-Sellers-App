@@ -5,19 +5,18 @@ import {
   COMPLIANCE_DEFAULTS, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
-  SLOT_TIMES, THEMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
+  SAFE_EMAIL_RE, SLOT_TIMES, THEMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
+import { emailConfigured } from '../lib/email.js';
 import { pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
-// One address and nothing else: no list, no query string, no display name.
-const INCENTIVE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;]+$/;
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 const MAX_FLOOR_PLANS = 4;
 // Raster only, and SVG is left out on purpose: an SVG is a document that can
@@ -378,6 +377,9 @@ export function adminRouter() {
       formerSlugs: slugs.filter((slug) => slug !== community.slug),
       suggestedSlug: suggestCommunitySlug(community.name),
       siteOrigin: pinnedOrigin(),
+      // Whether this server can send mail at all, and from what: the builder is told in Setup rather than
+      // finding out when an alert never arrives. The sender is only said to be set or not.
+      emailStatus: { ready: emailConfigured(), senderSet: Boolean(process.env.EMAIL_FROM) },
     });
   });
 
@@ -431,13 +433,13 @@ export function adminRouter() {
         if (key === 'loanApplicationUrl' && text && !safeHref(text)) {
           return res.status(400).json({ error: 'The loan application link must be a web address starting with http:// or https://.' });
         }
-        if (key === 'incentiveEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+        if (key === 'incentiveEmail' && text && !SAFE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The incentive email must be a single email address.' });
         }
-        if (key === 'lenderEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+        if (key === 'lenderEmail' && text && !SAFE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The loan team email must be a single email address.' });
         }
-        if (key === 'teamEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+        if (key === 'teamEmail' && text && !SAFE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The sales team email must be a single email address.' });
         }
         if (key === 'faqJson') {
@@ -471,7 +473,12 @@ export function adminRouter() {
     }
     if (newSlug) {
       const claimed = await store.setCommunitySlug(community.id, newSlug);
-      if (claimed.error) return res.status(409).json({ error: 'That link is already used by another community. Pick a different one.' });
+      if (claimed.error === 'missing') return res.status(404).json({ error: 'Community not found' });
+      if (claimed.error) {
+        return res.status(409).json({
+          error: 'That link is already used by another community, or was before and is kept for it so printed links keep working. Pick a different one.',
+        });
+      }
     }
     res.json(await store.updateCommunity(community.id, patch));
   });
@@ -547,9 +554,11 @@ export function adminRouter() {
         return res.status(400).json({ error: 'That link is not a YouTube or Vimeo video.' });
       }
       patch.videoLink = link;
-      if (link) await store.deleteHomeVideo(home.id);
     }
-    res.json(await store.updateHome(home.id, patch));
+    const updated = await store.updateHome(home.id, patch);
+    // The file goes only once the link is saved: if saving failed, the buyer keeps the video they had.
+    if (patch.videoLink) await store.deleteHomeVideo(home.id);
+    res.json(patch.videoLink ? await store.getHome(home.id) : updated);
   });
 
   router.delete('/homes/:id', async (req, res) => {

@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
+import useDialog from './useDialog.js';
 
 /**
  * Full-screen viewer for a drawing, kept inside the app.
@@ -11,11 +13,13 @@ import { useEffect } from 'react';
  */
 export default function ImageViewer({ images = [], index = 0, onIndex, onClose, label = 'Image', photos = false }) {
   const open = index !== null && index >= 0 && index < images.length;
+  const dialogRef = useRef(null);
+  // Focus moves in, Tab stays inside, Escape closes, and focus goes back to what opened it.
+  useDialog(open, onClose, dialogRef);
 
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event) => {
-      if (event.key === 'Escape') onClose();
       if (event.key === 'ArrowRight' && index < images.length - 1) onIndex?.(index + 1);
       if (event.key === 'ArrowLeft' && index > 0) onIndex?.(index - 1);
     };
@@ -34,6 +38,7 @@ export default function ImageViewer({ images = [], index = 0, onIndex, onClose, 
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       // "1 of 1" is noise read aloud; a position only means something among several.
@@ -71,10 +76,10 @@ export default function ImageViewer({ images = [], index = 0, onIndex, onClose, 
       </div>
 
       <div
-        onClick={(event) => event.stopPropagation()}
         style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}
       >
         <img
+          onClick={(event) => event.stopPropagation()}
           src={images[index].url}
           alt={`${label} ${index + 1}`}
           // A drawing sits on white so its lines read; a photograph does not need a plate.

@@ -49,6 +49,17 @@ for (const kind of backends()) {
       assert.deepEqual(await photosOf(other.id), [foreign.id]);
     });
 
+    test('a photo added after others were deleted still goes last, in both stores', async () => {
+      const fresh = (await admin(`/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Cedar', price: 420000 } })).body;
+      const a = await addPhoto(fresh.id);
+      const b = await addPhoto(fresh.id);
+      const c = await addPhoto(fresh.id);
+      await api(`/api/admin/photos/${a.id}`, { method: 'DELETE', token });
+      await api(`/api/admin/photos/${b.id}`, { method: 'DELETE', token });
+      const d = await addPhoto(fresh.id);
+      assert.deepEqual(await photosOf(fresh.id), [c.id, d.id], 'after the survivor, not in front of it');
+    });
+
     test('an order that is not exactly this home\'s photos, once each, is refused', async () => {
       const [first, second, third, fourth] = await photosOf(home.id);
       const foreign = (await photosOf(other.id))[0];

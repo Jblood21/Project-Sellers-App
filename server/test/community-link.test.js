@@ -166,6 +166,76 @@ for (const kind of backends()) {
       assert.equal((await admin(`/communities/${community.slug}`)).status, 404, 'admin routes are keyed on the id');
     });
 
+    test('the page head names the clean address however the page was reached, and after the address was changed', async () => {
+      const dist = mkdtempSync(join(tmpdir(), 'psa-link-dist-'));
+      writeFileSync(join(dist, 'index.html'), INDEX_HTML);
+      const ssr = createApp({ clientDist: dist }).listen(0);
+      await new Promise((resolve) => ssr.once('listening', resolve));
+      const head = async (key, rest = '') => (await fetch(`http://127.0.0.1:${ssr.address().port}/c/${key}${rest}`)).text();
+      try {
+        const detail = (await admin(`/communities/${community.id}`)).body;
+        const current = detail.slug;
+        assert.ok(detail.formerSlugs.length >= 0);
+        // The id, the id in capitals, the clean address, in capitals, and a deeper page.
+        for (const [key, rest] of [[community.id, ''], [community.id.toUpperCase(), ''], [current, ''], [current.toUpperCase(), ''], [community.id, '/guides']]) {
+          const html = await head(key, rest);
+          assert.match(html, /<html/, `${key}${rest} is a page`);
+          assert.match(html, new RegExp(`rel="canonical" href="https?://[^"]+/c/${current}(/guides)?"`), `${key}${rest} canonical`);
+          assert.match(html, new RegExp(`property="og:url" content="https?://[^"]+/c/${current}(/guides)?"`), `${key}${rest} og:url`);
+          assert.doesNotMatch(html, new RegExp(`(canonical|og:url)[^>]*${community.id}`), `${key}${rest} does not name the id`);
+        }
+        // After the builder moves to another address, the address it used to have names the new one.
+        const moved = await admin(`/communities/${community.id}`, { method: 'PATCH', body: { slug: 'salt-grass-lehi' } });
+        assert.equal(moved.status, 200);
+        for (const key of [current, community.id]) {
+          const html = await head(key);
+          assert.match(html, /rel="canonical" href="https?:\/\/[^"]+\/c\/salt-grass-lehi"/, `${key} after the move`);
+        }
+        const back = await admin(`/communities/${community.id}`, { method: 'PATCH', body: { slug: current } });
+        assert.equal(back.status, 200);
+      } finally {
+        await new Promise((resolve) => ssr.close(resolve));
+        rmSync(dist, { recursive: true, force: true });
+      }
+    });
+
+    test('the buyer page lists the addresses the community used to have, so the device can follow the buyer to the new one', async () => {
+      await admin(`/communities/${community.id}`, { method: 'PATCH', body: { slug: 'salt-grass-lehi' } });
+      const page = (await api(`/api/c/${community.id}`)).body;
+      assert.equal(page.slug, 'salt-grass-lehi');
+      assert.ok(page.formerSlugs.includes(community.slug), 'the old clean address is listed');
+      assert.ok(!page.formerSlugs.includes('salt-grass-lehi'), 'and the current one is not');
+      await admin(`/communities/${community.id}`, { method: 'PATCH', body: { slug: community.slug } });
+      const again = (await api(`/api/c/${community.id}`)).body;
+      assert.ok(again.formerSlugs.includes('salt-grass-lehi'));
+    });
+
+    test('the rate webhook works from the id and not from the clean address', async () => {
+      process.env.RATES_WEBHOOK_SECRET = 'hook-secret';
+      try {
+        const post = (key) => api(`/api/communities/${key}/rates`, {
+          method: 'POST', body: { conv: '6.25' }, headers: { 'x-webhook-secret': 'hook-secret' },
+        });
+        const byId = await post(community.id);
+        assert.equal(byId.status, 200, JSON.stringify(byId.body));
+        assert.equal(byId.body.settings.rateConv, '6.25');
+        assert.equal((await post(community.slug)).status, 404, 'the webhook is keyed on the id, as the README says');
+      } finally {
+        delete process.env.RATES_WEBHOOK_SECRET;
+      }
+    });
+
+    test('both stores answer the same for an address with letters outside plain ASCII, and for a community that has just gone', async () => {
+      assert.equal((await app.store.resolveCommunity('SALT-GRASS'))?.id, community.id, 'plain capitals still fold');
+      for (const key of ['SALT-GRASS\u0130', 'salt-grass\u212a', 'ſalt-grass', 'salt grass', '']) {
+        assert.equal(await app.store.resolveCommunity(key), null, JSON.stringify(key));
+      }
+      const gone = await app.store.setCommunitySlug('no-such-community-abcd', 'some-address');
+      assert.deepEqual(gone, { error: 'missing' });
+      const res = await admin('/communities/no-such-community-abcd', { method: 'PATCH', body: { slug: 'some-address' } });
+      assert.equal(res.status, 404);
+    });
+
     test('deleting a community frees its addresses', async () => {
       const gone = (await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Goes Away' } })).body;
       assert.equal(gone.slug, 'goes-away');

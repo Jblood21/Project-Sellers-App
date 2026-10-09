@@ -1168,9 +1168,9 @@ test('videos and articles: the builder writes them, the buyer reads them below t
 
   // Four videos is the cap, and the server holds it even if the form is bypassed.
   for (const n of [2, 3, 4]) {
-    assert.equal((await post({ kind: 'video', title: `V${n}`, url: `https://youtu.be/vid${n}` })).status, 201);
+    assert.equal((await post({ kind: 'video', title: `V${n}`, url: `https://youtu.be/vid${n}abcdefg` })).status, 201);
   }
-  const overflow = await post({ kind: 'video', title: 'Fifth', url: 'https://youtu.be/vid5' });
+  const overflow = await post({ kind: 'video', title: 'Fifth', url: 'https://youtu.be/vid5abcdefg' });
   assert.equal(overflow.status, 400);
   assert.match(overflow.body.error, /up to 4 videos/);
 

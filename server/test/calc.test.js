@@ -334,6 +334,16 @@ test('a video link becomes an embeddable one, whatever shape it was pasted in', 
   assert.equal(videoEmbed('javascript:alert(1)'), null);
   assert.equal(videoEmbed('https://vimeo.com/channels/staffpicks'), null, 'not a video id');
   assert.equal(videoEmbed('https://www.youtube.com/watch?v='), null, 'no id');
+  // The id is only an id: a path or a query in its place would be spliced into the frame address.
+  assert.equal(videoEmbed('https://www.youtube.com/watch?v=../redirect?q=https://evil.example'), null);
+  assert.equal(videoEmbed('https://www.youtube.com/watch?v=a%2F..%2Fb'), null, 'decoded, it is still not an id');
+  assert.equal(videoEmbed('https://youtu.be/abc'), null, 'too short to be one');
+  assert.equal(videoEmbed('https://www.youtube.com/embed/dQw4w9WgXcQ/extra?x=1'), 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'only the id segment is used');
+  // An unlisted Vimeo video needs the hash that follows its id, as a path or as ?h=.
+  assert.equal(videoEmbed('https://vimeo.com/76979871/8272103f6e'), 'https://player.vimeo.com/video/76979871?h=8272103f6e');
+  assert.equal(videoEmbed('https://vimeo.com/76979871?h=8272103f6e'), 'https://player.vimeo.com/video/76979871?h=8272103f6e');
+  assert.equal(videoEmbed('https://player.vimeo.com/video/76979871?h=8272103f6e&autoplay=1'), 'https://player.vimeo.com/video/76979871?h=8272103f6e');
+  assert.equal(videoEmbed('https://vimeo.com/76979871?h=a/../b'), 'https://player.vimeo.com/video/76979871', 'a hash that is not one is dropped');
   assert.equal(videoEmbed(''), null);
   assert.equal(videoEmbed(undefined), null);
 });

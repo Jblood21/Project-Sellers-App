@@ -66,12 +66,13 @@ export async function startBackend(kind, label) {
   await new Promise((resolve) => server.once('listening', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
 
-  const api = async (path, { method = 'GET', body, token, raw } = {}) => {
+  const api = async (path, { method = 'GET', body, token, raw, headers = {} } = {}) => {
     const res = await fetch(`${base}${path}`, {
       method,
       headers: {
         ...(body === undefined || method === 'GET' ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
       },
       body: body === undefined || method === 'GET' ? undefined : JSON.stringify(body),
     });

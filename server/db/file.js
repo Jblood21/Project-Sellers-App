@@ -192,7 +192,8 @@ export function createFileStore(path) {
     /** See the Postgres store: an id, the id in other case, or any slug the community has had. */
     async resolveCommunity(key) {
       const text = String(key ?? '').trim().slice(0, 80);
-      if (!text) return null;
+      // Printable ASCII only, as in the other store: the two fold letter case differently outside it.
+      if (!text || !/^[\x21-\x7e]+$/.test(text)) return null;
       const lower = text.toLowerCase();
       const row = db.communities.find((c) => c.id === text)
         ?? db.communities.find((c) => c.id === lower)
@@ -461,7 +462,10 @@ export function createFileStore(path) {
       communityId, homeId = null, highlightId = null, agentId = null, guideId = null,
       kind = 'home', contentType = null, data = null, url = null,
     }) {
-      const position = db.photos.filter((p) => p.communityId === communityId && p.homeId === homeId).length;
+      // After the last one, not "how many there are": deleting some leaves gaps, and a count then lands before a survivor.
+      const position = db.photos
+        .filter((p) => p.communityId === communityId && p.homeId === homeId)
+        .reduce((last, p) => Math.max(last, p.position ?? -1), -1) + 1;
       const row = {
         id: `p_${shortId(12)}`, communityId, homeId, highlightId, agentId, guideId, kind,
         content_type: contentType, data, url, position, createdAt: now(),

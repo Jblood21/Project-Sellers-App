@@ -42,10 +42,15 @@ services:
       # The one public address of the site, with the https://. Canonical links, share
       # previews, the QR and Copy link in the admin and the links in emails use it, and the
       # Render address redirects to it. Unset, they follow whichever address a visitor came
-      # in on, and a site that answers on two names publishes both. If the domain ever has to
-      # be taken offline, set REDIRECT_TO_PUBLIC_ORIGIN=off first so the Render address works.
+      # in on, and a site that answers on two names publishes both.
       - key: PUBLIC_ORIGIN
         value: https://touradoor.com
+      # "on" sends a visit to the Render address on to PUBLIC_ORIGIN (the admin pages and the API
+      # are never sent). If the domain ever has to be taken offline, change this to "off" (here AND in
+      # the dashboard's Environment tab, or a later blueprint sync puts it back): the service restarts
+      # and the Render address works again in a minute or two.
+      - key: REDIRECT_TO_PUBLIC_ORIGIN
+        value: "on"
       # Email. Without RESEND_API_KEY nothing is sent (requests are still saved).
       # EMAIL_FROM must be an address on a domain verified in Resend, and one that
       # is read: the sandbox sender only delivers to the Resend account owner.

@@ -151,6 +151,7 @@ function CommunityTabs({ community, leads, reload }) {
       {qrOpen ? (
         <QrDialog
           community={community}
+          onChanged={reload}
           onClose={() => setQrOpen(false)}
           onOpenFlyer={() => {
             if (!leaveSetupOk()) return;
@@ -204,7 +205,7 @@ function BuyerLinkField({ community, value, onChange }) {
         ) : null}
         {typed && !cleaned
           ? 'Use 3 to 40 letters, numbers or hyphens. Words the site uses itself, like admin, are not allowed.'
-          : `${origin}/c/${cleaned || community.urlKey}. Every earlier link and printed code keeps working${community.formerSlugs?.length ? `, including /c/${[community.id, ...community.formerSlugs].join(', /c/')}` : `, including /c/${community.id}`}.`}
+          : `${origin}/c/${cleaned || community.urlKey}. Every earlier link and printed code keeps working${community.formerSlugs?.length ? `, including /c/${[community.id, ...community.formerSlugs].join(', /c/')}` : `, including /c/${community.id}`}, and they cannot be turned off. Anyone who types any of them can open the community, so keep a community's details private until you are ready to share them.`}
       </span>
     </div>
   );
@@ -227,8 +228,14 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
     setBusy(true);
     setError('');
     try {
-      // A blank link is not a request to remove it: a community always has an address.
+      // A blank link is not a request to remove it: a community always has an address. Said, rather than
+      // saved as if it had worked.
       const { slug, ...rest } = form;
+      if (community.slug && !slug.trim()) {
+        setError('A community always has a buyer link. Type the one you want, or put back the one it had.');
+        setBusy(false);
+        return;
+      }
       await adminApi.updateCommunity(token, community.id, slug.trim() ? { ...rest, slug } : rest);
       // Only sent when a new file was picked, so saving other fields never
       // disturbs the existing photo.

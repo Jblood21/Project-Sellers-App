@@ -75,12 +75,13 @@ function BuyerShell() {
   // Reached by the community's id (a printed link, an installed app) or in other letter case: show the
   // clean link in the address bar. Same page, same history entry, same document, so an installed
   // app stays inside its scope and nothing reloads.
+  // Not while the buyer's own record is still loading: the load belongs to the address it started at.
   useEffect(() => {
-    if (!community?.urlKey || community.urlKey === communityId) return;
+    if (loading || !community?.urlKey || community.urlKey === communityId) return;
     // A bare trailing slash is dropped; a deeper path (tools/payment/) keeps its own.
     const rest = location.pathname.replace(/^\/c\/[^/]+/, '').replace(/^\/+$/, '');
     navigate(`/c/${encodeURIComponent(community.urlKey)}${rest}${location.search}${location.hash}`, { replace: true });
-  }, [community, communityId, location.pathname, location.search, location.hash, navigate]);
+  }, [community, communityId, loading, location.pathname, location.search, location.hash, navigate]);
 
   // Every route change starts at the top — long tool screens otherwise keep their scroll.
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, cleanExtraEmails, complianceOf, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, SAFE_EMAIL_RE,
+  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, SAFE_EMAIL_RE,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
@@ -9,7 +9,7 @@ import {
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
-import { clientKey, createLimiter, limitRequests, reserve, tooMany } from '../lib/limits.js';
+import { clientKey, createLimiter, limitRequests, mailboxKey, reserve, tooMany } from '../lib/limits.js';
 import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
 import { emailLoanTeam, notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
@@ -153,13 +153,16 @@ function publicSettings(community) {
 
 const publicCommunity = (
   community, homes, highlights, resources, heroPhoto, iconPhoto, siteMap, slots,
-  { logo, logoLight, lenderLogo, agents, guides },
+  { logo, logoLight, lenderLogo, agents, guides, formerSlugs },
 ) => ({
   id: community.id,
   // How its address is written: the clean slug when it has one. The browser swaps the address bar to
   // this, so a printed link made from the id keeps working and quietly becomes the clean one.
   slug: community.slug,
   urlKey: community.urlKey,
+  // Every address it has had besides this one. They all still open it, so telling the browser lets what
+  // a buyer saved under an old link follow them to the new one; nothing here is not already reachable.
+  formerSlugs,
   // The one public address when PUBLIC_ORIGIN pins it, so the browser writes the same
   // canonical and structured-data id the server wrote instead of whichever host it loaded from.
   siteOrigin: pinnedOrigin(),
@@ -206,7 +209,7 @@ export async function loadPublicCommunity(store, communityId) {
   if (!community) return null;
   const [
     homes, highlights, resources, heroes, icons, maps, slots, logos, logosLight, lenderLogos, agents,
-    guides,
+    guides, allSlugs,
   ] = await Promise.all([
     store.listHomes(community.id),
     store.listHighlights(community.id),
@@ -220,9 +223,11 @@ export async function loadPublicCommunity(store, communityId) {
     store.listCommunityPhotos(community.id, 'lenderlogo'),
     store.listAgents(community.id),
     store.listGuides(community.id),
+    store.listCommunitySlugs(community.id),
   ]);
   return publicCommunity(community, homes, highlights, resources, heroes[0], icons[0], maps[0], slots, {
     logo: logos[0], logoLight: logosLight[0], lenderLogo: lenderLogos[0], agents, guides,
+    formerSlugs: allSlugs.filter((slug) => slug !== community.slug),
   });
 }
 
@@ -254,6 +259,8 @@ export function publicRouter() {
   // A plan goes to the email typed at the gate, which nobody has verified, so the cap that matters for a
   // stranger's inbox is on the recipient, whichever lead or address asked.
   const planMailPerRecipient = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 5 });
+  // A copy sent to a second address is mail to someone who never asked for it, so an inbox gets fewer of those.
+  const planShareToRecipient = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 2 });
   const planMailPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 30 });
   const toursPerLead = createLimiter({ windowMs: 60 * 60 * 1000, max: 12 });
   // "Find out if you qualify" mail goes to a real inbox, and anyone can mint a buyer record at the gate,
@@ -261,7 +268,9 @@ export function publicRouter() {
   const incentiveBurst = createLimiter({ windowMs: 20 * 1000, max: 1 });
   const incentivePerLead = createLimiter({ windowMs: 60 * 60 * 1000, max: 3 });
   const incentivePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
-  const incentivePerCommunity = createLimiter({ windowMs: 60 * 60 * 1000, max: 60 });
+  // Well above what the per-address limits let one visitor send, so that a flood from a few addresses
+  // cannot lock real buyers out for the hour; it is only a ceiling on what the loan team's inbox gets.
+  const incentivePerCommunity = createLimiter({ windowMs: 60 * 60 * 1000, max: 300 });
   router.use((req, res, next) => (
     req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
       ? next()
@@ -482,10 +491,12 @@ export function publicRouter() {
     // must not use up a buyer's five for the day, or hide itself behind "too many" for everyone
     // on their wifi. The uses are held while the send is in flight and given back if it fails.
     // Every address that will receive one is counted against its own inbox, the second included.
+    // Each message counts against the visitor's address once, so a second address costs two.
     const hold = reserve([
       [planMailPerLead, req.leadId],
-      ...recipients.map((address) => [planMailPerRecipient, String(address).trim().toLowerCase()]),
-      [planMailPerIp, clientKey(req)],
+      ...recipients.map((address) => [planMailPerRecipient, mailboxKey(address)]),
+      ...extras.map((address) => [planShareToRecipient, mailboxKey(address)]),
+      ...recipients.map(() => [planMailPerIp, clientKey(req)]),
     ]);
     if (hold.wait) {
       res.set('Retry-After', String(hold.wait));
@@ -537,9 +548,13 @@ export function publicRouter() {
     if (!recipient) {
       return res.status(409).json({ error: 'The team hasn’t listed an email address yet. Please call or text instead.' });
     }
-    const lenderPhone = complianceOf(community.settings, { community }).lender.phone;
-    const callInstead = lenderPhone ? ` You can also call ${lenderPhone}.` : '';
 
+    // Text only: an object or a list would be printed as "[object Object]" into the team's inbox.
+    for (const field of ['name', 'email', 'message']) {
+      if (req.body?.[field] != null && typeof req.body[field] !== 'string') {
+        return res.status(400).json({ error: 'Please check what you typed and try again.' });
+      }
+    }
     // A blank name or email is theirs from the sign-up, so the form can be sent as it was prefilled.
     const name = stripControlCharacters(String(req.body?.name ?? '').trim() || lead.name).replace(/\s+/g, ' ').trim();
     const email = String(req.body?.email ?? '').trim() || lead.email;
@@ -551,7 +566,7 @@ export function publicRouter() {
     if (message.length > 1000) return res.status(400).json({ error: 'That message is a little long. Please keep it under 1,000 characters.' });
 
     if (!emailConfigured()) {
-      return res.status(503).json({ error: `Messages can’t be sent from here yet.${callInstead}` });
+      return res.status(503).json({ error: 'Messages can’t be sent from here yet.' });
     }
     const hold = reserve([
       [incentiveBurst, req.leadId],
@@ -561,7 +576,7 @@ export function publicRouter() {
     ]);
     if (hold.wait) {
       res.set('Retry-After', String(hold.wait));
-      return res.status(429).json({ error: `You’ve sent a few messages already. Please try again ${hold.wait < 90 ? 'in a minute' : 'later'}.${callInstead}` });
+      return res.status(429).json({ error: `You’ve sent a few messages already. Please try again ${hold.wait < 90 ? 'in a minute' : 'later'}.` });
     }
     let result;
     try {
@@ -575,7 +590,7 @@ export function publicRouter() {
     const snippet = message.replace(/\s+/g, ' ').slice(0, 120);
     if (!result.sent) {
       await store.addActivity(lead.id, `Tried to email ${label} about the builder incentive (it could not be sent): “${snippet}”`);
-      return res.status(503).json({ error: `We couldn’t send that right now.${callInstead}` });
+      return res.status(503).json({ error: 'We couldn’t send that right now.' });
     }
     await store.addActivity(lead.id, `Emailed ${label} about the builder incentive: “${snippet}”`);
     res.json({ sent: true, to: label });

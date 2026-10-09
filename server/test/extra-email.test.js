@@ -97,11 +97,13 @@ test('the plan goes to the extra email too, said as theirs, and the buyer sees i
   const mails = planMails();
   assert.equal(mails.length, 2);
   const own = mails.find((mail) => /^Your home plan/.test(mail.subject));
-  const shared = mails.find((mail) => /Pat Vale’s home plan/.test(mail.subject));
+  const shared = mails.find((mail) => /^A home plan was shared with you — /.test(mail.subject));
   assert.ok(own && shared);
   assert.deepEqual(own.to, [res.body.to]);
   assert.deepEqual(shared.to, ['spouse@test.co']);
-  assert.match(shared.text, /^Hi,\n\nPat Vale shared the home plan/);
+  assert.match(shared.text, /^Hi,\n\nPat shared the home plan/);
+  assert.match(shared.text, /Look around the community: /, 'a shared copy has nothing to pick up where it left off');
+  assert.doesNotMatch(shared.text, /Pick up where you left off/);
   assert.equal(shared.reply_to, res.body.to, 'a reply goes to the buyer who shared it');
   assert.match(shared.text, /Equal Housing Lender|NMLS/i, 'it carries the same lender identity and disclosures');
 });

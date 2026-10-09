@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { CONTACT_METHODS, consentText, formatSlotDate, formatSlotTime, safeHref, TOOLS } from '@shared/domain.js';
-import { complianceOf, telHref } from '@shared/compliance.js';
+import { complianceOf, SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
 import { buyerApi } from '../lib/api.js';
 import { emailHref, financingMessage, tourMessage } from '../lib/contact.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
@@ -323,7 +323,8 @@ export function TutorialSheet({ open, onClose }) {
 /** How many days the time picker offers at once. */
 const DAYS_SHOWN = 6;
 
-const EMAIL_LOOKS_RIGHT = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// The same rule the server applies, so a field the server would refuse never has its button enabled.
+const EMAIL_LOOKS_RIGHT = SAFE_EMAIL_RE;
 
 /**
  * One person to reach, with Call, Text and Email under their name. Each opens the buyer's own phone or
@@ -451,6 +452,14 @@ export function TourDialog({ topic, onClose }) {
     ? financingMessage({ lenderName: person.name, community: community?.name, buyerName: lead?.name })
     : tourMessage({ agentName: person.isTeam ? '' : person.name, community: community?.name, buyerName: lead?.name }));
   const subject = lender ? `Talk about financing — ${community?.name}` : `Book a tour at ${community?.name}`;
+  // What the sheet says above the list. "Call, text or email" is only said when there is someone to do it
+  // with, and what is missing is said as it is: no times posted, or booking switched off.
+  const intro = [
+    lender
+      ? `Call, text or email ${lenderName} to talk about financing.`
+      : (people.length ? 'Call, text or email to book an appointment.' : ''),
+    !lender && bookingOn && !canPick ? `The ${community?.name} team hasn’t posted times to pick from yet.` : '',
+  ].filter(Boolean).join(' ');
 
   const send = async () => {
     if (!picked) return;
@@ -480,12 +489,7 @@ export function TourDialog({ topic, onClose }) {
 
         {showPeople ? (
           <>
-            <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-              {lender
-                ? `Call, text or email ${lenderName} to talk about financing.`
-                : 'Call, text or email to book an appointment.'}
-              {bookingOn && !canPick && !lender ? ` The ${community?.name} team hasn’t posted times to pick from yet.` : ''}
-            </span>
+            {intro ? <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>{intro}</span> : null}
             {people.length ? (
               <div className="b-reach__list">
                 {people.map((person) => (
@@ -500,7 +504,7 @@ export function TourDialog({ topic, onClose }) {
               </div>
             ) : (
               <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-                The team hasn’t added a phone number or email here yet. You can ask them in person.
+                {lender || !bookingOn ? 'The team hasn’t added a phone number or email here yet. You can ask them in person.' : 'Check back soon, or ask the team in person.'}
               </span>
             )}
             {canPick ? (

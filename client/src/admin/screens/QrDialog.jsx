@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import qrcode from 'qrcode-generator';
 
-import { Dialog } from '../ui.jsx';
+import { adminApi } from '../../lib/api.js';
+import { useAdmin } from '../AdminContext.jsx';
+import { Dialog, ErrorNote } from '../ui.jsx';
 
 /**
  * The link a buyer is given. Written with the site's one public address when the server has one pinned
@@ -26,12 +28,30 @@ export function useQrDataUrl(community, cellSize = 6) {
   }, [cellSize, url]);
 }
 
-export default function QrDialog({ community, onClose, onOpenFlyer }) {
+export default function QrDialog({ community, onClose, onOpenFlyer, onChanged }) {
+  const { token } = useAdmin();
   const url = buyerUrl(community);
   const dataUrl = useQrDataUrl(community);
   // Opened on a Render address with no public address pinned: the link above is that Render address.
   const onRenderAddress = !community.siteOrigin && /\.onrender\.com$/i.test(window.location.hostname);
   const [copied, setCopied] = useState(false);
+  // A community made before the clean links existed is still on its id, random letters and all. One tap
+  // takes the name-based link (the id keeps working), and the code and sign below follow it.
+  const suggestion = !community.slug ? community.suggestedSlug : '';
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const useSuggestion = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await adminApi.updateCommunity(token, community.id, { slug: suggestion });
+      await onChanged?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const copy = async () => {
     try {
@@ -68,6 +88,17 @@ export default function QrDialog({ community, onClose, onOpenFlyer }) {
         Unique to this community. Buyers scan it on site and land in the {community.name} app.
         A code printed from an older link keeps working.
       </p>
+      {suggestion ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <p className="text-muted" style={{ fontSize: 12.5, margin: 0, textAlign: 'center' }}>
+            This link still has random letters. Printed codes keep working if you switch.
+          </p>
+          <button type="button" className="btn btn-secondary" onClick={useSuggestion} disabled={busy}>
+            {busy ? 'Switching…' : `Use /c/${suggestion}`}
+          </button>
+          <ErrorNote>{error}</ErrorNote>
+        </div>
+      ) : null}
       {onRenderAddress ? (
         <p className="text-muted" style={{ fontSize: 12.5, margin: 0, textAlign: 'center' }}>
           This link uses the address you opened the admin on. To have every link use your own domain, set

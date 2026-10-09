@@ -661,8 +661,11 @@ textarea.input { min-height: auto; resize: vertical; }
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
-  min-height: 200px;
-  max-height: 54vh;
+  min-height: 160px;
+  /* Leaves room under the picture for the headline and the sign-in form, so on a small screen the
+     button is not pushed below the fold. A line each for older browsers that lack the small-viewport unit. */
+  max-height: min(54vh, calc(100vh - 450px));
+  max-height: min(54vh, calc(100svh - 450px));
   border-radius: var(--t-radlg);
   overflow: hidden;
   margin: 0 0 22px;
