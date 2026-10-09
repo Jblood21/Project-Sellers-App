@@ -99,10 +99,12 @@ function BuyerShell() {
   const isPrint = /\/plan\/print\/?$/.test(location.pathname);
   // Guides are the one part of the app a visitor reads before giving their
   // details, so on those pages the header offers the way in instead of a menu
-  // that would only bounce them to the contact gate.
+  // that would only bounce them to the sign-in page.
   const isGuidePage = location.pathname.startsWith(`/c/${communityId}/guides`);
   const publicGuide = isGuidePage && !signedIn;
-  const showChrome = !isLanding && !isPrint;
+  // /start only redirects to the landing page; it is drawn with no header while it does.
+  const isStart = path === `/c/${communityId}/start`;
+  const showChrome = !isLanding && !isStart && !isPrint;
   const Header = layoutFor(layout).Header ?? BuyerHeader;
 
   const guard = (element) =>
@@ -142,7 +144,7 @@ function BuyerShell() {
       </main>
 
       {/*
-        Once, here, so it is on every route: the landing page, the gate and
+        Once, here, so it is on every route: the landing page (which holds the sign-in) and
         every screen behind it. The printed plan is the one exception, and only
         in where it is drawn: PlanPrint puts the same footer inside its document,
         because print CSS shows nothing outside it.

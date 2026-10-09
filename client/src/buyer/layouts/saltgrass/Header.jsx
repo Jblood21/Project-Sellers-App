@@ -18,7 +18,7 @@ import useMedia from './useMedia.js';
  * It keeps everything BuyerHeader does: the back button and where it goes on
  * each route, the name when there is no logo, the menu button, and for a
  * visitor who has not signed in (the public guides) the way into the app in
- * place of a menu that would only bounce them to the contact gate. What it adds
+ * place of a menu that would only bounce them to the sign-in page. What it adds
  * are the talk and plan buttons, which the stylesheet shows from 900px, where
  * the sticky bar on phones is not drawn.
  *

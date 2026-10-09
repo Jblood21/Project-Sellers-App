@@ -992,10 +992,19 @@
   /* Room before the first field: a name that runs to several lines must not sit on top of "Full name". */
   margin-bottom: 0.9rem !important;
 }
+/* The landing headline's full stop is drawn inside the span the fitting script measures, not after the heading:
+   measured outside it, the last word could fill the line exactly and the stop would wrap onto a line of its own.
+   (A name that already ends in punctuation carries no extra one, as everywhere else.) */
+.b-app.l-saltgrass .b-landing h1.b-head::after { content: none !important; }
+.b-app.l-saltgrass .b-landing h1.b-head:not([data-punct]) > span::after { content: '.'; }
 /* Its headline is tall, so the picture gives up more room to the form than the default layout's does. */
 .b-app.l-saltgrass .b-landing .b-landing__hero {
   max-height: min(46vh, 360px, calc(100vh - 550px));
   max-height: min(46vh, 360px, calc(100svh - 550px));
+}
+/* On a short screen the picture's own minimum height would push the sign-in button off the bottom. */
+@media (max-height: 700px) {
+  .b-app.l-saltgrass .b-landing .b-landing__hero { min-height: 120px; }
 }
 /* A short accent bar with a hairline above it, so it still reads as a line on
    the themes whose accent is close to the deep ground. */

@@ -30,7 +30,8 @@ test('a very long name takes three lines at a smaller size, never a bigger one t
   const size = fit(name);
   assert.ok(size <= BASE * 0.8, `${size}px is no bigger than the comfortable size`);
   assert.ok(size >= BASE * 0.65, 'and not below the floor');
-  assert.ok(linesFor(`Welcome to ${name}`.length, WIDTH)(size) <= 3, 'it fits in three lines');
+  assert.equal(linesFor(`Welcome to ${name}`.length, WIDTH)(size), 3, 'it takes three lines');
+  assert.ok(Math.abs(size - BASE * 0.8) < 1e-9, 'at exactly the comfortable size, which is where a third line is allowed to begin');
 });
 
 test('a longer name is never given a bigger size than a shorter one', () => {
@@ -56,6 +57,22 @@ test('the answer always fits where the stand-in browser says it can, across widt
       const floor = BASE * 0.65;
       // Whenever three lines are possible at all, the size chosen is on three lines or fewer.
       if (linesAt(floor) <= 3) assert.ok(linesAt(size) <= 3, `${length} characters at ${width}px wide: ${linesAt(size)} lines at ${size}px`);
+    }
+  }
+});
+
+test('the size is the biggest that fits: a little more would break the limit it was chosen for', () => {
+  for (const base of [32, 35.1, 52.8]) {
+    for (const width of [300, 350, 480]) {
+      for (let length = 2; length <= 60; length += 2) {
+        const linesAt = linesFor(11 + length, width);
+        const size = fitHeadingSize({ base, linesAt });
+        const atBound = size >= base * 1.2 - 0.15 || size <= base * 0.65 + 0.15 || Math.abs(size - base * 0.8) < 0.15;
+        if (atBound) continue;
+        const limit = size >= base * 0.8 ? 2 : 3;
+        assert.ok(linesAt(size) <= limit, `base ${base}, ${length} characters, ${width}px wide: ${linesAt(size)} lines at ${size}px`);
+        assert.ok(linesAt(size + 0.2) > limit, `base ${base}, ${length} characters, ${width}px wide: ${size}px left room to grow`);
+      }
     }
   }
 });

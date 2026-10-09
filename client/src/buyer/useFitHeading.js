@@ -23,6 +23,7 @@ export default function useFitHeading(ref, text) {
     if (!heading || !words) return undefined;
     let live = true;
     let width = -1;
+    let frame = 0;
 
     const fit = () => {
       if (!live) return;
@@ -43,8 +44,14 @@ export default function useFitHeading(ref, text) {
 
     fit();
     // Only a change of width matters; the heading changing height because of its own size must not loop.
+    // Done on the next frame, not inside the callback: the refit changes the heading's own height, and doing
+    // that while the browser is still delivering resize notifications makes it report an error each time.
     const observer = typeof ResizeObserver === 'function'
-      ? new ResizeObserver(() => { if (heading.clientWidth !== width) fit(); })
+      ? new ResizeObserver(() => {
+        if (heading.clientWidth === width) return;
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(fit);
+      })
       : null;
     observer?.observe(heading);
     const fonts = document.fonts;
@@ -53,6 +60,7 @@ export default function useFitHeading(ref, text) {
 
     return () => {
       live = false;
+      cancelAnimationFrame(frame);
       observer?.disconnect();
       fonts?.removeEventListener?.('loadingdone', fit);
       heading.style.removeProperty('--welcome-size');

@@ -16,8 +16,8 @@
  *    still a headline, and the browser wraps what is left.
  *
  * Pure: the browser measurement is passed in, so the choice can be tested without a browser.
- * Returns a size in pixels (to a tenth, rounded down, and never below the smallest), or null when there is
- * nothing to size from.
+ * Returns a size in pixels: the biggest that fits, to a tenth rounded down, and never below the smallest size
+ * (which is itself not rounded); or null when there is nothing to size from.
  */
 export function fitHeadingSize({
   base, linesAt, maxScale = 1.2, minScale = 0.65, comfortable = 0.8, snug = 2, roomy = 3,

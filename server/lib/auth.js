@@ -99,7 +99,7 @@ export function requireLead(req, res, next) {
   const header = req.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   const payload = token && readLeadToken(token);
-  if (!payload) return res.status(401).json({ error: 'Open the app from your community link to continue' });
+  if (!payload) return res.status(401).json({ error: 'Please sign in again to continue' });
   req.leadId = payload.lead;
   req.leadCommunityId = payload.community;
   next();

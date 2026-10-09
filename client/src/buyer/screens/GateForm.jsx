@@ -72,7 +72,13 @@ export default function GateForm({ onEntered }) {
         <label className="b-field">
           <span className="b-lbl">Cell phone (optional)</span>
           <input
-            className="b-in" type="tel" value={form.phone} onChange={set('phone')}
+            className="b-in" type="tel" value={form.phone}
+            // The calls-and-texts box is about a number. When the number goes, so does a tick in it: it must
+            // never come back already ticked beside a different number.
+            onChange={(event) => {
+              const phone = event.target.value;
+              setForm((prev) => ({ ...prev, phone, consent: (phone.match(/\d/g) || []).length >= 7 ? prev.consent : false }));
+            }}
             placeholder="(801) 555-0100" autoComplete="tel" inputMode="tel"
           />
         </label>
