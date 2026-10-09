@@ -100,7 +100,7 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
         {signedIn ? (
           <>
             <button type="button" className="sg-head__talk" onClick={onTalk}>
-              Talk to the team
+              Book a tour
             </button>
             {onPlan ? null : (
               <Link to={`/c/${communityId}/plan`} className="sg-head__plan">

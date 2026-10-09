@@ -4,7 +4,7 @@ import { formatSlotDate, formatSlotTime, isoDate, SLOT_TIMES } from '@shared/dom
 import { Trash } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
-import { Dialog, ErrorNote } from '../ui.jsx';
+import { Dialog, ErrorNote, TextField, Toggle } from '../ui.jsx';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTH_NAMES = [
@@ -27,11 +27,42 @@ function monthGrid(year, month) {
  * ticks the times they can do, and every combination is published at once —
  * "Tuesday, Wednesday and Thursday at 10, 2 and 4" is six taps, not nine forms.
  */
-export default function AvailabilityTab({ community }) {
+export default function AvailabilityTab({ community, reload }) {
   const { token } = useAdmin();
   const [slots, setSlots] = useState(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
+  const [switching, setSwitching] = useState(false);
+  // On unless it was switched off: a community saved before the switch existed has none, and is on.
+  const bookingOn = community.features?.booking !== false;
+  const [team, setTeam] = useState({ teamPhone: community.settings?.teamPhone ?? '', teamEmail: community.settings?.teamEmail ?? '' });
+  const [teamSaved, setTeamSaved] = useState(false);
+  const teamChanged = team.teamPhone !== (community.settings?.teamPhone ?? '') || team.teamEmail !== (community.settings?.teamEmail ?? '');
+
+  const flip = async (next) => {
+    setSwitching(true);
+    setError('');
+    try {
+      await adminApi.updateCommunity(token, community.id, { features: { booking: next } });
+      await reload?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const saveTeam = async () => {
+    setError('');
+    setTeamSaved(false);
+    try {
+      await adminApi.updateCommunity(token, community.id, { settings: team });
+      await reload?.();
+      setTeamSaved(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const load = async () => {
     try {
@@ -63,6 +94,43 @@ export default function AvailabilityTab({ community }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="card elev-sm" style={{ gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="card-title" style={{ fontSize: 15 }}>Buyers can book these times</div>
+            <div className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+              {bookingOn
+                ? 'On: the “Book a tour” buttons let buyers pick a day and a time from the list below.'
+                : 'Off: buyers are shown your phone, text and email instead. The times below are kept for when you switch it back on.'}
+            </div>
+          </div>
+          <Toggle on={bookingOn} onChange={flip} label="Buyers can book times" />
+        </div>
+        {bookingOn && slots && !upcoming.length ? (
+          <p className="text-muted" style={{ fontSize: 12.5, margin: 0 }}>
+            No times are published, so buyers are shown your phone, text and email until you add some.
+          </p>
+        ) : null}
+        <p className="text-muted" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5 }}>
+          When buyers call, text or email instead, they see your realtors (if you have added any) and the sales team contact below.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+          <TextField
+            label="Sales team phone" value={team.teamPhone} inputMode="tel" placeholder="(801) 555-0100"
+            onChange={(teamPhone) => { setTeam((prev) => ({ ...prev, teamPhone })); setTeamSaved(false); }}
+          />
+          <TextField
+            label="Sales team email" value={team.teamEmail} inputMode="email" placeholder="sales@yourcommunity.com"
+            onChange={(teamEmail) => { setTeam((prev) => ({ ...prev, teamEmail })); setTeamSaved(false); }}
+          />
+        </div>
+        {teamChanged || teamSaved ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" className="btn btn-primary" onClick={saveTeam} disabled={!teamChanged}>Save contact</button>
+            {teamSaved && !teamChanged ? <span className="text-muted" style={{ fontSize: 12.5 }}>Saved ✓</span> : null}
+          </div>
+        ) : null}
+      </div>
       <p className="text-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
         Times you publish here are the only times buyers can choose. Nothing else is offered,
         so an empty list means no one can book.

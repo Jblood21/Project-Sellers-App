@@ -133,7 +133,7 @@ function BuyerShell() {
             }
           />
           <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
-          <Route path="explore" element={guard(<Explore />)} />
+          <Route path="explore" element={guard(<Explore onOpenTour={() => setTourTopic('community')} onOpenLender={() => setTourTopic('lender')} />)} />
           <Route path="area" element={guard(<Area />)} />
           <Route path="map" element={guard(<SiteMap />)} />
           <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} />)} />

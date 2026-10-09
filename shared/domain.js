@@ -499,6 +499,8 @@ export const FEATURES = [
   { k: 'agents', name: 'Realtors', q: 'Show the real estate agents you have added: on the home screen, under every home and on their own page' },
   { k: 'incentive', name: 'Builder incentive', q: 'Show the incentive card above Explore Homes' },
   { k: 'faq', name: 'FAQ', q: 'Show your frequently asked questions on the home screen' },
+  // Switched on the Times tab, next to the times it governs, not in the list of home-screen extras.
+  { k: 'booking', name: 'Booking times', q: 'Let buyers pick a day and a time from the times you publish. Off: buyers call, text or email instead.' },
 ];
 export const FEATURE_KEYS = FEATURES.map((f) => f.k);
 
@@ -508,6 +510,9 @@ export const DEFAULT_FEATURES = {
   incentive: false,
   // On, but the section only appears once there is at least one question and answer.
   faq: true,
+  // On: buyers can pick one of the published times. Off: every "book" button gives them the team's
+  // phone, text and email instead, and the times are kept for when it is switched back on.
+  booking: true,
 };
 
 export const DEFAULT_TOOLS_ENABLED = {
@@ -557,6 +562,10 @@ export const DEFAULT_SETTINGS = {
   // email means a desktop visitor is shown the number to call instead.
   incentivePhone: '',
   incentiveEmail: '',
+  // The sales team's own phone and email: what a buyer is shown to call, text or email when booking is
+  // switched off (or no times are published). Blank when the builder has not said, so nothing is guessed.
+  teamPhone: '',
+  teamEmail: '',
   // The text the buyer's message starts with. {community} is the development.
   incentiveMessage: 'Contact me about the preferred lender incentive for {community}.',
 

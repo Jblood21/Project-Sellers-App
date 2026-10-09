@@ -502,6 +502,20 @@ a.b-btn { display: flex; align-items: center; justify-content: center; text-deco
   font-weight: 600;
   text-decoration: none;
 }
+button.b-agent__act { font-family: var(--t-font); cursor: pointer; }
+/* The people a buyer can reach when there is no time to pick: one box each, Call / Text / Email under the name. */
+.b-reach__list { display: flex; flex-direction: column; gap: 10px; }
+.b-reach {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-rad);
+  background: var(--t-sur);
+}
+.b-reach__who { font-size: 14px; color: var(--t-ink); }
+.b-reach__detail { color: var(--t-mut); font-size: 12.5px; }
 /* The home screen's single row that leads to the realtors page. */
 .b-agents-row {
   display: flex;

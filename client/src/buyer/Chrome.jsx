@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { CONTACT_METHODS, consentText, formatSlotDate, formatSlotTime, safeHref, TOOLS } from '@shared/domain.js';
-import { complianceOf } from '@shared/compliance.js';
+import { complianceOf, telHref } from '@shared/compliance.js';
 import { buyerApi } from '../lib/api.js';
+import { emailHref, financingMessage, tourMessage } from '../lib/contact.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
 import { useBuyer } from './BuyerContext.jsx';
 import CommunityMark from './CommunityMark.jsx';
+import TextAction from './TextAction.jsx';
 import useDialog from './useDialog.js';
 
 const TUTORIAL = [
@@ -321,13 +323,46 @@ export function TutorialSheet({ open, onClose }) {
 /** How many days the time picker offers at once. */
 const DAYS_SHOWN = 6;
 
+const EMAIL_LOOKS_RIGHT = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * One person to reach, with Call, Text and Email under their name. Each opens the buyer's own phone or
+ * mail app with the message already written. Text is a link on a phone and, on a computer (which cannot
+ * send one), a button that copies the number and says so.
+ */
+function ReachRow({ contact, message, subject, onAct }) {
+  const dial = telHref(contact.phone);
+  const mail = emailHref(contact.email, subject, message);
+  if (!dial && !contact.phone && !mail) return null;
+  return (
+    <div className="b-reach">
+      <div className="b-reach__who">
+        <strong>{contact.name}</strong>
+        {contact.detail ? <span className="b-reach__detail"> · {contact.detail}</span> : null}
+      </div>
+      <div className="b-agent__actions">
+        {dial ? <a className="b-agent__act" href={dial} onClick={() => onAct('call')}>Call</a> : null}
+        <TextAction className="b-agent__act" phone={contact.phone} message={message} onAct={onAct} />
+        {mail ? <a className="b-agent__act" href={mail} onClick={() => onAct('email')}>Email</a> : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Where "Book a tour" (and "Talk about financing") lead. Normally a day, then a time, from the times the
+ * builder published. When booking is switched off, or no times are published (a dead end before), it is
+ * the people to call, text or email: the sales team and the realtors for a tour, the lender for financing.
+ * Booking is treated as on unless the builder switched it off, so an older cached payload never hides it.
+ */
 export function TourDialog({ topic, onClose }) {
   const open = Boolean(topic);
   const lender = topic === 'lender';
-  const { community, communityId, requestTour, lead } = useBuyer();
+  const { community, communityId, requestTour, lead, features, agents, settings, track } = useBuyer();
   // The lender is whoever Setup says it is, the same name the footer and the
   // Financing card print, so the sheet cannot contradict them.
-  const lenderName = complianceOf(community?.settings, { community }).lender.name || 'the lender';
+  const lenderInfo = complianceOf(community?.settings, { community }).lender;
+  const lenderName = lenderInfo.name || 'the lender';
   const [slots, setSlots] = useState(community?.slots ?? []);
   const [picked, setPicked] = useState(null);
   // The day chosen first; the times for it open underneath once there is one.
@@ -335,12 +370,19 @@ export function TourDialog({ topic, onClose }) {
   const [moreDays, setMoreDays] = useState(false);
   const [contact, setContact] = useState('phone');
   const [busy, setBusy] = useState(false);
+  // 'times' (pick a day and time) or 'people' (call, text or email). Booking off or no times: always 'people'.
+  const [view, setView] = useState('times');
   // Meeting with the team needs a number to reach them on. A buyer who signed up without one is
   // asked here, with the same calls-and-texts question the sign-up form asks.
   const needsPhone = Boolean(lead) && !lead.phone;
   const [phone, setPhone] = useState('');
   const [agreed, setAgreed] = useState(false);
   const phoneOk = (phone.match(/\d/g) || []).length >= 7;
+  // One more email, for a spouse or co-buyer. Prefilled when they already gave one.
+  const savedExtra = lead?.extraEmails?.[0] ?? '';
+  const [extra, setExtra] = useState('');
+  const extraTrimmed = extra.trim();
+  const extraBad = extraTrimmed !== '' && !EMAIL_LOOKS_RIGHT.test(extraTrimmed);
   const dialogRef = useRef(null);
   useDialog(open, onClose, dialogRef);
 
@@ -365,7 +407,10 @@ export function TourDialog({ topic, onClose }) {
       setMoreDays(false);
       setPhone('');
       setAgreed(false);
+      setView('times');
+      setExtra(savedExtra);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when it opens, not when the lead object changes
   }, [open]);
 
   // A refreshed list can lose the time that was chosen (somebody else took it).
@@ -376,12 +421,15 @@ export function TourDialog({ topic, onClose }) {
 
   if (!open) return null;
 
+  const bookingOn = features?.booking !== false;
   const byDate = [];
-  for (const slot of slots) {
+  for (const slot of bookingOn ? slots : []) {
     const last = byDate[byDate.length - 1];
     if (last && last[0] === slot.date) last[1].push(slot);
     else byDate.push([slot.date, [slot]]);
   }
+  const canPick = bookingOn && byDate.length > 0;
+  const showPeople = !canPick || view === 'people';
   // A few days, not every day the builder has published: the next ones are what
   // a buyer is choosing between, and a wall of dates is what this replaced.
   // "More days" reaches the rest, so nothing the builder published is out of reach.
@@ -389,13 +437,30 @@ export function TourDialog({ topic, onClose }) {
   const days = moreDays || dayIsHidden ? byDate : byDate.slice(0, DAYS_SHOWN);
   const times = byDate.find(([date]) => date === day)?.[1] ?? [];
 
+  const title = lender ? 'Talk about financing' : 'Book a tour';
+  const reach = lender
+    ? [{ name: lenderName, detail: '', phone: lenderInfo.phone, email: lenderInfo.email, isTeam: true }]
+    : [
+      { name: `${community?.name ?? 'The'} team`, detail: '', phone: settings?.teamPhone, email: settings?.teamEmail, isTeam: true },
+      ...(features?.agents ? agents : []).map((agent) => ({
+        name: agent.name, detail: agent.brokerage, phone: agent.phone, email: agent.email, isTeam: false,
+      })),
+    ];
+  const people = reach.filter((person) => telHref(person.phone) || emailHref(person.email, 'x', 'x'));
+  const messageFor = (person) => (lender
+    ? financingMessage({ lenderName: person.name, community: community?.name, buyerName: lead?.name })
+    : tourMessage({ agentName: person.isTeam ? '' : person.name, community: community?.name, buyerName: lead?.name }));
+  const subject = lender ? `Talk about financing — ${community?.name}` : `Book a tour at ${community?.name}`;
+
   const send = async () => {
     if (!picked) return;
     setBusy(true);
-    const done = await requestTour(
-      picked, contact, lender ? 'lender' : 'community',
-      needsPhone ? { phone: phone.trim(), consent: agreed } : {},
-    );
+    const extras = {
+      ...(needsPhone ? { phone: phone.trim(), consent: agreed } : {}),
+      // Only when it was changed, so leaving a saved address alone never rewrites it.
+      ...(extraTrimmed !== savedExtra ? { extraEmail: extraTrimmed } : {}),
+    };
+    const done = await requestTour(picked, contact, lender ? 'lender' : 'community', extras);
     setBusy(false);
     if (done) onClose();
     // On a clash the dialog stays open with a fresh list, so they can pick again.
@@ -408,22 +473,42 @@ export function TourDialog({ topic, onClose }) {
       className="b-sheet-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label={lender ? 'Talk about financing' : 'Talk to the team'}
+      aria-label={title}
     >
       <div className="b-sheet" style={{ maxHeight: '86vh', overflowY: 'auto' }}>
-        <span className="b-head" style={{ fontSize: 20 }}>
-          {lender ? 'Talk about financing' : 'Talk to the team'}
-        </span>
+        <span className="b-head" style={{ fontSize: 20 }}>{title}</span>
 
-        {byDate.length === 0 ? (
+        {showPeople ? (
           <>
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-              The {community?.name} team hasn’t posted any times yet. Check back soon,
-              or ask them in person.
+              {lender
+                ? `Call, text or email ${lenderName} to talk about financing.`
+                : 'Call, text or email to book an appointment.'}
+              {bookingOn && !canPick && !lender ? ` The ${community?.name} team hasn’t posted times to pick from yet.` : ''}
             </span>
-            <button type="button" className="b-btn" onClick={onClose} style={{ marginTop: 8 }}>
-              Close
-            </button>
+            {people.length ? (
+              <div className="b-reach__list">
+                {people.map((person) => (
+                  <ReachRow
+                    key={`${person.name}-${person.phone}-${person.email}`}
+                    contact={person}
+                    message={messageFor(person)}
+                    subject={subject}
+                    onAct={(what) => track(`${lender ? 'Reached out about financing' : 'Reached out to book a tour'} (${what}): ${person.name}`)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
+                The team hasn’t added a phone number or email here yet. You can ask them in person.
+              </span>
+            )}
+            {canPick ? (
+              <button type="button" className="b-btn" onClick={() => setView('times')} style={{ marginTop: 4 }}>
+                Pick a day and time instead
+              </button>
+            ) : null}
+            <button type="button" className="b-btn b-btn-outline" onClick={onClose}>Close</button>
           </>
         ) : (
           <>
@@ -536,6 +621,17 @@ export function TourDialog({ topic, onClose }) {
               </>
             ) : null}
 
+            <label className="b-field" style={{ marginBottom: 8 }}>
+              <span className="b-lbl">Add another email (optional)</span>
+              <input
+                className="b-in" type="email" value={extra} onChange={(event) => setExtra(event.target.value)}
+                placeholder="spouse@email.com" autoComplete="off" inputMode="email" aria-invalid={extraBad || undefined}
+              />
+              {extraBad ? (
+                <span role="alert" style={{ fontSize: 12, color: 'var(--t-accT)' }}>That email doesn’t look right.</span>
+              ) : null}
+            </label>
+
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="button" className="b-btn b-btn-outline" onClick={onClose} style={{ flex: 1 }}>
                 Cancel
@@ -544,12 +640,21 @@ export function TourDialog({ topic, onClose }) {
                 type="button"
                 className="b-btn"
                 style={{ flex: 1 }}
-                disabled={!picked || busy || (needsPhone && !phoneOk)}
+                disabled={!picked || busy || (needsPhone && !phoneOk) || extraBad}
                 onClick={send}
               >
                 {busy ? 'Booking…' : 'Book it'}
               </button>
             </div>
+            <button
+              type="button" onClick={() => setView('people')}
+              style={{
+                minHeight: 44, border: 'none', background: 'transparent', color: 'var(--t-accT)',
+                fontFamily: 'var(--t-font)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Or call, text or email instead
+            </button>
           </>
         )}
       </div>

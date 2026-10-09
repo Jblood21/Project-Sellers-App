@@ -17,7 +17,7 @@ function tourSummary(tour) {
 
 /** The buyer's growing record — and the door to the PDF and the team. */
 export default function Plan({ onOpenTour }) {
-  const { homes, lead, track } = useBuyer();
+  const { homes, lead, track, features } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
 
@@ -103,7 +103,9 @@ export default function Plan({ onOpenTour }) {
       )}
 
       <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>
-        {lead?.tour ? `Booked ✓ ${tourSummary(lead.tour)} — change it` : 'Talk to the team · book a time'}
+        {lead?.tour
+          ? `Booked ✓ ${tourSummary(lead.tour)}${features?.booking === false ? '' : ' — change it'}`
+          : 'Book a tour'}
       </button>
     </div>
   );

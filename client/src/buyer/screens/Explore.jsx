@@ -1,16 +1,15 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { Star } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import ImageViewer from '../ImageViewer.jsx';
-import { canMessage } from '../../lib/contact.js';
-import TourButton from '../TourButton.jsx';
+import { complianceOf } from '@shared/compliance.js';
 
-export default function Explore() {
-  const { community, homes, lead, toggleSave, track, agents, features } = useBuyer();
+export default function Explore({ onOpenTour, onOpenLender }) {
+  const { community, homes, lead, toggleSave, track, agents, features, settings } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
 
@@ -19,8 +18,15 @@ export default function Explore() {
   const map = community?.siteMap ? [{ id: 'map', url: community.siteMap }] : [];
   const [mapOpen, setMapOpen] = useState(false);
   const placed = homes.filter((home) => home.lotNumber).length;
-  // Only the agents a message can reach: a heading with no button under it helps nobody.
-  const reachable = agents.filter(canMessage);
+  // Two ways forward from the list, each offered only when it leads somewhere: the realtors (who do
+  // the touring) when there are some, else the sheet that books a time or shows who to call; and the
+  // lender, by their contact or by booking a time to talk.
+  const bookingOn = features.booking !== false;
+  const lender = complianceOf(settings, { community }).lender;
+  const hasTeamContact = Boolean(String(settings.teamPhone ?? '').trim() || String(settings.teamEmail ?? '').trim());
+  const toRealtors = features.agents && agents.length > 0;
+  const canSchedule = toRealtors || bookingOn || hasTeamContact;
+  const canAskFinancing = bookingOn || Boolean(lender.phone || lender.email);
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
@@ -95,20 +101,35 @@ export default function Explore() {
 
       {/*
         Under the homes: a buyer who has found one they like is a buyer who wants
-        to see it. The button opens a message to the agent, already written. With
-        several agents each gets their own, so the buyer chooses who to ask.
+        to see it, or to know what it would take. Two buttons: Schedule a Tour goes to
+        the realtors (the same page as the Meet the agents row), and Find out about
+        financing opens the lender sheet.
       */}
-      {features.agents && reachable.length ? (
+      {canSchedule || canAskFinancing ? (
         <section className="b-tour" style={{ marginTop: 22 }} aria-labelledby="explore-ready">
           <h2 id="explore-ready" className="b-tour__meet b-head">Ready to look at homes?</h2>
-          {reachable.map((agent) => (
-            <TourButton
-              key={agent.id}
-              agent={agent}
-              label={reachable.length > 1 ? `Tour the homes with ${agent.name}` : 'Tour the homes'}
-              className="b-btn"
-            />
-          ))}
+          {canSchedule ? (
+            toRealtors ? (
+              <Link
+                className="b-btn" style={{ textDecoration: 'none', textAlign: 'center' }}
+                to={`/c/${communityId}/realtors`} onClick={() => track('Asked to schedule a tour')}
+              >
+                Schedule a Tour
+              </Link>
+            ) : (
+              <button type="button" className="b-btn" onClick={() => { track('Asked to schedule a tour'); onOpenTour(); }}>
+                Schedule a Tour
+              </button>
+            )
+          ) : null}
+          {canAskFinancing ? (
+            <button
+              type="button" className="b-btn b-btn-outline"
+              onClick={() => { track('Asked about financing'); onOpenLender(); }}
+            >
+              Find out about financing
+            </button>
+          ) : null}
         </section>
       ) : null}
 

@@ -142,7 +142,7 @@ function CommunityTabs({ community, leads, reload }) {
       {tab === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
       {tab === 'area' ? <AreaTab community={community} reload={reload} /> : null}
       {tab === 'learn' ? <LearnTab community={community} reload={reload} /> : null}
-      {tab === 'times' ? <AvailabilityTab community={community} /> : null}
+      {tab === 'times' ? <AvailabilityTab community={community} reload={reload} /> : null}
       {tab === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
       {tab === 'leads' ? <LeadsTab community={community} leads={leads} /> : null}
       {tab === 'stats' ? <StatsTab community={community} leads={leads} /> : null}

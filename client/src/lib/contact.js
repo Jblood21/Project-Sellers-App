@@ -78,6 +78,9 @@ export function messageLink({ phone, email, subject, body, mobile }) {
 /** True when a message to this agent can go somewhere: a phone that can be texted or an address that can be written to. */
 export const canMessage = (agent) => Boolean(textHref(agent?.phone, 'x') || emailHref(agent?.email, 'x', 'x'));
 
+/** 'the Aspen model', whether the home is called 'Aspen' or 'The Aspen' (not 'the The Aspen model'). */
+export const modelPhrase = (homeName) => `the ${String(homeName ?? '').trim().replace(/^the\s+/i, '')} model`;
+
 /**
  * What a buyer's message to an agent says. The buyer's name goes in because an
  * agent reading a text from a number they do not know needs to know who it is.
@@ -87,7 +90,40 @@ export function tourMessage({ agentName, community, buyerName, homeName }) {
   const who = String(buyerName ?? '').trim();
   const place = String(community ?? '').trim();
   const what = homeName
-    ? `tour the ${homeName} model${place ? ` at ${place}` : ''}`
+    ? `tour ${modelPhrase(homeName)}${place ? ` at ${place}` : ''}`
     : `tour the homes${place ? ` at ${place}` : ''}`;
   return `Hi${first ? ` ${first}` : ''},${who ? ` this is ${who}.` : ''} I'd like to ${what}. What times work for you?`;
+}
+
+/** The same, for the lender: a conversation about financing rather than a visit. */
+export function financingMessage({ lenderName, community, buyerName }) {
+  const who = String(buyerName ?? '').trim();
+  const place = String(community ?? '').trim();
+  return `Hi${lenderName ? ` ${String(lenderName).trim().split(/\s+/)[0]}` : ''},${who ? ` this is ${who}.` : ''} I'd like to talk about financing a home${place ? ` at ${place}` : ''}. What times work for you?`;
+}
+
+/**
+ * Puts text on the clipboard. True when it worked. Used where a link cannot do the job (a computer
+ * has no way to open a text message), so the number is copied and the buyer is told.
+ */
+export async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    try {
+      const field = document.createElement('textarea');
+      field.value = value;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const ok = document.execCommand('copy');
+      field.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
 }

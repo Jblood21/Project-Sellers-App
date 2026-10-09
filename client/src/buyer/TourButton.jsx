@@ -1,4 +1,4 @@
-import { messageLink, tourMessage, useIsMobile } from '../lib/contact.js';
+import { messageLink, modelPhrase, tourMessage, useIsMobile } from '../lib/contact.js';
 import { useBuyer } from './BuyerContext.jsx';
 
 /**
@@ -16,7 +16,7 @@ export default function TourButton({ agent, homeName, label = 'Tour the homes', 
   if (!agent) return null;
 
   const body = tourMessage({ agentName: agent.name, community: community?.name, buyerName: lead?.name, homeName });
-  const subject = homeName ? `Tour the ${homeName} model` : `Tour the homes at ${community?.name ?? 'the community'}`;
+  const subject = homeName ? `Tour ${modelPhrase(homeName)}` : `Tour the homes at ${community?.name ?? 'the community'}`;
   const link = messageLink({ phone: agent.phone, email: agent.email, subject, body, mobile });
   if (!link) return null;
 

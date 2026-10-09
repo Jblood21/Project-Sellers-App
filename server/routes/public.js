@@ -187,7 +187,8 @@ const publicCommunity = (
   resources: community.features.resources ? resources : [],
   homes: applyFeatures(homes, community.features),
   highlights,
-  slots,
+  // Same rule as the site map: switched off means the buyer is not served the times at all.
+  slots: community.features.booking === false ? [] : slots,
 });
 
 /**
@@ -510,7 +511,10 @@ export function publicRouter() {
   /** Live open slots, so a buyer with the dialog open does not book a stale one. */
   router.get('/c/:communityId/slots', async (req, res) => {
     const store = await getStore();
-    res.json(await store.listOpenSlots(req.params.communityId));
+    const community = await store.getCommunity(req.params.communityId);
+    // Booking switched off: nothing is on offer, whatever times are published (they are kept).
+    if (!community || community.features.booking === false) return res.json([]);
+    res.json(await store.listOpenSlots(community.id));
   });
 
   router.post('/me/tour', requireLead, limitRequests((req) => [[toursPerLead, req.leadId]], 'booking attempts'), async (req, res) => {
@@ -532,6 +536,11 @@ export function publicRouter() {
     // here; it is checked before anything is booked, and saved on their record with the answer to the calls
     // and texts question, in the community's own words, exactly as at the sign-up form.
     const community = await store.getCommunity(buyer.communityId);
+    // Switched off by the builder: the times are still stored, but no one can take one, including from a
+    // sheet that was already open when it was switched off.
+    if (community && community.features.booking === false) {
+      return res.status(403).json({ error: 'Online booking is turned off right now. Please call, text or email the team.' });
+    }
     let newPhone = '';
     if (!buyer.phone) {
       const given = String(req.body?.phone ?? '').trim();

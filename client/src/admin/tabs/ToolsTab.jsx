@@ -42,7 +42,7 @@ export default function ToolsTab({ community, reload }) {
         What buyers see on the homes themselves. Each one also stays hidden until you
         add something to it, so switching it on never shows an empty space.
       </p>
-      {FEATURES.map((feature) => (
+      {FEATURES.filter((feature) => feature.k !== 'booking').map((feature) => (
         <div key={feature.k} className="card elev-sm" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="card-title" style={{ fontSize: 15 }}>{feature.name}</div>

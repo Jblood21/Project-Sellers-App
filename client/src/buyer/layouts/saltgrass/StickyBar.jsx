@@ -21,7 +21,7 @@ export default function StickyBar({ onTalk }) {
   return (
     <nav className={`sg-stick${onPlan ? ' sg-stick--solo' : ''}`} aria-label="Quick actions">
       <button type="button" className="sg-stick__talk" onClick={onTalk}>
-        Talk to the team
+        Book a tour
       </button>
       {onPlan ? null : (
         <Link className="sg-stick__plan" to={`/c/${communityId}/plan`}>

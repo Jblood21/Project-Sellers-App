@@ -437,6 +437,9 @@ export function adminRouter() {
         if (key === 'lenderEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The loan team email must be a single email address.' });
         }
+        if (key === 'teamEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+          return res.status(400).json({ error: 'The sales team email must be a single email address.' });
+        }
         if (key === 'faqJson') {
           // A list, normalised: items trimmed, half-finished ones dropped, counts
           // capped. Anything that is not a list is refused rather than stored,
@@ -446,7 +449,7 @@ export function adminRouter() {
           settings[key] = faq;
         } else {
           // The incentive card is printed on the home screen like the compliance copy.
-          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive');
+          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive') || key.startsWith('team');
           settings[key] = capped ? text.slice(0, settingMaxLength(key)) : text;
         }
       }
