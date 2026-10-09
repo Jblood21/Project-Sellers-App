@@ -50,7 +50,7 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     planLines.length ? 'What they have worked out so far:' : 'They have not run any tools yet.',
     ...planLines,
     '',
-    baseUrl ? `Open the lead: ${baseUrl}/admin/leads/${lead.id}` : '',
+    baseUrl ? `Open the lead: ${baseUrl}/admin/communities/${community.id}/leads/${lead.id}` : '',
     '',
     `Mark it handled in the dashboard once you have ${prefersEmail ? 'emailed' : 'called'} them, so it leaves the queue.`,
   ].filter((line) => line !== undefined).join('\n');
@@ -93,7 +93,7 @@ export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDat
   const text = [
     `Hi ${lead.name.split(' ')[0]},`,
     '',
-    `Here is the home plan you put together for ${community.name}.`,
+    `Here’s the home plan you put together for ${community.name}.`,
     '',
     ...(entries.length ? ['What you worked out:', ...entries.map(([, s]) => `  · ${s}`), ''] : []),
     ...(moveIn ? ['Your move-in plan:', '', ...moveInPlanLines(moveIn), ''] : []),

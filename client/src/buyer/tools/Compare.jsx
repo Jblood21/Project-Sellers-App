@@ -13,7 +13,7 @@ export default function Compare() {
     return (
       <div className="b-shell" style={{ paddingTop: 20 }}>
         <ToolHeader title="Compare My Options" subtitle="Which loan option fits me best?" />
-        <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>Homes are still being added to this community.</p>
+        <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>We’re still adding homes to this community. Check back soon.</p>
       </div>
     );
   }
@@ -47,7 +47,7 @@ export default function Compare() {
           options={Object.entries(PROGRAMS).map(([key, label]) => ({ value: key, label }))}
         />
       </Field>
-      <Field label="Down">
+      <Field label="Down payment">
         <PillGroup
           label={`Option ${tag} down payment`}
           value={state[downKey]}
@@ -60,7 +60,7 @@ export default function Compare() {
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
-      <ToolHeader title="Compare My Options" subtitle={`Two scenarios on ${home.name}, side by side.`} />
+      <ToolHeader title="Compare My Options" subtitle={`Two options for ${home.name}, side by side.`} />
 
       <div className="b-stack" style={{ gap: 16, marginBottom: 14 }}>
         {side('A', 'aProgram', 'aDown')}
@@ -89,14 +89,14 @@ export default function Compare() {
       </div>
 
       <p style={{ fontSize: 13.5, lineHeight: 1.5, margin: '0 0 14px' }}>
-        Option {cheaper} is {money(difference)}/mo cheaper — but compare the cash needed up front too.
+        Option {cheaper} costs {money(difference)} less each month, but check the cash you’d need up front too.
       </p>
 
       <SaveToPlan
         onSave={() =>
           savePlan(
             'compare',
-            `${PROGRAMS[state.aProgram]} ${state.aDown}% vs ${PROGRAMS[state.bProgram]} ${state.bDown}% on ${home.name} — option ${cheaper} saves ${money(difference)}/mo`,
+            `${PROGRAMS[state.aProgram]} ${state.aDown}% vs ${PROGRAMS[state.bProgram]} ${state.bDown}% on ${home.name} — option ${cheaper} costs ${money(difference)}/mo less`,
           )
         }
       />

@@ -52,15 +52,15 @@ export default function Dpa() {
       title: noneFit ? 'You may qualify — but not on these homes' : 'Good news — you may qualify',
       body: noneFit
         ? `Your answers fit ${named}, which is worth ${amount}. The catch is the price: it only covers homes under ${money(cap)}, and every home here is above that today. Worth asking the team what else is coming.`
-        : `Based on your answers you fit ${named} — worth ${amount} toward your down payment. Apply it in See My Payment to watch your cash-to-close drop.`,
+        : `Based on your answers, you look like a good fit for ${named}. It’s worth ${amount} toward your down payment. Apply it in See My Payment to see how it changes your cash to close.`,
       summary: noneFit
         ? `Likely eligible (${amount}) — no home here under ${money(cap)}`
         : `Likely eligible — ${amount}`,
     },
     maybe: {
       title: 'Possibly — worth a conversation',
-      body: `You’re near the income limit of ${limit}. Programs change often — the lender can screen you properly in minutes.`,
-      summary: 'Borderline — lender screen recommended',
+      body: `You’re close on the usual requirements (income under ${limit}, credit ${settings.dpaMinCredit}+, first-time or military). Rules change often, so it’s worth asking the lender to check where you stand.`,
+      summary: 'Borderline — worth checking with the lender',
     },
     unlikely: {
       title: 'Less likely — but ask anyway',
@@ -131,7 +131,7 @@ export default function Dpa() {
           <span style={{ fontSize: 13, lineHeight: 1.55 }}>{copy[result].body}</span>
         </div>
       ) : (
-        <EmptyPrompt>Add your household income above and we&apos;ll screen you against this community&apos;s program.</EmptyPrompt>
+        <EmptyPrompt>Add your household income above and we&apos;ll check your answers against this community&apos;s program.</EmptyPrompt>
       )}
 
       {cap !== null && (within.length || over.length) ? (
@@ -140,7 +140,7 @@ export default function Dpa() {
             Which homes the help covers
           </span>
           <p style={{ margin: '0 0 10px', color: 'var(--t-mut)', fontSize: 12.5, lineHeight: 1.5 }}>
-            {program ? `${program} stops` : 'This program stops'} at {money(cap)}, whatever your income.
+            {program ? `${program} only covers` : 'This program only covers'} homes up to {money(cap)}, whatever your income.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[...within, ...over].map((home) => {

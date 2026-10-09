@@ -162,19 +162,22 @@ export function BuyerProvider({ communityId, children }) {
       if (!token) return;
       try {
         setLead(await buyerApi.saveMoveIn(token, plan));
-      } catch {
-        /* keep their edits on screen; the next change tries again */
+      } catch (err) {
+        // Their edits stay on screen and the next change tries again. A refusal worth knowing about
+        // (slow down, or the server is unwell) is said once, because otherwise the screen looks saved
+        // and a reload quietly loses it.
+        if (err?.status === 429 || err?.status >= 500) showToast(err.message);
       }
     },
-    [token],
+    [showToast, token],
   );
 
   /** Returns true when the booking took, so the dialog knows whether to close. */
   const requestTour = useCallback(
-    async (slotId, contact, topic = 'community') => {
+    async (slotId, contact, topic = 'community', extra = {}) => {
       if (!token) return false;
       try {
-        const updated = await buyerApi.requestTour(token, slotId, contact, topic);
+        const updated = await buyerApi.requestTour(token, slotId, contact, topic, extra);
         setLead(updated);
         showToast(contact === 'email' ? 'Booked — the team will email you' : 'Booked — the team will call you');
         return true;

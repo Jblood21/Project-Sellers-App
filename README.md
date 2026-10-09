@@ -7,9 +7,10 @@ A mobile-first web app for individual builder communities, with two sides sharin
 - **Buyer PWA** (`/c/:communityId`) — reached by scanning the QR code on a development sign.
   Buyers explore homes, meet the community's realtors, read the area guide and the buyer guides,
   run seven consumer-friendly financial tools, save homes, build a progressive "My Home Plan" and
-  download it as a PDF. Entry to the app is gated behind name/email/phone; the **buyer guides are
+  download it as a PDF. Entry to the app is gated behind a name and email (a cell number is optional; one is
+  asked for when a buyer books a time with the team); the **buyer guides are
   the one public part** (see [Buyer guides](#buyer-guides)), so they can be found and read before
-  anyone hands over a phone number. Every page, gated or not, ends with the lender's licensing and
+  anyone hands over any details. Every page, gated or not, ends with the lender's licensing and
   disclosures.
 - **Builder admin** (`/admin`) — manage communities, homes and photo galleries, write the area
   guide and edit the buyer guides, toggle which buyer tools and features are live, read leads with
@@ -86,12 +87,35 @@ See [`.env.example`](.env.example).
 | `RESEND_API_KEY` | Enables outbound email. Omit and the app sends nothing, breaking nothing. |
 | `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
 | `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
-| `PUBLIC_ORIGIN` | The one public address of the site, e.g. `https://homes.example.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. |
+| `PUBLIC_ORIGIN` | The one public address of the site with the `https://`, e.g. `https://touradoor.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data, and into the links in emails; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. A value without `https://` is ignored, and the server says so at boot. |
 | `PORT` | Defaults to 3000; Render sets this. |
+| `RATE_LIMITS` | `off` turns the request limits off, `on` forces them on. Unset they are on, except under `node --test`. |
+| `DATA_FILE` | Where the JSON-file store keeps its data when `DATABASE_URL` is unset (default `data/db.json`). |
+| `RESEND_ENDPOINT` | Overrides the Resend API address; only tests and local mail catchers need it. |
+| `RENDER_GIT_COMMIT` | Set by Render on every build. `/api/health` reports it as `commit`, so you can check that a merge is the code that is live. |
 
-Caching: the hashed files under `/assets` are cached for a long time. The artwork under `/brand` (logos, the
+At boot the server logs a `WARNING:` line for each of these that is missing and quietly costs something: `PUBLIC_ORIGIN`,
+`SESSION_SECRET` and `DATABASE_URL` in production, and `RESEND_API_KEY` / `EMAIL_FROM` for email. Check the Render log after a deploy.
+
+Caching: the hashed files under `/assets` are cached for an hour. The artwork under `/brand` (logos, the
 Equal Housing mark) and `/guides` (artwork no longer shown on the guides) keeps its file name when it changes, so the server marks
 it `Cache-Control: no-cache`: a browser keeps a copy but asks first, and an unchanged file answers `304` with no body.
+
+**Safeguards on the public side.** A buyer is only ever sent their own record (their details, plan, saved homes and booked
+time), never the builder's notes, status, activity feed or the consent evidence (`publicLead` in `server/routes/public.js`).
+The sign-up form caps what it stores (name 120, email 254, phone 40 characters; a plan note 500) and refuses control
+characters; every body a stranger can send (the buyer app and the sign-in form) is limited to 64 KB, and nothing under
+`/api/admin` is read until the caller has signed in. Requests are counted in memory per visitor (an address; an IPv6 block counts as
+one) and, where there is one, per person (`server/lib/limits.js`). Admin sign-in: 8 wrong passwords per address and email per 15 minutes, 30 per address, 60
+per email from anywhere (a right password gives its own count back, and guesses sent all at once are held before the
+account is looked up). Buyers: 400 sign-up attempts an hour per address and 8 per address and email; 5 plan emails a day
+per buyer and 5 a day to any one inbox, 30 an hour per address (a send that fails does not count); 12 booking attempts an
+hour per buyer; 300 activity taps per buyer per 10 minutes; 3000 writes per address per 10 minutes. These are set for a
+sales trailer on one wifi address with many buyers on it, and they are guesses about real traffic, not measurements: if
+a buyer reports "Too many requests", look for the number here first. A restart clears the counts. The links written
+into emails come from `PUBLIC_ORIGIN` or the plain `Host` header, never from a header the caller chose; the address a page
+writes for itself in its own head still follows the proxy's forwarded headers when `PUBLIC_ORIGIN` is unset, so set it in
+production.
 
 Uploaded videos (a home's walkthrough, a Learn video) are served from an address that ends `?v=<when the file was stored>`.
 The file at its *current* version is cached for a year; a replacement moves the version, so it arrives under a new address. A request
@@ -105,8 +129,13 @@ and only after sign-in; for anything longer, paste a YouTube or Vimeo link in th
 2. Render → **New → Blueprint**, select the repo. [`render.yaml`](render.yaml) provisions the
    web service and a Postgres instance, and generates `SESSION_SECRET` and
    `RATES_WEBHOOK_SECRET`.
-3. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the service's environment before the first deploy
-   (they are marked `sync: false` so they never live in the repo).
+3. Render asks for five values the blueprint leaves blank (`sync: false`, so they never live in the repo).
+   Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the first deploy. `PUBLIC_ORIGIN`, `RESEND_API_KEY` and
+   `EMAIL_FROM` can be left empty until the domain and the email account exist; the server logs a `WARNING:` for each
+   at boot, and email stays off until both email values are set (put nothing in them rather than something made up).
+   `SEED_DEMO` and `NODE_VERSION` come from the file, not from the form. After the first deploy, find the log line
+   `First API request: req.ip=…`: `req.ip` should be the visitor's own address. If it is the same for different people,
+   the request limits would treat everyone as one visitor and `trust proxy` in `server/index.js` needs another hop count.
 4. Deploy. Build runs `npm install && npm run build`; start runs `node server/index.js`, which
    serves the API, both SPAs and the per-community manifests from one service.
 5. Sign in at `https://<your-domain>/admin`, create a community, add homes and photos, then use
@@ -173,7 +202,7 @@ Three things a buyer standing at a sign asks before they ask about financing:
 
 - **Lot numbers** — a field on each home, shown beside the beds/baths line.
 - **Floor plans** — up to four drawings per home, stored under their own photo kind so
-  they never appear in the photo carousel and never count against the 12-photo gallery limit.
+  they never appear in the photo carousel and never count against the 8-photo gallery limit.
 - **Site map** — the community plat, uploaded under **Setup**, with a list of the lots that have
   a home on them.
 
@@ -194,7 +223,10 @@ empty space.
 
 The entry gate signs a returning buyer back into their own record — their saved homes, their
 plan, their history — when **name, email and phone all match**. Any one of them different is a
-different person, who gets their own lead.
+different person, who gets their own lead. The phone is optional: a buyer who gave none matches
+only a record that has none, and a record that has a number is never opened by leaving it blank
+(the cost is that someone who adds a number when booking, then signs in on another device with only
+a name and email, starts a fresh record; the safer side of that trade).
 
 Matching compares the **information, not the keystrokes**. `(801) 555-0111`, `801-555-0111` and
 `8015550111` are one phone number; `Sam  Rivera` is `sam rivera`. Without that a buyer who came
@@ -286,7 +318,8 @@ through Postgres under UTC−6, UTC+12 and UTC and asserts the date never moves.
 Two messages, and only two — the app is deliberately quiet.
 
 - **A buyer asks for a call** → the builder is emailed straight away, with the phone
-  number first and the buyer's saved homes and figures underneath. Reply-to is the buyer,
+  number first (a buyer who signed up without one is asked for it in the booking sheet before
+  anything is booked, together with the calls-and-texts question) and the buyer's saved homes and figures underneath. Reply-to is the buyer,
   so hitting reply reaches them. It goes to **Setup → Call request alerts**, falling back
   to the signed-in account so a builder who never sets it still gets told.
 - **A buyer presses "Email this plan to me"** → they get their own plan and a link back
@@ -426,9 +459,9 @@ are several), on every home, and on a **Meet the agent** page. Each card has the
 **Call**, **Text** (phones only) and **Email** buttons, and a **Tour the homes** button that opens a message to
 the agent that is already written: a text on a phone, an email on a computer (whichever the agent has, if only
 one). The **Explore Homes** screen has *Ready to look at homes?* under the homes (one button per agent a message can
-reach), and each model's page starts its buttons with **Tour this model**, which opens **Talk to the team** (the
-day-then-time picker), not a message to an agent (the agent cards on a model page have Call, Text and Email, not a
-tour button). Nothing opens a new tab. There is no realtor disclaimer line: the old note and fair housing line were removed. The *Realtors*
+reach), and each model's page starts its buttons with **Talk about financing**, which opens the same day-then-time
+picker for a conversation with the lender. A tour is asked for further down the model's page, under **Want a Tour?**,
+through the agent cards (Call, Text and Email, not a tour button), or from **Talk to the team** in the bottom bar. Nothing opens a new tab. There is no realtor disclaimer line: the old note and fair housing line were removed. The *Realtors*
 switch under **Tools → What buyers see** hides the realtors. Contact details are published as given: a website
 must be an `http(s)` address and an email must contain an `@`.
 

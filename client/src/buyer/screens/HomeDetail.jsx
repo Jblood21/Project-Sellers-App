@@ -9,7 +9,7 @@ import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
 import AgentCard from '../AgentCard.jsx';
 
-export default function HomeDetail({ onOpenTour }) {
+export default function HomeDetail({ onOpenLender }) {
   // Which plan the viewer is showing; null means closed.
   const [planIndex, setPlanIndex] = useState(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -136,20 +136,20 @@ export default function HomeDetail({ onOpenTour }) {
 
       <div className="b-stack" style={{ gap: 10 }}>
         {/*
-          First, because a buyer looking at a model is closest to wanting to see
-          it. It opens Talk to the team, the day-then-time picker, so a tour of a
-          model goes to the team; the agents below are for reaching an agent directly.
+          First, because a buyer looking at a model is closest to wanting to know what it would
+          take to own it. It opens the day-then-time picker for a conversation about financing
+          with the lender; a tour is asked for below, through the agents.
         */}
         <button
           type="button"
           className="b-btn"
           style={{ minHeight: 50 }}
           onClick={() => {
-            track(`Asked to tour ${home.name}`);
-            onOpenTour();
+            track(`Asked about financing for ${home.name}`);
+            onOpenLender();
           }}
         >
-          Tour this model
+          Talk about financing
         </button>
         <button
           type="button"
@@ -184,9 +184,10 @@ export default function HomeDetail({ onOpenTour }) {
       {features.agents && agents.length ? (
         <section style={{ marginTop: 26 }} aria-labelledby="home-agents">
           <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
-          <h2 id="home-agents" className="b-lbl" style={{ margin: '0 0 12px', color: 'var(--t-accT)' }}>
+          <h2 id="home-agents" className="b-head" style={{ margin: '0 0 6px', fontSize: 24 }}>Want a Tour?</h2>
+          <span className="b-lbl" style={{ display: 'block', margin: '0 0 12px', color: 'var(--t-accT)' }}>
             {agents.length > 1 ? 'Meet the agents.' : 'Meet the agent.'}
-          </h2>
+          </span>
           <div className="b-stack" style={{ gap: 12 }}>
             {agents.map((agent) => (
               <AgentCard key={agent.id} agent={agent} headingLevel={3} tour={false} />

@@ -22,7 +22,7 @@ export default function LeadsTab({ community, leads }) {
     if (filter === 'unread') out = out.filter(isUnread);
     else if (filter === 'tour') out = out.filter(isTourPending);
     const q = query.trim().toLowerCase();
-    if (q) out = out.filter((lead) => `${lead.name} ${lead.email} ${lead.phone}`.toLowerCase().includes(q));
+    if (q) out = out.filter((lead) => `${lead.name} ${lead.email} ${lead.phone || ''}`.toLowerCase().includes(q));
     if (sort === 'stars') out.sort((a, b) => b.savedHomeIds.length - a.savedHomeIds.length);
     else out.reverse();
     return out;
@@ -118,7 +118,7 @@ export default function LeadsTab({ community, leads }) {
             {lead.status === 'contacted' ? <span className="tag tag-neutral">Contacted</span> : null}
             {isArchived(lead) ? <span className="tag tag-neutral">Archived</span> : null}
           </div>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>{lead.phone} · {lead.email}</span>
+          <span className="text-muted" style={{ fontSize: 12.5 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
           {/*
             Next to the phone number, because that is where somebody's eye goes
             before they dial. A consent record filed away where nobody reads it

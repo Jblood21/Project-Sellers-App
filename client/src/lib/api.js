@@ -5,7 +5,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const PROXY_ANSWERS = {
   408: 'The upload took too long to arrive. Try again on a stronger connection, or with a smaller file.',
   413: 'That upload is too large for the server to accept. Try a smaller file.',
-  500: 'The server ran into a problem. Wait a minute and try again.',
+  500: 'Something went wrong on our side. Wait a minute and try again.',
   502: 'The server did not answer. Wait a minute and try again.',
   503: 'The server is busy. Wait a minute and try again.',
   504: 'The server took too long to answer. Try again, or try a smaller file.',
@@ -26,7 +26,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
   } catch {
     // The browser's own text for this is "Failed to fetch" (Chrome), "Load failed"
     // (Safari) or "NetworkError when attempting to fetch resource." (Firefox).
-    throw new Error('Could not reach the server. Check your connection and try again.');
+    throw new Error('We couldn’t connect. Check your connection and try again.');
   }
   if (res.status === 204) return null;
   const text = await res.text();
@@ -37,7 +37,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
     data = null;
   }
   if (!res.ok) {
-    const error = new Error(data?.error || PROXY_ANSWERS[res.status] || `Request failed (${res.status})`);
+    const error = new Error(data?.error || PROXY_ANSWERS[res.status] || `Something went wrong (${res.status}). Try again in a moment.`);
     error.status = res.status;
     throw error;
   }
@@ -57,8 +57,8 @@ export const buyerApi = {
   // One whole guide, body included. The community payload carries only the summaries.
   guide: (communityId, slug) =>
     request(`/api/c/${encodeURIComponent(communityId)}/guides/${encodeURIComponent(slug)}`),
-  requestTour: (token, slotId, contact, topic = 'community') =>
-    request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic }, token }),
+  requestTour: (token, slotId, contact, topic = 'community', extra = {}) =>
+    request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic, ...extra }, token }),
   emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
   saveMoveIn: (token, plan) => request('/api/me/movein', { method: 'PUT', body: plan, token }),
 };

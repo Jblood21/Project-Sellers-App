@@ -18,12 +18,18 @@ export default function Gate({ onEntered }) {
   const [busy, setBusy] = useState(false);
 
   const set = (field) => (event) => setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  const digits = (form.phone.match(/\d/g) || []).length;
+  const hasPhone = digits >= 7;
 
   const submit = async (event) => {
     event.preventDefault();
-    const digits = (form.phone.match(/\d/g) || []).length;
-    if (!form.name.trim() || !EMAIL_RE.test(form.email) || digits < 7) {
-      setError('Please add your full name, a valid email and a cell number.');
+    if (!form.name.trim() || !EMAIL_RE.test(form.email)) {
+      setError('Please add your full name and a valid email.');
+      return;
+    }
+    // A number is optional, but one that is typed has to look like one.
+    if (form.phone.trim() && digits < 7) {
+      setError('That cell number looks too short. Check it, or leave it blank for now.');
       return;
     }
     setBusy(true);
@@ -33,7 +39,8 @@ export default function Gate({ onEntered }) {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
-        consent: form.consent,
+        // About calls and texts to a number: with no number there is nothing to agree to.
+        consent: hasPhone && form.consent,
       });
       onEntered?.(result);
       navigate(`/c/${communityId}/tools`, { replace: true });
@@ -49,7 +56,7 @@ export default function Gate({ onEntered }) {
       <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>Almost there</span>
       <h1 className="b-head" style={{ margin: '4px 0 8px', fontSize: 27 }}>Let&apos;s introduce you</h1>
       <p style={{ margin: '0 0 18px', color: 'var(--t-mut)', fontSize: 13.5, lineHeight: 1.5 }}>
-        Tell us who you are to open the {community?.name} app, so your home plan saves and the
+        Add your name and email to open the {community?.name} app. That way your home plan saves and the
         team can send it to you.
       </p>
       <div className="b-stack" style={{ gap: 12 }}>
@@ -65,7 +72,7 @@ export default function Gate({ onEntered }) {
           />
         </label>
         <label className="b-field">
-          <span className="b-lbl">Cell phone</span>
+          <span className="b-lbl">Cell phone (optional)</span>
           <input
             className="b-in" type="tel" value={form.phone} onChange={set('phone')}
             placeholder="(801) 555-0100" autoComplete="tel" inputMode="tel"
@@ -79,31 +86,33 @@ export default function Gate({ onEntered }) {
         never required to get in — a number given under duress is a liability,
         not a lead.
       */}
-      <label
-        style={{
-          display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16, padding: '12px 14px',
-          borderRadius: 'var(--t-rad)', background: 'var(--t-tint)',
-          border: '1px solid var(--t-line)', cursor: 'pointer',
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={form.consent}
-          onChange={(event) => setForm((prev) => ({ ...prev, consent: event.target.checked }))}
-          style={{ marginTop: 2, width: 18, height: 18, flex: 'none', accentColor: 'var(--t-acc)' }}
-        />
-        <span style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--t-ink)' }}>
-          {consentText(community?.builder || community?.name)}
-        </span>
-      </label>
+      {hasPhone ? (
+        <label
+          style={{
+            display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16, padding: '12px 14px',
+            borderRadius: 'var(--t-rad)', background: 'var(--t-tint)',
+            border: '1px solid var(--t-line)', cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={form.consent}
+            onChange={(event) => setForm((prev) => ({ ...prev, consent: event.target.checked }))}
+            style={{ marginTop: 2, width: 18, height: 18, flex: 'none', accentColor: 'var(--t-acc)' }}
+          />
+          <span style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--t-ink)' }}>
+            {consentText(community?.builder || community?.name)}
+          </span>
+        </label>
+      ) : null}
 
       {error ? <p style={{ color: 'var(--t-accT)', fontSize: 12.5, margin: '10px 0 0' }}>{error}</p> : null}
       <button type="submit" className="b-btn" disabled={busy} style={{ marginTop: 16, minHeight: 50 }}>
         {busy ? 'One moment…' : `Start exploring ${community?.name}`}
       </button>
       <p style={{ fontSize: 11, color: 'var(--t-mut)', margin: '10px 0 0', textAlign: 'center' }}>
-        Name, email and cell are required. The box above is up to you — you can explore either
-        way. Your info goes only to the {community?.name} team.
+        Name and email are all you need to get in. Add a cell if you'd like the team to be able to call or
+        text you. Your info goes only to the {community?.name} team.
       </p>
     </form>
   );

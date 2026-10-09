@@ -89,5 +89,5 @@ export function tourMessage({ agentName, community, buyerName, homeName }) {
   const what = homeName
     ? `tour the ${homeName} model${place ? ` at ${place}` : ''}`
     : `tour the homes${place ? ` at ${place}` : ''}`;
-  return `Hi${first ? ` ${first}` : ''},${who ? ` this is ${who}.` : ''} I'd like to ${what}. Please contact me to schedule a time.`;
+  return `Hi${first ? ` ${first}` : ''},${who ? ` this is ${who}.` : ''} I'd like to ${what}. What times work for you?`;
 }

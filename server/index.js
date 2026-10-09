@@ -8,6 +8,7 @@ import express from 'express';
 import { getStore } from './db/index.js';
 import { seedIfEmpty } from './db/seed.js';
 import { hashPassword, requireAdmin } from './lib/auth.js';
+import { bootWarnings } from './lib/bootcheck.js';
 import { hasControlCharacter } from './lib/params.js';
 import { originOfRequest, renderBuyerPage, unavailablePage } from './lib/ssr.js';
 import { adminRouter } from './routes/admin.js';
@@ -23,6 +24,21 @@ const defaultClientDist = join(root, 'client', 'dist');
 export function createApp({ clientDist = defaultClientDist } = {}) {
   const app = express();
   app.set('trust proxy', 1);
+  // The request limits count a visitor by req.ip, which with one trusted proxy hop is the last
+  // X-Forwarded-For entry. If the host puts more than one hop in front of the app, that entry is
+  // not the visitor and everyone would share one count. Say what the first live request looked
+  // like, once, so the owner can check it in the log instead of finding out from a buyer.
+  if (process.env.NODE_ENV === 'production') {
+    let seen = false;
+    app.use((req, _res, next) => {
+      if (!seen && req.path.startsWith('/api/')) {
+        seen = true;
+        console.log(`First API request: req.ip=${req.ip} X-Forwarded-For=${req.get('x-forwarded-for') ?? '(none)'}. `
+          + 'req.ip should be the visitor\'s own address; if it is the same for different people, trust proxy needs a different hop count.');
+      }
+      next();
+    });
+  }
   app.disable('x-powered-by');
 
   // The cheap, always-safe headers on every response, static files and the SPA
@@ -45,6 +61,10 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   // what refuses an oversized file rather than the parser.
   const smallJson = express.json({ limit: '6mb' });
   const videoJson = express.json({ limit: '36mb' });
+  // Everything a stranger can reach (the buyer app, the sign-in form) takes small forms: a sign-up,
+  // a plan item, a booking, an email and a password. 64 KB is far more than any of them needs, and it
+  // is the most a stranger can make the server read and parse in one request.
+  const publicJson = express.json({ limit: '64kb' });
   // The 36 MB parser is for the three admin routes that take a video as a data URL, and only
   // once the caller has proved they are an admin. Left global it was a door anyone could open:
   // an anonymous 34 MB POST to ANY endpoint (the login form, the buyer contact gate) was read
@@ -56,9 +76,17 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     (req.method === 'PUT' && /^\/api\/admin\/homes\/[^/]+\/video\/*$/i.test(req.path))
     || (req.method === 'POST' && /^\/api\/admin\/communities\/[^/]+\/resources\/*$/i.test(req.path))
     || (req.method === 'PATCH' && /^\/api\/admin\/resources\/[^/]+\/*$/i.test(req.path));
-  app.use((req, res, next) => (
-    carriesVideo(req) ? requireAdmin(req, res, () => videoJson(req, res, next)) : smallJson(req, res, next)
-  ));
+  const isAdminPath = (req) => /^\/api\/admin(\/|$)/i.test(req.path);
+  // The one admin request a stranger legitimately makes. It carries an email and a password.
+  const isLogin = (req) => req.method === 'POST' && /^\/api\/admin\/login\/*$/i.test(req.path);
+  // The 6 MB parser is for a caller who has already proved they are an admin, for the same reason as
+  // the video one: the limits on the sign-in form run after the body is read, so a body read first is
+  // a body anyone can make this server hold in memory, a few at a time, on a 512 MB instance.
+  app.use((req, res, next) => {
+    if (carriesVideo(req)) return requireAdmin(req, res, () => videoJson(req, res, next));
+    if (isAdminPath(req) && !isLogin(req)) return requireAdmin(req, res, () => smallJson(req, res, next));
+    return publicJson(req, res, next);
+  });
 
   // `commit` answers the question the deploy hook exists to make answerable: is
   // what is live the code that was merged? Render sets RENDER_GIT_COMMIT on every
@@ -229,6 +257,7 @@ async function ensureAdmin(store) {
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
   const port = Number(process.env.PORT) || 3000;
+  for (const warning of bootWarnings()) console.warn(`WARNING: ${warning}`);
   const store = await getStore();
   await ensureAdmin(store);
   if (process.env.SEED_DEMO !== 'false') {

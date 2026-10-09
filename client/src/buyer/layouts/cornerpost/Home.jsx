@@ -181,7 +181,7 @@ export default function Home({ model }) {
       <div className="cp-header">
         <h1 className="cp-display">Hi {model.firstName} — can you buy one of these?</h1>
         <p className="cp-lede">
-          Take a few minutes to find out what works for you and create your personalized home plan.
+          Take a few minutes to find out what works for you and build your own home plan.
         </p>
       </div>
 

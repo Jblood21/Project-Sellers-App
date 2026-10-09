@@ -12,6 +12,7 @@ import {
   COMPLIANCE_DEFAULTS, DEFAULT_FAQ, DEFAULT_FAQ_JSON, describeTour, isSold, LENDER, lenderReady, MAX_VIDEO_BYTES,
   settingMaxLength, unitsLabel, videoTypeOf,
 } from '../../shared/domain.js';
+import { PREVIOUS_DEFAULT_FAQ_JSONS } from '../../shared/faq.js';
 import { createApp } from '../index.js';
 
 let server;
@@ -111,7 +112,7 @@ test('a buyer walks from the QR link to a plan the admin can see', async () => {
   });
   assert.equal(entered.status, 201);
   const leadToken = entered.body.token;
-  assert.equal(entered.body.lead.activity[0].text, 'Scanned QR — entered the app');
+  assert.equal(entered.body.lead.activity, undefined, 'the activity feed is the builder\'s, not the buyer\'s');
 
   // Re-entering the same email returns the same lead rather than duplicating it.
   const again = await api(`/api/c/${communityId}/leads`, {
@@ -152,6 +153,7 @@ test('a buyer walks from the QR link to a plan the admin can see', async () => {
   assert.equal(lead.body.tour.time, slots[0].time, 'the admin sees the booked time');
   assert.equal(lead.body.tour.contact, 'email', 'and how the buyer wants to be reached');
   assert.ok(lead.body.activity.some((entry) => entry.text.includes('Saved The Oak')));
+  assert.equal(lead.body.activity.at(-1).text, 'Scanned QR — entered the app', 'and the builder sees how they arrived');
 });
 
 test('one buyer cannot read another buyer with a forged token', async () => {
@@ -1476,7 +1478,10 @@ test('consent to calls and texts is recorded with the words the buyer saw', asyn
   const agreed = await enter({
     name: 'Sam Lee', email: 'sam@test.co', phone: '801-555-0115', consent: true,
   });
-  const consent = agreed.body.lead.consent;
+  // The record is the builder's evidence; the buyer is only told their own answer.
+  assert.deepEqual(Object.keys(agreed.body.lead.consent).sort(), ['at', 'granted']);
+  const record = async (leadId) => (await api(`/api/admin/leads/${leadId}/consents`, { token })).body[0];
+  const consent = await record(agreed.body.lead.id);
   assert.equal(consent.granted, true);
   assert.match(consent.text, /Northgate Homes/, 'it names the business that will call');
   assert.match(consent.text, /automatic telephone dialing system/i);
@@ -1495,10 +1500,11 @@ test('consent to calls and texts is recorded with the words the buyer saw', asyn
     version: 'forged',
     consentText: 'I agree to absolutely anything',
   });
-  assert.ok(!/absolutely anything/.test(forged.body.lead.consent.text),
+  const forgedRecord = await record(forged.body.lead.id);
+  assert.ok(!/absolutely anything/.test(forgedRecord.text),
     'the caller cannot write the consent record');
-  assert.equal(forged.body.lead.consent.version, consent.version);
-  assert.match(forged.body.lead.consent.text, /Northgate Homes/);
+  assert.equal(forgedRecord.version, consent.version);
+  assert.match(forgedRecord.text, /Northgate Homes/);
 
   // Coming back and ticking the box is a change of mind, and it is kept as a
   // second row rather than overwriting the first: the old answer is evidence too.
@@ -1829,6 +1835,21 @@ test('a button label saved while it was the old default reads as the new default
   assert.equal(await label(), 'Find out if you qualify');
   await patch({ incentiveButton: 'See my savings' });
   assert.equal(await label(), 'See my savings', 'a label the builder wrote is never touched');
+});
+
+test('starter questions saved while they were the old default read as the new ones, and an edited list is left alone', async () => {
+  const { token, cid } = await signedInCommunity('Reworded Faq Test');
+  const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
+  const faq = async () => (await api(`/api/admin/communities/${cid}`, { token })).body.settings.faqJson;
+
+  // A Setup save from before the reword left the old starter list stored as if it were chosen.
+  await patch({ faqJson: PREVIOUS_DEFAULT_FAQ_JSONS[0] });
+  assert.equal(await faq(), DEFAULT_FAQ_JSON, 'the old default is brought up to date');
+  assert.doesNotMatch(await faq(), /Tour this model/, 'and no longer points at a button that is gone');
+
+  const edited = JSON.stringify([{ q: 'Do you allow pets?', a: 'Yes, two per home.' }]);
+  await patch({ faqJson: edited });
+  assert.equal(await faq(), edited, 'a list the builder wrote is never touched');
 });
 
 test('the loan link, incentive email and FAQ are validated, not stored and silently ignored', async () => {

@@ -9,6 +9,7 @@ import {
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
+import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
@@ -277,14 +278,42 @@ const readVideo = (body, longerHint = LINK_INSTEAD) => {
 export function adminRouter() {
   const router = rejectControlCharacters(catchAsyncErrors(Router()));
 
+  // Wrong passwords are counted per visitor (an address; an IPv6 block counts as one), per visitor AND
+  // email, and per email alone. The second means a single guesser at one address is stopped at 8 tries
+  // without touching anyone else's sign-ins; it also means that on a shared address (an office wifi) a
+  // guesser and the owner share a count, and the owner waits too. The third is the ceiling for
+  // guessing from many addresses at once; it holds for 15 minutes for everyone, the owner included.
+  // A right password clears the visitor-and-email count.
+  const failuresPerIp = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+  const failuresPerPerson = createLimiter({ windowMs: 15 * 60 * 1000, max: 8 });
+  const failuresPerEmail = createLimiter({ windowMs: 15 * 60 * 1000, max: 60 });
+
   router.post('/login', async (req, res) => {
     const store = await getStore();
     const email = str(req.body?.email);
     const password = String(req.body?.password ?? '');
-    const admin = email && (await store.getAdminByEmail(email));
+    const visitor = clientKey(req);
+    const emailKey = email.toLowerCase().slice(0, 254);
+    const personKey = `${visitor}|${emailKey}`;
+    // Held before anything is awaited, and given back on a right password. Counting after the lookup
+    // would let a burst of guesses sent at once all pass the check before the first is counted.
+    const attempt = reserve([[failuresPerIp, visitor], [failuresPerPerson, personKey], [failuresPerEmail, emailKey]]);
+    if (attempt.wait) {
+      res.set('Retry-After', String(attempt.wait));
+      return res.status(429).json({ error: tooMany('sign-in attempts', attempt.wait) });
+    }
+    let admin;
+    try {
+      admin = email && (await store.getAdminByEmail(email));
+    } catch (err) {
+      attempt.release(); // our failure, not a wrong password
+      throw err;
+    }
     if (!admin || !verifyPassword(password, admin.password_hash)) {
       return res.status(401).json({ error: 'That email and password do not match.' });
     }
+    attempt.release();
+    failuresPerPerson.reset(personKey);
     res.json({ token: issueToken(admin), admin: { id: admin.id, email: admin.email } });
   });
 

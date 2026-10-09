@@ -74,7 +74,7 @@ test('the call alert leads with what the builder needs to act on', async () => {
   assert.match(mail.text, /\(801\) 555-0123/, 'the phone number is present');
   assert.match(mail.text, /The Aspen/, 'the homes they saved');
   assert.match(mail.text, /\$350,049/, 'and what they worked out');
-  assert.match(mail.text, /cornerpost\.example\/admin\/leads\/l1/, 'and a link to the lead');
+  assert.match(mail.text, /cornerpost\.example\/admin\/communities\/willow\/leads\/l1/, 'and a link to the lead, on a page the admin app has');
 });
 
 test('the alert falls back to the dashboard account when no address is set', async () => {
@@ -207,7 +207,7 @@ test('the plan email carries the whole move-in plan, not just its summary line',
   const text = sent[0].text;
 
   assert.match(text, /^Your move-in plan:$/m);
-  assert.match(text, /To have keys on Sep 20, the offer needs to be in by Aug 9\./);
+  assert.match(text, /To have keys on Sep 20, your offer needs to be in by Aug 9\./);
   assert.match(text, /^Home:\s+The Aspen$/m);
   assert.match(text, /^Every step, in date order:$/m);
   assert.match(text, /^\[x\] Jul 19\s+Get pre-approved \(You\)$/m, 'the step they ticked');

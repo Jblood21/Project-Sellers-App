@@ -57,7 +57,7 @@ export default function Guides() {
       </p>
 
       {guides.length === 0 ? (
-        <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>Guides are being added — check back soon.</p>
+        <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>We’re still adding guides. Check back soon.</p>
       ) : null}
 
       {categories.length > 1 ? (

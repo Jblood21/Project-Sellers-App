@@ -40,9 +40,11 @@ export function issueToken(admin) {
 export function readToken(token) {
   if (typeof token !== 'string' || !token.includes('.')) return null;
   const [body, sig] = token.split('.');
-  const expected = sign(body);
-  if (sig.length !== expected.length) return null;
-  if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const given = Buffer.from(sig);
+  const expected = Buffer.from(sign(body));
+  // Compared as bytes, not characters: a signature of the same character count made of
+  // multibyte characters is longer in bytes, and timingSafeEqual throws on unequal lengths.
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     if (!payload.exp || payload.exp < Date.now()) return null;

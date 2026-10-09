@@ -48,8 +48,8 @@ const firstOf = (value) => String(value ?? '').split(',')[0].trim();
  * address. A misconfigured value is ignored rather than trusted, because it ends
  * up in every canonical and every JSON-LD @id.
  */
-function pinnedOrigin() {
-  const raw = String(process.env.PUBLIC_ORIGIN ?? '').trim();
+export function pinnedOrigin(value = process.env.PUBLIC_ORIGIN) {
+  const raw = String(value ?? '').trim();
   if (!raw) return '';
   try {
     const url = new URL(raw);
@@ -69,7 +69,10 @@ export function originOfRequest(req) {
   // A deployment answers on every name it has (Render's own and a custom domain),
   // and a canonical that follows the Host header is a different canonical on each
   // of them, which defeats the point of having one. When PUBLIC_ORIGIN is set it
-  // is the one answer; the request only decides in development, where it is unset.
+  // is the one answer. Unset (development), a page behind a proxy is addressed as the
+  // browser addressed it, which is what the forwarded headers carry. The links in
+  // emails do not take that road: they are written for a third party to click, so they
+  // never follow a header the caller chose (see linkOriginOf).
   const pinned = pinnedOrigin();
   if (pinned) return pinned;
   const host = firstOf(req.get('x-forwarded-host')) || firstOf(req.get('host'));
@@ -77,6 +80,24 @@ export function originOfRequest(req) {
   const forwarded = firstOf(req.get('x-forwarded-proto')).toLowerCase();
   const proto = forwarded === 'http' || forwarded === 'https' ? forwarded : req.protocol || 'https';
   return `${proto}://${host}`;
+}
+
+/**
+ * The address a link in an EMAIL points at. PUBLIC_ORIGIN when it is set; otherwise
+ * the Host header alone, and never X-Forwarded-Host: that header is whatever the
+ * caller sent, and a buyer who can pick the host in the builder's "Open the lead"
+ * link has been handed a way to send the builder to a page of their own choosing.
+ * (The platform routes on Host, so only the site's own names reach this server.)
+ * Returns '' when nothing trustworthy is known, and the email then carries no link.
+ */
+export function linkOriginOf(req) {
+  const pinned = pinnedOrigin();
+  if (pinned) return pinned;
+  const host = String(req.get('host') ?? '').trim();
+  if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/i.test(host)) return '';
+  // X-Forwarded-Proto is a header like any other. A production site is https, whatever it says.
+  const plain = process.env.NODE_ENV !== 'production' && req.protocol === 'http';
+  return `${plain ? 'http' : 'https'}://${host}`;
 }
 
 /**

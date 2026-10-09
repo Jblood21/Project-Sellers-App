@@ -34,6 +34,25 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # The one public address of the site, with the https:// (for example
+      # https://touradoor.com). Canonical links, share previews and the links in
+      # emails use it; unset, they follow whichever address a visitor came in on,
+      # and a site that answers on two names publishes both.
+      - key: PUBLIC_ORIGIN
+        sync: false
+      # Email. Without RESEND_API_KEY nothing is sent (requests are still saved).
+      # EMAIL_FROM must be an address on a domain verified in Resend, and one that
+      # is read: the sandbox sender only delivers to the Resend account owner.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # A fresh deployment starts empty rather than with a demo community.
+      - key: SEED_DEMO
+        value: "false"
+      # CI tests Node 20 and 22; pin what Render builds with to one of them.
+      - key: NODE_VERSION
+        value: "22"
 
 databases:
   - name: cornerpost-db

@@ -19,7 +19,7 @@ export default function Payment() {
       <div className="b-shell" style={{ paddingTop: 20 }}>
         <ToolHeader title="See My Payment" subtitle="What would this home really cost each month?" />
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>
-          Homes are still being added to this community — check back soon.
+          We’re still adding homes to this community. Check back soon.
         </p>
       </div>
     );
@@ -129,7 +129,7 @@ export default function Payment() {
             margin: '0 0 14px', fontSize: 12.5, lineHeight: 1.5, color: 'var(--t-mut)',
           }}
         >
-          Your down payment help stops at {money(cap)}, so it can&apos;t be used on {home.name}.
+          Your down payment help only covers homes up to {money(cap)}, so it can&apos;t be used on {home.name}.
         </p>
       ) : null}
 
@@ -142,7 +142,7 @@ export default function Payment() {
         <ResultRow label="Mortgage insurance" value={result.mi ? money(result.mi) : 'None'} />
         <ResultRow label="HOA &amp; community fees" value={money(result.hoa)} />
         <ResultRow
-          label="Cash to close (down + ~2.5%)"
+          label="Cash to close (down + about 2.5% closing costs)"
           value={`${money(cashToClose)}${state.dpaOn && dpaOffered ? ' (after help)' : ''}`}
           bold
         />

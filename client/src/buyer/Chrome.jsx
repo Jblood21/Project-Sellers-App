@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { CONTACT_METHODS, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
+import { CONTACT_METHODS, consentText, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
 import { complianceOf } from '@shared/compliance.js';
 import { buyerApi } from '../lib/api.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
@@ -15,8 +15,8 @@ const TUTORIAL = [
     body: 'Browse every home in this community with photos, prices and details. Tap the star on any home you like — it saves to "Homes I Like" so you can come back to it.',
   },
   {
-    title: 'Answer natural questions',
-    body: 'Each tool answers one question: what would it cost me each month, what can I afford, what financing could work, could I get down payment help. No mortgage jargon required.',
+    title: 'Get plain answers',
+    body: 'Each tool answers one question. What would it cost me each month? What can I afford? What financing could work? Could I get help with a down payment? No mortgage jargon.',
   },
   {
     title: 'Your plan builds itself',
@@ -328,6 +328,12 @@ export function TourDialog({ topic, onClose }) {
   const [moreDays, setMoreDays] = useState(false);
   const [contact, setContact] = useState('phone');
   const [busy, setBusy] = useState(false);
+  // Meeting with the team needs a number to reach them on. A buyer who signed up without one is
+  // asked here, with the same calls-and-texts question the sign-up form asks.
+  const needsPhone = Boolean(lead) && !lead.phone;
+  const [phone, setPhone] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const phoneOk = (phone.match(/\d/g) || []).length >= 7;
   const dialogRef = useRef(null);
   useDialog(open, onClose, dialogRef);
 
@@ -350,6 +356,8 @@ export function TourDialog({ topic, onClose }) {
       setDay(null);
       setPicked(null);
       setMoreDays(false);
+      setPhone('');
+      setAgreed(false);
     }
   }, [open]);
 
@@ -377,7 +385,10 @@ export function TourDialog({ topic, onClose }) {
   const send = async () => {
     if (!picked) return;
     setBusy(true);
-    const done = await requestTour(picked, contact, lender ? 'lender' : 'community');
+    const done = await requestTour(
+      picked, contact, lender ? 'lender' : 'community',
+      needsPhone ? { phone: phone.trim(), consent: agreed } : {},
+    );
     setBusy(false);
     if (done) onClose();
     // On a clash the dialog stays open with a fresh list, so they can pick again.
@@ -400,8 +411,8 @@ export function TourDialog({ topic, onClose }) {
         {byDate.length === 0 ? (
           <>
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-              The {community?.name} team has not published any times yet. Check back shortly —
-              or reach them through the community website.
+              The {community?.name} team hasn’t posted any times yet. Check back soon,
+              or ask them in person.
             </span>
             <button type="button" className="b-btn" onClick={onClose} style={{ marginTop: 8 }}>
               Close
@@ -411,7 +422,7 @@ export function TourDialog({ topic, onClose }) {
           <>
             {lead?.tour?.date && lead?.tour?.time ? (
               <span style={{ fontSize: 13.5, color: 'var(--t-ink)', lineHeight: 1.5, fontWeight: 600 }}>
-                You are booked for {formatSlotDate(lead.tour.date)} at {formatSlotTime(lead.tour.time)}. Pick another time to move it.
+                You’re booked for {formatSlotDate(lead.tour.date)} at {formatSlotTime(lead.tour.time)}. To move it, pick another time.
               </span>
             ) : null}
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
@@ -488,6 +499,36 @@ export function TourDialog({ topic, onClose }) {
               ))}
             </div>
 
+            {needsPhone ? (
+              <>
+                <label className="b-field" style={{ marginTop: 4 }}>
+                  <span className="b-lbl">Your cell number</span>
+                  <input
+                    className="b-in" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)}
+                    placeholder="(801) 555-0100" autoComplete="tel" inputMode="tel"
+                  />
+                </label>
+                <span style={{ fontSize: 12, color: 'var(--t-mut)', lineHeight: 1.45, margin: '2px 0 4px' }}>
+                  We need a number so the team can reach you about your time.
+                </span>
+                <label
+                  style={{
+                    display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px',
+                    borderRadius: 'var(--t-rad)', background: 'var(--t-tint)',
+                    border: '1px solid var(--t-line)', cursor: 'pointer', marginBottom: 8,
+                  }}
+                >
+                  <input
+                    type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)}
+                    style={{ marginTop: 2, width: 18, height: 18, flex: 'none', accentColor: 'var(--t-acc)' }}
+                  />
+                  <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--t-ink)' }}>
+                    {consentText(community?.builder || community?.name)}
+                  </span>
+                </label>
+              </>
+            ) : null}
+
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="button" className="b-btn b-btn-outline" onClick={onClose} style={{ flex: 1 }}>
                 Cancel
@@ -496,7 +537,7 @@ export function TourDialog({ topic, onClose }) {
                 type="button"
                 className="b-btn"
                 style={{ flex: 1 }}
-                disabled={!picked || busy}
+                disabled={!picked || busy || (needsPhone && !phoneOk)}
                 onClick={send}
               >
                 {busy ? 'Booking…' : 'Book it'}
@@ -533,8 +574,8 @@ export function AddToPhoneDialog({ open, onClose }) {
         </div>
         <span className="b-head" style={{ fontSize: 19 }}>Keep {community?.name} on your phone</span>
         <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.55 }}>
-          It appears as an app icon on your home screen — one tap brings you right back to this community.
-          On iPhone: Share <ArrowUp size={13} /> → “Add to Home Screen”. On Android: tap “Install app”.
+          It shows up as an icon on your home screen, so one tap brings you right back to this community.
+          On iPhone, tap Share <ArrowUp size={13} /> and choose “Add to Home Screen”. On Android, tap “Install app”.
         </span>
         <button type="button" className="b-btn" onClick={onClose} style={{ marginTop: 6 }}>
           Got it

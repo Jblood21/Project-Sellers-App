@@ -62,7 +62,7 @@ export default function GuideArticle() {
   if (missing) {
     return (
       <div className="b-shell" style={{ paddingTop: 24 }}>
-        <h1 className="b-head" style={{ margin: '0 0 8px', fontSize: 25 }}>We could not find that guide</h1>
+        <h1 className="b-head" style={{ margin: '0 0 8px', fontSize: 25 }}>We couldn’t find that guide</h1>
         <p style={{ margin: '0 0 18px', color: 'var(--t-mut)', fontSize: 14, lineHeight: 1.55 }}>
           It may have been taken down or moved. The rest of the guides are still here.
         </p>
@@ -110,7 +110,7 @@ export default function GuideArticle() {
           </h2>
           <p style={{ margin: '6px 0 14px', color: 'var(--t-ink)', fontSize: 13.5, lineHeight: 1.55 }}>
             The Homebuyer App shows what a home at {community?.name} would cost you each month, what you could
-            afford and whether down payment help applies. It is free.
+            afford and whether down payment help applies. It’s free.
           </p>
           <Link
             to={signedIn ? `/c/${communityId}/explore` : `/c/${communityId}/start`}

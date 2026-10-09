@@ -34,7 +34,7 @@ export default function Plan({ onOpenTour }) {
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h1 className="b-head" style={{ margin: '0 0 2px', fontSize: 22 }}>My Home Plan</h1>
       <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 12.5 }}>
-        Your personal record of everything so far — it builds as you go.
+        Everything you’ve worked out so far. It fills in as you go.
       </p>
 
       {/*
@@ -45,7 +45,7 @@ export default function Plan({ onOpenTour }) {
       */}
       {empty ? null : (
         <div className="b-strip">
-          {items.length ? `${items.length} ${items.length === 1 ? 'answer' : 'answers'} saved` : 'Nothing answered yet'}
+          {items.length ? `${items.length} ${items.length === 1 ? 'answer' : 'answers'} saved` : 'No answers saved yet'}
           {savedHomes.length ? ` · ${savedHomes.length} ${savedHomes.length === 1 ? 'home' : 'homes'} you like` : ''}
         </div>
       )}

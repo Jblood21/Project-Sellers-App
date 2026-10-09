@@ -116,7 +116,7 @@ export default function MoveIn() {
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <ToolHeader
         title="My Move-In Plan"
-        subtitle="Tell us when you want to be in. We will work backwards from there."
+        subtitle="Tell us when you want to move in. We’ll work backwards from there."
       />
 
       <div style={{ marginBottom: 14 }}>
@@ -362,8 +362,8 @@ function Notices({ timeline, home, thisYear, onUseEarliest }) {
   if (timeline.unknownReady) {
     return (
       <div style={box}>
-        {home?.name ?? 'This home'} is still being built and the team has not set a completion date
-        yet. These dates cover the paperwork only — ask them when the home will be finished before
+        {home?.name ?? 'This home'} is still being built and the team hasn’t set a completion date
+        yet. These dates only cover the paperwork, so ask them when the home will be finished before
         you plan around it.
       </div>
     );
@@ -405,14 +405,14 @@ function Overlap({ overlap }) {
       <div style={box}>
         Your lease runs <strong>{days} days</strong> past your keys — that is about{' '}
         {days >= 28 ? `${Math.round(days / 30)} month${days >= 45 ? 's' : ''}` : `${days} days`} of paying
-        for both places. Moving your date earlier, or asking the landlord about a shorter final term,
+        for both places. Moving your move-in date later, or asking your landlord about a shorter final term,
         closes the gap.
       </div>
     );
   }
   return (
     <div style={box}>
-      Your lease ends <strong>{days} days</strong> before your keys — you would need somewhere to stay
+      Your lease ends <strong>{days} days</strong> before your keys — you’d need somewhere to stay
       in between. Ask the landlord about going month-to-month, or aim for an earlier date.
     </div>
   );

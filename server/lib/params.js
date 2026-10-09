@@ -13,6 +13,9 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
 /** Whether `value` holds a control character (a NUL above all). */
 export const hasControlCharacter = (value) => CONTROL.test(String(value ?? ''));
 
+/** `value` with every control character turned into a space, for free text that is stored and shown. */
+export const stripControlCharacters = (value) => String(value ?? '').replace(new RegExp(CONTROL.source, 'g'), ' ');
+
 const PARAMS = ['id', 'communityId', 'slug', 'kind', 'key'];
 
 /** Registers the guard for every path parameter name this app uses. */
