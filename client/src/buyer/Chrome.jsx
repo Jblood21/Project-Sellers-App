@@ -126,14 +126,14 @@ export function BuyerHeader({ onOpenMenu, signedIn = true }) {
         </button>
       ) : (
         <Link
-          to={`/c/${communityId}/start`}
+          to={`/c/${communityId}`}
           className="b-btn"
           style={{
             width: 'auto', flex: 'none', minHeight: 44, padding: '0 14px', fontSize: 13,
             display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
           }}
         >
-          Open the app
+          Sign in
         </Link>
       )}
     </header>

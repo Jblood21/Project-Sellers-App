@@ -106,8 +106,8 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
             </button>
           </>
         ) : (
-          <Link to={`/c/${communityId}/start`} className="cp-topbar__cta">
-            <span className="cp-btn cp-btn--primary cp-btn--sm">Open the app</span>
+          <Link to={`/c/${communityId}`} className="cp-topbar__cta">
+            <span className="cp-btn cp-btn--primary cp-btn--sm">Sign in</span>
           </Link>
         )}
       </div>

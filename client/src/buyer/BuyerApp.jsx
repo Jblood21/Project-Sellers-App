@@ -95,7 +95,6 @@ function BuyerShell() {
   // A trailing slash reaches the same page, so it counts as the same page here.
   const path = location.pathname.replace(/\/+$/, '');
   const isLanding = path === `/c/${communityId}`;
-  const isGate = path === `/c/${communityId}/start`;
   // A trailing slash reaches the same route, so it has to count as print too.
   const isPrint = /\/plan\/print\/?$/.test(location.pathname);
   // Guides are the one part of the app a visitor reads before giving their
@@ -103,11 +102,11 @@ function BuyerShell() {
   // that would only bounce them to the contact gate.
   const isGuidePage = location.pathname.startsWith(`/c/${communityId}/guides`);
   const publicGuide = isGuidePage && !signedIn;
-  const showChrome = !isLanding && !isGate && !isPrint;
+  const showChrome = !isLanding && !isPrint;
   const Header = layoutFor(layout).Header ?? BuyerHeader;
 
   const guard = (element) =>
-    signedIn ? element : <Navigate to={`/c/${communityId}/start`} replace />;
+    signedIn ? element : <Navigate to={`/c/${communityId}`} replace />;
 
   return (
     <div className={`b-app t-${community.theme} l-${layout}`}>
@@ -123,17 +122,9 @@ function BuyerShell() {
 
       <main id="b-main" tabIndex={-1} className="b-main">
         <Routes>
+          {/* The one way in: the landing page holds the sign-in. An older link to /start (a printed code, a bookmark, an old button) goes there too. */}
           <Route index element={<Landing onEntered={(result) => !result.returning && setTutorialOpen(true)} />} />
-          <Route
-            path="start"
-            element={
-              signedIn ? (
-                <Navigate to={`/c/${communityId}/tools`} replace />
-              ) : (
-                <Landing onEntered={(result) => !result.returning && setTutorialOpen(true)} />
-              )
-            }
-          />
+          <Route path="start" element={<Navigate to={signedIn ? `/c/${communityId}/tools` : `/c/${communityId}`} replace />} />
           <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
           <Route path="explore" element={guard(<Explore onOpenTour={() => setTourTopic('community')} onOpenLender={() => setTourTopic('lender')} />)} />
           <Route path="area" element={guard(<Area />)} />

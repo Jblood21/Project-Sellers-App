@@ -987,13 +987,15 @@
 .b-app.l-saltgrass .b-landing h1.b-head {
   /* "Welcome to <name>" is one line of the brand's headline, so it is set smaller than a bare name was:
      a long name still wraps to a few lines instead of filling the screen. */
-  font-size: clamp(2rem, 9vw, 3.3rem) !important;
-  line-height: 0.98 !important;
+  font-size: var(--welcome-size, clamp(2rem, 9vw, 3.3rem)) !important;
+  line-height: 1.02 !important;
+  /* Room before the first field: a name that runs to several lines must not sit on top of "Full name". */
+  margin-bottom: 0.9rem !important;
 }
 /* Its headline is tall, so the picture gives up more room to the form than the default layout's does. */
 .b-app.l-saltgrass .b-landing .b-landing__hero {
-  max-height: min(46vh, 360px, calc(100vh - 530px));
-  max-height: min(46vh, 360px, calc(100svh - 530px));
+  max-height: min(46vh, 360px, calc(100vh - 550px));
+  max-height: min(46vh, 360px, calc(100svh - 550px));
 }
 /* A short accent bar with a hairline above it, so it still reads as a line on
    the themes whose accent is close to the deep ground. */

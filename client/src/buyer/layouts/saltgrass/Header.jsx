@@ -112,8 +112,8 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
             </button>
           </>
         ) : (
-          <Link to={`/c/${communityId}/start`} className="sg-head__open">
-            Open the app
+          <Link to={`/c/${communityId}`} className="sg-head__open">
+            Sign in
           </Link>
         )}
       </header>
