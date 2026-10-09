@@ -42,6 +42,7 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     `Reach them by: ${contactMethodLabel(lead.tour?.contact)}`,
     prefersEmail ? `Email:     ${lead.email}` : `Phone:     ${lead.phone || 'not given'}`,
     prefersEmail ? `Phone:     ${lead.phone || 'not given'}` : `Email:     ${lead.email}`,
+    ...(lead.extraEmails?.length ? [`Also email: ${lead.extraEmails.join(', ')}`] : []),
     `Community: ${community.name}`,
     `Booked at: ${when(lead.tour?.requestedAt)}`,
     '',
@@ -76,7 +77,7 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
  * who added it before choosing a date of their own. `today` is a parameter so the
  * dates a test sees do not depend on the day it runs.
  */
-export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDate(new Date()) }) {
+export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDate(new Date()), to = lead.email, sharedBy = '' }) {
   const moveIn = lead.plan?.movein
     ? printableMoveIn(lead.moveIn, {
       home: community.homes?.find((h) => h.id === lead.moveIn?.homeId) ?? null,
@@ -90,10 +91,13 @@ export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDat
     .filter(Boolean)
     .map((home) => `  · ${home.name} — ${money(home.price)}`);
 
+  // Sent to a second address the buyer added: said plainly as theirs, not the recipient's.
   const text = [
-    `Hi ${lead.name.split(' ')[0]},`,
+    sharedBy ? 'Hi,' : `Hi ${lead.name.split(' ')[0]},`,
     '',
-    `Here’s the home plan you put together for ${community.name}.`,
+    sharedBy
+      ? `${sharedBy} shared the home plan they put together for ${community.name}.`
+      : `Here’s the home plan you put together for ${community.name}.`,
     '',
     ...(entries.length ? ['What you worked out:', ...entries.map(([, s]) => `  · ${s}`), ''] : []),
     ...(moveIn ? ['Your move-in plan:', '', ...moveInPlanLines(moveIn), ''] : []),
@@ -110,8 +114,10 @@ export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDat
   ].join('\n');
 
   return sendEmail({
-    to: lead.email,
-    subject: `Your home plan — ${community.name}`,
+    to,
+    subject: sharedBy ? `${sharedBy}’s home plan — ${community.name}` : `Your home plan — ${community.name}`,
     text,
+    // A reply to a shared plan goes to the person who shared it.
+    ...(sharedBy ? { replyTo: lead.email } : {}),
   });
 }

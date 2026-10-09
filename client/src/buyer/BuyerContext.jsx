@@ -202,6 +202,16 @@ export function BuyerProvider({ communityId, children }) {
     [showToast, token],
   );
 
+  /** Emails the buyer's plan to them (and to the second address, if they added one). */
+  const emailPlan = useCallback(
+    async (also) => {
+      const result = await buyerApi.emailPlan(token, also);
+      if (result?.lead) setLead(result.lead);
+      return result;
+    },
+    [token],
+  );
+
   /** Returns true when the booking took, so the dialog knows whether to close. */
   const requestTour = useCallback(
     async (slotId, contact, topic = 'community', extra = {}) => {
@@ -253,11 +263,12 @@ export function BuyerProvider({ communityId, children }) {
       savePlan,
       saveMoveIn,
       requestTour,
+      emailPlan,
       tutorialSeen: () => Boolean(readJson(tutorialKey(communityId))),
       markTutorialSeen: () => writeJson(tutorialKey(communityId), true),
     }),
     [
-      community, communityId, enter, lead, loadError, loading, requestTour, savePlan,
+      community, communityId, emailPlan, enter, lead, loadError, loading, requestTour, savePlan,
       planSaves, saveMoveIn, setTool, showToast, toast, toggleSave, token, tools, track,
     ],
   );

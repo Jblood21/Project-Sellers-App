@@ -151,6 +151,11 @@ export default function LeadDetail({ community, reload }) {
       <div className="card elev-sm" style={{ gap: 8, marginBottom: 12 }}>
         <span className="card-kicker">Contact</span>
         <div style={{ fontSize: 14 }}>{lead.email}</div>
+        {(lead.extraEmails ?? []).map((address) => (
+          <div key={address} style={{ fontSize: 14 }}>
+            {address} <span className="text-muted" style={{ fontSize: 12.5 }}>· second email they added</span>
+          </div>
+        ))}
         {lead.phone ? (
           <div style={{ fontSize: 14 }}>{lead.phone}</div>
         ) : (
@@ -161,6 +166,9 @@ export default function LeadDetail({ community, reload }) {
           {lead.phone ? <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a> : null}
           {/* emailHref refuses an address that carries ?bcc= or similar, which the server's check lets through */}
           {emailHref(lead.email) ? <a className="btn btn-secondary" href={emailHref(lead.email)}>Email</a> : null}
+          {(lead.extraEmails ?? []).filter((address) => emailHref(address)).map((address) => (
+            <a key={address} className="btn btn-secondary" href={emailHref(address)}>Email 2nd address</a>
+          ))}
           <button type="button" className="btn btn-ghost" onClick={toggleStatus}>
             {lead.status === 'new' ? 'Mark contacted' : 'Mark not contacted'}
           </button>

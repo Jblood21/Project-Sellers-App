@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX,
+  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
@@ -449,17 +449,31 @@ export function publicRouter() {
   /** The buyer asks for their own plan. Never sent unprompted. */
   router.post('/me/plan/email', requireLead, async (req, res) => {
     const store = await getStore();
-    const lead = await store.getLead(req.leadId);
+    let lead = await store.getLead(req.leadId);
     if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
     const community = await store.getCommunity(lead.communityId);
     if (!community) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
 
+    // An address typed in the "also send to" box is kept on the lead (the next send and the team have
+    // it); an empty one removes it. Checked before anything is sent or counted.
+    if (req.body?.also !== undefined) {
+      const cleaned = cleanExtraEmails(req.body.also, lead.email);
+      if (cleaned.error) return res.status(400).json({ error: cleaned.error, field: 'also' });
+      if (JSON.stringify(cleaned.emails) !== JSON.stringify(lead.extraEmails ?? [])) {
+        lead = await store.updateLead(lead.id, { extraEmails: cleaned.emails });
+        await store.addActivity(lead.id, cleaned.emails.length ? 'Added a second email' : 'Removed the second email');
+      }
+    }
+    const extras = lead.extraEmails ?? [];
+    const recipients = [lead.email, ...extras];
+
     // Only an email that went out counts against the caps: a provider outage or a missing sender
     // must not use up a buyer's five for the day, or hide itself behind "too many" for everyone
     // on their wifi. The uses are held while the send is in flight and given back if it fails.
+    // Every address that will receive one is counted against its own inbox, the second included.
     const hold = reserve([
       [planMailPerLead, req.leadId],
-      [planMailPerRecipient, String(lead.email).trim().toLowerCase()],
+      ...recipients.map((address) => [planMailPerRecipient, String(address).trim().toLowerCase()]),
       [planMailPerIp, clientKey(req)],
     ]);
     if (hold.wait) {
@@ -467,11 +481,18 @@ export function publicRouter() {
       return res.status(429).json({ error: tooMany('plan emails', hold.wait) });
     }
     let result;
+    const also = [];
     try {
       const homes = await store.listHomes(community.id);
-      result = await sendPlanToBuyer({
-        community: { ...community, homes }, lead, baseUrl: linkOriginOf(req),
-      });
+      const withHomes = { ...community, homes };
+      const baseUrl = linkOriginOf(req);
+      result = await sendPlanToBuyer({ community: withHomes, lead, baseUrl });
+      if (result.sent) {
+        for (const address of extras) {
+          const copy = await sendPlanToBuyer({ community: withHomes, lead, baseUrl, to: address, sharedBy: lead.name });
+          also.push({ to: address, sent: Boolean(copy.sent) });
+        }
+      }
     } finally {
       // Also on a throw: nothing was sent either way.
       if (!result?.sent) hold.release();
@@ -481,8 +502,9 @@ export function publicRouter() {
         error: 'We couldn’t email your plan right now. You can still download it as a PDF, or try again later.',
       });
     }
-    await store.addActivity(req.leadId, 'Emailed their home plan to themselves');
-    res.json({ sent: true, to: lead.email });
+    const alsoSent = also.some((entry) => entry.sent);
+    await store.addActivity(req.leadId, alsoSent ? 'Emailed their home plan to themselves and a second email' : 'Emailed their home plan to themselves');
+    res.json({ sent: true, to: lead.email, also, lead: publicLead(lead) });
   });
 
   /** Live open slots, so a buyer with the dialog open does not book a stale one. */
@@ -518,6 +540,13 @@ export function publicRouter() {
       }
       newPhone = given;
     }
+    // Another email to reach them or send the plan to, if they gave one. Checked before a time is taken.
+    let extraPatch = {};
+    if (req.body?.extraEmail !== undefined) {
+      const cleaned = cleanExtraEmails(req.body.extraEmail, buyer.email);
+      if (cleaned.error) return res.status(400).json({ error: cleaned.error, field: 'extraEmail' });
+      if (JSON.stringify(cleaned.emails) !== JSON.stringify(buyer.extraEmails ?? [])) extraPatch = { extraEmails: cleaned.emails };
+    }
 
     // Book first, release afterwards. The other order would hand back the
     // appointment they already had and then fail to get them a new one, leaving
@@ -539,7 +568,10 @@ export function publicRouter() {
       topic: TOUR_TOPICS.includes(req.body?.topic) ? req.body.topic : 'community',
       requestedAt: new Date().toISOString(),
     };
-    const lead = await store.updateLead(req.leadId, { tour, ...(newPhone ? { phone: newPhone } : {}) });
+    const lead = await store.updateLead(req.leadId, { tour, ...(newPhone ? { phone: newPhone } : {}), ...extraPatch });
+    if (extraPatch.extraEmails) {
+      await store.addActivity(req.leadId, extraPatch.extraEmails.length ? 'Added a second email' : 'Removed the second email');
+    }
     if (newPhone) {
       const granted = req.body?.consent === true;
       await store.recordConsent(req.leadId, {

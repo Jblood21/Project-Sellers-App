@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { PLAN_LABELS, TOOL_KEYS, describeTour } from '@shared/domain.js';
-import { buyerApi } from '../../lib/api.js';
 import { money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 
@@ -116,16 +115,21 @@ export default function Plan({ onOpenTour }) {
  * and never become something that fires on its own.
  */
 function EmailPlanButton() {
-  const { lead, token, track } = useBuyer();
+  const { lead, emailPlan } = useBuyer();
   const [state, setState] = useState('idle'); // idle | sending | sent | error
   const [error, setError] = useState('');
+  // One more address, for a spouse or a co-buyer. Kept on their record, so it is there next time.
+  const saved = lead?.extraEmails?.[0] ?? '';
+  const [also, setAlso] = useState(saved);
+  const [alsoOpen, setAlsoOpen] = useState(Boolean(saved));
+  const [sentTo, setSentTo] = useState([]);
 
   const send = async () => {
     setState('sending');
     setError('');
     try {
-      await buyerApi.emailPlan(token);
-      track('Emailed their home plan to themselves');
+      const result = await emailPlan(alsoOpen ? also.trim() : undefined);
+      setSentTo([result.to, ...(result.also ?? []).filter((entry) => entry.sent).map((entry) => entry.to)]);
       setState('sent');
     } catch (err) {
       setError(err.message);
@@ -135,14 +139,33 @@ function EmailPlanButton() {
 
   if (state === 'sent') {
     return (
-      <p style={{ fontSize: 12.5, color: 'var(--t-acc2)', textAlign: 'center', margin: '0 0 14px', fontWeight: 600 }}>
-        Sent to {lead?.email} ✓
+      <p role="status" style={{ fontSize: 12.5, color: 'var(--t-acc2)', textAlign: 'center', margin: '0 0 14px', fontWeight: 600 }}>
+        Sent to {sentTo.join(' and ')} ✓
       </p>
     );
   }
 
   return (
     <>
+      {alsoOpen ? (
+        <label className="b-field" style={{ marginBottom: 10 }}>
+          <span className="b-lbl">Also send it to (optional)</span>
+          <input
+            className="b-in" type="email" value={also} onChange={(event) => setAlso(event.target.value)}
+            placeholder="another@email.com" autoComplete="off" inputMode="email"
+          />
+        </label>
+      ) : (
+        <button
+          type="button" onClick={() => setAlsoOpen(true)}
+          style={{
+            display: 'block', width: '100%', minHeight: 44, margin: '0 0 4px', border: 'none', background: 'transparent',
+            color: 'var(--t-accT)', fontFamily: 'var(--t-font)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Also send it to another email
+        </button>
+      )}
       <button
         type="button"
         className="b-btn b-btn-outline"
