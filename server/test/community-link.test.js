@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
 import {
   communitySlugCandidates, normalizeCommunitySlug, suggestCommunitySlug,
 } from '../../shared/domain.js';
 import { shapeCommunity } from '../db/shape.js';
+import { createApp } from '../index.js';
 import { backends, startBackend } from './fixtures/harness.js';
+
+// What Vite writes, trimmed to what the head injector needs. The test does not depend on a built client.
+const INDEX_HTML = '<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Homebuyer App</title></head><body><div id="root"></div></body></html>';
 
 describe('the clean buyer link, as pure rules', () => {
   test('a community that predates slugs is addressed by its id', () => {
@@ -93,9 +100,19 @@ for (const kind of backends()) {
     });
 
     test('the page head writes the clean address into the canonical link', async () => {
-      const html = (await api(`/c/${community.id}`, { raw: true }).then((r) => r.text()));
-      assert.match(html, /<link rel="canonical" href="https?:\/\/[^"]+\/c\/salt-grass"/);
-      assert.doesNotMatch(html, new RegExp(`rel="canonical" href="[^"]*${community.id}`));
+      // A second server on the same store, with a stand-in client bundle, so this needs no `npm run build`.
+      const dist = mkdtempSync(join(tmpdir(), 'psa-link-dist-'));
+      writeFileSync(join(dist, 'index.html'), INDEX_HTML);
+      const ssr = createApp({ clientDist: dist }).listen(0);
+      await new Promise((resolve) => ssr.once('listening', resolve));
+      try {
+        const html = await (await fetch(`http://127.0.0.1:${ssr.address().port}/c/${community.id}`)).text();
+        assert.match(html, /<link rel="canonical" href="https?:\/\/[^"]+\/c\/salt-grass"/);
+        assert.doesNotMatch(html, new RegExp(`rel="canonical" href="[^"]*${community.id}`));
+      } finally {
+        await new Promise((resolve) => ssr.close(resolve));
+        rmSync(dist, { recursive: true, force: true });
+      }
     });
 
     test('the builder can pick the address, an old one keeps working, and one that is taken is refused', async () => {
