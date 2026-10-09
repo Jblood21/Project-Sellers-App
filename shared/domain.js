@@ -1,4 +1,4 @@
-import { COMPLIANCE_DEFAULTS } from './compliance.js';
+import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE } from './compliance.js';
 import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
 
 export {
@@ -7,7 +7,7 @@ export {
 } from './faq.js';
 
 export {
-  COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens,
+  COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens, incentiveRecipient,
   nmlsConsumerUrl, safeHref, settingMaxLength, telHref,
 } from './compliance.js';
 
@@ -217,29 +217,29 @@ export function videoEmbed(url) {
     return null;
   }
   const host = parsed.hostname.replace(/^www\./, '');
+  // A YouTube id is letters, digits, "-" and "_"; anything else would be a path or a query of the
+  // link's own, spliced into the frame address.
+  const youtube = (id) => (/^[\w-]{6,20}$/.test(id ?? '') ? `https://www.youtube.com/embed/${id}` : null);
+  // An unlisted Vimeo video needs the hash that comes after its id, as a path or as ?h=.
+  const vimeo = (id, hash) => {
+    if (!/^\d+$/.test(id ?? '')) return null;
+    const key = /^[\w]{6,20}$/.test(hash ?? '') ? `?h=${hash}` : '';
+    return `https://player.vimeo.com/video/${id}${key}`;
+  };
 
-  if (host === 'youtu.be') {
-    const id = parsed.pathname.slice(1).split('/')[0];
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
+  if (host === 'youtu.be') return youtube(parsed.pathname.slice(1).split('/')[0]);
   if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
-    if (parsed.pathname === '/watch') {
-      const id = parsed.searchParams.get('v');
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
+    if (parsed.pathname === '/watch') return youtube(parsed.searchParams.get('v'));
     const [, kind, id] = parsed.pathname.split('/');
-    if ((kind === 'embed' || kind === 'shorts' || kind === 'live' || kind === 'v') && id) {
-      return `https://www.youtube.com/embed/${id}`;
-    }
-    return null;
+    return kind === 'embed' || kind === 'shorts' || kind === 'live' || kind === 'v' ? youtube(id) : null;
   }
   if (host === 'vimeo.com') {
-    const id = parsed.pathname.split('/').filter(Boolean)[0];
-    return /^\d+$/.test(id ?? '') ? `https://player.vimeo.com/video/${id}` : null;
+    const [id, hash] = parsed.pathname.split('/').filter(Boolean);
+    return vimeo(id, /^[\w]+$/.test(hash ?? '') && !/^\d+$/.test(hash) ? hash : parsed.searchParams.get('h'));
   }
   if (host === 'player.vimeo.com') {
     const id = parsed.pathname.split('/').filter(Boolean)[1];
-    return /^\d+$/.test(id ?? '') ? `https://player.vimeo.com/video/${id}` : null;
+    return vimeo(id, parsed.searchParams.get('h'));
   }
   return null;
 }
@@ -382,7 +382,7 @@ export const LAYOUTS = [
   {
     k: 'cornerpost',
     name: 'Touradoor Default',
-    note: 'One phone-width column of soft, rounded tiles. Manrope throughout, with a Talk to the Team button on every page.',
+    note: 'One phone-width column of soft, rounded tiles. Manrope throughout, with a Book a tour button on every page.',
   },
   {
     k: 'saltgrass',
@@ -447,6 +447,42 @@ export function slugify(value) {
     .slice(0, GUIDE_TEXT_MAX.slug);
 }
 
+/**
+ * The address a community is reached at. Its id (a name plus four random letters, like
+ * `salt-grass-zoxa`) never changes: it keys every table and every printed sign. The buyer
+ * link can be a cleaner name of the builder's choosing (`/c/salt-grass`) that resolves to
+ * the same community, and every earlier link keeps working.
+ */
+export const COMMUNITY_SLUG_MIN = 3;
+export const COMMUNITY_SLUG_MAX = 40;
+/** Words that would only confuse in an address. */
+export const RESERVED_COMMUNITY_SLUGS = ['admin', 'api', 'assets', 'c', 'guides', 'login', 'new', 'start', 'tools'];
+
+/** The cleaned slug, or '' when what was typed cannot be one. */
+export function normalizeCommunitySlug(value) {
+  const slug = slugify(value);
+  if (slug.length < COMMUNITY_SLUG_MIN || slug.length > COMMUNITY_SLUG_MAX) return '';
+  if (RESERVED_COMMUNITY_SLUGS.includes(slug)) return '';
+  return slug;
+}
+
+/** What a name suggests: 'Salt Grass' gives 'salt-grass'. Always a usable slug. */
+export function suggestCommunitySlug(name) {
+  const base = slugify(name).slice(0, COMMUNITY_SLUG_MAX).replace(/-+$/, '');
+  return normalizeCommunitySlug(base) || 'community';
+}
+
+/** The suggestion, then the same with -2, -3, ... for when it is taken. */
+export function communitySlugCandidates(name, count = 30) {
+  const base = suggestCommunitySlug(name);
+  const out = [base];
+  for (let n = 2; n <= count; n += 1) {
+    const tail = `-${n}`;
+    out.push(`${base.slice(0, COMMUNITY_SLUG_MAX - tail.length).replace(/-+$/, '')}${tail}`);
+  }
+  return out;
+}
+
 export const COMMUNITY_STATUSES = ['Pre-sale', 'Now selling', 'Sold out'];
 
 /**
@@ -463,6 +499,8 @@ export const FEATURES = [
   { k: 'agents', name: 'Realtors', q: 'Show the real estate agents you have added: on the home screen, under every home and on their own page' },
   { k: 'incentive', name: 'Builder incentive', q: 'Show the incentive card above Explore Homes' },
   { k: 'faq', name: 'FAQ', q: 'Show your frequently asked questions on the home screen' },
+  // Switched on the Times tab, next to the times it governs, not in the list of home-screen extras.
+  { k: 'booking', name: 'Booking times', q: 'Let buyers pick a day and a time from the times you publish. Off: buyers call, text or email instead.' },
 ];
 export const FEATURE_KEYS = FEATURES.map((f) => f.k);
 
@@ -472,6 +510,9 @@ export const DEFAULT_FEATURES = {
   incentive: false,
   // On, but the section only appears once there is at least one question and answer.
   faq: true,
+  // On: buyers can pick one of the published times. Off: every "book" button gives them the team's
+  // phone, text and email instead, and the times are kept for when it is switched back on.
+  booking: true,
 };
 
 export const DEFAULT_TOOLS_ENABLED = {
@@ -521,6 +562,10 @@ export const DEFAULT_SETTINGS = {
   // email means a desktop visitor is shown the number to call instead.
   incentivePhone: '',
   incentiveEmail: '',
+  // The sales team's own phone and email: what a buyer is shown to call, text or email when booking is
+  // switched off (or no times are published). Blank when the builder has not said, so nothing is guessed.
+  teamPhone: '',
+  teamEmail: '',
   // The text the buyer's message starts with. {community} is the development.
   incentiveMessage: 'Contact me about the preferred lender incentive for {community}.',
 
@@ -1166,6 +1211,36 @@ export function leadIdentity(input) {
     phone: normalizePhone(input?.phone),
     name: normalizeName(input?.name),
   };
+}
+
+/**
+ * A buyer can add one more email (a spouse, a co-buyer) to receive the plan and be reached about
+ * a time. The same strict single-address shape the incentive and loan-team emails use: no spaces,
+ * no commas or semicolons (two addresses in one), nothing that would turn a mailto: into more.
+ */
+export { SAFE_EMAIL_RE };
+export const MAX_EXTRA_EMAILS = 1;
+
+/**
+ * The extra emails to keep, from what was sent. `{ emails }`, or `{ error }` for something that is
+ * not an address. Lower-cased; an address equal to the buyer's own, or repeated, is dropped rather
+ * than refused (it is harmless and the buyer meant to give someone else); blank clears.
+ */
+export function cleanExtraEmails(input, primaryEmail = '') {
+  const raw = Array.isArray(input) ? input : [input];
+  const primary = String(primaryEmail ?? '').trim().toLowerCase();
+  const emails = [];
+  for (const item of raw) {
+    if (item === undefined || item === null) continue;
+    if (typeof item !== 'string') return { error: 'That email doesn’t look right.' };
+    const email = item.trim().toLowerCase();
+    if (!email) continue;
+    if (email.length > 254 || !SAFE_EMAIL_RE.test(email)) return { error: 'That email doesn’t look right. Check it and try again.' };
+    if (email === primary || emails.includes(email)) continue;
+    emails.push(email);
+  }
+  if (emails.length > MAX_EXTRA_EMAILS) return { error: 'You can add one more email.' };
+  return { emails };
 }
 
 /** True when this lead is the same person as the details just typed in. */

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 
 import {
-  AVAILABILITY, isSold, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, megabytes, money, unitsLabel,
+  AVAILABILITY, isSold, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, megabytes, money, unitsLabel, videoEmbed,
 } from '@shared/domain.js';
 import { Trash } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
@@ -288,6 +288,23 @@ function WalkthroughRow({ home, reload }) {
   // remembered against the address that failed, so it goes with the video: removing
   // or replacing it gives a different address and the note no longer applies.
   const [playFault, setPlayFault] = useState({ url: '', kind: '' });
+  // The other way to give a home a video tour: a YouTube or Vimeo link. A home has one or the other.
+  const [link, setLink] = useState(home.videoLink ?? '');
+  const linkEmbed = videoEmbed(link);
+  const linkChanged = link.trim() !== (home.videoLink ?? '');
+
+  const saveLink = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await adminApi.updateHome(token, home.id, { videoLink: link.trim() });
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // A player error means one of two things that need opposite advice: the file cannot
   // be decoded (re-export it) or it could not be fetched (a dropped connection; the
@@ -314,6 +331,8 @@ function WalkthroughRow({ home, reload }) {
     try {
       const dataUrl = await videoToDataUrl(file, MAX_VIDEO_BYTES, 'try a shorter clip.');
       await adminApi.setHomeVideo(token, home.id, { dataUrl });
+      // A home has one source: the file replaced the link, so the field empties with it.
+      setLink('');
       await reload();
     } catch (err) {
       setError(err.message);
@@ -332,7 +351,7 @@ function WalkthroughRow({ home, reload }) {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span className="text-muted" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase' }}>
-          Walkthrough
+          Video tour
         </span>
         {home.videoUrl ? (
           <>
@@ -374,6 +393,32 @@ function WalkthroughRow({ home, reload }) {
         )}
       </div>
       <input ref={inputRef} type="file" accept="video/*" hidden onChange={upload} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+        <span className="text-muted" style={{ fontSize: 12 }}>
+          {home.videoUrl ? 'Or replace it with a link:' : 'Or paste a YouTube or Vimeo link:'}
+        </span>
+        <input
+          className="input" value={link} onChange={(event) => setLink(event.target.value)}
+          placeholder="https://youtu.be/…" aria-label={`Video tour link for ${home.name}`}
+          style={{ flex: '1 1 220px', minHeight: 34, fontSize: 13 }}
+        />
+        {linkChanged ? (
+          <button
+            type="button" className="btn btn-primary" onClick={saveLink}
+            disabled={busy || (link.trim() !== '' && !linkEmbed)} style={{ minHeight: 34, padding: '0 12px', fontSize: 13 }}
+          >
+            {link.trim() ? 'Save link' : 'Remove link'}
+          </button>
+        ) : null}
+      </div>
+      {link.trim() && !linkEmbed ? (
+        <span className="text-muted" style={{ fontSize: 12 }}>That is not a YouTube or Vimeo video link.</span>
+      ) : null}
+      {home.videoLink ? (
+        <span className="text-muted" style={{ fontSize: 12 }}>
+          Buyers see a “Watch the video tour” button that plays this link in the app.
+        </span>
+      ) : null}
       <ErrorNote>{error}</ErrorNote>
       <ErrorNote>
         {error || !fault ? '' : fault === 'codec'
@@ -528,6 +573,11 @@ function SiteMapCard({ community, reload }) {
   );
 }
 
+const moveButton = {
+  minWidth: 40, minHeight: 40, borderRadius: 999, border: 'none', background: 'rgba(20,22,19,.7)', color: '#fff',
+  fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+};
+
 function PhotoStrip({ home, reload }) {
   const { token } = useAdmin();
   const inputRef = useRef(null);
@@ -561,12 +611,57 @@ function PhotoStrip({ home, reload }) {
     await reload();
   };
 
+  // The first photo is the hero buyers see at the top of the home. Moving a photo earlier or later (or
+  // making it the hero) sends the whole new order; arrows rather than dragging, so it works on a phone.
+  const move = async (from, to) => {
+    if (to < 0 || to >= home.photos.length) return;
+    const ids = home.photos.map((photo) => photo.id);
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    setError('');
+    try {
+      await adminApi.reorderHomePhotos(token, home.id, ids);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   return (
     <>
       <div className="scroll-x" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -4px', padding: '0 4px' }}>
         {home.photos.map((photo, index) => (
           <div key={photo.id} style={{ position: 'relative', width: 170, height: 120, flex: 'none' }}>
             <Photo photo={photo} radius={12} alt={`${home.name} photo ${index + 1}`} />
+            {index === 0 ? (
+              <span
+                style={{
+                  position: 'absolute', left: 6, top: 6, padding: '3px 8px', borderRadius: 999, fontSize: 11,
+                  fontWeight: 700, background: 'rgba(20,22,19,.85)', color: '#fff',
+                }}
+              >
+                ★ Hero
+              </span>
+            ) : null}
+            {home.photos.length > 1 ? (
+              <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 4 }}>
+                {index > 0 ? (
+                  <>
+                    <button type="button" aria-label={`Make photo ${index + 1} the hero`} title={`Make photo ${index + 1} the hero`} onClick={() => move(index, 0)} style={moveButton}>
+                      ★
+                    </button>
+                    <button type="button" aria-label={`Move photo ${index + 1} earlier`} title={`Move photo ${index + 1} earlier`} onClick={() => move(index, index - 1)} style={moveButton}>
+                      ‹
+                    </button>
+                  </>
+                ) : null}
+                {index < home.photos.length - 1 ? (
+                  <button type="button" aria-label={`Move photo ${index + 1} later`} title={`Move photo ${index + 1} later`} onClick={() => move(index, index + 1)} style={moveButton}>
+                    ›
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <button
               type="button"
               aria-label={`Delete photo ${index + 1}`}

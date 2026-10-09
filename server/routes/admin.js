@@ -5,18 +5,18 @@ import {
   COMPLIANCE_DEFAULTS, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
-  SLOT_TIMES, THEMES, TOOL_KEYS, normalizeFaqJson,
+  SAFE_EMAIL_RE, SLOT_TIMES, THEMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
+import { emailConfigured } from '../lib/email.js';
+import { pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
-// One address and nothing else: no list, no query string, no display name.
-const INCENTIVE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;]+$/;
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 const MAX_FLOOR_PLANS = 4;
 // Raster only, and SVG is left out on purpose: an SVG is a document that can
@@ -365,11 +365,21 @@ export function adminRouter() {
       // cannot see is a draft they cannot finish. No bodies; GET /guides/:id has those.
       store.listGuides(community.id, { includeUnpublished: true }),
     ]);
+    const slugs = await store.listCommunitySlugs(community.id);
     res.json({
       ...community, homes, highlights, resources,
       heroPhoto: heroes[0] ?? null, iconPhoto: icons[0] ?? null, siteMap: maps[0] ?? null,
       logo: logos[0] ?? null, logoLight: logosLight[0] ?? null, lenderLogo: lenderLogos[0] ?? null,
       agents, guides,
+      // The buyer link: its clean address, the addresses it used to have (which still work), what the
+      // name suggests, and the public origin when the site pins one (so a link is written with the
+      // domain it is meant to be shared on, not whichever address the admin happens to be using).
+      formerSlugs: slugs.filter((slug) => slug !== community.slug),
+      suggestedSlug: suggestCommunitySlug(community.name),
+      siteOrigin: pinnedOrigin(),
+      // Whether this server can send mail at all, and from what: the builder is told in Setup rather than
+      // finding out when an alert never arrives. The sender is only said to be set or not.
+      emailStatus: { ready: emailConfigured(), senderSet: Boolean(process.env.EMAIL_FROM) },
     });
   });
 
@@ -383,6 +393,16 @@ export function adminRouter() {
     if (req.body?.location !== undefined) patch.location = str(req.body.location).slice(0, COMMUNITY_TEXT_MAX);
     if (req.body?.builder !== undefined) patch.builder = str(req.body.builder).slice(0, COMMUNITY_TEXT_MAX);
     if (req.body?.websiteUrl !== undefined) patch.websiteUrl = str(req.body.websiteUrl) || null;
+    // The buyer link. Checked before anything else is saved, so a refusal changes nothing.
+    let newSlug = '';
+    if (req.body?.slug !== undefined && str(req.body.slug) !== (community.slug ?? '')) {
+      newSlug = normalizeCommunitySlug(req.body.slug);
+      if (!newSlug) {
+        return res.status(400).json({
+          error: 'The buyer link needs 3 to 40 letters, numbers or hyphens, and cannot be a word the site uses itself, like admin.',
+        });
+      }
+    }
     if (req.body?.status !== undefined && COMMUNITY_STATUSES.includes(req.body.status)) patch.status = req.body.status;
     if (req.body?.theme !== undefined && THEMES[req.body.theme]) patch.theme = req.body.theme;
     // An unknown layout is ignored like an unknown theme, never stored: the buyer
@@ -413,11 +433,14 @@ export function adminRouter() {
         if (key === 'loanApplicationUrl' && text && !safeHref(text)) {
           return res.status(400).json({ error: 'The loan application link must be a web address starting with http:// or https://.' });
         }
-        if (key === 'incentiveEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+        if (key === 'incentiveEmail' && text && !SAFE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The incentive email must be a single email address.' });
         }
-        if (key === 'lenderEmail' && text && !INCENTIVE_EMAIL_RE.test(text)) {
+        if (key === 'lenderEmail' && text && !SAFE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The loan team email must be a single email address.' });
+        }
+        if (key === 'teamEmail' && text && !SAFE_EMAIL_RE.test(text)) {
+          return res.status(400).json({ error: 'The sales team email must be a single email address.' });
         }
         if (key === 'faqJson') {
           // A list, normalised: items trimmed, half-finished ones dropped, counts
@@ -428,7 +451,7 @@ export function adminRouter() {
           settings[key] = faq;
         } else {
           // The incentive card is printed on the home screen like the compliance copy.
-          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive');
+          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive') || key.startsWith('team');
           settings[key] = capped ? text.slice(0, settingMaxLength(key)) : text;
         }
       }
@@ -447,6 +470,15 @@ export function adminRouter() {
         if (req.body.features[key] !== undefined) features[key] = Boolean(req.body.features[key]);
       }
       patch.features = features;
+    }
+    if (newSlug) {
+      const claimed = await store.setCommunitySlug(community.id, newSlug);
+      if (claimed.error === 'missing') return res.status(404).json({ error: 'Community not found' });
+      if (claimed.error) {
+        return res.status(409).json({
+          error: 'That link is already used by another community, or was before and is kept for it so printed links keep working. Pick a different one.',
+        });
+      }
     }
     res.json(await store.updateCommunity(community.id, patch));
   });
@@ -513,7 +545,20 @@ export function adminRouter() {
     if (req.body?.unitsAvailable !== undefined) {
       patch.unitsAvailable = unitCount(req.body.unitsAvailable);
     }
-    res.json(await store.updateHome(home.id, patch));
+    // The video tour as a link. '' removes it. Anything else has to be a YouTube or Vimeo address the player
+    // can embed, so a bad one is refused here and never shows a buyer a blank box. A home has one source:
+    // saving a link removes an uploaded file.
+    if (req.body?.videoLink !== undefined) {
+      const link = str(req.body.videoLink).slice(0, 300);
+      if (link && !videoEmbed(link)) {
+        return res.status(400).json({ error: 'That link is not a YouTube or Vimeo video.' });
+      }
+      patch.videoLink = link;
+    }
+    const updated = await store.updateHome(home.id, patch);
+    // The file goes only once the link is saved: if saving failed, the buyer keeps the video they had.
+    if (patch.videoLink) await store.deleteHomeVideo(home.id);
+    res.json(patch.videoLink ? await store.getHome(home.id) : updated);
   });
 
   router.delete('/homes/:id', async (req, res) => {
@@ -650,7 +695,10 @@ export function adminRouter() {
     const read = readVideo(req.body, TRIM_INSTEAD);
     if (read.error) return res.status(400).json({ error: read.error });
 
-    res.json(await store.setHomeVideo(home.id, { communityId: home.communityId, ...read }));
+    const saved = await store.setHomeVideo(home.id, { communityId: home.communityId, ...read });
+    // An uploaded file replaces a pasted link: one source per home.
+    if (home.videoLink) await store.updateHome(home.id, { videoLink: '' });
+    res.json(await store.getHome(home.id) ?? saved);
   });
 
   router.delete('/homes/:id/video', async (req, res) => {
@@ -685,6 +733,25 @@ export function adminRouter() {
     }
     return { contentType, data };
   };
+
+  /**
+   * Puts the gallery in the order given. The first photo is the hero buyers see at the top of the home.
+   * The list has to be exactly this home's gallery photos, each once: a request that leaves one out or
+   * adds another home's would otherwise quietly reorder (or leak into) something it does not own.
+   */
+  router.put('/homes/:id/photos/order', async (req, res) => {
+    const store = await getStore();
+    const home = await store.getHome(req.params.id);
+    if (!home) return res.status(404).json({ error: 'Home not found' });
+    const ids = req.body?.ids;
+    const own = (await store.listHomePhotosOfKind(home.id, 'home')).map((photo) => photo.id);
+    if (!Array.isArray(ids) || ids.length !== own.length || !ids.every((id) => typeof id === 'string')
+      || new Set(ids).size !== ids.length || !ids.every((id) => own.includes(id))) {
+      return res.status(400).json({ error: 'Send every photo of this home once, in the order you want.' });
+    }
+    await store.setHomePhotoOrder(home.id, ids);
+    res.json(await store.getHome(home.id));
+  });
 
   router.post('/homes/:id/photos', async (req, res) => {
     const store = await getStore();

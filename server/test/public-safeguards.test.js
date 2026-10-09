@@ -610,3 +610,48 @@ test('a production site on an http:// PUBLIC_ORIGIN is told so at boot', () => {
   assert.match(bootWarnings({ ...base, PUBLIC_ORIGIN: 'http://touradoor.com' }).join(' '), /http:\/\//);
   assert.match(bootWarnings({ ...base, PUBLIC_ORIGIN: 'touradoor.com' }).join(' '), /https:\/\/ in front/, 'judged from the env it was handed');
 });
+
+test('the old Render address sends a page visit to the public domain, and only that', async () => {
+  process.env.PUBLIC_ORIGIN = 'https://touradoor.example';
+  try {
+    const html = { Accept: 'text/html,application/xhtml+xml', Host: 'cornerpost-abc1.onrender.com' };
+    const moved = await raw('/c/salt-grass-zoxa/tools?tab=1', { headers: html });
+    assert.equal(moved.status, 302);
+    assert.equal(moved.headers.location, 'https://touradoor.example/c/salt-grass-zoxa/tools?tab=1', 'path and query follow');
+    assert.equal((await raw('/', { headers: html })).headers.location, 'https://touradoor.example/');
+    assert.equal((await raw('/c/x', { method: 'HEAD', headers: html })).status, 302);
+
+    // Not a page visit, or not that address: left alone, and answered as it would be anywhere else.
+    const stays = async (label, path, expected, opts = {}) => {
+      const res = await raw(path, opts);
+      assert.equal(res.headers.location, undefined, `${label}: not sent anywhere`);
+      if (expected !== undefined) assert.equal(res.status, expected, label);
+    };
+    await stays('a health check', '/api/health', 200, { headers: html });
+    await stays('and in capitals, which the router also matches', '/API/health', 200, { headers: html });
+    await stays('the API', '/api/c/nothing', 404, { headers: html });
+    await stays('the bare /api', '/api', undefined, { headers: html });
+    await stays('the admin pages, so the owner always has a way in', '/admin', undefined, { headers: html });
+    await stays('and in capitals', '/ADMIN/leads', undefined, { headers: html });
+    await stays('a script or an image is not a visit', '/c/x', undefined, { headers: { Host: 'cornerpost-abc1.onrender.com', Accept: '*/*' } });
+    await stays('a POST', '/api/admin/login', 401, { method: 'POST', body: {}, headers: html });
+    await stays('a POST to a page', '/c/x', undefined, { method: 'POST', body: {}, headers: html });
+    await stays('the domain itself', '/c/x', undefined, { headers: { ...html, Host: 'touradoor.example' } });
+    await stays('a local address', '/c/x', undefined, { headers: { ...html, Host: 'localhost:3000' } });
+    await stays('a name that only ends the same way', '/c/x', undefined, { headers: { ...html, Host: 'x.onrender.com.attacker.example' } });
+
+    // The way back: off in the environment.
+    process.env.REDIRECT_TO_PUBLIC_ORIGIN = 'off';
+    await stays('switched off', '/c/x', undefined, { headers: html });
+    delete process.env.REDIRECT_TO_PUBLIC_ORIGIN;
+
+    // Nothing pinned, nothing to redirect to. And a pinned Render address is not redirected to itself.
+    delete process.env.PUBLIC_ORIGIN;
+    await stays('nothing pinned', '/c/x', undefined, { headers: html });
+    process.env.PUBLIC_ORIGIN = 'https://cornerpost-abc1.onrender.com';
+    await stays('no loop', '/c/x', undefined, { headers: html });
+  } finally {
+    delete process.env.REDIRECT_TO_PUBLIC_ORIGIN;
+    delete process.env.PUBLIC_ORIGIN;
+  }
+});

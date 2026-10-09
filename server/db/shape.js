@@ -26,6 +26,10 @@ export function shapeCommunity(row, extra = {}) {
     layout: normalizeLayout(row.layout),
     websiteUrl: row.website_url ?? row.websiteUrl ?? null,
     builder: row.builder || '',
+    // The clean buyer link, when the community has one. `urlKey` is what every public address is
+    // written with; the id (above) is what everything is stored under and never changes.
+    slug: row.slug || null,
+    urlKey: row.slug || row.id,
     settings: currentSettings(row.settings),
     tools: { ...DEFAULT_TOOLS_ENABLED, ...(row.tools || {}) },
     features: { ...DEFAULT_FEATURES, ...(row.features || {}) },
@@ -72,6 +76,8 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     // walkthrough has to arrive under a new address or every browser that already
     // played the old one keeps playing it.
     videoUrl: video ? `/api/homes/${row.id}/video?v=${revisionOfFile(video)}` : '',
+    // The pasted YouTube or Vimeo link, when the tour is a link rather than a file. At most one of the two.
+    videoLink: row.video_link ?? row.videoLink ?? '',
     videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
   };
 }
@@ -114,6 +120,7 @@ export function shapeLead(row, { plan = {}, activity = [], moveIn = null, consen
     notes: row.notes || '',
     tour: row.tour ?? null,
     savedHomeIds: row.saved_home_ids ?? row.savedHomeIds ?? [],
+    extraEmails: row.extra_emails ?? row.extraEmails ?? [],
     openedAt: row.opened_at ?? row.openedAt ?? null,
     archivedAt: row.archived_at ?? row.archivedAt ?? null,
     firstVisitAt: row.first_visit_at ?? row.firstVisitAt ?? null,

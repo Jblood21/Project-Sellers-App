@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-import { DEFAULT_SETTINGS, complianceOf, fillTokens, telHref } from '@shared/domain.js';
+import { DEFAULT_SETTINGS, complianceOf, fillTokens, incentiveRecipient, telHref } from '@shared/domain.js';
+import { buyerApi } from '../lib/api.js';
 import { useBuyer } from './BuyerContext.jsx';
 import ContactSheet from './ContactSheet.jsx';
 
@@ -17,7 +18,7 @@ import ContactSheet from './ContactSheet.jsx';
  * card with nothing to say is worse than none.
  */
 export default function IncentiveCard({ className = '' }) {
-  const { community, features, track } = useBuyer();
+  const { community, features, track, token } = useBuyer();
   const [open, setOpen] = useState(false);
   if (!features.incentive) return null;
 
@@ -36,8 +37,11 @@ export default function IncentiveCard({ className = '' }) {
   // incentive is the lender's to qualify a buyer for.
   const own = String(settings.incentivePhone ?? '').trim();
   const phone = telHref(own) ? own : lender.phone;
-  // Likewise the email: the card's own address if it has one, else the lender's loan team.
-  const email = String(settings.incentiveEmail ?? '').trim() || lender.email;
+  // Likewise the email: the card's own address if it has one, else the lender's loan team. An address
+  // that cannot be used is skipped, not allowed to hide the other.
+  const recipient = incentiveRecipient(settings, { community });
+  const email = recipient?.to ?? '';
+  const recipientName = recipient?.kind === 'lender' ? (recipient.name || 'the loan team') : 'the team';
 
   return (
     <section
@@ -69,6 +73,12 @@ export default function IncentiveCard({ className = '' }) {
         subject={`Preferred lender incentive — ${community?.name ?? ''}`.trim()}
         message={message}
         onAct={(how) => track(`Asked about the builder incentive (${how})`)}
+        // A message form the app sends for the buyer, when the server can send mail and there is somewhere to send it.
+        compose={{
+          ready: Boolean(community?.emailReady && email),
+          recipientName,
+          send: (fields) => buyerApi.emailIncentive(token, fields),
+        }}
       />
     </section>
   );

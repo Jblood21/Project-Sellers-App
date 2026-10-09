@@ -126,6 +126,7 @@ export default function StructuredData() {
   const { community } = useBuyer();
   const params = useParams();
   const rest = params['*'];
+  const { communityId } = params;
 
   useEffect(() => {
     if (!community) return undefined;
@@ -202,7 +203,9 @@ export default function StructuredData() {
         /* nothing to restore */
       }
     };
-  }, [community, rest]);
+  // communityId: the address bar is swapped to the clean link after the page is up, and BuyerShell then
+  // writes the plain community name as the title again; this puts the full title back after it.
+  }, [community, rest, communityId]);
 
   return null;
 }

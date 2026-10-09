@@ -6,8 +6,12 @@ import { useBuyer } from '../BuyerContext.jsx';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Lead capture. Nothing past this point works without a lead record. */
-export default function Gate({ onEntered }) {
+/**
+ * Lead capture. Nothing past this point works without a lead record. The page that holds it (the
+ * landing page) puts nothing around it: no headline, no explanation. A name and an email are what
+ * opens the app; a cell is optional, and the calls-and-texts box appears only once there is one.
+ */
+export default function GateForm({ onEntered }) {
   const { community, enter } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
@@ -52,13 +56,7 @@ export default function Gate({ onEntered }) {
   };
 
   return (
-    <form className="b-shell b-gate" onSubmit={submit} style={{ paddingTop: 'calc(28px + env(safe-area-inset-top))' }}>
-      <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>Almost there</span>
-      <h1 className="b-head" style={{ margin: '4px 0 8px', fontSize: 27 }}>Let&apos;s introduce you</h1>
-      <p style={{ margin: '0 0 18px', color: 'var(--t-mut)', fontSize: 13.5, lineHeight: 1.5 }}>
-        Add your name and email to open the {community?.name} app. That way your home plan saves and the
-        team can send it to you.
-      </p>
+    <form className="b-gateform" onSubmit={submit}>
       <div className="b-stack" style={{ gap: 12 }}>
         <label className="b-field">
           <span className="b-lbl">Full name</span>
@@ -106,14 +104,10 @@ export default function Gate({ onEntered }) {
         </label>
       ) : null}
 
-      {error ? <p style={{ color: 'var(--t-accT)', fontSize: 12.5, margin: '10px 0 0' }}>{error}</p> : null}
+      {error ? <p role="alert" style={{ color: 'var(--t-accT)', fontSize: 12.5, margin: '10px 0 0' }}>{error}</p> : null}
       <button type="submit" className="b-btn" disabled={busy} style={{ marginTop: 16, minHeight: 50 }}>
         {busy ? 'One moment…' : `Start exploring ${community?.name}`}
       </button>
-      <p style={{ fontSize: 11, color: 'var(--t-mut)', margin: '10px 0 0', textAlign: 'center' }}>
-        Name and email are all you need to get in. Add a cell if you'd like the team to be able to call or
-        text you. Your info goes only to the {community?.name} team.
-      </p>
     </form>
   );
 }

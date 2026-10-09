@@ -220,10 +220,14 @@ export function serializeJsonLd(nodes) {
 
 // ── context ─────────────────────────────────────────────────────────────────
 
+/** What a community's public address is written with: its clean slug when it has one, else its id. */
+const keyOf = (community) => text(community?.urlKey) || text(community?.id);
+
+
 /** Everything the builders share about one community on one origin. */
 function makeContext(origin, community) {
   const base = originOf(origin);
-  const id = text(community?.id);
+  const id = keyOf(community);
   if (!base || !id) return null;
   const root = `${base}/c/${encodeURIComponent(id)}`;
   return {
@@ -339,7 +343,7 @@ function resolveView({ page, home, guide, tool }) {
 
 /** The path of a page relative to the origin. */
 function pathOf(ctx, view) {
-  const id = encodeURIComponent(text(ctx.community.id));
+  const id = encodeURIComponent(keyOf(ctx.community));
   const base = `/c/${id}`;
   switch (view.page) {
     case 'landing': return base;
@@ -634,7 +638,7 @@ function websiteNode(ctx) {
   return {
     '@type': 'WebSite',
     '@id': ctx.ids.website,
-    url: ctx.abs(`/c/${encodeURIComponent(text(ctx.community.id))}`),
+    url: ctx.abs(`/c/${encodeURIComponent(keyOf(ctx.community))}`),
     name: ctx.name,
     inLanguage: LANGUAGE,
     publisher: ref(ctx.ids.organization),
@@ -648,7 +652,7 @@ function organizationNode(ctx) {
     '@type': 'Organization',
     '@id': ctx.ids.organization,
     name: ctx.builder || ctx.name,
-    url: site || ctx.abs(`/c/${encodeURIComponent(text(ctx.community.id))}`),
+    url: site || ctx.abs(`/c/${encodeURIComponent(keyOf(ctx.community))}`),
     logo: organizationLogo(ctx),
   };
 }
@@ -659,7 +663,7 @@ function placeNode(ctx, { full }) {
     '@type': 'Place',
     '@id': ctx.ids.community,
     name: ctx.name,
-    url: ctx.abs(`/c/${encodeURIComponent(text(community.id))}`),
+    url: ctx.abs(`/c/${encodeURIComponent(keyOf(community))}`),
     address: addressOf(ctx.location),
     // The development's own mark belongs to the development on every page that shows it.
     logo: logoImage(ctx),
@@ -715,7 +719,7 @@ function equalHousingImage(ctx) {
 }
 
 function breadcrumbNode(ctx, view, url) {
-  const home = ctx.abs(`/c/${encodeURIComponent(text(ctx.community.id))}`);
+  const home = ctx.abs(`/c/${encodeURIComponent(keyOf(ctx.community))}`);
   const trail = [{ name: ctx.name, item: home }];
   const at = (page) => ctx.abs(pathOf(ctx, { page }));
   switch (view.page) {
@@ -760,7 +764,7 @@ function offerNode(ctx, home, homeUrl) {
   };
 }
 
-const homeUrlOf = (ctx, home) => ctx.abs(`/c/${encodeURIComponent(text(ctx.community.id))}/homes/${encodeURIComponent(home.id)}`);
+const homeUrlOf = (ctx, home) => ctx.abs(`/c/${encodeURIComponent(keyOf(ctx.community))}/homes/${encodeURIComponent(home.id)}`);
 
 /**
  * A home. Typed as a Product as well as a SingleFamilyResidence because
@@ -878,7 +882,7 @@ function authorOf(ctx, byline) {
 }
 
 function guideUrlOf(ctx, guide) {
-  return ctx.abs(`/c/${encodeURIComponent(text(ctx.community.id))}/guides/${encodeURIComponent(guide.slug)}`);
+  return ctx.abs(`/c/${encodeURIComponent(keyOf(ctx.community))}/guides/${encodeURIComponent(guide.slug)}`);
 }
 
 /** An Article. On the list page only the card's worth is present; on its own page, everything. */
@@ -911,7 +915,7 @@ function articleNode(ctx, guide, { full, pageId }) {
 }
 
 function toolNode(ctx, tool, { full }) {
-  const url = ctx.abs(`/c/${encodeURIComponent(text(ctx.community.id))}/tool/${encodeURIComponent(tool.k)}`);
+  const url = ctx.abs(`/c/${encodeURIComponent(keyOf(ctx.community))}/tool/${encodeURIComponent(tool.k)}`);
   return {
     '@type': 'WebApplication',
     '@id': `${url}#app`,
@@ -998,7 +1002,7 @@ export function pageJsonLd({ page, community, origin, home, guide, tool } = {}) 
     case 'tools': {
       addList(toolsOf(c).map((t) => ({
         name: t.name,
-        url: ctx.abs(`/c/${encodeURIComponent(text(c.id))}/tool/${t.k}`),
+        url: ctx.abs(`/c/${encodeURIComponent(keyOf(c))}/tool/${t.k}`),
         node: toolNode(ctx, t, { full: false }),
       })));
       // The pictures the tools home shows that come from the community: its
@@ -1012,7 +1016,7 @@ export function pageJsonLd({ page, community, origin, home, guide, tool } = {}) 
       if (faq.length) {
         extra.push({
           '@type': 'FAQPage',
-          '@id': `${ctx.abs(`/c/${encodeURIComponent(text(c.id))}/tools`)}#faq`,
+          '@id': `${ctx.abs(`/c/${encodeURIComponent(keyOf(c))}/tools`)}#faq`,
           name: `${ctx.name} frequently asked questions`,
           inLanguage: LANGUAGE,
           mainEntity: faq.map((item) => ({

@@ -137,7 +137,7 @@ function LenderCard({ onOpen }) {
         <LenderLogo tone="light" height={44} className="cp-lender__logo" />
         {lender.tagline ? <p className="cp-lender__line">{lender.tagline}</p> : null}
         <button type="button" className="cp-btn cp-btn--primary cp-btn--block" onClick={onOpen}>
-          Set up a time to talk
+          Talk about financing
         </button>
         <LoanProcessLink className="cp-btn cp-btn--outline cp-btn--block" />
         <div className="cp-lender__legal">

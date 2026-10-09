@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { PLAN_LABELS, TOOL_KEYS, describeTour } from '@shared/domain.js';
-import { buyerApi } from '../../lib/api.js';
 import { money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 
@@ -18,7 +17,7 @@ function tourSummary(tour) {
 
 /** The buyer's growing record — and the door to the PDF and the team. */
 export default function Plan({ onOpenTour }) {
-  const { homes, lead, track } = useBuyer();
+  const { homes, lead, track, features } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
 
@@ -104,7 +103,9 @@ export default function Plan({ onOpenTour }) {
       )}
 
       <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>
-        {lead?.tour ? `Booked ✓ ${tourSummary(lead.tour)} — change it` : 'Talk to the team · book a time'}
+        {lead?.tour
+          ? `Booked ✓ ${tourSummary(lead.tour)}${features?.booking === false ? '' : ' — change it'}`
+          : 'Book a tour'}
       </button>
     </div>
   );
@@ -116,16 +117,26 @@ export default function Plan({ onOpenTour }) {
  * and never become something that fires on its own.
  */
 function EmailPlanButton() {
-  const { lead, token, track } = useBuyer();
+  const { lead, emailPlan } = useBuyer();
   const [state, setState] = useState('idle'); // idle | sending | sent | error
   const [error, setError] = useState('');
+  // One more address, for a spouse or a co-buyer. Kept on their record, so it is there next time.
+  const saved = lead?.extraEmails?.[0] ?? '';
+  const [also, setAlso] = useState(saved);
+  const [alsoOpen, setAlsoOpen] = useState(Boolean(saved));
+  const [sentTo, setSentTo] = useState([]);
+  // An address the plan reached the buyer's own inbox but not this one. Said, because "Sent" alone would
+  // read as though their spouse has it.
+  const [missed, setMissed] = useState([]);
 
   const send = async () => {
     setState('sending');
     setError('');
     try {
-      await buyerApi.emailPlan(token);
-      track('Emailed their home plan to themselves');
+      const result = await emailPlan(alsoOpen ? also.trim() : undefined);
+      const outcomes = result.also ?? [];
+      setSentTo([result.to, ...outcomes.filter((entry) => entry.sent).map((entry) => entry.to)]);
+      setMissed(outcomes.filter((entry) => !entry.sent).map((entry) => entry.to));
       setState('sent');
     } catch (err) {
       setError(err.message);
@@ -135,14 +146,45 @@ function EmailPlanButton() {
 
   if (state === 'sent') {
     return (
-      <p style={{ fontSize: 12.5, color: 'var(--t-acc2)', textAlign: 'center', margin: '0 0 14px', fontWeight: 600 }}>
-        Sent to {lead?.email} ✓
-      </p>
+      <>
+        <p role="status" style={{ fontSize: 12.5, color: 'var(--t-acc2)', textAlign: 'center', margin: '0 0 14px', fontWeight: 600 }}>
+          Sent to {sentTo.join(' and ')} ✓
+        </p>
+        {missed.length ? (
+          <>
+            <p role="alert" style={{ fontSize: 12.5, color: 'var(--t-mut)', textAlign: 'center', margin: '-6px 0 8px', lineHeight: 1.45 }}>
+              We couldn’t reach {missed.join(' or ')}. Check the address, then try again.
+            </p>
+            <button type="button" className="b-btn b-btn-outline" style={{ marginBottom: 14 }} onClick={() => setState('idle')}>
+              Try again
+            </button>
+          </>
+        ) : null}
+      </>
     );
   }
 
   return (
     <>
+      {alsoOpen ? (
+        <label className="b-field" style={{ marginBottom: 10 }}>
+          <span className="b-lbl">Also send it to (optional)</span>
+          <input
+            className="b-in" type="email" value={also} onChange={(event) => setAlso(event.target.value)}
+            placeholder="another@email.com" autoComplete="off" inputMode="email"
+          />
+        </label>
+      ) : (
+        <button
+          type="button" onClick={() => setAlsoOpen(true)}
+          style={{
+            display: 'block', width: '100%', minHeight: 44, margin: '0 0 4px', border: 'none', background: 'transparent',
+            color: 'var(--t-accT)', fontFamily: 'var(--t-font)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Also send it to another email
+        </button>
+      )}
       <button
         type="button"
         className="b-btn b-btn-outline"
@@ -150,7 +192,7 @@ function EmailPlanButton() {
         disabled={state === 'sending'}
         style={{ marginBottom: error ? 6 : 14 }}
       >
-        {state === 'sending' ? 'Sending…' : 'Email this plan to me'}
+        {state === 'sending' ? 'Sending…' : (alsoOpen && also.trim() ? 'Email this plan' : 'Email this plan to me')}
       </button>
       {error ? (
         <p style={{ fontSize: 12, color: 'var(--t-mut)', textAlign: 'center', margin: '0 0 14px', lineHeight: 1.45 }}>

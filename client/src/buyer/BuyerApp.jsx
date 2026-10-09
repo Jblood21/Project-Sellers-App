@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { DEFAULT_THEME, THEME_COLORS } from '@shared/domain.js';
 import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialSheet } from './Chrome.jsx';
@@ -10,7 +10,6 @@ import StructuredData from './StructuredData.jsx';
 import AllTools from './screens/AllTools.jsx';
 import Area from './screens/Area.jsx';
 import Explore from './screens/Explore.jsx';
-import Gate from './screens/Gate.jsx';
 import GuideArticle from './screens/GuideArticle.jsx';
 import Guides from './screens/Guides.jsx';
 import HomeDetail from './screens/HomeDetail.jsx';
@@ -62,6 +61,7 @@ function BuyerShell() {
   const { community, layout, loading, loadError, signedIn } = useBuyer();
   const { communityId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -72,6 +72,17 @@ function BuyerShell() {
 
   useCommunityChrome(community, communityId);
 
+  // Reached by the community's id (a printed link, an installed app) or in other letter case: show the
+  // clean link in the address bar. Same page, same history entry, same document, so an installed
+  // app stays inside its scope and nothing reloads.
+  // Not while the buyer's own record is still loading: the load belongs to the address it started at.
+  useEffect(() => {
+    if (loading || !community?.urlKey || community.urlKey === communityId) return;
+    // A bare trailing slash is dropped; a deeper path (tools/payment/) keeps its own.
+    const rest = location.pathname.replace(/^\/c\/[^/]+/, '').replace(/^\/+$/, '');
+    navigate(`/c/${encodeURIComponent(community.urlKey)}${rest}${location.search}${location.hash}`, { replace: true });
+  }, [community, communityId, loading, location.pathname, location.search, location.hash, navigate]);
+
   // Every route change starts at the top — long tool screens otherwise keep their scroll.
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -81,8 +92,10 @@ function BuyerShell() {
   if (loadError) return <Centered>{loadError}</Centered>;
   if (!community) return <Centered>This community link isn’t active anymore. Ask the team for a new one.</Centered>;
 
-  const isLanding = location.pathname === `/c/${communityId}`;
-  const isGate = location.pathname === `/c/${communityId}/start`;
+  // A trailing slash reaches the same page, so it counts as the same page here.
+  const path = location.pathname.replace(/\/+$/, '');
+  const isLanding = path === `/c/${communityId}`;
+  const isGate = path === `/c/${communityId}/start`;
   // A trailing slash reaches the same route, so it has to count as print too.
   const isPrint = /\/plan\/print\/?$/.test(location.pathname);
   // Guides are the one part of the app a visitor reads before giving their
@@ -110,19 +123,19 @@ function BuyerShell() {
 
       <main id="b-main" tabIndex={-1} className="b-main">
         <Routes>
-          <Route index element={<Landing />} />
+          <Route index element={<Landing onEntered={(result) => !result.returning && setTutorialOpen(true)} />} />
           <Route
             path="start"
             element={
               signedIn ? (
                 <Navigate to={`/c/${communityId}/tools`} replace />
               ) : (
-                <Gate onEntered={(result) => !result.returning && setTutorialOpen(true)} />
+                <Landing onEntered={(result) => !result.returning && setTutorialOpen(true)} />
               )
             }
           />
           <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
-          <Route path="explore" element={guard(<Explore />)} />
+          <Route path="explore" element={guard(<Explore onOpenTour={() => setTourTopic('community')} onOpenLender={() => setTourTopic('lender')} />)} />
           <Route path="area" element={guard(<Area />)} />
           <Route path="map" element={guard(<SiteMap />)} />
           <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} />)} />

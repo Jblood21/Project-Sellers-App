@@ -2,8 +2,8 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
-  DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED,
-  isoDate, isSameLead,
+  communitySlugCandidates, DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME,
+  DEFAULT_TOOLS_ENABLED, isoDate, isSameLead,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
@@ -15,7 +15,7 @@ import {
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
-  consents: [], agents: [], guides: [],
+  consents: [], agents: [], guides: [], communitySlugs: [],
 };
 
 /**
@@ -189,9 +189,47 @@ export function createFileStore(path) {
       return shapeCommunity(db.communities.find((c) => c.id === id));
     },
 
+    /** See the Postgres store: an id, the id in other case, or any slug the community has had. */
+    async resolveCommunity(key) {
+      const text = String(key ?? '').trim().slice(0, 80);
+      // Printable ASCII only, as in the other store: the two fold letter case differently outside it.
+      if (!text || !/^[\x21-\x7e]+$/.test(text)) return null;
+      const lower = text.toLowerCase();
+      const row = db.communities.find((c) => c.id === text)
+        ?? db.communities.find((c) => c.id === lower)
+        ?? db.communities.find((c) => c.id === db.communitySlugs.find((s) => s.slug === lower)?.communityId);
+      return shapeCommunity(row);
+    },
+
+    async listCommunitySlugs(id) {
+      return db.communitySlugs.filter((s) => s.communityId === id).map((s) => s.slug);
+    },
+
+    async setCommunitySlug(id, slug) {
+      if (db.communities.some((c) => c.id.toLowerCase() === slug && c.id !== id)) return { error: 'taken' };
+      const owner = db.communitySlugs.find((s) => s.slug === slug);
+      if (owner && owner.communityId !== id) return { error: 'taken' };
+      const row = db.communities.find((c) => c.id === id);
+      if (!row) return { error: 'missing' };
+      if (!owner) db.communitySlugs.push({ slug, communityId: id });
+      row.slug = slug;
+      row.updatedAt = now();
+      save();
+      return { ok: true };
+    },
+
     async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '' }) {
+      const id = slugId(name);
+      let slug = null;
+      for (const candidate of communitySlugCandidates(name)) {
+        if (db.communities.some((c) => c.id.toLowerCase() === candidate)) continue;
+        if (db.communitySlugs.some((s) => s.slug === candidate)) continue;
+        db.communitySlugs.push({ slug: candidate, communityId: id });
+        slug = candidate;
+        break;
+      }
       const row = {
-        id: slugId(name), name, location, status, theme, builder,
+        id, slug, name, location, status, theme, builder,
         websiteUrl: null,
         settings: { ...DEFAULT_SETTINGS },
         tools: { ...DEFAULT_TOOLS_ENABLED },
@@ -224,6 +262,7 @@ export function createFileStore(path) {
       const homeIds = db.homes.filter((h) => h.communityId === id).map((h) => h.id);
       const leadIds = db.leads.filter((l) => l.communityId === id).map((l) => l.id);
       db.communities = db.communities.filter((c) => c.id !== id);
+      db.communitySlugs = db.communitySlugs.filter((s) => s.communityId !== id);
       db.homes = db.homes.filter((h) => h.communityId !== id);
       db.highlights = db.highlights.filter((h) => h.communityId !== id);
       db.slots = db.slots.filter((s) => s.communityId !== id);
@@ -274,7 +313,7 @@ export function createFileStore(path) {
       if (!row) return null;
       for (const key of [
         'name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability',
-        'lotNumber', 'readyOn', 'unitsAvailable', 'position',
+        'lotNumber', 'readyOn', 'unitsAvailable', 'position', 'videoLink',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
@@ -396,6 +435,14 @@ export function createFileStore(path) {
       save();
     },
 
+    async setHomePhotoOrder(homeId, orderedIds) {
+      orderedIds.forEach((id, index) => {
+        const row = db.photos.find((p) => p.id === id && p.homeId === homeId && p.kind === 'home');
+        if (row) row.position = index;
+      });
+      save();
+    },
+
     async listHomePhotosOfKind(homeId, kind) {
       return db.photos
         .filter((p) => p.homeId === homeId && p.kind === kind)
@@ -415,7 +462,10 @@ export function createFileStore(path) {
       communityId, homeId = null, highlightId = null, agentId = null, guideId = null,
       kind = 'home', contentType = null, data = null, url = null,
     }) {
-      const position = db.photos.filter((p) => p.communityId === communityId && p.homeId === homeId).length;
+      // After the last one, not "how many there are": deleting some leaves gaps, and a count then lands before a survivor.
+      const position = db.photos
+        .filter((p) => p.communityId === communityId && p.homeId === homeId)
+        .reduce((last, p) => Math.max(last, p.position ?? -1), -1) + 1;
       const row = {
         id: `p_${shortId(12)}`, communityId, homeId, highlightId, agentId, guideId, kind,
         content_type: contentType, data, url, position, createdAt: now(),
@@ -671,7 +721,7 @@ export function createFileStore(path) {
     async createLead(communityId, { name, email, phone }) {
       const row = {
         id: `l_${shortId(12)}`, communityId, name, email, phone,
-        status: 'new', notes: '', tour: null, savedHomeIds: [],
+        status: 'new', notes: '', tour: null, savedHomeIds: [], extraEmails: [],
         firstVisitAt: now(), updatedAt: now(),
       };
       db.leads.push(row);
@@ -701,7 +751,7 @@ export function createFileStore(path) {
       const row = db.leads.find((l) => l.id === id);
       if (!row) return null;
       for (const key of [
-        'name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds', 'openedAt', 'archivedAt',
+        'name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds', 'extraEmails', 'openedAt', 'archivedAt',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { COMMUNITY_STATUSES } from '@shared/domain.js';
+import { COMMUNITY_STATUSES, normalizeCommunitySlug } from '@shared/domain.js';
 import { ChevronLeft, Pencil, QrIcon } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
@@ -142,7 +142,7 @@ function CommunityTabs({ community, leads, reload }) {
       {tab === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
       {tab === 'area' ? <AreaTab community={community} reload={reload} /> : null}
       {tab === 'learn' ? <LearnTab community={community} reload={reload} /> : null}
-      {tab === 'times' ? <AvailabilityTab community={community} /> : null}
+      {tab === 'times' ? <AvailabilityTab community={community} reload={reload} /> : null}
       {tab === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
       {tab === 'leads' ? <LeadsTab community={community} leads={leads} /> : null}
       {tab === 'stats' ? <StatsTab community={community} leads={leads} /> : null}
@@ -151,6 +151,7 @@ function CommunityTabs({ community, leads, reload }) {
       {qrOpen ? (
         <QrDialog
           community={community}
+          onChanged={reload}
           onClose={() => setQrOpen(false)}
           onOpenFlyer={() => {
             if (!leaveSetupOk()) return;
@@ -176,6 +177,40 @@ function CommunityTabs({ community, leads, reload }) {
   );
 }
 
+/** The buyer link: the address on the sign, without the random letters the community's id carries. */
+function BuyerLinkField({ community, value, onChange }) {
+  const origin = community.siteOrigin || window.location.origin;
+  const cleaned = normalizeCommunitySlug(value);
+  const typed = value.trim().length > 0;
+  const suggestion = community.suggestedSlug;
+  return (
+    <div className="field">
+      <label htmlFor="buyer-link">Buyer link</label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span className="text-muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{origin.replace(/^https?:\/\//, '')}/c/</span>
+        <input
+          id="buyer-link" className="input" value={value} autoCapitalize="none" autoCorrect="off" spellCheck={false}
+          onChange={(event) => onChange(event.target.value)} aria-describedby="buyer-link-note"
+          placeholder={suggestion}
+        />
+      </div>
+      <span id="buyer-link-note" className="field-hint">
+        {!community.slug && suggestion ? (
+          <>
+            This community is still on its original link ({community.id}).{' '}
+            <button type="button" className="btn btn-secondary" style={{ minHeight: 30, padding: '0 10px' }} onClick={() => onChange(suggestion)}>
+              Use {suggestion}
+            </button>{' '}
+          </>
+        ) : null}
+        {typed && !cleaned
+          ? 'Use 3 to 40 letters, numbers or hyphens. Words the site uses itself, like admin, are not allowed.'
+          : `${origin}/c/${cleaned || community.urlKey}. Every earlier link and printed code keeps working${community.formerSlugs?.length ? `, including /c/${[community.id, ...community.formerSlugs].join(', /c/')}` : `, including /c/${community.id}`}, and they cannot be turned off. Anyone who types any of them can open the community, so keep a community's details private until you are ready to share them.`}
+      </span>
+    </div>
+  );
+}
+
 function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) {
   const [form, setForm] = useState({
     name: community.name,
@@ -183,6 +218,7 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
     builder: community.builder,
     websiteUrl: community.websiteUrl ?? '',
     status: community.status,
+    slug: community.slug ?? '',
   });
   const [heroDataUrl, setHeroDataUrl] = useState(null);
   const [error, setError] = useState('');
@@ -192,7 +228,15 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
     setBusy(true);
     setError('');
     try {
-      await adminApi.updateCommunity(token, community.id, form);
+      // A blank link is not a request to remove it: a community always has an address. Said, rather than
+      // saved as if it had worked.
+      const { slug, ...rest } = form;
+      if (community.slug && !slug.trim()) {
+        setError('A community always has a buyer link. Type the one you want, or put back the one it had.');
+        setBusy(false);
+        return;
+      }
+      await adminApi.updateCommunity(token, community.id, slug.trim() ? { ...rest, slug } : rest);
       // Only sent when a new file was picked, so saving other fields never
       // disturbs the existing photo.
       if (heroDataUrl) {
@@ -232,6 +276,11 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
       <TextField
         label="Community website" value={form.websiteUrl}
         onChange={(websiteUrl) => setForm((f) => ({ ...f, websiteUrl }))} placeholder="https://…"
+      />
+      <BuyerLinkField
+        community={community}
+        value={form.slug}
+        onChange={(slug) => setForm((f) => ({ ...f, slug }))}
       />
       <PhotoPicker
         label="Community photo"

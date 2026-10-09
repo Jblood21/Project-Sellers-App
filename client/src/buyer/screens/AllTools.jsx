@@ -465,7 +465,7 @@ function LenderCard({ onOpen }) {
         ) : null}
 
         <button type="button" className="b-btn" onClick={onOpen} style={{ minHeight: 46 }}>
-          Set up a time to talk
+          Talk about financing
         </button>
         <LoanProcessLink />
 

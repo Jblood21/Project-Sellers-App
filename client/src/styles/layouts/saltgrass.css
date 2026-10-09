@@ -985,8 +985,15 @@
 .b-app.l-saltgrass .b-landing h1.b-head,
 .b-app.l-saltgrass .b-gate h1.b-head { color: var(--t-onacc2); }
 .b-app.l-saltgrass .b-landing h1.b-head {
-  font-size: clamp(3rem, 13vw, 4.6rem) !important; /* beats the inline 34px */
-  line-height: 0.95 !important;
+  /* "Welcome to <name>" is one line of the brand's headline, so it is set smaller than a bare name was:
+     a long name still wraps to a few lines instead of filling the screen. */
+  font-size: clamp(2rem, 9vw, 3.3rem) !important;
+  line-height: 0.98 !important;
+}
+/* Its headline is tall, so the picture gives up more room to the form than the default layout's does. */
+.b-app.l-saltgrass .b-landing .b-landing__hero {
+  max-height: min(46vh, 360px, calc(100vh - 530px));
+  max-height: min(46vh, 360px, calc(100svh - 530px));
 }
 /* A short accent bar with a hairline above it, so it still reads as a line on
    the themes whose accent is close to the deep ground. */
@@ -1000,16 +1007,7 @@
   background: var(--t-acc);
   box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.38);
 }
-/* The brand sets landing headlines with nothing above them. The copy stays, but
-   it drops to the quietest label on the page rather than competing with the
-   headline; the colour is set inline, hence !important. */
-.b-app.l-saltgrass .b-landing > .b-lbl,
-.b-app.l-saltgrass .b-gate > .b-lbl:first-child { color: var(--sg-soft) !important; }
-.b-app.l-saltgrass .b-landing .b-btn-outline {
-  color: var(--t-onacc2);
-  border-color: rgba(255, 255, 255, 0.6);
-}
-.b-app.l-saltgrass .b-landing .b-btn-outline:not(:disabled):hover { border-color: var(--t-onacc2); }
+/* The brand sets landing headlines with nothing above them, and the landing page now has nothing there. */
 .b-app.l-saltgrass .b-gate .b-in { border-color: rgba(255, 255, 255, 0.6); }
 .b-app.l-saltgrass .b-gate .b-in:focus-visible { border-color: var(--t-onacc2); }
 .b-app.l-saltgrass .b-gate .b-in::placeholder { color: var(--sg-soft); opacity: 0.8; }

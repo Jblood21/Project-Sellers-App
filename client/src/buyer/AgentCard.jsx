@@ -1,7 +1,8 @@
 import { agentLicenseLine } from '@shared/domain.js';
 import { safeHref, telHref } from '@shared/compliance.js';
-import { safeEmail, textHref, useIsMobile } from '../lib/contact.js';
+import { safeEmail } from '../lib/contact.js';
 import { useBuyer } from './BuyerContext.jsx';
+import TextAction from './TextAction.jsx';
 import TourButton from './TourButton.jsx';
 
 /** 'https://www.example.com/team/' becomes 'example.com/team', for the link text. */
@@ -33,7 +34,6 @@ function websiteLabel(href) {
 export default function AgentCard({ agent, headingLevel = 3, tour = true, homeName }) {
   const Heading = `h${headingLevel}`;
   const { community, lead } = useBuyer();
-  const mobile = useIsMobile();
   const brokerage = String(agent.brokerage ?? '').trim();
   const license = agentLicenseLine(agent);
   const phoneHref = telHref(agent.phone);
@@ -41,7 +41,6 @@ export default function AgentCard({ agent, headingLevel = 3, tour = true, homeNa
   const website = safeHref(agent.website);
   const first = String(agent.name ?? '').trim().split(/\s+/)[0];
   const greeting = `Hi${first ? ` ${first}` : ''},${lead?.name ? ` this is ${lead.name}.` : ''} I have a question about ${community?.name ?? 'the community'}.`;
-  const smsHref = mobile ? textHref(agent.phone, greeting) : '';
 
   return (
     <article className="b-agent">
@@ -99,7 +98,7 @@ export default function AgentCard({ agent, headingLevel = 3, tour = true, homeNa
       {phoneHref || email ? (
         <div className="b-agent__actions">
           {phoneHref ? <a className="b-agent__act" href={phoneHref}>Call</a> : null}
-          {smsHref ? <a className="b-agent__act" href={smsHref}>Text</a> : null}
+          <TextAction className="b-agent__act" phone={agent.phone} message={greeting} />
           {email ? <a className="b-agent__act" href={`mailto:${email}`}>Email</a> : null}
         </div>
       ) : null}

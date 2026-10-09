@@ -2,6 +2,11 @@
 # Create from the Render dashboard: New → Blueprint → point at this repo.
 services:
   - type: web
+    # The name still says cornerpost, and so does the free address Render gives it
+    # (cornerpost….onrender.com). Renaming it HERE would make Render create a second, empty
+    # service next to this one (and drop the custom domain from it), so the name is changed in
+    # the dashboard instead (Service → Settings → Name), after the QR codes point at the
+    # custom domain. Until then the app redirects that address to PUBLIC_ORIGIN.
     name: cornerpost
     runtime: node
     plan: starter
@@ -34,12 +39,18 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      # The one public address of the site, with the https:// (for example
-      # https://touradoor.com). Canonical links, share previews and the links in
-      # emails use it; unset, they follow whichever address a visitor came in on,
-      # and a site that answers on two names publishes both.
+      # The one public address of the site, with the https://. Canonical links, share
+      # previews, the QR and Copy link in the admin and the links in emails use it, and the
+      # Render address redirects to it. Unset, they follow whichever address a visitor came
+      # in on, and a site that answers on two names publishes both.
       - key: PUBLIC_ORIGIN
-        sync: false
+        value: https://touradoor.com
+      # "on" sends a visit to the Render address on to PUBLIC_ORIGIN (the admin pages and the API
+      # are never sent). If the domain ever has to be taken offline, change this to "off" (here AND in
+      # the dashboard's Environment tab, or a later blueprint sync puts it back): the service restarts
+      # and the Render address works again in a minute or two.
+      - key: REDIRECT_TO_PUBLIC_ORIGIN
+        value: "on"
       # Email. Without RESEND_API_KEY nothing is sent (requests are still saved).
       # EMAIL_FROM must be an address on a domain verified in Resend, and one that
       # is read: the sandbox sender only delivers to the Resend account owner.

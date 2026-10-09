@@ -95,16 +95,16 @@ export default function IncentiveCard({ community, settings, setSettings, reload
       </p>
 
       <div className="ax-cols">
-        {field('incentiveTitle', 'Headline')}
+        {field('incentiveTitle', 'Headline', { hint: 'Write dollar amounts in full, with the dollar sign, like $20,000.' })}
         {field('incentiveButton', 'Button label')}
-        {field('incentiveBody', 'Details', { rows: 3, hint: 'The incentive in a sentence or two.' })}
-        {field('incentiveFinePrint', 'Terms (fine print)', { rows: 3, hint: 'Shown small under the details. Blank shows none.' })}
+        {field('incentiveBody', 'Details', { rows: 3, hint: 'The incentive in a sentence or two. Write dollar amounts in full, like $20,000.' })}
+        {field('incentiveFinePrint', 'Terms (fine print)', { rows: 3, hint: 'Shown small under the details. Blank shows none. Dollar amounts in full, like $20,000.' })}
         {field('incentivePhone', 'Phone to call or text', {
           inputMode: 'tel', hint: 'Blank uses the lender’s phone.',
         })}
         {field('incentiveEmail', 'Email', {
           inputMode: 'email', placeholder: 'team@yourcompany.com',
-          hint: 'The button writes an email to this address, on a phone and on a computer. Blank uses the loan team email under Lender & compliance.',
+          hint: 'Buyers write to this address from inside the app: Touradoor sends their message and replies go straight to the buyer. (This needs the site’s email set up; if it is not, buyers are shown this address to write to instead.) Blank uses the loan team email under Lender & compliance.',
         })}
         {field('incentiveMessage', 'Message the buyer sends', {
           rows: 2, hint: 'Already typed into the text or email when the buyer taps. {community} is the development name.',

@@ -502,6 +502,24 @@ a.b-btn { display: flex; align-items: center; justify-content: center; text-deco
   font-weight: 600;
   text-decoration: none;
 }
+button.b-agent__act { font-family: var(--t-font); cursor: pointer; }
+/* The in-app message form in the contact sheet. */
+.b-contactform { display: flex; flex-direction: column; gap: 10px; }
+textarea.b-contactform__msg { min-height: 96px; resize: vertical; line-height: 1.45; font-family: var(--t-font); }
+.b-contactform__err { font-size: 12.5px; line-height: 1.5; color: var(--t-ink); padding: 10px 12px; border-radius: var(--t-rad); background: var(--t-tint); }
+/* The people a buyer can reach when there is no time to pick: one box each, Call / Text / Email under the name. */
+.b-reach__list { display: flex; flex-direction: column; gap: 10px; }
+.b-reach {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-rad);
+  background: var(--t-sur);
+}
+.b-reach__who { font-size: 14px; color: var(--t-ink); }
+.b-reach__detail { color: var(--t-mut); font-size: 12.5px; }
 /* The home screen's single row that leads to the realtors page. */
 .b-agents-row {
   display: flex;
@@ -635,6 +653,55 @@ textarea.input { min-height: auto; resize: vertical; }
 .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+/* The landing page: the community's picture, "Welcome to <name>", and the way in. The picture is the
+   page, so it is tall; with none uploaded it is a quiet panel of the theme's own colours, never
+   placeholder words. */
+.b-landing__hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 160px;
+  /* Leaves room under the picture for the headline and the sign-in form, so on a small screen the
+     button is not pushed below the fold. A line each for older browsers that lack the small-viewport unit. */
+  max-height: min(54vh, calc(100vh - 450px));
+  max-height: min(54vh, calc(100svh - 450px));
+  border-radius: var(--t-radlg);
+  overflow: hidden;
+  margin: 0 0 22px;
+  background: linear-gradient(135deg, var(--t-acc2), var(--t-acc));
+}
+.b-landing__hero > div { position: absolute; inset: 0; }
+.b-landing__hero--none { aspect-ratio: 16 / 9; min-height: 140px; max-height: 32vh; }
+.b-landing__welcome { margin: 0 0 20px; font-size: 32px; line-height: 1.1; overflow-wrap: anywhere; }
+.b-gateform { display: block; }
+
+/* A home's hero, and the tiles of its other photos under the floor plans. */
+.b-homehero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  max-height: 420px;
+  padding: 0;
+  border: none;
+  border-radius: var(--t-radlg);
+  overflow: hidden;
+  background: transparent;
+  cursor: pointer;
+  margin: 0 0 14px;
+}
+.b-homehero:disabled { cursor: default; }
+.b-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+.b-tile {
+  display: block;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-rad);
+  overflow: hidden;
+  background: var(--t-sur, #fff);
+  cursor: pointer;
+}
 
 /* Placeholder used wherever a community or home has no photo yet. */
 .photo-empty {

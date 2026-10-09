@@ -57,7 +57,7 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
   }, [token, guideId]);
 
   const deferredBody = useDeferredValue(form?.body ?? '');
-  const id = community.id;
+  const id = community.urlKey || community.id;
   // Stable identities, so the preview does not re-parse the whole guide on every keystroke elsewhere.
   const resolveLink = useCallback(
     (href) => (href.endsWith('.md') ? `/c/${id}/guides/${href.slice(0, -3)}` : null),
@@ -154,7 +154,7 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
               <span id="guide-slug-note" className="field-hint">
                 {unlocked
                   ? `Changing it breaks any link already shared to this guide. It will be saved as “${slugify(form.slug) || '…'}”.`
-                  : `/c/${community.id}/guides/${form.slug}`}
+                  : `/c/${community.urlKey || community.id}/guides/${form.slug}`}
               </span>
             </div>
           </div>

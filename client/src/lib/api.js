@@ -59,7 +59,10 @@ export const buyerApi = {
     request(`/api/c/${encodeURIComponent(communityId)}/guides/${encodeURIComponent(slug)}`),
   requestTour: (token, slotId, contact, topic = 'community', extra = {}) =>
     request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic, ...extra }, token }),
-  emailPlan: (token) => request('/api/me/plan/email', { method: 'POST', body: {}, token }),
+  // The "Find out if you qualify" message, sent for the buyer. The server chooses who it goes to.
+  emailIncentive: (token, body) => request('/api/me/incentive/email', { method: 'POST', body, token }),
+  // `also`: one more address to send it to (kept on the buyer's record); '' removes it; leave it out to change nothing.
+  emailPlan: (token, also) => request('/api/me/plan/email', { method: 'POST', body: also === undefined ? {} : { also }, token }),
   saveMoveIn: (token, plan) => request('/api/me/movein', { method: 'PUT', body: plan, token }),
 };
 
@@ -78,6 +81,7 @@ export const adminApi = {
     request(`/api/admin/communities/${encodeURIComponent(id)}/rates/check`, { method: 'POST', body: {}, token }),
   createHome: (token, communityId, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/homes`, { method: 'POST', body, token }),
+  reorderHomePhotos: (token, id, ids) => request(`/api/admin/homes/${encodeURIComponent(id)}/photos/order`, { method: 'PUT', body: { ids }, token }),
   updateHome: (token, id, body) => request(`/api/admin/homes/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
   deleteHome: (token, id) => request(`/api/admin/homes/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   addHomePhoto: (token, homeId, body) =>

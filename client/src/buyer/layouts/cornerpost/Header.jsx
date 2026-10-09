@@ -22,7 +22,7 @@ function BackChevron() {
  *
  * It does everything the default header does and nothing else: the same back
  * target on every route, the community's mark or its name, the menu drawer. What
- * changes is where they sit and how they look, plus the small "Talk to the Team"
+ * changes is where they sit and how they look, plus the small "Book a tour"
  * pill the design puts at the right of every page. That pill opens the same
  * community sheet the rest of the app opens, so it adds a way in and removes
  * none: the menu button stays beside it.
@@ -96,9 +96,9 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
               34px the design specifies. A bare 34px button would be a harder
               tap than the rest of the app asks of a thumb.
             */}
-            <button type="button" className="cp-topbar__cta" onClick={onTalk} aria-label="Talk to the Team">
+            <button type="button" className="cp-topbar__cta" onClick={onTalk} aria-label="Book a tour">
               <span className="cp-btn cp-btn--primary cp-btn--sm">
-                Talk<span className="cp-topbar__long"> to the Team</span>
+                Book<span className="cp-topbar__long"> a tour</span>
               </span>
             </button>
             <button type="button" className="cp-topbar__menu" onClick={onOpenMenu} aria-label="Menu">

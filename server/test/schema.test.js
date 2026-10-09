@@ -102,6 +102,7 @@ test('the schema applies to a database created by an older release', opts, async
     for (const [tableName, columnName] of [
       ['homes', 'lot_number'], ['communities', 'features'],
       ['leads', 'opened_at'], ['leads', 'archived_at'], ['resources', 'updated_at'],
+      ['communities', 'slug'], ['homes', 'video_link'], ['leads', 'extra_emails'],
     ]) {
       const added = await client.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
@@ -109,6 +110,8 @@ test('the schema applies to a database created by an older release', opts, async
       );
       assert.equal(added.rowCount, 1, `${tableName}.${columnName} was added`);
     }
+    const slugs = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = 'community_slugs'`);
+    assert.equal(slugs.rowCount, 1, 'and so does the table of every address a community has had');
     await client.end();
   });
 });
@@ -193,9 +196,20 @@ test('existing rows survive the upgrade', opts, async () => {
     const photo = await after.query(`SELECT highlight_id, url FROM photos WHERE id = 'p1'`);
     assert.equal(photo.rows[0].url, 'https://x/y.jpg', 'the photo is untouched');
     assert.equal(photo.rows[0].highlight_id, null, 'and its new column defaults to null');
-    const community = await after.query(`SELECT name FROM communities WHERE id = 'c1'`);
+    const community = await after.query(`SELECT name, slug FROM communities WHERE id = 'c1'`);
     assert.equal(community.rows[0].name, 'Willow Creek');
+    assert.equal(community.rows[0].slug, null, 'a community that already existed is not handed a new address');
     await after.end();
+
+    // And it is still reached by its id, which is then its address.
+    const store = await createPostgresStore(url);
+    try {
+      const found = await store.resolveCommunity('C1');
+      assert.equal(found?.id, 'c1');
+      assert.equal(found?.urlKey, 'c1');
+    } finally {
+      await store.close();
+    }
   });
 });
 
