@@ -1842,10 +1842,12 @@ test('starter questions saved while they were the old default read as the new on
   const patch = (settings) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body: { settings } });
   const faq = async () => (await api(`/api/admin/communities/${cid}`, { token })).body.settings.faqJson;
 
-  // A Setup save from before the reword left the old starter list stored as if it were chosen.
-  await patch({ faqJson: PREVIOUS_DEFAULT_FAQ_JSONS[0] });
-  assert.equal(await faq(), DEFAULT_FAQ_JSON, 'the old default is brought up to date');
-  assert.doesNotMatch(await faq(), /Tour this model/, 'and no longer points at a button that is gone');
+  // A Setup save from before a reword left that version of the starter list stored as if it were chosen.
+  for (const [n, previous] of PREVIOUS_DEFAULT_FAQ_JSONS.entries()) {
+    await patch({ faqJson: previous });
+    assert.equal(await faq(), DEFAULT_FAQ_JSON, `starter list version ${n + 1} is brought up to date`);
+  }
+  assert.doesNotMatch(await faq(), /Tour this model|Set up a time to talk/, 'and no longer points at a button that is gone');
 
   const edited = JSON.stringify([{ q: 'Do you allow pets?', a: 'Yes, two per home.' }]);
   await patch({ faqJson: edited });

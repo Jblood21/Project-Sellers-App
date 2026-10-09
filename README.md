@@ -4,7 +4,8 @@
 
 A mobile-first web app for individual builder communities, with two sides sharing one backend:
 
-- **Buyer PWA** (`/c/:communityId`) — reached by scanning the QR code on a development sign.
+- **Buyer PWA** (`/c/:link`, the community's clean link or its id) — reached by scanning the QR code on a development sign.
+  The first screen is the community's picture, "Welcome to <name>" and the sign-in form, nothing else.
   Buyers explore homes, meet the community's realtors, read the area guide and the buyer guides,
   run seven consumer-friendly financial tools, save homes, build a progressive "My Home Plan" and
   download it as a PDF. Entry to the app is gated behind a name and email (a cell number is optional; one is
@@ -144,7 +145,17 @@ and only after sign-in; for anything longer, paste a YouTube or Vimeo link in th
 4. Deploy. Build runs `npm install && npm run build`; start runs `node server/index.js`, which
    serves the API, both SPAs and the per-community manifests from one service.
 5. Sign in at `https://<your-domain>/admin`, create a community, add homes and photos, then use
-   the QR button to print the sign. QR codes point at `https://<your-domain>/c/<communityId>`.
+   the QR button to print the sign. QR codes point at `https://<your-domain>/c/<link>`, where the link is the
+   community's clean name (`salt-grass`) when it has one and otherwise its id (`salt-grass-zoxa`).
+
+   **The buyer link.** A community's id is a name plus four random letters. It keys the database, the
+   Zapier rate webhook and every printed sign, so it never changes. A community also has a clean **buyer link**
+   (Edit community → Buyer link): new communities get one from their name (`salt-grass`, then `salt-grass-2`), and an
+   existing one shows what it would be with a button to use it. The link resolves to the same community as the id and as
+   every link it has had, so nothing printed or shared has to be redone; a buyer who opens the older address is shown the
+   clean one in the address bar without a reload, and what they saved on the device follows them. A clean link is
+   guessable from the name, so a community that must stay unlisted before launch should keep its id. The QR dialog and
+   the sign write the link with `PUBLIC_ORIGIN` when it is set, not whichever address the admin was opened on.
 6. Test **Add to Home Screen** on iOS Safari and Android Chrome.
 
 To deploy without the blueprint: create a Web Service (build `npm install && npm run build`,
@@ -435,12 +446,18 @@ above it were last updated (from Setup → Live rates), left out if rates have n
 Under **Setup → Home screen**:
 
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
-  shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state.
-  *Find out if you qualify* opens a sheet with **Call**, **Text** and **Email** on a phone, or **Email** on a
-  computer, and the message already typed: *Contact me about the preferred lender incentive for* the development
-  (editable). The number is the incentive's own, or the lender's when blank. The email is the incentive's own, or
+  shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state, and
+  they are typed in Setup, so write dollar amounts in full with the dollar sign (`$20,000`).
+  *Find out if you qualify* opens a sheet with **Call** and **Text** on a phone and a **message form**: the buyer's
+  name and email are filled in, the message is editable, and Touradoor sends it to the incentive email (else the loan team
+  email) with the buyer as the reply-to, so it works without a mail program. It needs `RESEND_API_KEY` and `EMAIL_FROM`; without
+  them the buyer is told it cannot be sent from here and is shown the address (to copy or open in their mail app) and the
+  number. A send that failed is noted on the lead and does not use up the buyer's limit (one message per 20 seconds, three an
+  hour). The message starts as *Contact me about the preferred lender incentive for* the development (editable). The
+  number is the incentive's own, or the lender's when blank. The email is the incentive's own, or
   the lender's **Loan team email** (Setup → Lender & compliance → Lender, `myloanteam@summithomeloans.com` to start)
-  when blank; with neither set, a computer is shown the number to call. A label saved while it was the old default
+  when blank (an address that is not a single valid one is skipped, not allowed to hide the other); with neither set, a
+  computer is shown the number to call. A label saved while it was the old default
   (*Find out if I qualify*) reads as the new one.
 - **FAQ.** Up to twenty questions and answers, shown on the home screen after the financing card. A new community
   starts with eight **starter questions** (what the app does, touring, My Home Plan, the payment estimate, down
@@ -464,9 +481,23 @@ are several), on every home, and on a **Meet the agent** page. Each card has the
 **Call**, **Text** (phones only) and **Email** buttons, and a **Tour the homes** button that opens a message to
 the agent that is already written: a text on a phone, an email on a computer (whichever the agent has, if only
 one). The **Explore Homes** screen has *Ready to look at homes?* under the homes (one button per agent a message can
-reach), and each model's page starts its buttons with **Talk about financing**, which opens the same day-then-time
-picker for a conversation with the lender. A tour is asked for further down the model's page, under **Want a Tour?**,
-through the agent cards (Call, Text and Email, not a tour button), or from **Talk to the team** in the bottom bar. Nothing opens a new tab. There is no realtor disclaimer line: the old note and fair housing line were removed. The *Realtors*
+reach), now two buttons: **Schedule a Tour** (the realtors page; the booking sheet when there are no realtors) and **Find out
+about financing** (the lender sheet). Each model's page starts its buttons with **Talk about financing**, which opens the
+same sheet for a conversation with the lender. A tour is asked for further down the model's page, under **Want a Tour?**,
+through the agent cards (Call, Text and Email, not a tour button), or from **Book a tour** in the header or bottom bar.
+Text is a link on a phone; on a computer, which cannot send a text, it copies the number and says so.
+
+**Booking times on and off.** The Times tab has a switch (*Buyers can book these times*, on unless switched off). On,
+**Book a tour** and **Talk about financing** open a day-then-time picker, and a buyer can still choose *Or call, text or email
+instead*. Off, or with no times published, they open a sheet of people to call, text or email, each message already
+written: the sales team (the phone and email on the Times tab), the realtors for a tour, the lender for financing. Off also
+means the server serves no times and refuses a booking (even from a sheet that was already open); the published times and any
+booking already made are kept. Booking can also ask for **another email** (a spouse or co-buyer): it is kept on the
+lead, the builder's alert and the lead page show it, and the plan is emailed to it too on the plan screen.
+
+**A model's page** opens with its hero photo (the first photo; the Homes tab has *Hero*, make-hero and move arrows), the
+other photos as tiles under the floor plans, and, when there is one, **Watch the video tour**: an uploaded file or a
+YouTube/Vimeo link, never both. Nothing opens a new tab. There is no realtor disclaimer line: the old note and fair housing line were removed. The *Realtors*
 switch under **Tools → What buyers see** hides the realtors. Contact details are published as given: a website
 must be an `http(s)` address and an email must contain an `@`.
 
