@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { CONTACT_METHODS, consentText, formatSlotDate, formatSlotTime, TOOLS } from '@shared/domain.js';
+import { CONTACT_METHODS, consentText, formatSlotDate, formatSlotTime, safeHref, TOOLS } from '@shared/domain.js';
 import { complianceOf } from '@shared/compliance.js';
 import { buyerApi } from '../lib/api.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
@@ -168,6 +168,8 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
     { label: 'Homes I Like', to: `/c/${communityId}/saved` },
     { label: 'My Home Plan', to: `/c/${communityId}/plan` },
   ];
+  // The landing page no longer has a button for the builder's own website, so the menu is where it lives.
+  const website = safeHref(community?.websiteUrl ?? '');
 
   const go = (to) => {
     onClose();
@@ -235,6 +237,11 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
         >
           Add to My Phone
         </button>
+        {website ? (
+          <a href={website} target="_blank" rel="noopener noreferrer" style={{ ...menuSecondary, display: 'flex', alignItems: 'center' }}>
+            Community website
+          </a>
+        ) : null}
       </div>
     </div>
   );

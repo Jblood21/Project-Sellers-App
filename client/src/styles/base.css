@@ -636,6 +636,25 @@ textarea.input { min-height: auto; resize: vertical; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
+/* The landing page: the community's picture, "Welcome to <name>", and the way in. The picture is the
+   page, so it is tall; with none uploaded it is a quiet panel of the theme's own colours, never
+   placeholder words. */
+.b-landing__hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 200px;
+  max-height: 54vh;
+  border-radius: var(--t-radlg);
+  overflow: hidden;
+  margin: 0 0 22px;
+  background: linear-gradient(135deg, var(--t-acc2), var(--t-acc));
+}
+.b-landing__hero > div { position: absolute; inset: 0; }
+.b-landing__hero--none { aspect-ratio: 16 / 9; min-height: 140px; max-height: 32vh; }
+.b-landing__welcome { margin: 0 0 20px; font-size: 32px; line-height: 1.1; overflow-wrap: anywhere; }
+.b-gateform { display: block; }
+
 /* Placeholder used wherever a community or home has no photo yet. */
 .photo-empty {
   width: 100%;

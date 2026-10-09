@@ -10,7 +10,6 @@ import StructuredData from './StructuredData.jsx';
 import AllTools from './screens/AllTools.jsx';
 import Area from './screens/Area.jsx';
 import Explore from './screens/Explore.jsx';
-import Gate from './screens/Gate.jsx';
 import GuideArticle from './screens/GuideArticle.jsx';
 import Guides from './screens/Guides.jsx';
 import HomeDetail from './screens/HomeDetail.jsx';
@@ -122,14 +121,14 @@ function BuyerShell() {
 
       <main id="b-main" tabIndex={-1} className="b-main">
         <Routes>
-          <Route index element={<Landing />} />
+          <Route index element={<Landing onEntered={(result) => !result.returning && setTutorialOpen(true)} />} />
           <Route
             path="start"
             element={
               signedIn ? (
                 <Navigate to={`/c/${communityId}/tools`} replace />
               ) : (
-                <Gate onEntered={(result) => !result.returning && setTutorialOpen(true)} />
+                <Landing onEntered={(result) => !result.returning && setTutorialOpen(true)} />
               )
             }
           />
