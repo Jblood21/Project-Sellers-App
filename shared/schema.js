@@ -445,7 +445,7 @@ function metaOf(ctx, view, canonical, primaryImage) {
       break;
     case 'start':
       title = `Get started | ${name}`;
-      description = `Share your name, email and phone to open the free homebuyer tools for ${name}.`;
+      description = `Share your name and email to open the free homebuyer tools for ${name}.`;
       break;
     case 'tools':
       title = `Homebuyer tools | ${name}`;

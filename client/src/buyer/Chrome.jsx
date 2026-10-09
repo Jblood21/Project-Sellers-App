@@ -39,7 +39,7 @@ const TUTORIAL = [
  *   onTalk      opens the talk-to-the-team sheet; this header has no button for
  *               it (the menu and every screen already do) and a layout's does
  *   signedIn    false on the public guide pages, where the tools menu would only
- *               bounce a visitor to the contact gate. The header then offers the
+ *               bounce a visitor to the sign-in page. The header then offers the
  *               one thing that is useful there: the way into the app.
  */
 export function BuyerHeader({ onOpenMenu, signedIn = true }) {
@@ -126,14 +126,14 @@ export function BuyerHeader({ onOpenMenu, signedIn = true }) {
         </button>
       ) : (
         <Link
-          to={`/c/${communityId}/start`}
+          to={`/c/${communityId}`}
           className="b-btn"
           style={{
             width: 'auto', flex: 'none', minHeight: 44, padding: '0 14px', fontSize: 13,
             display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
           }}
         >
-          Open the app
+          Sign in
         </Link>
       )}
     </header>

@@ -78,8 +78,9 @@
 }
 /* The landing page's welcome line is the page, not a page title, so it is larger than the 24px above. */
 .b-app.l-cornerpost .b-shell > h1.b-head.b-landing__welcome {
-  font-size: 32px !important;
-  line-height: 38px;
+  /* 32px unless script has fitted the name (--welcome-size); the line height follows the size. */
+  font-size: var(--welcome-size, 32px) !important;
+  line-height: 1.19;
   margin-bottom: 20px !important;
 }
 /* The lede under a title: 14/20 muted, and 24px before the first thing. Also

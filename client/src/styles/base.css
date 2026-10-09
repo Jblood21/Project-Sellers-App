@@ -664,8 +664,8 @@ textarea.input { min-height: auto; resize: vertical; }
   min-height: 160px;
   /* Leaves room under the picture for the headline and the sign-in form, so on a small screen the
      button is not pushed below the fold. A line each for older browsers that lack the small-viewport unit. */
-  max-height: min(54vh, calc(100vh - 450px));
-  max-height: min(54vh, calc(100svh - 450px));
+  max-height: min(54vh, calc(100vh - 470px));
+  max-height: min(54vh, calc(100svh - 470px));
   border-radius: var(--t-radlg);
   overflow: hidden;
   margin: 0 0 22px;
@@ -673,7 +673,15 @@ textarea.input { min-height: auto; resize: vertical; }
 }
 .b-landing__hero > div { position: absolute; inset: 0; }
 .b-landing__hero--none { aspect-ratio: 16 / 9; min-height: 140px; max-height: 32vh; }
-.b-landing__welcome { margin: 0 0 20px; font-size: 32px; line-height: 1.1; overflow-wrap: anywhere; }
+/* The size is the layout's own unless script sets --welcome-size to fit this community's name (useFitHeading),
+   and balanced lines keep a long name from ending on one lonely word. */
+.b-landing__welcome {
+  margin: 0 0 20px;
+  font-size: var(--welcome-size, 32px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
 .b-gateform { display: block; }
 
 /* A home's hero, and the tiles of its other photos under the floor plans. */

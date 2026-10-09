@@ -113,11 +113,11 @@ export default function GuideArticle() {
             afford and whether down payment help applies. It’s free.
           </p>
           <Link
-            to={signedIn ? `/c/${communityId}/explore` : `/c/${communityId}/start`}
+            to={signedIn ? `/c/${communityId}/explore` : `/c/${communityId}`}
             className="b-btn"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
           >
-            Explore Homes
+            {signedIn ? 'Explore Homes' : 'Sign in to explore homes'}
           </Link>
         </section>
       ) : null}

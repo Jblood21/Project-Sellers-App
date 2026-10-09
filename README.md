@@ -5,7 +5,12 @@
 A mobile-first web app for individual builder communities, with two sides sharing one backend:
 
 - **Buyer PWA** (`/c/:link`, the community's clean link or its id) — reached by scanning the QR code on a development sign.
-  The first screen is the community's picture, "Welcome to <name>" and the sign-in form, nothing else.
+  The first screen is the community's picture, "Welcome to <name>" and the sign-in form (name, email, and a cell
+  number that is optional), nothing else. It is the only way in: `/c/:link/start`, the "Sign in" buttons on the guide
+  pages and a visitor who is not signed in at any other address (the public guides aside) all lead back to it. The
+  headline is sized to the name (`shared/fitText.js`, measured in the browser before the first paint and again on a
+  resize or when a web font loads): a short name is set larger, a long one smaller and on up to three lines, never
+  wider than the screen. A name of about 60 characters or more is set at the smallest size and wraps onto more lines.
   Buyers explore homes, meet the community's realtors, read the area guide and the buyer guides,
   run seven consumer-friendly financial tools, save homes, build a progressive "My Home Plan" and
   download it as a PDF. Entry to the app is gated behind a name and email (a cell number is optional; one is
@@ -514,7 +519,7 @@ must be an `http(s)` address and an email must contain an `@`.
 Thirteen long-form guides on buying a new-construction home in Utah ship with the app (the
 markdown in `server/content/guides`, kept word for word). They are the **only public part of the buyer
 app**: `/c/:id/guides` and `/c/:id/guides/:slug` open without the contact gate, so a search engine or
-a shared link can reach them; the header on those pages offers to open the app instead of the tools menu.
+a shared link can reach them; the header on those pages offers **Sign in** instead of the tools menu.
 
 Each community gets its own copy, edited under **Learn → Buyer guides**: title, category, byline,
 note, summary, address (slug), a markdown body with a live preview, and a
