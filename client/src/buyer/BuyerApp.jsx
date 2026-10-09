@@ -77,7 +77,8 @@ function BuyerShell() {
   // app stays inside its scope and nothing reloads.
   useEffect(() => {
     if (!community?.urlKey || community.urlKey === communityId) return;
-    const rest = location.pathname.replace(/^\/c\/[^/]+/, '');
+    // A bare trailing slash is dropped; a deeper path (tools/payment/) keeps its own.
+    const rest = location.pathname.replace(/^\/c\/[^/]+/, '').replace(/^\/+$/, '');
     navigate(`/c/${encodeURIComponent(community.urlKey)}${rest}${location.search}${location.hash}`, { replace: true });
   }, [community, communityId, location.pathname, location.search, location.hash, navigate]);
 
