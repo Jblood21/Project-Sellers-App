@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import Photo from '../../components/Photo.jsx';
-import { isSold, unitsLabel } from '@shared/domain.js';
+import { isSold, unitsLabel, videoEmbed } from '@shared/domain.js';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
 import AgentCard from '../AgentCard.jsx';
+import VideoViewer from '../VideoViewer.jsx';
 
 export default function HomeDetail({ onOpenLender }) {
   // Which plan the viewer is showing; null means closed.
   const [planIndex, setPlanIndex] = useState(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  // Which of the home's photos the viewer is showing; null means closed. And the video tour player.
+  const [photoIndex, setPhotoIndex] = useState(null);
+  const [videoOpen, setVideoOpen] = useState(false);
   const { homes, lead, toggleSave, track, setTool, agents, features } = useBuyer();
   const { communityId, homeId } = useParams();
   const navigate = useNavigate();
@@ -21,34 +25,25 @@ export default function HomeDetail({ onOpenLender }) {
   if (!home) return <Navigate to={`/c/${communityId}/explore`} replace />;
 
   const saved = lead?.savedHomeIds?.includes(home.id);
-  const photos = home.photos.length ? home.photos : [null];
+  // The first photo is the hero; the rest are tiles under the floor plans. The builder chooses the order.
+  const hero = home.photos[0] ?? null;
+  const more = home.photos.slice(1);
+  // The video tour is an uploaded file or a YouTube/Vimeo link, never both. Nothing is shown without one.
+  const embed = home.videoUrl ? '' : videoEmbed(home.videoLink);
+  const hasVideo = Boolean(home.videoUrl || embed);
 
   return (
     <div className="b-shell" style={{ paddingTop: 16 }}>
-      <div
-        className="scroll-x"
-        style={{
-          display: 'flex', gap: 10, overflowX: 'auto', scrollSnapType: 'x mandatory',
-          margin: '0 -20px 6px', padding: '0 20px',
-        }}
+      {/* The hero: this home's first photo, big. Tap it to see all of them full size. */}
+      <button
+        type="button"
+        className="b-homehero"
+        disabled={!hero}
+        onClick={() => setPhotoIndex(0)}
+        aria-label={hero ? `Open ${home.name} photo 1 of ${home.photos.length}` : undefined}
       >
-        {photos.map((photo, index) => (
-          <div
-            key={photo?.id ?? index}
-            style={{
-              width: 'min(318px, 80vw)', height: 200, flex: 'none',
-              borderRadius: 'var(--t-radlg)', overflow: 'hidden', scrollSnapAlign: 'center',
-            }}
-          >
-            <Photo photo={photo} label={`${home.name} — photo ${index + 1}`} alt={`${home.name} photo ${index + 1} of ${photos.length}`} />
-          </div>
-        ))}
-      </div>
-      {home.photos.length > 1 ? (
-        <p style={{ fontSize: 11, color: 'var(--t-mut)', margin: '0 0 12px' }}>
-          {home.photos.length} photos · swipe to browse
-        </p>
-      ) : null}
+        <Photo eager photo={hero} label={`${home.name} — photo coming soon`} alt={`${home.name} photo 1 of ${home.photos.length || 1}`} />
+      </button>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
         <h1 className="b-head" style={{ fontSize: 24 }} data-punct={/[.?!]$/.test(home.name ?? '') || undefined}>{home.name}</h1>
@@ -84,30 +79,21 @@ export default function HomeDetail({ onOpenLender }) {
       <p style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
 
       {/*
-        Under the description rather than in the photo strip: a buyer swiping
-        photos is scanning, and a video is a decision to stop and watch. It sits
-        where they have already decided this home is worth reading about.
+        Under the description: a buyer scanning photos is not yet deciding to stop and watch. A button, not an
+        always-there player, so nobody on mobile data pays for a clip they scrolled past.
       */}
-      {home.videoUrl ? (
-        <div style={{ marginBottom: 16 }}>
-          <span className="b-lbl" style={{ display: 'block', marginBottom: 8, color: 'var(--t-accT)' }}>
-            Walk through this home
-          </span>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video
-            src={home.videoUrl}
-            controls
-            playsInline
-            // metadata, not auto: the first frame and the length are enough to
-            // decide to watch, and a buyer on mobile data should not pay for a
-            // clip they scrolled past.
-            preload="metadata"
-            style={{
-              width: '100%', display: 'block', background: '#000',
-              borderRadius: 'var(--t-radlg)',
-            }}
-          />
-        </div>
+      {hasVideo ? (
+        <button
+          type="button"
+          className="b-btn b-btn-outline"
+          style={{ marginBottom: 16 }}
+          onClick={() => {
+            track(`Watched the video tour of ${home.name}`);
+            setVideoOpen(true);
+          }}
+        >
+          ▶ Watch the video tour
+        </button>
       ) : null}
 
       {home.floorPlans?.length ? (
@@ -131,6 +117,26 @@ export default function HomeDetail({ onOpenLender }) {
             ))}
           </div>
           <span style={{ fontSize: 11.5, color: 'var(--t-mut)' }}>Tap a plan to see it full size.</span>
+        </div>
+      ) : null}
+
+      {more.length ? (
+        <div style={{ marginBottom: 16 }}>
+          <span className="b-lbl" style={{ display: 'block', marginBottom: 8 }}>More photos</span>
+          <div className="b-tiles">
+            {more.map((photo, index) => (
+              <button
+                key={photo.id}
+                type="button"
+                className="b-tile"
+                onClick={() => setPhotoIndex(index + 1)}
+                aria-label={`Open ${home.name} photo ${index + 2} of ${home.photos.length}`}
+              >
+                <Photo photo={photo} alt={`${home.name} photo ${index + 2} of ${home.photos.length}`} />
+              </button>
+            ))}
+          </div>
+          <span style={{ fontSize: 11.5, color: 'var(--t-mut)' }}>Tap a photo to see it full size.</span>
         </div>
       ) : null}
 
@@ -201,6 +207,21 @@ export default function HomeDetail({ onOpenLender }) {
       label="See My Payment"
       onClose={() => setPaymentOpen(false)}
     />
+    <ImageViewer
+        photos
+        images={home.photos}
+        index={photoIndex}
+        onIndex={setPhotoIndex}
+        onClose={() => setPhotoIndex(null)}
+        label={`${home.name} photo`}
+      />
+    <VideoViewer
+        open={videoOpen}
+        onClose={() => setVideoOpen(false)}
+        label={`${home.name} video tour`}
+        src={home.videoUrl}
+        embed={embed ?? ''}
+      />
     <ImageViewer
         images={home.floorPlans ?? []}
         index={planIndex}

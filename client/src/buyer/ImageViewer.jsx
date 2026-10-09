@@ -9,7 +9,7 @@ import { useEffect } from 'react';
  * now three ways out — the button, the backdrop, and Escape — and none of them
  * leaves the app.
  */
-export default function ImageViewer({ images = [], index = 0, onIndex, onClose, label = 'Image' }) {
+export default function ImageViewer({ images = [], index = 0, onIndex, onClose, label = 'Image', photos = false }) {
   const open = index !== null && index >= 0 && index < images.length;
 
   useEffect(() => {
@@ -77,7 +77,8 @@ export default function ImageViewer({ images = [], index = 0, onIndex, onClose, 
         <img
           src={images[index].url}
           alt={`${label} ${index + 1}`}
-          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: '#fff', borderRadius: 8 }}
+          // A drawing sits on white so its lines read; a photograph does not need a plate.
+          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', background: photos ? 'transparent' : '#fff', borderRadius: 8 }}
         />
       </div>
 

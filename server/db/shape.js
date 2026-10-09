@@ -76,6 +76,8 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     // walkthrough has to arrive under a new address or every browser that already
     // played the old one keeps playing it.
     videoUrl: video ? `/api/homes/${row.id}/video?v=${revisionOfFile(video)}` : '',
+    // The pasted YouTube or Vimeo link, when the tour is a link rather than a file. At most one of the two.
+    videoLink: row.video_link ?? row.videoLink ?? '',
     videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
   };
 }

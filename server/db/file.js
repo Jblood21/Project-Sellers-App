@@ -312,7 +312,7 @@ export function createFileStore(path) {
       if (!row) return null;
       for (const key of [
         'name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability',
-        'lotNumber', 'readyOn', 'unitsAvailable', 'position',
+        'lotNumber', 'readyOn', 'unitsAvailable', 'position', 'videoLink',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
@@ -431,6 +431,14 @@ export function createFileStore(path) {
     async deleteHighlight(id) {
       db.highlights = db.highlights.filter((h) => h.id !== id);
       db.photos = db.photos.filter((p) => p.highlightId !== id);
+      save();
+    },
+
+    async setHomePhotoOrder(homeId, orderedIds) {
+      orderedIds.forEach((id, index) => {
+        const row = db.photos.find((p) => p.id === id && p.homeId === homeId && p.kind === 'home');
+        if (row) row.position = index;
+      });
       save();
     },
 

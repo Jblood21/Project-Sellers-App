@@ -79,6 +79,7 @@ export const adminApi = {
     request(`/api/admin/communities/${encodeURIComponent(id)}/rates/check`, { method: 'POST', body: {}, token }),
   createHome: (token, communityId, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/homes`, { method: 'POST', body, token }),
+  reorderHomePhotos: (token, id, ids) => request(`/api/admin/homes/${encodeURIComponent(id)}/photos/order`, { method: 'PUT', body: { ids }, token }),
   updateHome: (token, id, body) => request(`/api/admin/homes/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
   deleteHome: (token, id) => request(`/api/admin/homes/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   addHomePhoto: (token, homeId, body) =>

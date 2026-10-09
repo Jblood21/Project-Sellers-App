@@ -443,7 +443,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'sqft',
         description: 'description', availability: 'availability', lotNumber: 'lot_number',
-        readyOn: 'ready_on', unitsAvailable: 'units_available', position: 'position',
+        readyOn: 'ready_on', unitsAvailable: 'units_available', position: 'position', videoLink: 'video_link',
       };
       const sets = [];
       const params = [];
@@ -524,6 +524,16 @@ export function createPostgresStore(connectionString) {
 
     async deletePhoto(id) {
       await q(`DELETE FROM photos WHERE id = $1`, [id]);
+    },
+
+    /** The gallery in the order given: the first is the home's hero. Only this home's gallery rows move. */
+    async setHomePhotoOrder(homeId, orderedIds) {
+      await q(
+        `UPDATE photos SET position = o.pos
+           FROM unnest($2::text[]) WITH ORDINALITY AS o(id, pos)
+          WHERE photos.id = o.id AND photos.home_id = $1 AND photos.kind = 'home'`,
+        [homeId, orderedIds],
+      );
     },
 
     async listHomePhotosOfKind(homeId, kind) {

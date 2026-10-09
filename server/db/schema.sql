@@ -83,6 +83,10 @@ ALTER TABLE homes ADD COLUMN IF NOT EXISTS ready_on TEXT NOT NULL DEFAULT '';
 -- Anything reading this has to keep NULL and 0 apart: `Number(x) || 0` collapses
 -- them and turns every ordinary home into a sold one.
 ALTER TABLE homes ADD COLUMN IF NOT EXISTS units_available INTEGER;
+-- A YouTube or Vimeo link for the home's video tour, as an alternative to uploading a file (which is capped
+-- and heavy to serve). A home has one or the other, never both; the routes enforce it. Not videoUrl, which
+-- already means the uploaded file.
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS video_link TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS homes_community_idx ON homes(community_id);
 

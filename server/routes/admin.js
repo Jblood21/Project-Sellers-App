@@ -538,6 +538,17 @@ export function adminRouter() {
     if (req.body?.unitsAvailable !== undefined) {
       patch.unitsAvailable = unitCount(req.body.unitsAvailable);
     }
+    // The video tour as a link. '' removes it. Anything else has to be a YouTube or Vimeo address the player
+    // can embed, so a bad one is refused here and never shows a buyer a blank box. A home has one source:
+    // saving a link removes an uploaded file.
+    if (req.body?.videoLink !== undefined) {
+      const link = str(req.body.videoLink).slice(0, 300);
+      if (link && !videoEmbed(link)) {
+        return res.status(400).json({ error: 'That link is not a YouTube or Vimeo video.' });
+      }
+      patch.videoLink = link;
+      if (link) await store.deleteHomeVideo(home.id);
+    }
     res.json(await store.updateHome(home.id, patch));
   });
 
@@ -675,7 +686,10 @@ export function adminRouter() {
     const read = readVideo(req.body, TRIM_INSTEAD);
     if (read.error) return res.status(400).json({ error: read.error });
 
-    res.json(await store.setHomeVideo(home.id, { communityId: home.communityId, ...read }));
+    const saved = await store.setHomeVideo(home.id, { communityId: home.communityId, ...read });
+    // An uploaded file replaces a pasted link: one source per home.
+    if (home.videoLink) await store.updateHome(home.id, { videoLink: '' });
+    res.json(await store.getHome(home.id) ?? saved);
   });
 
   router.delete('/homes/:id/video', async (req, res) => {
@@ -710,6 +724,25 @@ export function adminRouter() {
     }
     return { contentType, data };
   };
+
+  /**
+   * Puts the gallery in the order given. The first photo is the hero buyers see at the top of the home.
+   * The list has to be exactly this home's gallery photos, each once: a request that leaves one out or
+   * adds another home's would otherwise quietly reorder (or leak into) something it does not own.
+   */
+  router.put('/homes/:id/photos/order', async (req, res) => {
+    const store = await getStore();
+    const home = await store.getHome(req.params.id);
+    if (!home) return res.status(404).json({ error: 'Home not found' });
+    const ids = req.body?.ids;
+    const own = (await store.listHomePhotosOfKind(home.id, 'home')).map((photo) => photo.id);
+    if (!Array.isArray(ids) || ids.length !== own.length || !ids.every((id) => typeof id === 'string')
+      || new Set(ids).size !== ids.length || !ids.every((id) => own.includes(id))) {
+      return res.status(400).json({ error: 'Send every photo of this home once, in the order you want.' });
+    }
+    await store.setHomePhotoOrder(home.id, ids);
+    res.json(await store.getHome(home.id));
+  });
 
   router.post('/homes/:id/photos', async (req, res) => {
     const store = await getStore();
