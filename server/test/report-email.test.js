@@ -200,6 +200,151 @@ for (const kind of backends()) {
       delete process.env.RATE_LIMITS;
     });
 
+    test('someone who signs up while the mail is going out is new in the next report, never in neither', async () => {
+      process.env.RATE_LIMITS = 'off';
+      const cid = await fresh({ name: 'Report Midsend' });
+      await signUp(cid, { name: 'Before Send', email: 'before@report.test' });
+      let latecomer = null;
+      restoreMail();
+      restoreMail = setTransportForTests(async (payload) => {
+        sent.push(payload);
+        // The provider is slow to answer; in that time somebody scans the sign.
+        latecomer = await signUp(cid, { name: 'During Send', email: 'during@report.test' });
+        return { id: 'x' };
+      });
+      sent.length = 0;
+      const first = await report(cid);
+      assert.equal(first.status, 200);
+      assert.doesNotMatch(lastMail().text, /During Send/, 'not in the one that was already being written');
+      assert.ok(latecomer);
+      restoreMail();
+      restoreMail = setTransportForTests(async (payload) => { sent.push(payload); return { id: 'x' }; });
+
+      sent.length = 0;
+      const second = await report(cid);
+      assert.equal(second.status, 200);
+      assert.equal(second.body.newPeople, 1);
+      assert.match(lastMail().text, /During Send/, 'but in the next');
+      assert.doesNotMatch(lastMail().text.split('NEW PEOPLE SINCE')[1], /Before Send/);
+      delete process.env.RATE_LIMITS;
+    });
+
+    test('the time a report went out is saved on its own: a Setup save made meanwhile is kept, in both stores', async () => {
+      const cid = await fresh({ name: 'Report Stamp' });
+      await admin(`/communities/${cid}`, { method: 'PATCH', body: { settings: { teamPhone: '(801) 555-0199', incentiveTitle: 'Hello there' } } });
+      const stamped = await app.store.stampReportSent(cid, '2026-10-12T15:00:00.000Z');
+      assert.equal(stamped.settings.reportLastSentAt, '2026-10-12T15:00:00.000Z');
+      assert.equal(stamped.settings.reportEmail, 'sales@report.test');
+      assert.equal(stamped.settings.teamPhone, '(801) 555-0199');
+      assert.equal(stamped.settings.incentiveTitle, 'Hello there');
+      assert.equal(await app.store.stampReportSent('no-such-community-abcd', '2026-10-12T15:00:00.000Z'), null);
+
+      // A Setup save in the middle of a send: the stamp lands without undoing it.
+      restoreMail();
+      restoreMail = setTransportForTests(async (payload) => {
+        sent.push(payload);
+        const res = await admin(`/communities/${cid}`, { method: 'PATCH', body: { settings: { teamPhone: '(801) 555-0200' } } });
+        assert.equal(res.status, 200);
+        return { id: 'x' };
+      });
+      process.env.RATE_LIMITS = 'off';
+      assert.equal((await report(cid)).status, 200);
+      const after = await settingsOf(cid);
+      assert.equal(after.teamPhone, '(801) 555-0200', 'the change made during the send survived');
+      assert.ok(Date.parse(after.reportLastSentAt) > Date.parse('2026-10-12T15:00:00.000Z'));
+      restoreMail();
+      restoreMail = setTransportForTests(async (payload) => { sent.push(payload); return { id: 'x' }; });
+      delete process.env.RATE_LIMITS;
+    });
+
+    test('if the time cannot be saved after the mail went out, it still says it went out', async () => {
+      const cid = await fresh({ name: 'Report Unstamped' });
+      const original = app.store.stampReportSent;
+      app.store.stampReportSent = async () => { throw new Error('database went away'); };
+      const quiet = console.error;
+      console.error = () => {};
+      try {
+        sent.length = 0;
+        const res = await report(cid);
+        assert.equal(res.status, 200, 'the mail is out, so this is not a failure');
+        assert.equal(res.body.sent, true);
+        assert.equal(res.body.notRecorded, true);
+        assert.equal(sent.length, 1);
+      } finally {
+        app.store.stampReportSent = original;
+        console.error = quiet;
+      }
+    });
+
+    test('a person the team closed who books a time again comes back, and is in the next report', async () => {
+      const cid = await fresh({ name: 'Report Reopen' });
+      const slots = (await admin(`/communities/${cid}/slots`, { method: 'POST', body: { dates: [dayIso(4)], times: ['10:00', '11:00'] } })).body.slots;
+      const buyer = await signUp(cid, { name: 'Closed Carl', email: 'carl@report.test', phone: '(801) 555-0111' });
+      await admin(`/leads/${buyer.lead.id}`, { method: 'PATCH', body: { archived: true } });
+      assert.ok((await app.store.getLead(buyer.lead.id)).archivedAt);
+
+      await book(cid, buyer, slots[0]);
+      const lead = await app.store.getLead(buyer.lead.id);
+      assert.equal(lead.archivedAt, null, 'booking a time reopens the lead');
+      assert.ok(lead.tour);
+      const activity = (await admin(`/leads/${buyer.lead.id}`)).body.activity.map((a) => a.text ?? a.label ?? a.summary ?? JSON.stringify(a)).join('\n');
+      assert.match(activity, /Reopened/);
+
+      process.env.RATE_LIMITS = 'off';
+      sent.length = 0;
+      assert.equal((await report(cid)).status, 200);
+      assert.match(lastMail().text, /SCHEDULED CALLS WAITING \(1\)[\s\S]*Closed Carl/);
+      delete process.env.RATE_LIMITS;
+    });
+
+    test('the rates webhook answers with the settings buyers see, not the team\'s private addresses', async () => {
+      const cid = await fresh({ name: 'Report Rates' });
+      await admin(`/communities/${cid}`, { method: 'PATCH', body: { settings: { notifyEmail: 'alerts@report.test' } } });
+      await app.store.stampReportSent(cid, '2026-10-12T15:00:00.000Z');
+      process.env.RATES_WEBHOOK_SECRET = 'hook-secret';
+      try {
+        const res = await api(`/api/communities/${cid}/rates`, { method: 'POST', headers: { 'x-webhook-secret': 'hook-secret' }, body: { conv: '6.25' } });
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.equal(res.body.settings.rateConv, '6.25');
+        assert.ok(res.body.settings.ratesUpdatedAt);
+        const text = JSON.stringify(res.body);
+        assert.ok(!text.includes('report.test'), 'no private address in the answer');
+        for (const key of ['notifyEmail', 'reportEmail', 'reportLastSentAt']) assert.ok(!(key in res.body.settings), key);
+        // The change itself did not touch them.
+        const kept = await settingsOf(cid);
+        assert.equal(kept.reportEmail, 'sales@report.test');
+        assert.equal(kept.notifyEmail, 'alerts@report.test');
+        assert.equal(kept.reportLastSentAt, '2026-10-12T15:00:00.000Z');
+      } finally {
+        delete process.env.RATES_WEBHOOK_SECRET;
+      }
+    });
+
+    test('a community can email at most 30 reports a day, and gets the day back after it', async () => {
+      process.env.RATE_LIMITS = 'on';
+      const realNow = Date.now;
+      let skipped = 0;
+      Date.now = () => realNow() + skipped;
+      try {
+        const cid = await fresh({ name: 'Report Daily' });
+        for (let i = 0; i < 30; i += 1) {
+          const res = await report(cid);
+          assert.equal(res.status, 200, `report ${i + 1}: ${JSON.stringify(res.body)}`);
+          skipped += 16 * 1000; // past the double-click guard, well inside the day
+        }
+        const blocked = await report(cid);
+        assert.equal(blocked.status, 429, 'the 31st in a day is held');
+        assert.ok(Number(blocked.headers.get('retry-after')) > 60 * 60, 'and told to wait hours, not seconds');
+        const other = await fresh({ name: 'Report Daily Other' });
+        assert.equal((await report(other)).status, 200, 'another community has its own count');
+        skipped += 24 * 60 * 60 * 1000;
+        assert.equal((await report(cid)).status, 200, 'the next day it works again');
+      } finally {
+        Date.now = realNow;
+        delete process.env.RATE_LIMITS;
+      }
+    });
+
     test('with no sender set up it says why a send fails, and it cannot be pressed twice in a breath', async () => {
       process.env.RATE_LIMITS = 'on';
       try {

@@ -96,6 +96,7 @@ See [`.env.example`](.env.example).
 | `PUBLIC_ORIGIN` | The one public address of the site with the `https://`, e.g. `https://touradoor.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data, and into the links in emails; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. A value without `https://` is ignored, and the server says so at boot. |
 | `REDIRECT_TO_PUBLIC_ORIGIN` | `off` stops the site sending a visit to its Render address (`*.onrender.com`) on to `PUBLIC_ORIGIN`. It is listed in `render.yaml` as `on`; if the custom domain ever has to be taken offline, change it to `off` in the Render dashboard (Environment). The service restarts and the Render address works again within a minute or two. The admin pages (`/admin`) and the API are never redirected, so the owner always has a way in. It assumes the domain forwards the Render host name as it received it; a proxy in front (Cloudflare, a Worker) that rewrites `Host` to the `*.onrender.com` name would send every visit round in a loop, so set it to `off` there. Buyers signed in at the Render address have to sign in again at the domain (and an app added to the home screen from the old address has to be added again): a browser keeps a visitor's saved details per address. |
 | `PORT` | Defaults to 3000; Render sets this. |
+| `REPORT_TIME_ZONE` | The time zone whose days the lead report counts in (an IANA name, e.g. `America/Denver`). Unset or not a real zone, it is Mountain Time. |
 | `RATE_LIMITS` | `off` turns the request limits off, `on` forces them on. Unset they are on, except under `node --test`. |
 | `DATA_FILE` | Where the JSON-file store keeps its data when `DATABASE_URL` is unset (default `data/db.json`). |
 | `RESEND_ENDPOINT` | Overrides the Resend API address; only tests and local mail catchers need it. |
@@ -362,13 +363,23 @@ Three messages — the app is deliberately quiet.
   unsaved change. The email lists the **scheduled calls still waiting** (a booked time or a call request that
   nobody has marked handled; ones whose day has passed are listed apart so they are not missed) and the
   **people who signed up since the last report** (everyone, the first time), each with phone, email, second email,
-  saved homes, what they worked out, whether they agreed to calls and texts, and a link to open them. A
-  **spreadsheet of everyone** (closed leads marked) is attached, so a long list is never only in the email: the
-  email itself shows the first 50. Names and notes are typed by buyers, so any spreadsheet cell that starts with
-  `=`, `+`, `-` or `@` is written as plain text and cannot run as a formula. The time it was sent
-  (`settings.reportLastSentAt`, the server's alone: a Setup save cannot change it) is what makes the next report
-  say who is new, and it is kept only when the mail provider accepted the send. It is limited to one every 15
-  seconds and 30 a day per community. The address and the stamp are never served to buyers.
+  saved homes, what they worked out, whether they agreed to calls and texts ("Do not call · declined" or
+  "never asked" beside the number when they did not, as on the Leads tab), and a link to open them. Each list is
+  cut at 50 in the email ("…and 12 more, in the spreadsheet"). A **spreadsheet of everyone** is attached, so
+  nothing is only in the email: it includes the team's own **notes and status**, **closed leads** (marked), and
+  the **phone numbers of people who declined calls and texts** (the column says Declined / Never asked), so it
+  should be treated like the Leads tab itself. Names and notes are typed by buyers, so any spreadsheet cell that
+  starts with `=`, `+`, `-` or `@` is written as plain text and cannot run as a formula (a phone number typed with a
+  leading `+` therefore opens with an apostrophe: the safe trade). Days in the report ("today", the day someone
+  signed up) are counted in `REPORT_TIME_ZONE` (an IANA name such as `America/Denver`, which is also the
+  default), not the server's UTC clock, so an evening call is still today's.
+  The time a report was **started** (`settings.reportLastSentAt`, the server's alone: a Setup save cannot
+  change it, and the stamp is written as its own atomic update, never a copy of the whole settings) is what
+  makes the next report say who is new. It is the start, not the finish, so anyone who signs up while the mail
+  is going out is listed next time instead of never, and it is kept only when the mail provider accepted the
+  send. A buyer the team closed who books a time again is reopened, so they come back to the list and to the
+  next report. It is limited to one every 15 seconds and 30 a day per community. The address and the stamp are
+  never served to buyers (the rate webhook's reply leaves them out too).
 
 Set `RESEND_API_KEY` and `EMAIL_FROM` to turn it on. Without them the app sends nothing
 and everything else works unchanged — a call request is still recorded and still shows in

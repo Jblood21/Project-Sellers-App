@@ -2,10 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  MAX_LISTED, buildReport, csvCell, leadsCsv, reportText, toCsv,
+  DEFAULT_TIME_ZONE, MAX_LISTED, buildReport as build, csvCell, leadsCsv, reportTimeZone, reportText, toCsv,
 } from '../lib/report.js';
 
-const NOW = new Date(2026, 9, 12, 9, 0, 0); // Mon Oct 12 2026, local time
+const NOW = new Date('2026-10-12T15:00:00Z'); // Mon Oct 12 2026, 9:00 AM in Denver
+const ZONE = 'America/Denver';
+/** The same day wherever the tests run: the zone is always named. */
+const buildReport = (options) => build({ timeZone: ZONE, ...options });
 const community = { id: 'willow-creek-abcd', name: 'Willow Creek', settings: { lenderName: 'Summit Home Loans' } };
 const homes = [{ id: 'h1', name: 'The Aspen' }, { id: 'h2', name: 'The Birch' }];
 
@@ -110,4 +113,93 @@ test('the spreadsheet: one row per person, closed ones marked, anything typed by
   assert.ok(lines[2].startsWith('"Quinn, Q",'), lines[2]);
   assert.match(lines[2], /,Handled,/);
   assert.match(lines[2], /,Yes,https:\/\/t\.example\/.*$/, 'closed is marked');
+});
+
+test('days are the builder\'s, not the server\'s: an evening call is still today, and a sign-up keeps its local date', () => {
+  // 9:30 PM in Denver on Oct 12 is already Oct 13 in UTC.
+  const evening = new Date('2026-10-13T03:30:00Z');
+  const tonight = lead({ tour: tour('2026-10-12', '20:00'), firstVisitAt: '2026-10-13T03:10:00Z' });
+  const utc = build({ community, homes, now: evening, timeZone: 'UTC', leads: [tonight] });
+  assert.deepEqual(utc.overdue.map((l) => l.id), [tonight.id], 'counted in UTC the call would look a day late');
+  const denver = build({ community, homes, now: evening, timeZone: ZONE, leads: [tonight] });
+  assert.equal(denver.today, '2026-10-12');
+  assert.deepEqual(denver.comingUp.map((l) => l.id), [tonight.id]);
+  assert.equal(denver.overdue.length, 0);
+  assert.match(reportText(denver), /leads report for Mon, Oct 12, 2026/);
+  assert.match(reportText(denver), /Signed up 2026-10-12/);
+  assert.match(leadsCsv(denver).split('\r\n')[1], /,2026-10-12,2026-10-12,8:00 PM,/, 'signed-up date and call date in the same day');
+  assert.equal(denver.filename, 'willow-creek-leads-2026-10-12.csv');
+});
+
+test('the zone comes from REPORT_TIME_ZONE, and a name that is not a zone falls back to Mountain Time', () => {
+  const saved = process.env.REPORT_TIME_ZONE;
+  try {
+    delete process.env.REPORT_TIME_ZONE;
+    assert.equal(reportTimeZone(), DEFAULT_TIME_ZONE);
+    process.env.REPORT_TIME_ZONE = 'Pacific/Auckland';
+    assert.equal(reportTimeZone(), 'Pacific/Auckland');
+    assert.equal(build({ community, now: NOW, leads: [] }).today, '2026-10-13', 'it is already tomorrow there');
+    process.env.REPORT_TIME_ZONE = 'Not/AZone';
+    assert.equal(reportTimeZone(), DEFAULT_TIME_ZONE);
+    assert.equal(build({ community, now: NOW, leads: [] }).today, '2026-10-12');
+  } finally {
+    if (saved === undefined) delete process.env.REPORT_TIME_ZONE;
+    else process.env.REPORT_TIME_ZONE = saved;
+  }
+});
+
+test('new people are those after the last report and by the time this one was started', () => {
+  const before = lead({ firstVisitAt: '2026-10-10T10:00:00.000Z' });
+  const inside = lead({ firstVisitAt: '2026-10-12T14:59:59.000Z' });
+  const exactly = lead({ firstVisitAt: '2026-10-12T15:00:00.000Z' });
+  const after = lead({ firstVisitAt: '2026-10-12T15:00:00.001Z' });
+  const report = buildReport({
+    community, homes, now: NOW, leads: [before, inside, exactly, after],
+    since: '2026-10-10T10:00:00.000Z', until: '2026-10-12T15:00:00.000Z',
+  });
+  assert.deepEqual(report.fresh.map((l) => l.id), [exactly.id, inside.id], 'not the one who signed up after it started: that is the next report\'s');
+  assert.equal(report.everyone, 4, 'but the spreadsheet is still everyone');
+});
+
+test('a long list of calls is cut too, each section on its own', () => {
+  const waiting = Array.from({ length: MAX_LISTED + 3 }, (_, i) => lead({ name: `Caller ${i}`, tour: tour('2026-10-20', `${String(8 + (i % 10)).padStart(2, '0')}:00`) }));
+  const late = Array.from({ length: MAX_LISTED + 2 }, (_, i) => lead({ name: `Late ${i}`, tour: tour('2026-10-01') }));
+  const text = reportText(buildReport({ community, homes, now: NOW, leads: [...waiting, ...late] }));
+  const calls = text.split('PAST THEIR DAY')[0];
+  const past = text.split('PAST THEIR DAY')[1].split('NEW PEOPLE')[0];
+  assert.equal((calls.match(/— Caller \d+/g) ?? []).length, MAX_LISTED);
+  assert.match(calls, /SCHEDULED CALLS WAITING \(53\)/, 'the heading still counts them all');
+  assert.match(calls, /…and 3 more, in the spreadsheet\./);
+  assert.equal((past.match(/— Late \d+/g) ?? []).length, MAX_LISTED);
+  assert.match(past, /…and 2 more, in the spreadsheet\./);
+});
+
+test('a person who cannot be called says so beside their number, as in the Leads tab', () => {
+  const yes = lead({ name: 'Yes Yolanda', phone: '(801) 555-0101', consent: { granted: true }, tour: tour('2026-10-13') });
+  const no = lead({ name: 'No Nina', phone: '(801) 555-0102', consent: { granted: false }, tour: tour('2026-10-13') });
+  const unasked = lead({ name: 'Unasked Uma', phone: '(801) 555-0103', consent: null, tour: tour('2026-10-13') });
+  const report = buildReport({ community, homes, now: NOW, leads: [yes, no, unasked] });
+  const text = reportText(report);
+  const block = (who) => text.split('SCHEDULED CALLS WAITING')[1].split('\n').filter((l, i, all) => all[i - 1]?.includes(who) || l.includes(who)).join('\n');
+  assert.doesNotMatch(block('Yes Yolanda'), /Do not call/);
+  assert.match(block('No Nina'), /\(801\) 555-0102 · .* · Do not call · declined/);
+  assert.match(block('Unasked Uma'), /Do not call · never asked/);
+  assert.match(text.split('NEW PEOPLE')[1], /Signed up 2026-10-01 · Agreed to calls and texts/);
+  assert.match(text.split('NEW PEOPLE')[1], /Signed up 2026-10-01 · Do not call · declined/);
+  assert.match(text.split('NEW PEOPLE')[1], /Signed up 2026-10-01 · Do not call · never asked/);
+  const rows = leadsCsv(report).split('\r\n');
+  assert.match(rows[1], /,\(801\) 555-0101,Yes,/);
+  assert.match(rows[2], /,\(801\) 555-0102,Declined,/);
+  assert.match(rows[3], /,\(801\) 555-0103,Never asked,/);
+});
+
+test('a call with no time given leaves the time blank, and a name with a line break stays on one line', () => {
+  const vague = lead({ name: 'Vera\nVague', tour: { time: '', contact: 'phone' } });
+  const csv = leadsCsv(buildReport({ community, homes, now: NOW, leads: [vague] }));
+  const row = csv.split('\r\n')[1];
+  assert.ok(row.startsWith('Vera Vague,'), row);
+  assert.match(row, /,,,Phone,/, 'no date and no time');
+  const text = reportText(buildReport({ community: { ...community, name: 'Willow\nCreek' }, homes, now: NOW, leads: [vague] }));
+  assert.match(text, /^Willow Creek — leads report/);
+  assert.match(text, /— Vera Vague\n/);
 });

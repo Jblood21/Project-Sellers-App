@@ -286,8 +286,9 @@ export default function SetupTab({ community, reload, dirtyRef }) {
         />
         <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
           One address. The report lists the scheduled calls still waiting and the people who signed up since the
-          last report, with a spreadsheet of everyone attached. It is sent only when you press the button, never on
-          its own.
+          last report. The spreadsheet attached has everyone, with their phone numbers (including people who said
+          no to calls and texts), your notes, status and closed leads. It is sent only when you press the button,
+          never on its own, and changing the address does not change who counts as new.
         </span>
         <ReportButton
           community={community}

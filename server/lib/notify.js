@@ -1,5 +1,5 @@
 import {
-  complianceOf, complianceText, contactMethodLabel, describeTour, fillTokens, isoDate, lenderNameOf, money, SAFE_EMAIL_RE,
+  complianceOf, complianceText, contactMethodLabel, describeTour, fillTokens, isoDate, lenderNameOf, money, isSafeEmail,
 } from '../../shared/domain.js';
 import { moveInPlanLines, printableMoveIn } from '../../shared/moveInPrint.js';
 import { sendEmail } from './email.js';
@@ -125,7 +125,7 @@ export async function sendPlanToBuyer({ community, lead, baseUrl, today = isoDat
     text,
     // A reply to a shared plan goes to the person who shared it, when their address is a plain one: the
     // sign-up accepts anything with an @, and a reply-to like `Boss <x@y.com>` would show as a name.
-    ...(sharedBy && SAFE_EMAIL_RE.test(String(lead.email ?? '')) ? { replyTo: lead.email } : {}),
+    ...(sharedBy && isSafeEmail(String(lead.email ?? '')) ? { replyTo: lead.email } : {}),
   });
 }
 

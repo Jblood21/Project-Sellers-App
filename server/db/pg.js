@@ -400,6 +400,20 @@ export function createPostgresStore(connectionString) {
       return shapeCommunity(rows[0]);
     },
 
+    /**
+     * Records when the last lead report went out, changing nothing else: one atomic merge into the settings,
+     * so a Setup save made at the same moment is never overwritten by a stale copy of the whole object.
+     */
+    async stampReportSent(id, at) {
+      const { rows } = await q(
+        `UPDATE communities
+            SET settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('reportLastSentAt', $2::text)
+          WHERE id = $1 RETURNING *`,
+        [id, at],
+      );
+      return shapeCommunity(rows[0]);
+    },
+
     async deleteCommunity(id) {
       await q(`DELETE FROM communities WHERE id = $1`, [id]);
     },

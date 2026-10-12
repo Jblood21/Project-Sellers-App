@@ -116,6 +116,9 @@
    the bar and a tall textarea that Tab only partly scrolls into view. */
 :root:has(.ax-setup) { scroll-padding-bottom: 140px; }
 
+/* The answer to "Email the report" is brought into view; on the Setup tab it must stop above the save bar. */
+.ax-report-note { scroll-margin-bottom: 90px; }
+
 /* ── realtors ───────────────────────────────────────────────────────────── */
 .ax-agent-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ax-agent-thumb {

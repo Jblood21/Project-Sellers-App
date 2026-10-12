@@ -111,7 +111,7 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup }) {
         >
           {/* Wraps: a booked time is a long tag, and on a phone it used to sit on top of the name. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span className="card-title" style={{ fontSize: 17, flex: '1 1 140px', minWidth: 0 }}>{lead.name}</span>
+            <span className="card-title" style={{ fontSize: 17, flex: '1 1 140px', minWidth: 0, overflowWrap: 'anywhere' }}>{lead.name}</span>
             {isTourPending(lead) ? (
               <span className="tag tag-accent" style={{ background: 'var(--color-accent)', color: '#fff' }}>
                 📞 {describeTour(lead.tour, lenderNameOf(community))}
@@ -121,7 +121,7 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup }) {
             {lead.status === 'contacted' ? <span className="tag tag-neutral">Contacted</span> : null}
             {isArchived(lead) ? <span className="tag tag-neutral">Archived</span> : null}
           </div>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
+          <span className="text-muted" style={{ fontSize: 12.5, overflowWrap: 'anywhere' }}>{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
           {/*
             Next to the phone number, because that is where somebody's eye goes
             before they dial. A consent record filed away where nobody reads it

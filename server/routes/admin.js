@@ -5,7 +5,7 @@ import {
   COMPLIANCE_DEFAULTS, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
-  SAFE_EMAIL_RE, SLOT_TIMES, THEMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
+  isSafeEmail, SLOT_TIMES, THEMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
 } from '../../shared/domain.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
@@ -441,16 +441,16 @@ export function adminRouter() {
         if (key === 'loanApplicationUrl' && text && !safeHref(text)) {
           return res.status(400).json({ error: 'The loan application link must be a web address starting with http:// or https://.' });
         }
-        if (key === 'incentiveEmail' && text && !SAFE_EMAIL_RE.test(text)) {
+        if (key === 'incentiveEmail' && text && !isSafeEmail(text)) {
           return res.status(400).json({ error: 'The incentive email must be a single email address.' });
         }
-        if (key === 'lenderEmail' && text && !SAFE_EMAIL_RE.test(text)) {
+        if (key === 'lenderEmail' && text && !isSafeEmail(text)) {
           return res.status(400).json({ error: 'The loan team email must be a single email address.' });
         }
-        if (key === 'teamEmail' && text && !SAFE_EMAIL_RE.test(text)) {
+        if (key === 'teamEmail' && text && !isSafeEmail(text)) {
           return res.status(400).json({ error: 'The sales team email must be a single email address.' });
         }
-        if (key === 'reportEmail' && text && (!SAFE_EMAIL_RE.test(text) || text.length > 254)) {
+        if (key === 'reportEmail' && text && !isSafeEmail(text)) {
           return res.status(400).json({ error: 'The report email must be a single email address.' });
         }
         if (key === 'faqJson') {
@@ -1074,7 +1074,8 @@ export function adminRouter() {
    * "Email the report": the scheduled calls waiting, the people who signed up since the last report, and a
    * spreadsheet of everyone, sent to the address saved in Setup (never one named by the request). Only when
    * pressed. The time is stamped only once the mail provider took it, so a failed send does not hide anyone
-   * from the next report.
+   * from the next report. The time stamped is when this one was started, not when it finished: somebody who
+   * signs up while the mail is going out is then new in the next report rather than in neither.
    */
   router.post('/communities/:id/report', async (req, res) => {
     const store = await getStore();
@@ -1091,10 +1092,12 @@ export function adminRouter() {
       return res.status(429).json({ error: tooMany('reports', hold.wait) });
     }
     let sent = null;
+    const startedAt = new Date();
     try {
       const [leads, homes] = await Promise.all([store.listLeads(community.id), store.listHomes(community.id)]);
       sent = await emailReport({
-        community, leads, homes, to, baseUrl: linkOriginOf(req), since: str(community.settings?.reportLastSentAt),
+        community, leads, homes, to, baseUrl: linkOriginOf(req), now: startedAt,
+        since: str(community.settings?.reportLastSentAt), until: startedAt.toISOString(),
       });
     } finally {
       if (!sent?.result?.sent) hold.release();
@@ -1105,13 +1108,20 @@ export function adminRouter() {
         : ' Mail is going out from Resend’s test address, which only delivers to your own Resend login: verify your domain in Resend and set EMAIL_FROM in Render.';
       return res.status(503).json({ error: `The report could not be sent.${testSender} Nothing was marked as sent, so try again.` });
     }
-    // A fresh read: the Setup page may have been saved while the mail was going out.
-    const latest = (await store.getCommunity(community.id)) ?? community;
-    const at = new Date().toISOString();
-    await store.updateCommunity(community.id, { settings: { ...latest.settings, reportLastSentAt: at } });
+    // One atomic merge into the settings (never a read-modify-write of the whole object), so a Setup save made
+    // while the mail was going out is not overwritten by a stale copy.
+    const at = startedAt.toISOString();
+    let stamped = true;
+    try {
+      await store.stampReportSent(community.id, at);
+    } catch (err) {
+      // The mail is already in their inbox. Saying it failed would invite a second send, so say what happened.
+      stamped = false;
+      console.error(`Report sent for ${community.id} but the time could not be saved:`, err);
+    }
     const { report } = sent;
     res.json({
-      sent: true, to, at,
+      sent: true, to, at, ...(stamped ? {} : { notRecorded: true }),
       comingUp: report.comingUp.length, overdue: report.overdue.length, newPeople: report.fresh.length, everyone: report.everyone,
     });
   });
