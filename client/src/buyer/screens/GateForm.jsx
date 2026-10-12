@@ -8,8 +8,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Lead capture. Nothing past this point works without a lead record. The page that holds it (the
- * landing page) puts nothing around it: no headline, no explanation. A name and an email are what
- * opens the app; a cell is optional, and the calls-and-texts box appears only once there is one.
+ * landing page) puts nothing around it: no headline, no explanation. The fields are the name, the cell
+ * number (optional) and the email; a name and an email are what open the app, and the calls-and-texts
+ * box appears only once there is a number.
  */
 export default function GateForm({ onEntered }) {
   const { community, enter } = useBuyer();
@@ -63,13 +64,6 @@ export default function GateForm({ onEntered }) {
           <input className="b-in" value={form.name} onChange={set('name')} placeholder="Jordan Lee" autoComplete="name" />
         </label>
         <label className="b-field">
-          <span className="b-lbl">Email</span>
-          <input
-            className="b-in" type="email" value={form.email} onChange={set('email')}
-            placeholder="you@email.com" autoComplete="email" inputMode="email"
-          />
-        </label>
-        <label className="b-field">
           <span className="b-lbl">Cell phone (optional)</span>
           <input
             className="b-in" type="tel" value={form.phone}
@@ -80,6 +74,13 @@ export default function GateForm({ onEntered }) {
               setForm((prev) => ({ ...prev, phone, consent: (phone.match(/\d/g) || []).length >= 7 ? prev.consent : false }));
             }}
             placeholder="(801) 555-0100" autoComplete="tel" inputMode="tel"
+          />
+        </label>
+        <label className="b-field">
+          <span className="b-lbl">Email</span>
+          <input
+            className="b-in" type="email" value={form.email} onChange={set('email')}
+            placeholder="you@email.com" autoComplete="email" inputMode="email"
           />
         </label>
       </div>
