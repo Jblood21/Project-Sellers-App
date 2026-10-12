@@ -5,8 +5,8 @@
 A mobile-first web app for individual builder communities, with two sides sharing one backend:
 
 - **Buyer PWA** (`/c/:link`, the community's clean link or its id) — reached by scanning the QR code on a development sign.
-  The first screen is the community's picture, "Welcome to <name>" and the sign-in form (name, email, and a cell
-  number that is optional), nothing else. It is the only way in: `/c/:link/start`, the "Sign in" buttons on the guide
+  The first screen is the community's picture, "Welcome to <name>" and the sign-in form (name, cell number
+  that is optional, and email), nothing else. It is the only way in: `/c/:link/start`, the "Sign in" buttons on the guide
   pages and a visitor who is not signed in at any other address (the public guides aside) all lead back to it. The
   headline is sized to the name (`shared/fitText.js`, measured in the browser before the first paint and again on a
   resize or when a web font loads): a short name is set larger, a long one smaller and on up to three lines, never
