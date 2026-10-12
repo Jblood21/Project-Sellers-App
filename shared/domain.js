@@ -550,6 +550,11 @@ export const DEFAULT_SETTINGS = {
   // Where call requests are emailed. Blank falls back to the admin account that
   // owns the dashboard, so a builder who never sets this still gets told.
   notifyEmail: '',
+  // The address the lead report goes to when the builder presses "Email the report" (never on its own), and when
+  // the last one went. The stamp is the server's: it is how the next report knows who is new, and a save from the
+  // Setup form never changes it.
+  reportEmail: '',
+  reportLastSentAt: '',
 
   // ── the builder incentive card (shown when features.incentive is on) ───────
   // No amount or terms are assumed: those are the builder's to state, and an

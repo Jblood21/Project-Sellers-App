@@ -145,7 +145,8 @@ const publicGuideSummary = (guide) => ({
  */
 const INCENTIVE_KEYS = Object.keys(DEFAULT_SETTINGS).filter((key) => key.startsWith('incentive'));
 function publicSettings(community) {
-  const { notifyEmail: _private, ...settings } = community.settings;
+  // The addresses the builder is mailed at, and when the last report went, are the builder's, not a buyer's.
+  const { notifyEmail: _alerts, reportEmail: _report, reportLastSentAt: _sent, ...settings } = community.settings;
   if (!community.features.incentive) for (const key of INCENTIVE_KEYS) delete settings[key];
   if (!community.features.faq) settings.faqJson = '[]';
   return settings;

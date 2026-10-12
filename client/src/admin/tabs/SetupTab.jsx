@@ -13,6 +13,7 @@ import LayoutCard from '../setup/LayoutCard.jsx';
 import LogoCard from '../setup/LogoCard.jsx';
 import RealtorsCard from '../setup/RealtorsCard.jsx';
 import { Disclosure, ErrorNote, Field, TextField } from '../ui.jsx';
+import ReportButton from '../ReportButton.jsx';
 
 // What "Check rate inbox" can change; everything else on the form is left alone.
 const RATE_KEYS = ['rateConv', 'rateFha', 'rateVa', 'ratesUpdatedAt'];
@@ -271,6 +272,28 @@ export default function SetupTab({ community, reload, dirtyRef }) {
           time-sensitive, so this is the one thing the app will email you about.
         </span>
         <EmailStatus status={community.emailStatus} />
+      </div>
+
+      {/* Its own card: the address is saved with the rest, and the button sends to the SAVED address. */}
+      <div className="card elev-sm" style={{ gap: 10 }}>
+        <span className="card-kicker">Lead report</span>
+        <TextField
+          label="Send lead reports to"
+          value={settings.reportEmail}
+          onChange={set('reportEmail')}
+          inputMode="email"
+          placeholder="sales@yourcompany.com"
+        />
+        <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
+          One address. The report lists the scheduled calls still waiting and the people who signed up since the
+          last report, with a spreadsheet of everyone attached. It is sent only when you press the button, never on
+          its own.
+        </span>
+        <ReportButton
+          community={community}
+          reload={reload}
+          blocked={(settings.reportEmail ?? '') !== (community.settings.reportEmail ?? '') ? 'Save settings first: the report goes to the saved address.' : ''}
+        />
       </div>
 
       <div className="card elev-sm" style={{ gap: 10 }}>

@@ -12,7 +12,8 @@ import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
-import { pinnedOrigin } from '../lib/ssr.js';
+import { emailReport } from '../lib/report.js';
+import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
@@ -284,6 +285,10 @@ export function adminRouter() {
   // guesser and the owner share a count, and the owner waits too. The third is the ceiling for
   // guessing from many addresses at once; it holds for 15 minutes for everyone, the owner included.
   // A right password clears the visitor-and-email count.
+  // The lead report goes to a real inbox and holds people's details, so a double click or a stuck button cannot
+  // send it twice in a breath, and a day has a ceiling.
+  const reportBurst = createLimiter({ windowMs: 15 * 1000, max: 1 });
+  const reportPerDay = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 30 });
   const failuresPerIp = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
   const failuresPerPerson = createLimiter({ windowMs: 15 * 60 * 1000, max: 8 });
   const failuresPerEmail = createLimiter({ windowMs: 15 * 60 * 1000, max: 60 });
@@ -414,6 +419,9 @@ export function adminRouter() {
     if (req.body?.settings) {
       const settings = { ...community.settings };
       for (const key of SETTING_KEYS) {
+        // The time the last report went is the server's to say: the Setup form sends back every setting it
+        // loaded, and an old copy of this one would make the next report list people twice.
+        if (key === 'reportLastSentAt') continue;
         const value = req.body.settings[key];
         if (value === undefined) continue;
         // Text or a number (the rate fields arrive as numbers), or null to clear.
@@ -441,6 +449,9 @@ export function adminRouter() {
         }
         if (key === 'teamEmail' && text && !SAFE_EMAIL_RE.test(text)) {
           return res.status(400).json({ error: 'The sales team email must be a single email address.' });
+        }
+        if (key === 'reportEmail' && text && (!SAFE_EMAIL_RE.test(text) || text.length > 254)) {
+          return res.status(400).json({ error: 'The report email must be a single email address.' });
         }
         if (key === 'faqJson') {
           // A list, normalised: items trimmed, half-finished ones dropped, counts
@@ -1059,6 +1070,52 @@ export function adminRouter() {
   });
 
   // ── leads ────────────────────────────────────────────────────────────────
+  /**
+   * "Email the report": the scheduled calls waiting, the people who signed up since the last report, and a
+   * spreadsheet of everyone, sent to the address saved in Setup (never one named by the request). Only when
+   * pressed. The time is stamped only once the mail provider took it, so a failed send does not hide anyone
+   * from the next report.
+   */
+  router.post('/communities/:id/report', async (req, res) => {
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const to = str(community.settings?.reportEmail);
+    if (!to) return res.status(400).json({ error: 'Add the report email under Setup, save it, then try again.' });
+    if (!emailConfigured()) {
+      return res.status(503).json({ error: 'Email is not set up on this site yet. Add RESEND_API_KEY and EMAIL_FROM in Render, then try again.' });
+    }
+    const hold = reserve([[reportBurst, community.id], [reportPerDay, community.id]]);
+    if (hold.wait) {
+      res.set('Retry-After', String(hold.wait));
+      return res.status(429).json({ error: tooMany('reports', hold.wait) });
+    }
+    let sent = null;
+    try {
+      const [leads, homes] = await Promise.all([store.listLeads(community.id), store.listHomes(community.id)]);
+      sent = await emailReport({
+        community, leads, homes, to, baseUrl: linkOriginOf(req), since: str(community.settings?.reportLastSentAt),
+      });
+    } finally {
+      if (!sent?.result?.sent) hold.release();
+    }
+    if (!sent.result.sent) {
+      const testSender = process.env.EMAIL_FROM
+        ? ''
+        : ' Mail is going out from Resend’s test address, which only delivers to your own Resend login: verify your domain in Resend and set EMAIL_FROM in Render.';
+      return res.status(503).json({ error: `The report could not be sent.${testSender} Nothing was marked as sent, so try again.` });
+    }
+    // A fresh read: the Setup page may have been saved while the mail was going out.
+    const latest = (await store.getCommunity(community.id)) ?? community;
+    const at = new Date().toISOString();
+    await store.updateCommunity(community.id, { settings: { ...latest.settings, reportLastSentAt: at } });
+    const { report } = sent;
+    res.json({
+      sent: true, to, at,
+      comingUp: report.comingUp.length, overdue: report.overdue.length, newPeople: report.fresh.length, everyone: report.everyone,
+    });
+  });
+
   router.get('/communities/:id/leads', async (req, res) => {
     const store = await getStore();
     res.json(await store.listLeads(req.params.id));

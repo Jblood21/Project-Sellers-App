@@ -342,7 +342,7 @@ through Postgres under UTC−6, UTC+12 and UTC and asserts the date never moves.
 
 ## Email
 
-Two messages, and only two — the app is deliberately quiet.
+Three messages — the app is deliberately quiet.
 
 - **A buyer asks for a call** → the builder is emailed straight away, with the phone
   number first (a buyer who signed up without one is asked for it in the booking sheet before
@@ -355,6 +355,20 @@ Two messages, and only two — the app is deliberately quiet.
   carries payment estimates, so it carries the disclaimers too). Explicit only. Nothing is sent for entering the app, saving a home or
   running a tool: the gate already took their address, which is exactly why this stays a
   button.
+
+- **The lead report**, only when the builder presses **Email the report** (on the Leads tab, and under
+  **Setup → Lead report** beside the address it goes to). One address per community, saved in Setup; the button
+  always sends to the *saved* address, never one named by the request, and is held while the field has an
+  unsaved change. The email lists the **scheduled calls still waiting** (a booked time or a call request that
+  nobody has marked handled; ones whose day has passed are listed apart so they are not missed) and the
+  **people who signed up since the last report** (everyone, the first time), each with phone, email, second email,
+  saved homes, what they worked out, whether they agreed to calls and texts, and a link to open them. A
+  **spreadsheet of everyone** (closed leads marked) is attached, so a long list is never only in the email: the
+  email itself shows the first 50. Names and notes are typed by buyers, so any spreadsheet cell that starts with
+  `=`, `+`, `-` or `@` is written as plain text and cannot run as a formula. The time it was sent
+  (`settings.reportLastSentAt`, the server's alone: a Setup save cannot change it) is what makes the next report
+  say who is new, and it is kept only when the mail provider accepted the send. It is limited to one every 15
+  seconds and 30 a day per community. The address and the stamp are never served to buyers.
 
 Set `RESEND_API_KEY` and `EMAIL_FROM` to turn it on. Without them the app sends nothing
 and everything else works unchanged — a call request is still recorded and still shows in

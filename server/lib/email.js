@@ -41,7 +41,7 @@ export function emailConfigured() {
  * Returns {sent, skipped?, error?} rather than throwing, so callers can log the
  * outcome without having to guard every call site.
  */
-export async function sendEmail({ to, subject, text, replyTo }) {
+export async function sendEmail({ to, subject, text, replyTo, attachments }) {
   if (!emailConfigured()) return { sent: false, skipped: 'RESEND_API_KEY is not set' };
   if (!to) return { sent: false, skipped: 'no recipient' };
 
@@ -51,6 +51,8 @@ export async function sendEmail({ to, subject, text, replyTo }) {
     subject,
     text,
     ...(replyTo ? { reply_to: replyTo } : {}),
+    // Files, each { filename, content } with the content as base64, which is how Resend takes them.
+    ...(attachments?.length ? { attachments } : {}),
   };
 
   try {

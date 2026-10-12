@@ -40,12 +40,6 @@ export function clientKey(req) {
 }
 
 /**
- * Limits are on everywhere except a test run. `node --test` drives one app from one
- * address and reuses a handful of emails throughout, which a limit would (rightly) count
- * as a single visitor hammering the gate. A test of the limits themselves sets
- * RATE_LIMITS=on; RATE_LIMITS=off turns them off anywhere.
- */
-/**
  * The mailbox an address delivers to, as a key for counting what a mailbox receives: lower case, and
  * without a "+tag" in the local part, because name+1@x.com, name+2@x.com and so on are one inbox. Dots
  * are left alone (they only mean nothing at a few providers).
@@ -56,6 +50,12 @@ export function mailboxKey(address) {
   return `${local.replace(/\+.*$/, '')}@${domain}`;
 }
 
+/**
+ * Limits are on everywhere except a test run. `node --test` drives one app from one
+ * address and reuses a handful of emails throughout, which a limit would (rightly) count
+ * as a single visitor hammering the gate. A test of the limits themselves sets
+ * RATE_LIMITS=on; RATE_LIMITS=off turns them off anywhere.
+ */
 export const limitsOn = () => {
   const setting = process.env.RATE_LIMITS;
   if (setting === 'on') return true;
