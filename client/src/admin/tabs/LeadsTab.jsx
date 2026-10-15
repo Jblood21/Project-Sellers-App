@@ -6,9 +6,10 @@ import {
 } from '@shared/domain.js';
 import CardButton from '../../components/CardButton.jsx';
 import { shortDate } from '../../lib/format.js';
+import ReportButton from '../ReportButton.jsx';
 import { PillRow, Spinner } from '../ui.jsx';
 
-export default function LeadsTab({ community, leads }) {
+export default function LeadsTab({ community, leads, reload, onOpenSetup }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('active');
@@ -38,6 +39,7 @@ export default function LeadsTab({ community, leads }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <ReportButton community={community} reload={reload} onOpenSetup={onOpenSetup} />
       {pendingTours > 0 ? (
         <button
           type="button"
@@ -107,8 +109,9 @@ export default function LeadsTab({ community, leads }) {
           onClick={() => navigate(`/admin/communities/${community.id}/leads/${lead.id}`)}
           label={`Open ${lead.name}`}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="card-title" style={{ fontSize: 17, flex: 1, minWidth: 0 }}>{lead.name}</span>
+          {/* Wraps: a booked time is a long tag, and on a phone it used to sit on top of the name. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="card-title" style={{ fontSize: 17, flex: '1 1 140px', minWidth: 0, overflowWrap: 'anywhere' }}>{lead.name}</span>
             {isTourPending(lead) ? (
               <span className="tag tag-accent" style={{ background: 'var(--color-accent)', color: '#fff' }}>
                 📞 {describeTour(lead.tour, lenderNameOf(community))}
@@ -118,7 +121,7 @@ export default function LeadsTab({ community, leads }) {
             {lead.status === 'contacted' ? <span className="tag tag-neutral">Contacted</span> : null}
             {isArchived(lead) ? <span className="tag tag-neutral">Archived</span> : null}
           </div>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
+          <span className="text-muted" style={{ fontSize: 12.5, overflowWrap: 'anywhere' }}>{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
           {/*
             Next to the phone number, because that is where somebody's eye goes
             before they dial. A consent record filed away where nobody reads it

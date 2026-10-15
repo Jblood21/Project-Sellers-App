@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, SAFE_EMAIL_RE,
+  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, isSafeEmail,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
@@ -145,7 +145,8 @@ const publicGuideSummary = (guide) => ({
  */
 const INCENTIVE_KEYS = Object.keys(DEFAULT_SETTINGS).filter((key) => key.startsWith('incentive'));
 function publicSettings(community) {
-  const { notifyEmail: _private, ...settings } = community.settings;
+  // The addresses the builder is mailed at, and when the last report went, are the builder's, not a buyer's.
+  const { notifyEmail: _alerts, reportEmail: _report, reportLastSentAt: _sent, ...settings } = community.settings;
   if (!community.features.incentive) for (const key of INCENTIVE_KEYS) delete settings[key];
   if (!community.features.faq) settings.faqJson = '[]';
   return settings;
@@ -561,7 +562,7 @@ export function publicRouter() {
     // Newlines are fine in a message; every other control character is not.
     const message = String(req.body?.message ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, ' ').trim();
     if (!name || name.length > FIELD_MAX.name) return res.status(400).json({ error: 'Please add your name.' });
-    if (!SAFE_EMAIL_RE.test(email) || email.length > FIELD_MAX.email) return res.status(400).json({ error: 'Please check your email address.' });
+    if (!isSafeEmail(email) || email.length > FIELD_MAX.email) return res.status(400).json({ error: 'Please check your email address.' });
     if (message.length < 3) return res.status(400).json({ error: 'Please write a short message.' });
     if (message.length > 1000) return res.status(400).json({ error: 'That message is a little long. Please keep it under 1,000 characters.' });
 
@@ -665,7 +666,11 @@ export function publicRouter() {
       topic: TOUR_TOPICS.includes(req.body?.topic) ? req.body.topic : 'community',
       requestedAt: new Date().toISOString(),
     };
-    const lead = await store.updateLead(req.leadId, { tour, ...(newPhone ? { phone: newPhone } : {}), ...extraPatch });
+    // Somebody the team closed who books a time again is asking to be called, so they come back to the list
+    // instead of waiting behind a Closed filter nobody is looking at (and out of every report).
+    const reopen = buyer.archivedAt ? { archivedAt: null } : {};
+    const lead = await store.updateLead(req.leadId, { tour, ...reopen, ...(newPhone ? { phone: newPhone } : {}), ...extraPatch });
+    if (buyer.archivedAt) await store.addActivity(req.leadId, 'Reopened — booked a time');
     if (extraPatch.extraEmails) {
       await store.addActivity(req.leadId, extraPatch.extraEmails.length ? 'Added a second email' : 'Removed the second email');
     }
@@ -774,7 +779,9 @@ export function ratesRouter() {
 
     settings.ratesUpdatedAt = new Date().toISOString();
     const updated = await store.updateCommunity(community.id, { settings });
-    res.json({ ok: true, settings: updated.settings });
+    // The caller holds a shared secret, not an admin login, so the private addresses stay out of the answer.
+    const { notifyEmail: _alerts, reportEmail: _report, reportLastSentAt: _sent, ...visible } = updated.settings ?? {};
+    res.json({ ok: true, settings: visible });
   });
 
   return router;

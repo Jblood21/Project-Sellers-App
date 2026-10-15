@@ -186,6 +186,13 @@ export function telHref(phone) {
 export const SAFE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;]+$/;
 
 /**
+ * SAFE_EMAIL_RE with the length checked first. The pattern backtracks badly on a very long value full of dots,
+ * and anything that can be typed by a stranger or sent in a body has to be cut to a real address's length
+ * before the pattern ever sees it. Use this, not the pattern, on input.
+ */
+export const isSafeEmail = (value) => typeof value === 'string' && value.length <= 254 && SAFE_EMAIL_RE.test(value);
+
+/**
  * Where a buyer's "Find out if you qualify" message goes: the incentive card's own address when it has
  * a usable one, otherwise the loan team's. Chosen here, from settings, never from the request, so the
  * form cannot be used to send mail anywhere else. An unusable address is skipped rather than hiding the
@@ -193,10 +200,10 @@ export const SAFE_EMAIL_RE = /^[^\s@?&#<>"%,;]+@[^\s@?&#<>"%,;]+\.[^\s@?&#<>"%,;
  */
 export function incentiveRecipient(settings, { community } = {}) {
   const own = String(settings?.incentiveEmail ?? '').trim();
-  if (own && SAFE_EMAIL_RE.test(own)) return { to: own, kind: 'team' };
+  if (own && isSafeEmail(own)) return { to: own, kind: 'team' };
   const lender = complianceOf(settings, { community }).lender;
   const email = String(lender.email ?? '').trim();
-  if (email && SAFE_EMAIL_RE.test(email)) return { to: email, kind: 'lender', name: lender.name };
+  if (email && isSafeEmail(email)) return { to: email, kind: 'lender', name: lender.name };
   return null;
 }
 

@@ -170,6 +170,8 @@ export const adminApi = {
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/slots`, { method: 'POST', body, token }),
   deleteSlot: (token, id) => request(`/api/admin/slots/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   leads: (token, communityId) => request(`/api/admin/communities/${encodeURIComponent(communityId)}/leads`, { token }),
+  sendReport: (token, communityId) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/report`, { method: 'POST', body: {}, token }),
   lead: (token, id) => request(`/api/admin/leads/${encodeURIComponent(id)}`, { token }),
   updateLead: (token, id, body) => request(`/api/admin/leads/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
 };

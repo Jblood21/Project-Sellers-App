@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens, nmlsConsumerUrl,
+  COMPLIANCE_DEFAULTS, LONG_SETTING_KEYS, complianceOf, complianceText, fillTokens, isSafeEmail, nmlsConsumerUrl,
   safeHref, settingMaxLength, telHref,
 } from '../../shared/compliance.js';
 
@@ -201,4 +201,18 @@ test('FAQ helpers keep only text, never throw, and refuse what is not a list', a
   assert.equal(normalizeFaqJson(`${'['.repeat(100000)}${']'.repeat(100000)}`), '[]', 'nested far too deep is a list with nothing usable, and does not throw');
   assert.equal(normalizeFaqJson('{"q":"x"}'), null);
   assert.equal(normalizeFaqJson('  '), '[]');
+});
+
+test('isSafeEmail takes one plain address and checks the length before running the pattern', () => {
+  assert.equal(isSafeEmail('sales@acme.co'), true);
+  assert.equal(isSafeEmail('first.last+tag@mail.acme.co'), true);
+  for (const bad of ['', 'no-at', 'a@b', 'a b@c.co', 'a@b.co, c@d.co', 'a@b.co?bcc=x@y.z', '<a@b.co>', 'a@b.co;c@d.co', null, undefined, 42, {}]) {
+    assert.equal(isSafeEmail(bad), false, String(bad));
+  }
+  assert.equal(isSafeEmail(`${'x'.repeat(246)}@acme.co`), true, '254 characters is the longest address');
+  assert.equal(isSafeEmail(`${'x'.repeat(247)}@acme.co`), false, '255 is too long');
+  // A value built to make the pattern backtrack: refused on length alone, instantly.
+  const started = Date.now();
+  assert.equal(isSafeEmail(`${'a.'.repeat(60000)}@`), false);
+  assert.ok(Date.now() - started < 200, 'no slow pattern run on a huge value');
 });

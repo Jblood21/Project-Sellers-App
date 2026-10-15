@@ -258,6 +258,15 @@ export function createFileStore(path) {
       return shapeCommunity(row);
     },
 
+    /** Records when the last lead report went out, changing nothing else (see the Postgres store). */
+    async stampReportSent(id, at) {
+      const row = db.communities.find((c) => c.id === id);
+      if (!row) return null;
+      row.settings = { ...row.settings, reportLastSentAt: at };
+      save();
+      return shapeCommunity(row);
+    },
+
     async deleteCommunity(id) {
       const homeIds = db.homes.filter((h) => h.communityId === id).map((h) => h.id);
       const leadIds = db.leads.filter((l) => l.communityId === id).map((l) => l.id);

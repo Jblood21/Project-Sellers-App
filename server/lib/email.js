@@ -14,14 +14,14 @@
 const ENDPOINT = process.env.RESEND_ENDPOINT || 'https://api.resend.com/emails';
 
 /** Swappable so tests can assert what would be sent without touching the network. */
-let transport = async (payload, apiKey) => {
+let transport = async (payload, apiKey, { timeoutMs = 5000 } = {}) => {
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     // The buyer's request waits on this, so it is bounded. A provider that hangs
     // costs five seconds and a logged error, never the tour request itself.
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`Resend responded ${res.status}: ${await res.text()}`);
   return res.json();
@@ -41,7 +41,7 @@ export function emailConfigured() {
  * Returns {sent, skipped?, error?} rather than throwing, so callers can log the
  * outcome without having to guard every call site.
  */
-export async function sendEmail({ to, subject, text, replyTo }) {
+export async function sendEmail({ to, subject, text, replyTo, attachments, timeoutMs }) {
   if (!emailConfigured()) return { sent: false, skipped: 'RESEND_API_KEY is not set' };
   if (!to) return { sent: false, skipped: 'no recipient' };
 
@@ -51,10 +51,12 @@ export async function sendEmail({ to, subject, text, replyTo }) {
     subject,
     text,
     ...(replyTo ? { reply_to: replyTo } : {}),
+    // Files, each { filename, content } with the content as base64, which is how Resend takes them.
+    ...(attachments?.length ? { attachments } : {}),
   };
 
   try {
-    await transport(payload, process.env.RESEND_API_KEY);
+    await transport(payload, process.env.RESEND_API_KEY, { timeoutMs });
     return { sent: true };
   } catch (err) {
     // Logged, never rethrown — see rule 2 above.
