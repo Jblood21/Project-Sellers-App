@@ -118,6 +118,7 @@ function BuyerShell() {
         <Header
           onOpenMenu={() => setMenuOpen(true)}
           onTalk={() => setTourTopic('community')}
+          onFinance={() => setTourTopic('lender')}
           signedIn={!publicGuide}
         />
       ) : null}

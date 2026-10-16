@@ -419,7 +419,9 @@ two, and the choice saves the moment it is made:
 - **Touradoor Default** (what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Book a tour* button in the header of every page.
 - **Salt Grass** — condensed uppercase headlines, a dark header and footer with an accent rule, large
-  payment figures, and a two-button bar fixed to the foot of the screen on phones.
+  payment figures, and a bar fixed to the foot of the screen on phones: **Book a tour**, **Talk about financing**
+  (only when the community has a lender set up; it opens the same day-then-time picker for the lender, or the lender's
+  phone and email) and **My Home Plan**. From 900px the header carries the same three buttons instead.
 
 A layout changes the typeface, shape, spacing and where things sit. It never changes what a tool
 does or what it calculates, and every screen reachable in one layout is reachable in the other.
@@ -522,7 +524,7 @@ one). The **Explore Homes** screen has *Ready to look at homes?* under the homes
 (times to pick, or someone with a phone or an email): **Schedule a Tour** (the realtors page; the booking sheet when there are no realtors) and **Find out
 about financing** (the lender sheet). Each model's page starts its buttons with **Talk about financing**, which opens the
 same sheet for a conversation with the lender. A tour is asked for further down the model's page, under **Want a Tour?**,
-through the agent cards (Call, Text and Email, not a tour button), or from **Book a tour** in the header or bottom bar.
+through the agent cards (Call, Text and Email, not a tour button), or from **Book a tour** in the header or bottom bar. In the Salt Grass layout the bottom bar also has **Talk about financing**.
 Text is a link on a phone; on a computer, which cannot send a text, it copies the number and says so.
 
 **Booking times on and off.** The Times tab has a switch (*Buyers can book these times*, on unless switched off). On,

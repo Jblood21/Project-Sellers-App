@@ -38,6 +38,9 @@ const TUTORIAL = [
  *   onOpenMenu  opens the menu drawer
  *   onTalk      opens the talk-to-the-team sheet; this header has no button for
  *               it (the menu and every screen already do) and a layout's does
+ *   onFinance   opens the same sheet for the lender ("Talk about financing"):
+ *               the day and time to talk, or the lender's phone and email. A
+ *               layout with a bar of quick actions puts a button for it there
  *   signedIn    false on the public guide pages, where the tools menu would only
  *               bounce a visitor to the sign-in page. The header then offers the
  *               one thing that is useful there: the way into the app.

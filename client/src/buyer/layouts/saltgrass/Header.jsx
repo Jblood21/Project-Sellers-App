@@ -26,7 +26,7 @@ import useMedia from './useMedia.js';
  * below), so that it follows the page in the tab order the way it follows it on
  * screen.
  */
-export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
+export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
   const { community } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,6 +65,8 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
 
   const { lender } = complianceOf(community?.settings, { community });
   const hasLogo = Boolean(community?.logo || community?.logoLight);
+  // "Talk about financing" is offered only when there is a lender to talk to, as on the home screen.
+  const financing = lender.ready && onFinance ? onFinance : null;
 
   return (
     <>
@@ -102,6 +104,11 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
             <button type="button" className="sg-head__talk" onClick={onTalk}>
               Book a tour
             </button>
+            {financing ? (
+              <button type="button" className="sg-head__finance" onClick={financing}>
+                Talk about financing
+              </button>
+            ) : null}
             {onPlan ? null : (
               <Link to={`/c/${communityId}/plan`} className="sg-head__plan">
                 My Home Plan
@@ -117,7 +124,7 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
           </Link>
         )}
       </header>
-      {signedIn && shell ? createPortal(<StickyBar onTalk={onTalk} />, shell) : null}
+      {signedIn && shell ? createPortal(<StickyBar onTalk={onTalk} onFinance={financing} />, shell) : null}
     </>
   );
 }
