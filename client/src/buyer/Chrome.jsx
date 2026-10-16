@@ -10,7 +10,7 @@ import { useBuyer } from './BuyerContext.jsx';
 import CommunityMark from './CommunityMark.jsx';
 import { canTalkFinancing } from './reach.js';
 import TextAction from './TextAction.jsx';
-import useDialog from './useDialog.js';
+import useDialog, { closeOnBackdrop } from './useDialog.js';
 
 const TUTORIAL = [
   {
@@ -308,7 +308,7 @@ export function TutorialSheet({ open, onClose }) {
   const last = step === TUTORIAL.length - 1;
 
   return (
-    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Show me around">
+    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Show me around" {...closeOnBackdrop(onClose)}>
       <div className="b-sheet">
         <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>
           Show me around · {step + 1} of {TUTORIAL.length}
@@ -499,6 +499,7 @@ export function TourDialog({ topic, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      {...closeOnBackdrop(onClose)}
     >
       <div className="b-sheet" style={{ maxHeight: '86vh', overflowY: 'auto' }}>
         <span className="b-head" style={{ fontSize: 20 }}>{title}</span>
@@ -689,7 +690,7 @@ export function AddToPhoneDialog({ open, onClose }) {
   if (!open) return null;
 
   return (
-    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Add to my phone">
+    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Add to my phone" {...closeOnBackdrop(onClose)}>
       <div className="b-sheet" style={{ alignItems: 'center', textAlign: 'center' }}>
         <div
           style={{
