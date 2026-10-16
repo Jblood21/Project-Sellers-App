@@ -377,17 +377,30 @@ export function isSold(home) {
  *
  * Adding one is three things: an entry here, a folder under
  * client/src/buyer/layouts/, and a stylesheet scoped to `.l-<key>`.
+ *
+ * The key is what is stored on a community, so it never changes; the name is
+ * only what the Setup tab calls it, and can be changed freely.
  */
 export const LAYOUTS = [
   {
     k: 'cornerpost',
-    name: 'Touradoor Default',
+    name: 'Porch',
     note: 'One phone-width column of soft, rounded tiles. Manrope throughout, with a Book a tour button on every page.',
   },
   {
     k: 'saltgrass',
-    name: 'Salt Grass',
+    name: 'Ridgeline',
     note: 'Condensed uppercase headlines, a dark header and footer, and big figures. Reads best with the Navy & Gold, Ice Blue & Dark Navy or Slate Blue & Soft Green themes.',
+  },
+  {
+    k: 'foyer',
+    name: 'Foyer',
+    note: 'Serif headlines, thin rules and numbered lists, laid out like a magazine. Reads best with the Charcoal & Bronze, Forest Green & Cream or Warm Modern Real Estate themes.',
+  },
+  {
+    k: 'keystone',
+    name: 'Keystone',
+    note: 'Compact and precise: a tab strip under the header, sharp corners and a row of figures at the top. Reads best with the Ice Blue & Dark Navy, Modern Blue & White or Black, White & Orange themes.',
   },
 ];
 export const LAYOUT_KEYS = LAYOUTS.map((l) => l.k);
