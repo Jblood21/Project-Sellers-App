@@ -414,25 +414,34 @@ opens the section it is in. Sections start folded each time the page is opened.
 ## Layouts
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
-two, and the choice saves the moment it is made:
+four, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
+is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `keystone`.)
 
-- **Touradoor Default** (what every community starts on) — one phone-width column of soft, rounded
+- **Porch** (key `cornerpost`; what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Book a tour* button in the header of every page, and **Talk about financing**
   in the menu (and on the home screen, Explore and every model's page). It has no bar at the foot of the screen.
-- **Salt Grass** — condensed uppercase headlines, a dark header and footer with an accent rule, large
+- **Ridgeline** (key `saltgrass`) — condensed uppercase headlines, a dark header and footer with an accent rule, large
   payment figures, and a bar fixed to the foot of the screen on phones: **Book a tour**, **Talk about financing**
   (only when the community has a lender set up; it opens the day-then-time picker for the lender, or the lender's
   phone and email) and **My Home Plan**. **Book a tour** goes to the Meet the agents page. From 900px the header carries the same three buttons instead (and the
   "Preferred Lender" lockup waits for a screen about 1200px wide to make room for them). The financing button is
   left out when its sheet would have nothing on it: booking off or no times posted, and the lender has no phone or email.
+- **Foyer** (key `foyer`) — a magazine-like look: Cormorant Garamond headlines, Jost text, thin rules, square corners, the
+  tools as a numbered index and the guides as "From the journal". A centred title over a slim bar, with *Book a tour*,
+  *Talk about financing* and *My Home Plan* as text links under it. Light ground.
+- **Keystone** (key `keystone`) — compact and precise: Space Grotesk with tabular figures, sharp corners, a status row of
+  figures at the top of the home screen, and a tab strip under the header (Tools, Explore, Saved, Plan, Financing).
+  Light ground.
 
 A layout changes the typeface, shape, spacing and where things sit. It never changes what a tool
-does or what it calculates, and every screen reachable in one layout is reachable in the other.
+does or what it calculates, and every screen reachable in one layout is reachable in the others.
 
 A layout is **independent of the theme**. The ten themes are palettes and a layout takes its colours
 from whichever theme is chosen, so any layout works with any theme. One consequence to know about:
-Touradoor Default is Manrope only, so a community whose theme brought its own serif face loses that
-face under the default layout. Salt Grass reads best on the Navy & Gold, Ice Blue & Dark Navy and Slate Blue & Soft Green themes.
+Porch is Manrope only, so a community whose theme brought its own serif face loses that
+face under it. Each layout also has themes it reads best on: Ridgeline on Navy & Gold, Ice Blue & Dark Navy and Slate Blue &
+Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Keystone on Ice Blue & Dark Navy,
+Modern Blue & White and Black, White & Orange.
 
 ## Development logo
 
@@ -583,7 +592,7 @@ so the canonical address is one address.
 ## Upgrading
 
 Nothing needs doing by hand. On boot the server adds the new columns and tables, gives every existing community the
-Touradoor Default layout, and copies the thirteen guides into each community that has not had them (it then
+Porch layout (`cornerpost`), and copies the thirteen guides into each community that has not had them (it then
 records that it has, so later restarts add nothing). Afterwards, **for each community**:
 
 1. Open **Setup → Lender & compliance** and fill in everything under *Needs your attention before launch*
@@ -614,7 +623,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Touradoor Default and Salt Grass: header and home screen per layout
+  buyer/layouts/     Porch, Ridgeline, Foyer and Keystone: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: communities, 8 tabs (Homes, Area, Learn, Times, Tools, Leads, Stats,
                      Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
