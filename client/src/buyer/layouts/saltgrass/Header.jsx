@@ -105,9 +105,11 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
 
         {signedIn ? (
           <>
-            <button type="button" className="sg-head__talk" onClick={onTalk}>
-              Book a tour
-            </button>
+            {onTalk ? (
+              <button type="button" className="sg-head__talk" onClick={onTalk}>
+                Book a tour
+              </button>
+            ) : null}
             {financing ? (
               <button type="button" className="sg-head__finance" onClick={financing}>
                 Talk about financing

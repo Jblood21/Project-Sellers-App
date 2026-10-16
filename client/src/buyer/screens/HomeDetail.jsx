@@ -5,6 +5,7 @@ import Photo from '../../components/Photo.jsx';
 import { isSold, unitsLabel, videoEmbed } from '@shared/domain.js';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import { canTalkFinancing } from '../reach.js';
 import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
 import AgentCard from '../AgentCard.jsx';
@@ -17,7 +18,7 @@ export default function HomeDetail({ onOpenLender }) {
   // Which of the home's photos the viewer is showing; null means closed. And the video tour player.
   const [photoIndex, setPhotoIndex] = useState(null);
   const [videoOpen, setVideoOpen] = useState(false);
-  const { homes, lead, toggleSave, track, setTool, agents, features } = useBuyer();
+  const { community, homes, lead, toggleSave, track, setTool, agents, features } = useBuyer();
   const { communityId, homeId } = useParams();
   const navigate = useNavigate();
 
@@ -146,17 +147,19 @@ export default function HomeDetail({ onOpenLender }) {
           take to own it. It opens the day-then-time picker for a conversation about financing
           with the lender; a tour is asked for below, through the agents.
         */}
-        <button
-          type="button"
-          className="b-btn"
-          style={{ minHeight: 50 }}
-          onClick={() => {
-            track(`Asked about financing for ${home.name}`);
-            onOpenLender();
-          }}
-        >
-          Talk about financing
-        </button>
+        {canTalkFinancing(community, features) ? (
+          <button
+            type="button"
+            className="b-btn"
+            style={{ minHeight: 50 }}
+            onClick={() => {
+              track(`Asked about financing for ${home.name}`);
+              onOpenLender();
+            }}
+          >
+            Talk about financing
+          </button>
+        ) : null}
         <button
           type="button"
           className="b-btn b-btn-outline"

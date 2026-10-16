@@ -534,7 +534,10 @@ Text is a link on a phone; on a computer, which cannot send a text, it copies th
 **A tour is a call or a text; the calendar is for financing.** **Book a tour** (the header, the bottom bar, the Plan
 screen) takes a buyer to the **Meet the agents** page to call, text or email an agent, and books no time. With no agent
 who can be reached (realtors off, or none with a phone or email) it opens a sheet of the sales team's phone and email
-(from the Times tab) with the message already written. Only **Talk about financing** is scheduled.
+(from the Times tab) with the message already written; with neither, the button is left out. Only **Talk about
+financing** is scheduled. Tapping **Book a tour**, and Call, Text or Email on an agent's card, is recorded in the lead's
+activity. A time booked for a tour before this change stays on the buyer's Plan screen as "Your tour" (and the Stats card
+*Booked calls* counts every booked time, financing included).
 
 **Financing times on and off.** The Times tab has a switch (*Buyers can book these times to talk about financing*, on
 unless switched off). On, **Talk about financing** opens a day-then-time picker, and a buyer can still choose *Or call,

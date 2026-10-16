@@ -13,6 +13,16 @@ export function canTalkFinancing(community, features) {
 }
 
 /**
+ * Whether "Book a tour" has anyone to send a buyer to: an agent they can reach, or else the sales team's
+ * phone or email. Without either, the button would open a sheet that only says there is no one to ask, so it
+ * is left out, the rule "Talk about financing" and the Explore screen already follow.
+ */
+export function canBookTour(features, agents, settings) {
+  const team = Boolean(String(settings?.teamPhone ?? '').trim() || String(settings?.teamEmail ?? '').trim());
+  return canReachAgents(features, agents) || team;
+}
+
+/**
  * Whether there is an agent a buyer can call, text or email: the realtors are switched on and at least one
  * has a number or an address. "Book a tour" goes to the Meet the agents page then; without one it opens the
  * sheet that lists the sales team to reach instead.
