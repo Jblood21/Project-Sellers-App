@@ -6,7 +6,7 @@ import { complianceOf } from '@shared/compliance.js';
 import { ChevronLeft, Menu } from '../../../components/Icons.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
 import CommunityMark from '../../CommunityMark.jsx';
-import { canTalkFinancing } from '../../financing.js';
+import { canTalkFinancing } from '../../reach.js';
 import LenderLogo from '../../LenderLogo.jsx';
 import StickyBar from './StickyBar.jsx';
 import useMedia from './useMedia.js';

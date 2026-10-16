@@ -417,11 +417,12 @@ opens the section it is in. Sections start folded each time the page is opened.
 two, and the choice saves the moment it is made:
 
 - **Touradoor Default** (what every community starts on) — one phone-width column of soft, rounded
-  tiles, Manrope throughout, a *Book a tour* button in the header of every page.
+  tiles, Manrope throughout, a *Book a tour* button in the header of every page, and **Talk about financing**
+  in the menu (and on the home screen, Explore and every model's page). It has no bar at the foot of the screen.
 - **Salt Grass** — condensed uppercase headlines, a dark header and footer with an accent rule, large
   payment figures, and a bar fixed to the foot of the screen on phones: **Book a tour**, **Talk about financing**
-  (only when the community has a lender set up; it opens the same day-then-time picker for the lender, or the lender's
-  phone and email) and **My Home Plan**. From 900px the header carries the same three buttons instead (and the
+  (only when the community has a lender set up; it opens the day-then-time picker for the lender, or the lender's
+  phone and email) and **My Home Plan**. **Book a tour** goes to the Meet the agents page. From 900px the header carries the same three buttons instead (and the
   "Preferred Lender" lockup waits for a screen about 1200px wide to make room for them). The financing button is
   left out when its sheet would have nothing on it: booking off or no times posted, and the lender has no phone or email.
 
@@ -523,18 +524,24 @@ are several), on every home, and on a **Meet the agent** page. Each card has the
 **Call**, **Text** (phones only) and **Email** buttons, and a **Tour the homes** button that opens a message to
 the agent that is already written: a text on a phone, an email on a computer (whichever the agent has, if only
 one). The **Explore Homes** screen has *Ready to look at homes?* under the homes, with two buttons, each shown only when it leads somewhere
-(times to pick, or someone with a phone or an email): **Schedule a Tour** (the realtors page; the booking sheet when there are no realtors) and **Find out
-about financing** (the lender sheet). Each model's page starts its buttons with **Talk about financing**, which opens the
+(someone with a phone or an email, or times to pick for financing): **Schedule a Tour** (the realtors page; the sheet of
+sales team contacts when there are no realtors) and **Find out about financing** (the lender sheet). Each model's page starts its buttons with **Talk about financing**, which opens the
 same sheet for a conversation with the lender. A tour is asked for further down the model's page, under **Want a Tour?**,
-through the agent cards (Call, Text and Email, not a tour button), or from **Book a tour** in the header or bottom bar. In the Salt Grass layout the bottom bar also has **Talk about financing**.
+through the agent cards (Call, Text and Email, not a tour button), or from **Book a tour** in the header or bottom bar, which
+goes to the Meet the agents page.
 Text is a link on a phone; on a computer, which cannot send a text, it copies the number and says so.
 
-**Booking times on and off.** The Times tab has a switch (*Buyers can book these times*, on unless switched off). On,
-**Book a tour** and **Talk about financing** open a day-then-time picker, and a buyer can still choose *Or call, text or email
-instead*. Off, or with no times published, they open a sheet of people to call, text or email, each message already
-written: the sales team (the phone and email on the Times tab), the realtors for a tour, the lender for financing. Off also
-means the server serves no times and refuses a booking (even from a sheet that was already open); the published times and any
-booking already made are kept. Booking can also ask for **another email** (a spouse or co-buyer): it is kept on the
+**A tour is a call or a text; the calendar is for financing.** **Book a tour** (the header, the bottom bar, the Plan
+screen) takes a buyer to the **Meet the agents** page to call, text or email an agent, and books no time. With no agent
+who can be reached (realtors off, or none with a phone or email) it opens a sheet of the sales team's phone and email
+(from the Times tab) with the message already written. Only **Talk about financing** is scheduled.
+
+**Financing times on and off.** The Times tab has a switch (*Buyers can book these times to talk about financing*, on
+unless switched off). On, **Talk about financing** opens a day-then-time picker, and a buyer can still choose *Or call,
+text or email instead*. Off, or with no times published, it opens a sheet with the lender's phone and email (the lender's
+Setup details), each message already written. Off also means the server serves no times and refuses a booking (even from
+a sheet that was already open); the published times and any booking already made are kept. A buyer holds one booked
+time, so a financing time they book replaces an earlier one (a tour booked before this change is replaced too). Booking can also ask for **another email** (a spouse or co-buyer): it is kept on the
 lead, the builder's alert and the lead page show it, and the plan is emailed to it too on the plan screen.
 
 **A model's page** opens with its hero photo (the first photo; the Homes tab has *Hero*, make-hero and move arrows), the

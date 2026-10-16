@@ -8,6 +8,7 @@ import { emailHref, financingMessage, tourMessage } from '../lib/contact.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
 import { useBuyer } from './BuyerContext.jsx';
 import CommunityMark from './CommunityMark.jsx';
+import { canTalkFinancing } from './reach.js';
 import TextAction from './TextAction.jsx';
 import useDialog from './useDialog.js';
 
@@ -143,7 +144,7 @@ export function BuyerHeader({ onOpenMenu, signedIn = true }) {
   );
 }
 
-export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
+export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone, onFinance }) {
   const { community, lead, features, guides, agents } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
@@ -170,6 +171,8 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
     // the flag is checked as well so a stale payload cannot show a dead link.
     ...(features.guides && guides.length ? [{ label: 'Buyer guides', to: `/c/${communityId}/guides` }] : []),
     ...(features.agents && agents.length ? [{ label: agents.length > 1 ? 'Meet the agents' : 'Meet the agent', to: `/c/${communityId}/realtors` }] : []),
+    // The way to the lender's calendar from any screen, in either layout; shown only when it has something to do.
+    ...(onFinance && canTalkFinancing(community, features) ? [{ label: 'Talk about financing', action: onFinance }] : []),
     { label: 'Homes I Like', to: `/c/${communityId}/saved` },
     { label: 'My Home Plan', to: `/c/${communityId}/plan` },
   ];
@@ -208,7 +211,12 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone }) {
           <button
             key={item.to + item.label}
             type="button"
-            onClick={() => go(item.to)}
+            onClick={() => {
+              if (item.action) {
+                onClose();
+                item.action();
+              } else go(item.to);
+            }}
             style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
               minHeight: 44, padding: '0 12px', borderRadius: 'var(--t-rad)', border: 'none',
@@ -354,9 +362,13 @@ function ReachRow({ contact, message, subject, onAct }) {
 }
 
 /**
- * Where "Book a tour" (and "Talk about financing") lead. Normally a day, then a time, from the times the
- * builder published. When booking is switched off, or no times are published (a dead end before), it is
- * the people to call, text or email: the sales team and the realtors for a tour, the lender for financing.
+ * The sheet behind "Talk about financing" and, when there is no agent to send a buyer to, "Book a tour".
+ *
+ * Financing is the one thing that is scheduled: a day, then a time, from the times the builder published.
+ * When booking is switched off, or no times are published, it is the lender to call, text or email.
+ * A tour is never booked here: it is a call, a text or an email, so the sheet for it is only the people to
+ * reach, the sales team and the realtors. (Normally "Book a tour" goes to the Meet the agents page and this
+ * sheet is not opened for it at all.)
  * Booking is treated as on unless the builder switched it off, so an older cached payload never hides it.
  */
 export function TourDialog({ topic, onClose }) {
@@ -391,15 +403,15 @@ export function TourDialog({ topic, onClose }) {
   useDialog(open, onClose, dialogRef);
 
   // Re-read on open: the community payload was fetched when they arrived, and
-  // somebody else may have taken a time since.
+  // somebody else may have taken a time since. Only financing has times to read.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !lender) return;
     let live = true;
     buyerApi.openSlots(communityId)
       .then((fresh) => { if (live) setSlots(fresh); })
       .catch(() => {});
     return () => { live = false; };
-  }, [open, communityId]);
+  }, [open, lender, communityId]);
 
   // Each time the sheet opens it starts as a short list of days with nothing picked.
   // A buyer's own booking is never in the open list (a booked time leaves it), so it
@@ -427,12 +439,12 @@ export function TourDialog({ topic, onClose }) {
 
   const bookingOn = features?.booking !== false;
   const byDate = [];
-  for (const slot of bookingOn ? slots : []) {
+  for (const slot of lender && bookingOn ? slots : []) {
     const last = byDate[byDate.length - 1];
     if (last && last[0] === slot.date) last[1].push(slot);
     else byDate.push([slot.date, [slot]]);
   }
-  const canPick = bookingOn && byDate.length > 0;
+  const canPick = lender && bookingOn && byDate.length > 0;
   const showPeople = !canPick || view === 'people';
   // A few days, not every day the builder has published: the next ones are what
   // a buyer is choosing between, and a wall of dates is what this replaced.
@@ -460,8 +472,7 @@ export function TourDialog({ topic, onClose }) {
   const intro = [
     lender
       ? (people.length ? `Call, text or email ${lenderName} to talk about financing.` : '')
-      : (people.length ? 'Call, text or email to book an appointment.' : ''),
-    !lender && bookingOn && !canPick ? `The ${community?.name} team hasn’t posted times to pick from yet.` : '',
+      : (people.length ? 'Call, text or email to set up your tour.' : ''),
   ].filter(Boolean).join(' ');
 
   const send = async () => {
@@ -472,7 +483,7 @@ export function TourDialog({ topic, onClose }) {
       // Only when it was changed, so leaving a saved address alone never rewrites it.
       ...(extraTrimmed !== savedExtra ? { extraEmail: extraTrimmed } : {}),
     };
-    const done = await requestTour(picked, contact, lender ? 'lender' : 'community', extras);
+    const done = await requestTour(picked, contact, 'lender', extras);
     setBusy(false);
     if (done) onClose();
     // On a clash the dialog stays open with a fresh list, so they can pick again.
@@ -507,7 +518,7 @@ export function TourDialog({ topic, onClose }) {
               </div>
             ) : (
               <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-                {lender || !bookingOn ? 'The team hasn’t added a phone number or email here yet. You can ask them in person.' : 'Check back soon, or ask the team in person.'}
+                The team hasn’t added a phone number or email here yet. You can ask them in person.
               </span>
             )}
             {canPick ? (
@@ -525,9 +536,7 @@ export function TourDialog({ topic, onClose }) {
               </span>
             ) : null}
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-              {lender
-                ? `Pick a day, then a time, and the ${community?.name} team will set you up with ${lenderName}.`
-                : `Pick a day, then a time that suits you. These are the times the ${community?.name} team is free.`}
+              Pick a day, then a time, and the {community?.name} team will set you up with {lenderName}.
             </span>
 
             <span className="b-lbl" style={{ marginTop: 10 }}>Pick a day</span>

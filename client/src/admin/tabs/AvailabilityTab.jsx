@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { formatSlotDate, formatSlotTime, isoDate, SLOT_TIMES } from '@shared/domain.js';
-import { SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
+import { complianceOf, SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
 import { Trash } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
@@ -24,9 +24,12 @@ function monthGrid(year, month) {
 }
 
 /**
- * When the team is available. The builder taps the days they are around and
+ * When the team is available to talk about financing. The builder taps the days they are around and
  * ticks the times they can do, and every combination is published at once —
  * "Tuesday, Wednesday and Thursday at 10, 2 and 4" is six taps, not nine forms.
+ *
+ * Only "Talk about financing" uses these times. "Book a tour" is a call or a text to an agent (or to the
+ * sales team below, when there are no agents), so it needs people to reach, not times.
  */
 export default function AvailabilityTab({ community, reload }) {
   const { token } = useAdmin();
@@ -87,12 +90,16 @@ export default function AvailabilityTab({ community, reload }) {
   const upcoming = byDate.filter(([date]) => date >= today);
   const past = byDate.filter(([date]) => date < today);
 
-  // Whether a buyer who taps "Book a tour" has anything to do: a time to pick, or someone to reach.
+  // Whether each button has anything to do. "Book a tour" needs an agent or the sales team to reach;
+  // "Talk about financing" needs a time to pick or the lender's phone or email.
   const hasTeamContact = Boolean(telHref(community.settings?.teamPhone) || SAFE_EMAIL_RE.test(String(community.settings?.teamEmail ?? '').trim()));
   const hasAgentContact = Boolean(community.features?.agents) && (community.agents ?? [])
     .some((agent) => telHref(agent.phone) || SAFE_EMAIL_RE.test(String(agent.email ?? '').trim()));
   const hasTimes = bookingOn && upcoming.length > 0;
-  const nothingToOffer = slots && !hasTimes && !hasTeamContact && !hasAgentContact;
+  const lender = complianceOf(community.settings, { community }).lender;
+  const hasLenderContact = Boolean(telHref(lender.phone) || SAFE_EMAIL_RE.test(String(lender.email ?? '').trim()));
+  const tourNobody = !hasTeamContact && !hasAgentContact;
+  const financeNothing = lender.ready && slots && !hasTimes && !hasLenderContact;
 
   const remove = async (slot) => {
     if (slot.leadId && !window.confirm('Someone has booked this time. Remove it anyway?')) return;
@@ -105,29 +112,35 @@ export default function AvailabilityTab({ community, reload }) {
       <div className="card elev-sm" style={{ gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="card-title" style={{ fontSize: 15 }}>Buyers can book these times</div>
+            <div className="card-title" style={{ fontSize: 15 }}>Buyers can book these times to talk about financing</div>
             <div className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
               {bookingOn
-                ? 'On: the “Book a tour” and “Talk about financing” buttons let buyers pick a day and a time from the list below.'
-                : 'Off: “Book a tour” shows your phone, text and email, and “Talk about financing” shows the lender’s, instead. The times below are kept for when you switch it back on. You are not emailed when someone taps Call, Text or Email; it shows in their activity on the lead.'}
+                ? 'On: “Talk about financing” lets buyers pick a day and a time from the list below. Tours are not booked here: “Book a tour” sends buyers to your agents to call or text.'
+                : 'Off: “Talk about financing” shows the lender’s phone, text and email instead of these times, which are kept for when you switch it back on. You are not emailed when someone taps Call, Text or Email; it shows in their activity on the lead.'}
             </div>
           </div>
-          <Toggle on={bookingOn} onChange={flip} label="Buyers can book times" />
+          <Toggle on={bookingOn} onChange={flip} label="Buyers can book financing times" />
         </div>
         {bookingOn && slots && !upcoming.length ? (
           <p className="text-muted" style={{ fontSize: 12.5, margin: 0 }}>
-            No times are published, so buyers are shown your phone, text and email until you add some.
+            No times are published, so “Talk about financing” shows the lender’s phone, text and email until you add some.
           </p>
         ) : null}
-        {nothingToOffer ? (
+        {tourNobody || financeNothing ? (
           <p role="alert" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5, fontWeight: 600, color: '#8a1c11' }}>
-            Buyers have nothing to book or to call yet. Add a sales team phone or email below, add a realtor with a phone or email, or publish some times.
+            {tourNobody
+              ? '“Book a tour” has nobody to send buyers to yet. Add a realtor with a phone or email, or a sales team phone or email below.'
+              : ''}
+            {tourNobody && financeNothing ? ' ' : ''}
+            {financeNothing
+              ? '“Talk about financing” has nothing to offer: publish some times, or add the lender’s phone or email in Setup.'
+              : ''}
           </p>
         ) : (
           <p className="text-muted" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5 }}>
-            {hasTeamContact || hasAgentContact
-              ? 'When buyers call, text or email instead, they see your realtors (if you have added any) and the sales team contact below.'
-              : 'When buyers call, text or email instead, they see your realtors. Add a sales team phone or email below to show theirs too.'}
+            {hasAgentContact
+              ? '“Book a tour” takes buyers to your realtors to call, text or email. They see the sales team contact below only when no realtor can be reached.'
+              : '“Book a tour” shows the sales team contact below, because no realtor can be reached yet. Add a realtor with a phone or email to send buyers to them.'}
           </p>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
@@ -150,8 +163,8 @@ export default function AvailabilityTab({ community, reload }) {
         <ErrorNote>{error}</ErrorNote>
       </div>
       <p className="text-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
-        Times you publish here are the only times buyers can choose. Nothing else is offered,
-        so an empty list means no one can book.
+        Times you publish here are the only times buyers can choose for talking about financing.
+        Nothing else is offered, so an empty list means no one can book one.
       </p>
 
       {slots && !upcoming.length ? (

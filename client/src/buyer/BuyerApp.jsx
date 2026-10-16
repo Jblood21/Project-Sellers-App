@@ -7,6 +7,7 @@ import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialS
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
 import ComplianceFooter from './ComplianceFooter.jsx';
 import { layoutFor } from './layouts/index.js';
+import { canReachAgents } from './reach.js';
 import StructuredData from './StructuredData.jsx';
 import AllTools from './screens/AllTools.jsx';
 import Area from './screens/Area.jsx';
@@ -59,7 +60,7 @@ function Centered({ children }) {
 }
 
 function BuyerShell() {
-  const { community, layout, loading, loadError, signedIn, track } = useBuyer();
+  const { community, layout, loading, loadError, signedIn, track, features, agents } = useBuyer();
   const { communityId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -111,6 +112,19 @@ function BuyerShell() {
   const guard = (element) =>
     signedIn ? element : <Navigate to={`/c/${communityId}`} replace />;
 
+  // "Book a tour" is a call, a text or an email to an agent, not a booking: it goes to the Meet the agents
+  // page. With no agent to reach it opens the sheet that lists the sales team to call, text or email. The day
+  // and time picker is for talking about financing.
+  const bookTour = () => {
+    if (canReachAgents(features, agents)) navigate(`/c/${communityId}/realtors`);
+    else setTourTopic('community');
+  };
+  // Recorded like every other way into the lender sheet, so the builder sees who looked at financing.
+  const talkFinancing = () => {
+    track(`Tapped ${complianceOf(community?.settings, { community }).lender.name || 'the lender'}`);
+    setTourTopic('lender');
+  };
+
   return (
     <div className={`b-app t-${community.theme} l-${layout}`}>
       <a className="b-skip" href="#b-main">Skip to the page</a>
@@ -118,12 +132,8 @@ function BuyerShell() {
       {showChrome ? (
         <Header
           onOpenMenu={() => setMenuOpen(true)}
-          onTalk={() => setTourTopic('community')}
-          onFinance={() => {
-            // Recorded like every other way into the lender sheet, so the builder sees who looked at financing.
-            track(`Tapped ${complianceOf(community?.settings, { community }).lender.name || 'the lender'}`);
-            setTourTopic('lender');
-          }}
+          onTalk={bookTour}
+          onFinance={talkFinancing}
           signedIn={!publicGuide}
         />
       ) : null}
@@ -140,7 +150,7 @@ function BuyerShell() {
           <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} />)} />
           <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
           <Route path="saved" element={guard(<Saved />)} />
-          <Route path="plan" element={guard(<Plan onOpenTour={() => setTourTopic('community')} />)} />
+          <Route path="plan" element={guard(<Plan onOpenTour={bookTour} onOpenLender={talkFinancing} />)} />
           <Route path="plan/print" element={guard(<PlanPrint />)} />
           <Route path="guides" element={<Guides />} />
           <Route path="guides/:slug" element={<GuideArticle />} />
@@ -162,6 +172,7 @@ function BuyerShell() {
         onClose={() => setMenuOpen(false)}
         onShowTutorial={() => setTutorialOpen(true)}
         onAddToPhone={() => setAddToPhoneOpen(true)}
+        onFinance={talkFinancing}
       />
       <TutorialSheet open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
       <TourDialog topic={tourTopic} onClose={() => setTourTopic(null)} />

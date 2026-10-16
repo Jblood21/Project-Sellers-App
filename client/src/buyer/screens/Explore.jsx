@@ -4,9 +4,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Star } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
-import { canMessage } from '../../lib/contact.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import ImageViewer from '../ImageViewer.jsx';
+import { canReachAgents } from '../reach.js';
 import { complianceOf, telHref } from '@shared/compliance.js';
 
 export default function Explore({ onOpenTour, onOpenLender }) {
@@ -20,15 +20,16 @@ export default function Explore({ onOpenTour, onOpenLender }) {
   const [mapOpen, setMapOpen] = useState(false);
   const placed = homes.filter((home) => home.lotNumber).length;
   // Two ways forward from the list, each offered only when it leads somewhere: the realtors (who do
-  // the touring) when there are some, else the sheet that books a time or shows who to call; and the
-  // lender, by their contact or by booking a time to talk.
+  // the touring, by a call or a text) when there are some, else the sheet that shows which sales team
+  // number or address to use; and the lender, by their contact or by booking a time to talk.
   // Offered only when the sheet or page it opens has something to do: times to pick from (booking on and
   // some posted), or someone with a phone or an email. A button into a dead end is worse than none.
   const hasTimes = features.booking !== false && (community?.slots?.length ?? 0) > 0;
   const lender = complianceOf(settings, { community }).lender;
   const hasTeamContact = Boolean(String(settings.teamPhone ?? '').trim() || String(settings.teamEmail ?? '').trim());
-  const toRealtors = features.agents && agents.some((agent) => canMessage(agent) || telHref(agent.phone));
-  const canSchedule = toRealtors || hasTimes || hasTeamContact;
+  const toRealtors = canReachAgents(features, agents);
+  // A tour is a call or a text, never a booked time, so times do not make "Schedule a Tour" worth showing.
+  const canSchedule = toRealtors || hasTeamContact;
   const canAskFinancing = hasTimes || Boolean(telHref(lender.phone) || lender.email);
 
   return (
