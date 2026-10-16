@@ -381,6 +381,25 @@ Three messages — the app is deliberately quiet.
   next report. It is limited to one every 15 seconds and 30 a day per community. The address and the stamp are
   never served to buyers (the rate webhook's reply leaves them out too).
 
+- **PDF reports**, made only when the builder presses **Download PDF**, and saved to their own device: nothing
+  is emailed and nothing is stored on the server. There are two. The **leads report** (on the Leads tab, and
+  under Stats) covers everyone, or only those who signed up in the last 7, 30 or 90 days: a summary row, what
+  people did (the most saved homes, the tools used, sign-ups for each of the last eight weeks), the scheduled
+  calls still waiting (past their day in red, "Do not call" beside anyone who did not agree), and everyone with
+  contact details, notes, saved homes, plan progress, status and what they agreed to. At most the newest 2,000
+  people are printed and the page says when it cut. The **user report** (on a person's own page) is one
+  person: contact, what they agreed to (the answer, when, the exact words they were shown and its version,
+  and every answer on record), the call they asked for, saved homes, what each tool worked out, their move-in
+  plan, the team's notes and everything they did in the app. Both carry a title band in the community's
+  colour, the page number and a confidentiality line on every page, and count days in `REPORT_TIME_ZONE`, as
+  the emailed report does. They are admin-only (a buyer's token is refused), sent `Cache-Control: no-store`
+  and limited to four every ten seconds per community. The PDF is written by `server/lib/pdf.js` with no
+  dependency: standard Helvetica (so no font file), text always written as hex strings so a name or note
+  typed by a buyer can never be read as PDF syntax, and Windows-1252 text, so accents, curly quotes, the euro
+  sign and dashes print and anything the encoding lacks (emoji, other scripts) prints as `?`.
+  `server/lib/pdfReports.js` lays out the two reports; `GET /api/admin/communities/:id/reports/leads.pdf?period=all|7|30|90`
+  and `GET /api/admin/leads/:id/report.pdf` serve them.
+
 Set `RESEND_API_KEY` and `EMAIL_FROM` to turn it on. Without them the app sends nothing
 and everything else works unchanged — a call request is still recorded and still shows in
 the builder's queue. **Sending never breaks the thing that triggered it:** if the provider

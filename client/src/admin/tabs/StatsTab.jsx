@@ -1,4 +1,5 @@
 import { PLAN_LABELS, planProgress } from '@shared/domain.js';
+import PdfReportButton from '../PdfReportButton.jsx';
 import { Spinner } from '../ui.jsx';
 
 export default function StatsTab({ community, leads }) {
@@ -53,6 +54,13 @@ export default function StatsTab({ community, leads }) {
           </span>
           <span className="text-muted">{topToolEntry ? `${topToolEntry[1]} leads` : '—'}</span>
         </div>
+      </div>
+      <div className="card">
+        <PdfReportButton
+          community={community}
+          title="Leads report (PDF)"
+          note="The numbers above, the calls waiting and everyone, as a file to keep or print."
+        />
       </div>
     </div>
   );

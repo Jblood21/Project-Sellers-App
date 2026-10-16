@@ -6,6 +6,7 @@ import {
 } from '@shared/domain.js';
 import CardButton from '../../components/CardButton.jsx';
 import { shortDate } from '../../lib/format.js';
+import PdfReportButton from '../PdfReportButton.jsx';
 import ReportButton from '../ReportButton.jsx';
 import { PillRow, Spinner } from '../ui.jsx';
 
@@ -40,6 +41,7 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <ReportButton community={community} reload={reload} onOpenSetup={onOpenSetup} />
+      <PdfReportButton community={community} title="PDF report" />
       {pendingTours > 0 ? (
         <button
           type="button"
