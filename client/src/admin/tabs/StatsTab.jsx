@@ -59,7 +59,7 @@ export default function StatsTab({ community, leads }) {
         <PdfReportButton
           community={community}
           title="Leads report (PDF)"
-          note="The numbers above, the calls waiting and everyone, as a file to keep or print."
+          note="A summary, what people did, the calls waiting and everyone, as a file to keep or print."
         />
       </div>
     </div>

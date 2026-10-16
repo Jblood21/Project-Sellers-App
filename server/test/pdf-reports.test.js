@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
-import { MAX_PEOPLE, PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
+import { MAX_CALLS, MAX_PEOPLE, PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { backends, startBackend } from './fixtures/harness.js';
 import { pdfText, readPdf } from './fixtures/pdfText.js';
 
@@ -272,11 +272,18 @@ describe('the report PDF for one person', () => {
     assert.ok(text.includes('2 answers on record: agreed Sep 20, 2026; declined Sep 1, 2026.'));
   });
 
-  test('a person who declined, and one who was never asked, are told plainly not to be called', () => {
+  test('a person who declined, one who was never asked and one with no number are each told plainly what that means', () => {
     const declined = flat(userPdf(lead({ phone: '(801) 555-0100', consent: { granted: false, at: '2026-09-20T16:00:00Z', text: 'x', version: 'v2' } })).buffer);
-    assert.ok(declined.includes('Did not agree to calls and texts (answered Sun, Sep 20, 2026 at 10:00 AM). Do not call or text this number.'));
-    const never = flat(userPdf(lead()).buffer);
-    assert.ok(never.includes('Never asked.') && never.includes('Do not call or text without asking.'));
+    assert.ok(declined.includes('Do not call or text. They were asked on Sun, Sep 20, 2026 at 10:00 AM and did not agree.'));
+    assert.ok(declined.includes('Replying to something they asked for is fine; marketing calls and texts are not.'));
+    const never = flat(userPdf(lead({ phone: '(801) 555-0100' })).buffer);
+    assert.ok(never.includes('Do not call or text. Never asked: no consent is on file'));
+    assert.ok(never.includes('Replying to something they asked for is fine'));
+    const noNumber = flat(userPdf(lead()).buffer);
+    assert.ok(noNumber.includes('Nobody has asked about calls and texts yet, because there is no number.'));
+    assert.ok(!noNumber.includes('Do not call or text.'), 'no number, so nothing to warn about');
+    const agreed = flat(userPdf(lead({ phone: '1', consent: { granted: true, at: daysAgo(1) } })).buffer);
+    assert.ok(!agreed.includes('Replying to something') && !agreed.includes('Do not call or text.'));
   });
 
   test('the scheduled call: what for, when, and whether it is still waiting, handled or closed', () => {
@@ -456,16 +463,18 @@ for (const kind of backends()) {
       const text = pdfText(buffer);
       for (const wanted of [
         'User report: Dana Reyes', 'dana.pdf@test.co', '(801) 555-0111', 'Agreed to calls and texts on', 'Wording shown', 'The Aspen', '$425,000',
-        'Up to $400,000', 'Prefers texts after 5.', 'Homes I Like'.length ? 'Activity (' : '',
+        'Up to $400,000', 'Prefers texts after 5.', 'Activity (',
       ]) assert.ok(text.includes(wanted), wanted);
       assert.match(text, /Saved|saved/, 'the activity the app recorded is listed');
     });
 
-    test('a person who was never asked about calls says so', async () => {
-      const buyer = await signUp({ name: 'No Phone', email: 'nophone@test.co' });
-      const { status, buffer } = await getPdf(`/api/admin/leads/${buyer.lead.id}/report.pdf`);
-      assert.equal(status, 200);
-      assert.ok(pdfText(buffer).includes('Never asked.'));
+    test('a person with no number says nobody has asked, and one who declined says do not call', async () => {
+      const none = await signUp({ name: 'No Phone', email: 'nophone@test.co' });
+      const noneText = (await getPdf(`/api/admin/leads/${none.lead.id}/report.pdf`)).buffer;
+      assert.ok(pdfText(noneText).replace(/\n/g, ' ').includes('because there is no number'));
+      const declined = await signUp({ name: 'Said No', email: 'saidno@test.co', phone: '(801) 555-0166', consent: false });
+      const declinedText = (await getPdf(`/api/admin/leads/${declined.lead.id}/report.pdf`)).buffer;
+      assert.ok(pdfText(declinedText).replace(/\n/g, ' ').includes('Do not call or text. They were asked on'));
     });
 
     test('a lead that is not there is a 404, and reading the report does not mark the lead as opened', async () => {
@@ -506,6 +515,12 @@ for (const kind of backends()) {
         }
         assert.deepEqual(statuses, [200, 200, 200, 200, 429, 429]);
         assert.ok(Number(wait) >= 1, 'Retry-After says when to try again');
+        // The person's report shares the community's allowance with the leads report.
+        const person = (await api(`/api/c/${own}/leads`, { method: 'POST', body: { name: 'Burst Person', email: 'burst@test.co', phone: '' } })).body.lead.id;
+        const personRes = await api(`/api/admin/leads/${person}/report.pdf`, { token, raw: true });
+        assert.equal(personRes.status, 429, 'the person report is held back too once the community is over its allowance');
+        assert.ok(Number(personRes.headers.get('retry-after')) >= 1);
+        await personRes.arrayBuffer();
         const other = (await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Quiet Estates' } })).body.id;
         assert.equal((await api(`/api/admin/communities/${other}/reports/leads.pdf`, { token, raw: true })).status, 200, 'another community is unaffected');
       } finally {

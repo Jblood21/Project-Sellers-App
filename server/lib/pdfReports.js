@@ -3,7 +3,7 @@ import {
   planProgress, slugify,
 } from '../../shared/domain.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
-import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth } from './pdf.js';
+import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, wrapText } from './pdf.js';
 import { buildReport, reportTimeZone } from './report.js';
 
 /**
@@ -21,6 +21,8 @@ import { buildReport, reportTimeZone } from './report.js';
 
 /** Longest roster printed in the leads report; the emailed report's spreadsheet has everyone. */
 export const MAX_PEOPLE = 2000;
+/** Longest list of waiting calls printed; there are never anywhere near this many, but a report must not grow without limit. */
+export const MAX_CALLS = 500;
 
 /** The periods the leads report can cover, by the key the request names. */
 export const PERIODS = {
@@ -31,8 +33,15 @@ export const PERIODS = {
 };
 
 const RED = [0.66, 0.12, 0.1];
+/** What the lead's page says under "Do not call or text". */
+const REPLY_NOTE = 'Replying to something they asked for is fine; marketing calls and texts are not.';
 const oneLine = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** One line of at most `max` characters, so a pasted wall of text cannot swamp a table cell. */
+const clip = (value, max) => {
+  const text = oneLine(value);
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+};
 const when = (value) => (value ? new Date(value).getTime() : Number.NaN);
 
 const formatters = new Map();
@@ -69,12 +78,26 @@ function subhead(doc, text) {
   doc.moveDown(14);
 }
 
+/** A calendar day ('2026-10-12') some days earlier or later, by the calendar and not by 24-hour steps (which a clock change breaks). */
+const addDays = (day, n) => {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + n);
+  return date.toISOString().slice(0, 10);
+};
+/** 'Oct 12, 2026' from a calendar day. */
+const dayName = (day) => formatter('UTC', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${day}T00:00:00Z`));
+/** The Monday of the week a calendar day is in. */
+const mondayOf = (day) => {
+  const dow = (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
+  return addDays(day, -dow);
+};
+
 const themeOf = (community) => THEMES[community?.theme] ?? THEMES.navy;
 const consentWords = (lead) => (lead.consent?.granted ? 'Agreed' : lead.consent ? 'Declined' : 'Never asked');
 const callAbout = (lead, lender) => (lead.tour.topic === 'lender' ? `Financing (${lender})` : 'Tour (booked earlier)');
 const callWhen = (tour) => {
   if (tour.date) return [`${formatSlotDate(tour.date)}, ${tour.date.slice(0, 4)}`, tour.time ? formatSlotTime(tour.time) : ''];
-  return [oneLine(tour.time) || 'No time given'];
+  return [clip(tour.time, 200) || 'No time given'];
 };
 const reachWith = (lead) => [lead.phone || 'No phone', lead.email, ...(lead.extraEmails ?? []).map((email) => `also ${email}`)];
 
@@ -110,27 +133,35 @@ function startDocument({ community, title, subtitle, generated, theme }) {
 
 /** The leads report for a development, as a PDF. */
 export function buildLeadsPdf({ community, leads = [], homes = [], now = new Date(), period = 'all', timeZone = reportTimeZone() }) {
-  const range = PERIODS[period] ?? PERIODS.all;
-  const lender = lenderNameOf(community);
-  const homeName = new Map(homes.map((home) => [home.id, home.name]));
-  const since = range.days ? new Date(now.getTime() - range.days * 86400000) : null;
-  const roster = leads
-    .filter((lead) => !since || when(lead.firstVisitAt) >= since.getTime())
-    .sort((a, b) => when(b.firstVisitAt) - when(a.firstVisitAt));
+  const range = Object.hasOwn(PERIODS, period) ? PERIODS[period] : PERIODS.all;
+  const lender = clip(lenderNameOf(community), 80);
+  const homeName = new Map(homes.map((home) => [home.id, clip(home.name, 80)]));
+  // The same homes a person's saved list means: one that was deleted since is no longer counted or named.
+  const savedOf = (lead) => (lead.savedHomeIds ?? []).filter((id) => homeName.has(id));
+  const today = calendarDay(now, timeZone);
+  // "The last 7 days" is today and the six days before it, by the builder's calendar, so the cut is a midnight.
+  const firstDay = range.days ? addDays(today, 1 - range.days) : null;
+  const signedUp = (lead) => (Number.isNaN(when(lead.firstVisitAt)) ? '' : calendarDay(when(lead.firstVisitAt), timeZone));
+  const byNewest = (a, b) => (when(b.firstVisitAt) || 0) - (when(a.firstVisitAt) || 0);
+  const roster = leads.filter((lead) => !firstDay || (signedUp(lead) && signedUp(lead) >= firstDay)).sort(byNewest);
+  const since = Boolean(firstDay);
   const shown = roster.slice(0, MAX_PEOPLE);
   const calls = buildReport({ community, leads, homes, now, timeZone });
   const waiting = [...calls.comingUp, ...calls.overdue];
+  const waitingShown = waiting.slice(0, MAX_CALLS);
 
   const theme = themeOf(community);
   const generated = `${stamp(now, timeZone)} ${zoneName(timeZone, now)}`;
   const { doc, accent } = startDocument({
-    community, title: 'Leads report', subtitle: `${range.label}${community.location ? ` · ${oneLine(community.location)}` : ''}`, generated, theme,
+    community, title: 'Leads report', generated, theme,
+    subtitle: [since ? `${range.label} (since ${dayName(firstDay)})` : range.label, community.location && community.location !== 'Location TBD' ? clip(community.location, 80) : '']
+      .filter(Boolean).join(' · '),
   });
 
   // ── the summary ──
   const withPhone = roster.filter((lead) => lead.phone).length;
   const agreed = roster.filter((lead) => lead.consent?.granted).length;
-  const savedAny = roster.filter((lead) => (lead.savedHomeIds ?? []).length > 0).length;
+  const savedAny = roster.filter((lead) => savedOf(lead).length > 0).length;
   const average = roster.length ? Math.round(roster.reduce((sum, lead) => sum + planProgress(lead), 0) / roster.length) : 0;
   const closed = roster.filter(isArchived).length;
   const pct = (n) => (roster.length ? ` · ${Math.round((n / roster.length) * 100)}%` : '');
@@ -144,64 +175,59 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     { label: `Saved a home${pct(savedAny)}`, value: String(savedAny) },
     { label: 'Average plan progress', value: `${average}%` },
   ], { accent });
+  if (since) doc.paragraph('Calls waiting and Past their day count everyone, not only the people in this period.', { size: 8, color: COLORS.muted, gap: 2 });
 
   // ── what people did ──
-  if (roster.length) {
+  if (leads.length) {
     doc.heading('What people did');
-    const saves = new Map();
-    for (const lead of roster) for (const id of lead.savedHomeIds ?? []) if (homeName.has(id)) saves.set(id, (saves.get(id) ?? 0) + 1);
-    const topHomes = [...saves.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, n]) => ({ label: homeName.get(id), value: n, note: plural(n, 'save') }));
-    const toolUse = PLAN_KEYS.filter((key) => key !== 'homes')
-      .map((key) => ({ label: PLAN_LABELS[key], value: roster.filter((lead) => lead.plan?.[key]).length }))
-      .filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
+    if (roster.length) {
+      const saves = new Map();
+      for (const lead of roster) for (const id of savedOf(lead)) saves.set(id, (saves.get(id) ?? 0) + 1);
+      const topHomes = [...saves.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, n]) => ({ label: homeName.get(id), value: n, note: plural(n, 'save') }));
+      const toolUse = PLAN_KEYS.filter((key) => key !== 'homes')
+        .map((key) => ({ label: PLAN_LABELS[key], value: roster.filter((lead) => lead.plan?.[key]).length }))
+        .filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
 
-    subhead(doc, 'Most saved homes');
-    if (topHomes.length) doc.barList(topHomes, { color: accent });
-    else doc.paragraph('No one has saved a home yet.', { color: COLORS.muted, gap: 4 });
+      subhead(doc, 'Most saved homes');
+      if (topHomes.length) doc.barList(topHomes, { color: accent });
+      else doc.paragraph('No one has saved a home yet.', { color: COLORS.muted, gap: 4 });
 
-    doc.moveDown(8);
-    subhead(doc, 'Tools used (people who saved a result)');
-    if (toolUse.length) doc.barList(toolUse.map((item) => ({ ...item, note: `${item.value} of ${roster.length}` })), { color: accent });
-    else doc.paragraph('No one has saved a tool result yet.', { color: COLORS.muted, gap: 4 });
+      doc.moveDown(8);
+      subhead(doc, 'Tools used (people who saved a result)');
+      if (toolUse.length) doc.barList(toolUse.map((item) => ({ ...item, note: `${item.value} of ${roster.length}` })), { color: accent });
+      else doc.paragraph('No one has saved a tool result yet.', { color: COLORS.muted, gap: 4 });
+      doc.moveDown(8);
+    }
 
     // Sign-ups by week over the last eight weeks, from all leads so the trend does not depend on the period chosen.
-    const today = calendarDay(now, timeZone);
-    const weekStart = (day) => {
-      const date = new Date(`${day}T00:00:00Z`);
-      date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
-      return date;
-    };
-    const thisWeek = weekStart(today);
-    const weeks = Array.from({ length: 8 }, (_, i) => {
-      const start = new Date(thisWeek);
-      start.setUTCDate(start.getUTCDate() - 7 * (7 - i));
-      return start;
-    });
-    const counts = weeks.map((start) => leads.filter((lead) => {
-      const t = when(lead.firstVisitAt);
-      if (Number.isNaN(t)) return false;
-      const day = new Date(`${calendarDay(t, timeZone)}T00:00:00Z`);
-      return day >= start && day < new Date(start.getTime() + 7 * 86400000);
-    }).length);
-    doc.moveDown(8);
+    const weeks = Array.from({ length: 8 }, (_, i) => addDays(mondayOf(today), -7 * (7 - i)));
+    const counts = new Map(weeks.map((start) => [start, 0]));
+    for (const lead of leads) {
+      const day = signedUp(lead);
+      if (day && counts.has(mondayOf(day))) counts.set(mondayOf(day), counts.get(mondayOf(day)) + 1);
+    }
     subhead(doc, 'Sign-ups per week (last 8 weeks, all people)');
     doc.barList(weeks.map((start, i) => ({
-      label: `Week of ${formatter('UTC', { month: 'short', day: 'numeric' }).format(start)}${i === 7 ? ' (this week)' : ''}`, value: counts[i], note: String(counts[i]),
+      label: `Week of ${formatter('UTC', { month: 'short', day: 'numeric' }).format(new Date(`${start}T00:00:00Z`))}${i === 7 ? ' (this week)' : ''}`,
+      value: counts.get(start), note: String(counts.get(start)),
     })), { color: accent });
   }
 
   // ── scheduled calls ──
   doc.heading(`Scheduled calls waiting (${waiting.length})`);
+  if (waiting.length > waitingShown.length) {
+    doc.paragraph(`Showing the soonest ${waitingShown.length} of ${waiting.length}.`, { color: COLORS.muted, gap: 4 });
+  }
   doc.table({
     columns: [
       { label: 'WHEN', width: 1.6 }, { label: 'PERSON', width: 1.7 }, { label: 'ABOUT', width: 1.5 }, { label: 'HOW TO REACH THEM', width: 2.6 },
     ],
-    rows: waiting.map((lead) => {
+    rows: waitingShown.map((lead) => {
       const overdue = calls.overdue.includes(lead);
       const [day, time] = callWhen(lead.tour);
       return [
         [{ text: day, font: 'bold', color: overdue ? RED : COLORS.ink }, ...(time ? [time] : []), ...(overdue ? [{ text: 'Past their day', color: RED }] : [])],
-        [{ text: oneLine(lead.name), font: 'bold' }, { text: `by ${lead.tour.contact === 'email' ? 'email' : 'phone'}`, color: COLORS.muted }],
+        [{ text: clip(lead.name, 120), font: 'bold' }, { text: `by ${lead.tour.contact === 'email' ? 'email' : 'phone'}`, color: COLORS.muted }],
         callAbout(lead, lender),
         [...reachWith(lead), ...(lead.consent?.granted ? [] : [{ text: `Do not call · ${lead.consent ? 'declined' : 'never asked'}`, color: RED }])],
       ];
@@ -220,15 +246,15 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
       { label: 'SAVED HOMES', width: 1.7 }, { label: 'STATUS', width: 1.2 }, { label: 'CONSENT', width: 1.1 },
     ],
     rows: shown.map((lead) => {
-      const names = (lead.savedHomeIds ?? []).map((id) => homeName.get(id)).filter(Boolean);
-      const note = oneLine(lead.notes);
+      const names = savedOf(lead).map((id) => homeName.get(id));
+      const note = clip(lead.notes, 140);
       return [
         [
-          { text: oneLine(lead.name), font: 'bold' },
+          { text: clip(lead.name, 120), font: 'bold' },
           { text: lead.email, color: COLORS.muted },
           ...(lead.extraEmails ?? []).map((email) => ({ text: `also ${email}`, color: COLORS.muted })),
           { text: lead.phone || 'No phone', color: COLORS.muted },
-          ...(note ? [{ text: `Note: ${note.length > 140 ? `${note.slice(0, 139)}...` : note}`, font: 'italic', color: COLORS.muted, size: 7.5 }] : []),
+          ...(note ? [{ text: `Note: ${note}`, font: 'italic', color: COLORS.muted, size: 7.5 }] : []),
         ],
         dayText(lead.firstVisitAt, timeZone),
         `${planProgress(lead)}%`,
@@ -243,45 +269,58 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     empty: since ? 'No one signed up in this period.' : 'No one has signed up yet.',
   });
 
-  const filename = `${slugify(community.name) || 'community'}-leads-${calendarDay(now, timeZone)}.pdf`;
+  const filename = `${slugify(community.name) || 'community'}-leads-${today}.pdf`;
   return { buffer: doc.finish(), filename, people: roster.length, pages: doc.pages.length };
 }
 
 /** One person's report, as a PDF. */
 export function buildUserPdf({ community, lead, homes = [], consents = [], now = new Date(), timeZone = reportTimeZone() }) {
-  const lender = lenderNameOf(community);
+  const lender = clip(lenderNameOf(community), 80);
   const theme = themeOf(community);
   const generated = `${stamp(now, timeZone)} ${zoneName(timeZone, now)}`;
   const { doc, accent } = startDocument({
-    community, title: `User report: ${oneLine(lead.name)}`, subtitle: oneLine(lead.email), generated, theme,
+    community, title: `User report: ${clip(lead.name, 120)}`, subtitle: oneLine(lead.email), generated, theme,
   });
   const homeById = new Map(homes.map((home) => [home.id, home]));
   const activity = lead.activity ?? [];
-  /** Pairs of (label, value) in columns, value in bold under its small label. */
+  // A saved home that has since been deleted is neither counted nor listed.
+  const saved = (lead.savedHomeIds ?? []).map((id) => homeById.get(id)).filter(Boolean);
+  /**
+   * Pairs of [label, value, span] in columns, the value in bold under its small label. A value is wrapped, never cut
+   * short (an address or phone number must be readable in full), and a row is as tall as its tallest value.
+   */
   const facts = (pairs, perRow = 3) => {
     const colWidth = doc.contentWidth / perRow;
-    let used = perRow;
-    let started = false;
-    pairs.forEach(([key, value, span = 1]) => {
+    const rows = [];
+    let row = [];
+    let used = 0;
+    for (const [key, value, span = 1] of pairs) {
       if (used + span > perRow) {
-        if (started) doc.moveDown(32);
-        doc.ensure(34);
+        rows.push(row);
+        row = [];
         used = 0;
-        started = true;
       }
-      const x = doc.left + used * colWidth;
-      doc.text(String(key).toUpperCase(), { x, y: doc.y + 8, size: 7, color: COLORS.muted });
-      doc.text(fitLine(String(value || '—'), { font: 'bold', size: 10, width: colWidth * span - 10 }), { x, y: doc.y + 21, size: 10, font: 'bold' });
+      row.push({ key, span, x: used, lines: wrapText(String(value || '—'), { font: 'bold', size: 10, width: colWidth * span - 10 }).slice(0, 6) });
       used += span;
-    });
-    if (started) doc.moveDown(32);
+    }
+    if (row.length) rows.push(row);
+    for (const cells of rows) {
+      const height = 21 + Math.max(...cells.map((cell) => cell.lines.length)) * 12.5 + 8;
+      doc.ensure(height);
+      for (const cell of cells) {
+        const x = doc.left + cell.x * colWidth;
+        doc.text(String(cell.key).toUpperCase(), { x, y: doc.y + 8, size: 7, color: COLORS.muted });
+        cell.lines.forEach((line, i) => doc.text(line, { x, y: doc.y + 21 + i * 12.5, size: 10, font: 'bold' }));
+      }
+      doc.moveDown(height);
+    }
   };
 
   // ── who ──
   const lastActive = activity.find((item) => item.createdAt)?.createdAt;
   doc.statRow([
     { label: 'Plan progress', value: `${planProgress(lead)}%` },
-    { label: 'Homes saved', value: String((lead.savedHomeIds ?? []).length) },
+    { label: 'Homes saved', value: String(saved.length) },
     { label: 'Actions in the app', value: String(activity.length >= 200 ? '200+' : activity.length) },
     { label: 'Status', value: isArchived(lead) ? 'Closed' : lead.status === 'contacted' ? 'Contacted' : 'New' },
   ], { accent });
@@ -299,22 +338,26 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
     doc.paragraph(
       lead.consent.granted
         ? `Agreed to calls and texts on ${stamp(lead.consent.at, timeZone)}.`
-        : `Did not agree to calls and texts (answered ${stamp(lead.consent.at, timeZone)}). Do not call or text this number.`,
+        : `Do not call or text. They were asked on ${stamp(lead.consent.at, timeZone)} and did not agree.`,
       { font: 'bold', color: lead.consent.granted ? COLORS.ink : RED, gap: 3 },
     );
+    if (!lead.consent.granted) doc.paragraph(REPLY_NOTE, { size: 8.5, color: COLORS.muted, gap: 3 });
     if (lead.consent.text) doc.paragraph(`Wording shown${lead.consent.version ? ` (version ${lead.consent.version})` : ''}: ${lead.consent.text}`, { size: 8, color: COLORS.muted, gap: 3 });
     if (consents.length > 1) {
       doc.paragraph(`${plural(consents.length, 'answer')} on record: ${consents.map((c) => `${c.granted ? 'agreed' : 'declined'} ${dayText(c.at, timeZone)}`).join('; ')}.`, { size: 8, color: COLORS.muted });
     }
+  } else if (!lead.phone) {
+    doc.paragraph('Nobody has asked about calls and texts yet, because there is no number. They are asked when they give one to book a time.', { color: COLORS.muted });
   } else {
-    doc.paragraph('Never asked. They gave no phone number, or signed up before the question was added. Do not call or text without asking.', { font: 'bold', color: RED });
+    doc.paragraph('Do not call or text. Never asked: no consent is on file, because this person signed up before the question was added.', { font: 'bold', color: RED, gap: 3 });
+    doc.paragraph(REPLY_NOTE, { size: 8.5, color: COLORS.muted });
   }
 
   // ── the call they asked for ──
   if (lead.tour) {
     doc.heading('Scheduled call');
     const pending = isTourPending(lead);
-    doc.paragraph(`${describeTour(lead.tour, lender)}.`, { font: 'bold', gap: 2 });
+    doc.paragraph(`${describeTour({ ...lead.tour, time: lead.tour.date ? lead.tour.time : clip(lead.tour.time, 200) }, lender)}.`, { font: 'bold', gap: 2 });
     doc.paragraph(
       `${pending ? 'Waiting for a call.' : lead.tour.handledAt ? `Handled ${dayText(lead.tour.handledAt, timeZone)}.` : 'Closed with the person.'}`
       + `${lead.tour.requestedAt ? ` Requested ${stamp(lead.tour.requestedAt, timeZone)}.` : ''}`,
@@ -323,7 +366,6 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
   }
 
   // ── homes ──
-  const saved = (lead.savedHomeIds ?? []).map((id) => homeById.get(id)).filter(Boolean);
   doc.heading(`Homes saved (${saved.length})`);
   doc.table({
     columns: [
@@ -331,7 +373,7 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
       { label: 'BATHS', width: 0.7, align: 'right' }, { label: 'SQ FT', width: 0.9, align: 'right' }, { label: 'LOT', width: 0.8 },
     ],
     rows: saved.map((home) => [
-      { text: oneLine(home.name), font: 'bold' }, home.price ? money(home.price) : '', home.beds ? String(home.beds) : '', home.baths ? String(home.baths) : '',
+      { text: clip(home.name, 80), font: 'bold' }, home.price ? money(home.price) : '', home.beds ? String(home.beds) : '', home.baths ? String(home.baths) : '',
       home.sqft ? home.sqft.toLocaleString('en-US') : '', home.lotNumber ? String(home.lotNumber) : '',
     ].map((cell) => (typeof cell === 'object' ? [cell] : cell))),
     empty: 'No homes saved.',
@@ -343,7 +385,7 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
     columns: [{ label: 'TOOL', width: 1.5 }, { label: 'RESULT', width: 4.2 }],
     rows: PLAN_KEYS.filter((key) => key !== 'homes').map((key) => [
       { text: PLAN_LABELS[key], font: 'bold' },
-      lead.plan?.[key] ? oneLine(lead.plan[key]) : { text: 'Not started', color: COLORS.muted },
+      lead.plan?.[key] ? clip(lead.plan[key], 400) : { text: 'Not started', color: COLORS.muted },
     ].map((cell) => (typeof cell === 'object' ? [cell] : cell))),
   });
 
@@ -374,7 +416,7 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
   doc.heading(`Activity (${activity.length >= 200 ? 'latest 200' : activity.length})`);
   doc.table({
     columns: [{ label: 'WHEN', width: 1.6 }, { label: 'WHAT THEY DID', width: 4.4 }],
-    rows: activity.map((item) => [stamp(item.createdAt, timeZone), oneLine(item.text)]),
+    rows: activity.map((item) => [stamp(item.createdAt, timeZone), clip(item.text, 400)]),
     empty: 'No activity recorded.',
     size: 8,
   });

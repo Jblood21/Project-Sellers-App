@@ -50,7 +50,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
  * given a blob. A refusal carries the server's own words (too many at once, a bad period) when it has them.
  * Resolves to the name the file was saved under.
  */
-async function saveFile(path, token, { fallbackName, failure }) {
+async function saveFile(path, token, { fallbackName, failure, type = '' }) {
   let res;
   try {
     res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
@@ -68,9 +68,20 @@ async function saveFile(path, token, { fallbackName, failure }) {
     error.status = res.status;
     throw error;
   }
+  // A proxy or a login page in the way answers 200 with a page of its own: that is not the file, so do not save it as one.
+  if (type && !(res.headers.get('Content-Type') || '').toLowerCase().startsWith(type)) {
+    throw new Error('The server did not send the file. Reload the page and try again.');
+  }
+  let blob;
+  try {
+    blob = await res.blob();
+  } catch {
+    // The connection dropped part-way through the file.
+    throw new Error('We couldn’t connect. Check your connection and try again.');
+  }
   const disposition = res.headers.get('Content-Disposition') || '';
   const name = /filename="([^"]+)"/.exec(disposition)?.[1] || fallbackName;
-  const url = URL.createObjectURL(await res.blob());
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = name;
@@ -150,12 +161,12 @@ export const adminApi = {
   /** The leads report as a PDF. `period` is all, 7, 30 or 90 (days of sign-ups). Resolves to the saved file's name. */
   downloadLeadsPdf: (token, communityId, period = 'all') =>
     saveFile(`/api/admin/communities/${encodeURIComponent(communityId)}/reports/leads.pdf?period=${encodeURIComponent(period)}`, token, {
-      fallbackName: 'leads-report.pdf', failure: 'Could not build the report',
+      fallbackName: 'leads-report.pdf', failure: 'Could not build the report', type: 'application/pdf',
     }),
   /** One person's report as a PDF. */
   downloadLeadPdf: (token, leadId) =>
     saveFile(`/api/admin/leads/${encodeURIComponent(leadId)}/report.pdf`, token, {
-      fallbackName: 'user-report.pdf', failure: 'Could not build the report',
+      fallbackName: 'user-report.pdf', failure: 'Could not build the report', type: 'application/pdf',
     }),
   createResource: (token, communityId, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/resources`, { method: 'POST', body, token }),

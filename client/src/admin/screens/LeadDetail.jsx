@@ -253,15 +253,18 @@ export default function LeadDetail({ community, reload }) {
         <span className="card-kicker">Report for this person</span>
         <p className="card-body" style={{ margin: 0 }}>
           A PDF with their contact details, what they agreed to, the call they asked for, their homes,
-          what the tools worked out, their move-in plan, your notes and everything they did in the app.
+          what the tools worked out, their move-in plan, the notes you have saved and everything they did in the app.
         </p>
         <button
           type="button" className="btn btn-secondary" onClick={downloadPdf}
-          disabled={pdfBusy} style={{ alignSelf: 'flex-start' }}
+          disabled={pdfBusy} aria-busy={pdfBusy} style={{ alignSelf: 'flex-start' }}
         >
           {pdfBusy ? 'Building…' : 'Download PDF report'}
         </button>
-        {pdfSaved ? <p role="status" style={{ fontSize: 12.5, fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>Saved {pdfSaved}</p> : null}
+        <span role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+          {pdfSaved ? `Download started: ${pdfSaved}` : ''}
+        </span>
+        {pdfSaved ? <p style={{ fontSize: 12.5, fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>Download started: {pdfSaved}</p> : null}
         <ErrorNote>{pdfError}</ErrorNote>
       </div>
       <div className="card elev-sm" style={{ gap: 8 }}>

@@ -13,6 +13,7 @@ const PERIODS = [
 ];
 
 const textStyle = { fontSize: 12.5, lineHeight: 1.45, overflowWrap: 'anywhere' };
+const hidden = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 
 /**
  * "Download PDF": the leads report for this development as a file to keep or print. It goes to this device only
@@ -31,7 +32,8 @@ export default function PdfReportButton({ community, title = '', note = '' }) {
   const button = useRef(null);
   const wasBusy = useRef(false);
 
-  // Pressing the button disables it, which drops keyboard focus to the page. Put it back when the file is saved.
+  // Pressing the button disables it, which drops keyboard focus to the page. Put it back when the file is saved,
+  // unless the person has already moved on to something else while it was building.
   useEffect(() => {
     if (busy) {
       wasBusy.current = true;
@@ -39,7 +41,8 @@ export default function PdfReportButton({ community, title = '', note = '' }) {
     }
     if (!wasBusy.current) return;
     wasBusy.current = false;
-    button.current?.focus({ preventScroll: true });
+    const focused = document.activeElement;
+    if (!focused || focused === document.body) button.current?.focus({ preventScroll: true });
   }, [busy]);
 
   const download = async () => {
@@ -56,11 +59,11 @@ export default function PdfReportButton({ community, title = '', note = '' }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} aria-busy={busy}>
       {title ? <span className="card-kicker">{title}</span> : null}
       {note ? <p className="text-muted" style={{ ...textStyle, margin: 0 }}>{note}</p> : null}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <label htmlFor={id} style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+        <label htmlFor={id} style={hidden}>
           Who the PDF report covers
         </label>
         <select
@@ -74,7 +77,9 @@ export default function PdfReportButton({ community, title = '', note = '' }) {
           {busy ? 'Building…' : 'Download PDF'}
         </button>
       </div>
-      {saved ? <p role="status" style={{ ...textStyle, margin: 0, fontWeight: 600 }}>Saved {saved}</p> : null}
+      {/* Always on the page, so a screen reader announces the text when it arrives (a region added with its text is often missed). */}
+      <span role="status" style={hidden}>{saved ? `Download started: ${saved}` : ''}</span>
+      {saved ? <p style={{ ...textStyle, margin: 0, fontWeight: 600 }}>Download started: {saved}</p> : null}
       <ErrorNote>{error}</ErrorNote>
     </div>
   );

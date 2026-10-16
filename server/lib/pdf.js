@@ -26,12 +26,12 @@ const WIDTHS = {
     556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 750,
     556, 0, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0,
     0, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 0, 500, 667,
-    278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 552,
-    400, 549, 333, 333, 333, 576, 537, 333, 333, 333, 365, 556, 834, 834, 834, 611,
+    278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333,
+    400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611,
     667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278,
     722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611,
     556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278,
-    556, 556, 556, 556, 556, 556, 556, 549, 611, 556, 556, 556, 556, 500, 556, 500,
+    556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500,
   ],
   bold: [
     278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278,
@@ -42,12 +42,12 @@ const WIDTHS = {
     611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, 750,
     556, 0, 278, 556, 500, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0,
     0, 278, 278, 500, 500, 350, 556, 1000, 333, 1000, 556, 333, 944, 0, 500, 667,
-    278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 552,
-    400, 549, 333, 333, 333, 576, 556, 333, 333, 333, 365, 556, 834, 834, 834, 611,
+    278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 333,
+    400, 584, 333, 333, 333, 611, 556, 278, 333, 333, 365, 556, 834, 834, 834, 611,
     722, 722, 722, 722, 722, 722, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278,
     722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611,
     556, 556, 556, 556, 556, 556, 889, 556, 556, 556, 556, 556, 278, 278, 278, 278,
-    611, 611, 611, 611, 611, 611, 611, 549, 611, 611, 611, 611, 611, 556, 611, 556,
+    611, 611, 611, 611, 611, 611, 611, 584, 611, 611, 611, 611, 611, 556, 611, 556,
   ],
   italic: [
     278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
@@ -58,12 +58,12 @@ const WIDTHS = {
     556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 750,
     556, 0, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0,
     0, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 0, 500, 667,
-    278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 552,
-    400, 549, 333, 333, 333, 576, 537, 333, 333, 333, 365, 556, 834, 834, 834, 611,
+    278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333,
+    400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611,
     667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278,
     722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611,
     556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278,
-    556, 556, 556, 556, 556, 556, 556, 549, 611, 556, 556, 556, 556, 500, 556, 500,
+    556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500,
   ],
 };
 
@@ -79,7 +79,15 @@ const CP1252_EXTRA = new Map([
 ]);
 
 /** A few symbols with a plain-text stand-in, so they do not turn into question marks. */
-const STAND_INS = new Map([['→', '->'], ['←', '<-'], ['✓', 'Yes'], ['✔', 'Yes'], ['×', 'x'], ['−', '-'], [' ', ' ']]);
+const STAND_INS = new Map([
+  ['→', '->'], ['←', '<-'], ['✓', 'Yes'], ['✔', 'Yes'], ['×', 'x'], ['−', '-'],
+  // Hyphens other than the one Windows-1252 has, and the soft hyphen.
+  ['\u2010', '-'], ['\u2011', '-'], ['\u2012', '-'], ['\u2015', '-'], ['\u00ad', '-'],
+  // Letters the encoding lacks, with the letter they are read as.
+  ['Ł', 'L'], ['ł', 'l'], ['Đ', 'D'], ['đ', 'd'], ['ı', 'i'], ['Ħ', 'H'], ['ħ', 'h'],
+]);
+/** Every kind of space (a no-break space, a narrow one before "PM", a thin one, an ideographic one) and a line or paragraph separator. */
+const UNICODE_SPACE = /^[\p{Zs}\u2028\u2029]$/u;
 
 /**
  * Text as a string of single-byte characters, one per Windows-1252 code (converting it again changes nothing, so
@@ -94,6 +102,7 @@ export function toWinAnsi(value) {
     if (cp === 9 || cp === 10 || cp === 13) out += ' ';
     else if (cp < 32 || cp === 127) out += '';
     else if (cp <= 126) out += ch;
+    else if (UNICODE_SPACE.test(ch)) out += ' ';
     else if (STAND_INS.has(ch)) out += STAND_INS.get(ch);
     else if (CP1252_EXTRA.has(ch)) out += String.fromCharCode(CP1252_EXTRA.get(ch));
     else if (cp >= 0xa0 && cp <= 0xff) out += ch;
@@ -132,7 +141,8 @@ const infoString = (value) => {
   }
   return `<${out.toUpperCase()}>`;
 };
-const num = (value) => (Number.isFinite(value) ? Number(value.toFixed(2)).toString() : '0');
+// A coordinate is never near a billion; an exponent ("1e+21") is not valid PDF, so such a value is zero.
+const num = (value) => (Number.isFinite(value) && Math.abs(value) < 1e9 ? Number(value.toFixed(2)).toString() : '0');
 const pdfDate = (date) => {
   const p = (n) => String(n).padStart(2, '0');
   return `D:${date.getUTCFullYear()}${p(date.getUTCMonth() + 1)}${p(date.getUTCDate())}${p(date.getUTCHours())}${p(date.getUTCMinutes())}${p(date.getUTCSeconds())}Z`;
@@ -153,17 +163,23 @@ export function wrapText(value, { font = 'regular', size = 10, width }) {
       if (line !== '') lines.push(line);
       line = '';
     };
-    for (let word of words) {
+    for (const word of words) {
       if (textWidth(word, font, size) > width) {
         flush();
-        // A word wider than the line: fill lines with as much of it as fits.
-        while (textWidth(word, font, size) > width && word.length > 1) {
-          let cut = word.length - 1;
-          while (cut > 1 && textWidth(word.slice(0, cut), font, size) > width) cut -= 1;
-          lines.push(word.slice(0, cut));
-          word = word.slice(cut);
+        // A word wider than the line (an address): fill lines with as much of it as fits, in one pass.
+        let piece = '';
+        let used = 0;
+        for (let i = 0; i < word.length; i += 1) {
+          const w = textWidth(word[i], font, size);
+          if (used + w > width && piece !== '') {
+            lines.push(piece);
+            piece = '';
+            used = 0;
+          }
+          piece += word[i];
+          used += w;
         }
-        line = word;
+        line = piece;
         continue;
       }
       const candidate = line === '' ? word : `${line} ${word}`;
@@ -183,8 +199,15 @@ export function fitLine(value, { font = 'regular', size = 10, width }) {
   const text = toWinAnsi(value);
   if (textWidth(text, font, size) <= width) return text;
   const dots = '...';
-  let cut = text.length;
-  while (cut > 0 && textWidth(text.slice(0, cut) + dots, font, size) > width) cut -= 1;
+  const room = width - textWidth(dots, font, size);
+  let used = 0;
+  let cut = 0;
+  while (cut < text.length) {
+    const w = textWidth(text[cut], font, size);
+    if (used + w > room) break;
+    used += w;
+    cut += 1;
+  }
   return text.slice(0, cut).trimEnd() + dots;
 }
 
@@ -336,16 +359,43 @@ export class PdfDocument {
   /**
    * A table. columns: [{ label, width (a share of the width), align? }]. rows: arrays of cells, a cell being a string
    * or a list of lines, a line being a string or { text, font, color, size }. A row is never split across pages, and
-   * the header row is drawn again at the top of each new page.
+   * the header row is drawn again at the top of each new page, never left alone at the foot of one. A cell too tall
+   * for a page (a long note) is cut short with "..." rather than run off it.
    */
   table({ columns, rows, size = 8.5, padX = 5, padY = 4, header = COLORS.ink, headerText = COLORS.white, zebra = true, empty = '' }) {
     const total = columns.reduce((sum, c) => sum + c.width, 0);
     const widths = columns.map((c) => (c.width / total) * this.contentWidth);
-    const leading = size * 1.32;
     const headerHeight = 17;
+    // What a page can hold under the header, less room for a running header and the footer.
+    const tallest = this.bottom - this.margin - 40 - headerHeight - padY * 2;
 
-    const drawHeader = () => {
-      this.ensure(headerHeight + 24);
+    /** A row as the lines each cell will print, each cell cut to `tallest`, and the height of the row. */
+    const measure = (row) => {
+      const cells = row.map((cell, i) => {
+        const list = Array.isArray(cell) ? cell : [cell];
+        const lines = [];
+        let height = 0;
+        outer: for (const item of list) {
+          const spec = typeof item === 'string' ? { text: item } : item;
+          const lineSize = spec.size ?? size;
+          const font = spec.font ?? 'regular';
+          for (const line of wrapText(spec.text, { font, size: lineSize, width: widths[i] - padX * 2 })) {
+            if (height + lineSize * 1.32 > tallest) {
+              const last = lines[lines.length - 1];
+              if (last) last.text = fitLine(`${last.text} ...`, { font: last.font, size: last.size, width: widths[i] - padX * 2 });
+              break outer;
+            }
+            lines.push({ text: line, font, color: spec.color ?? COLORS.ink, size: lineSize });
+            height += lineSize * 1.32;
+          }
+        }
+        return { lines, height };
+      });
+      return { cells: cells.map((c) => c.lines), height: Math.max(...cells.map((c) => c.height)) + padY * 2 };
+    };
+
+    const drawHeader = (firstRowHeight) => {
+      this.ensure(headerHeight + firstRowHeight);
       this.rect({ x: this.left, y: this.y, w: this.contentWidth, h: headerHeight, fill: header });
       let x = this.left;
       columns.forEach((column, i) => {
@@ -361,24 +411,12 @@ export class PdfDocument {
       this.paragraph(empty || 'Nothing to show.', { color: COLORS.muted, gap: 4 });
       return;
     }
-    drawHeader();
-    rows.forEach((row, index) => {
-      const cells = row.map((cell, i) => {
-        const list = Array.isArray(cell) ? cell : [cell];
-        const lines = [];
-        for (const item of list) {
-          const spec = typeof item === 'string' ? { text: item } : item;
-          const lineSize = spec.size ?? size;
-          for (const line of wrapText(spec.text, { font: spec.font ?? 'regular', size: lineSize, width: widths[i] - padX * 2 })) {
-            lines.push({ text: line, font: spec.font ?? 'regular', color: spec.color ?? COLORS.ink, size: lineSize });
-          }
-        }
-        return lines;
-      });
-      const height = Math.max(...cells.map((lines) => lines.reduce((sum, l) => sum + l.size * 1.32, 0))) + padY * 2;
+    const measured = rows.map(measure);
+    drawHeader(measured[0].height);
+    measured.forEach(({ cells, height }, index) => {
       if (this.y + height > this.bottom) {
         this.addPage();
-        drawHeader();
+        drawHeader(0);
       }
       if (zebra && index % 2 === 1) this.rect({ x: this.left, y: this.y, w: this.contentWidth, h: height, fill: COLORS.wash });
       let x = this.left;
@@ -396,7 +434,6 @@ export class PdfDocument {
       this.y += height;
     });
     this.y += 4;
-    void leading;
   }
 
   // ── output ─────────────────────────────────────────────────────────────
@@ -416,7 +453,7 @@ export class PdfDocument {
       objects.push(Buffer.isBuffer(body) ? body : Buffer.from(body, 'latin1'));
       return objects.length;
     };
-    const catalog = add('<< /Type /Catalog /Pages 2 0 R >>');
+    const catalog = add('<< /Type /Catalog /Pages 2 0 R /Lang (en-US) >>');
     const pagesRef = add('PLACEHOLDER');
     const fontRefs = Object.keys(FONT_NAMES).map((key) => add(`<< /Type /Font /Subtype /Type1 /BaseFont /${BASE_FONTS[key]} /Encoding /WinAnsiEncoding >>`));
     const info = add(

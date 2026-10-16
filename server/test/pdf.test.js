@@ -206,3 +206,111 @@ test('COLORS are triples in the range 0 to 1', () => {
 test('pdfText reads back what was written', () => {
   assert.match(pdfText(sample().finish()), /Hello\nA paragraph of text\./);
 });
+
+test('toWinAnsi: every kind of space is a space, the other hyphens are hyphens, and a few more letters keep their letter', () => {
+  assert.equal(toWinAnsi('9:05 PM'), '9:05 PM', 'narrow no-break space (newer ICU writes one before AM/PM)');
+  assert.equal(toWinAnsi('a b c　d e f g'), 'a b c d e f g');
+  assert.equal(toWinAnsi('a‐b‑c‒d―e­f'), 'a-b-c-d-e-f');
+  assert.equal(toWinAnsi('Łódź Đorđe ı'), 'Lódz Dorde i');
+  assert.equal(toWinAnsi('–—'), '\u0096\u0097', 'the two dashes Windows-1252 has are kept');
+  assert.equal(toWinAnsi('a​b'), 'ab', 'a zero-width space is dropped, not a gap');
+});
+
+test('wrapText and fitLine take linear time, so one enormous word cannot stall the server', () => {
+  // 6,000 characters: a linear wrap takes a millisecond or two, a quadratic one many seconds, so a regression fails fast.
+  const started = Date.now();
+  const lines = wrapText('A'.repeat(6000), { size: 10, width: 150 });
+  fitLine('B'.repeat(6000), { size: 10, width: 150 });
+  fitLine(`${'word '.repeat(2000)}`, { size: 10, width: 150 });
+  assert.ok(Date.now() - started < 300, `${Date.now() - started} ms`);
+  for (const line of lines) assert.ok(textWidth(line, 'regular', 10) <= 150 + 1e-6);
+  assert.equal(lines.join(''), 'A'.repeat(6000), 'and nothing was lost');
+  // And a very large one still finishes at once.
+  const big = Date.now();
+  wrapText('C'.repeat(300000), { size: 10, width: 150 });
+  assert.ok(Date.now() - big < 1500, `${Date.now() - big} ms`);
+});
+
+test('wrapText keeps every word of a long paragraph, in order', () => {
+  const words = Array.from({ length: 3000 }, (_, i) => `w${i}`);
+  const lines = wrapText(words.join(' '), { size: 9, width: 300 });
+  assert.equal(lines.join(' ').split(' ').length, 3000);
+  assert.equal(lines.join(' '), words.join(' '));
+});
+
+test('a table cell taller than a page is cut with dots, stays inside the margins, and the rest of the table is intact', () => {
+  const doc = new PdfDocument();
+  doc.setFooter((d, page, count) => d.text(`Page ${page} of ${count}`, { y: d.height - 38 }));
+  const wall = Array.from({ length: 4000 }, (_, i) => `word${i}`).join(' ');
+  doc.table({ columns: [{ label: 'A', width: 1 }, { label: 'B', width: 1 }], rows: [['first', 'ok'], [wall, 'beside the wall'], ['last', 'ok too']] });
+  const pages = readPdf(doc.finish());
+  const all = pages.flatMap((page) => page.lines);
+  for (const wanted of ['first', 'beside the wall', 'last', 'ok too']) assert.ok(all.includes(wanted), wanted);
+  assert.ok(all.some((line) => line.endsWith('...')), 'the wall is cut with dots');
+  assert.ok(!all.includes('word3999'), 'and is not printed to the end');
+  assert.ok(pages.length <= 3, `${pages.length} pages`);
+  const lowest = doc.height - doc.bottom;
+  for (const page of pages) {
+    for (const m of page.ops.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) Tm <([0-9A-F]*)> Tj/g)) {
+      const text = Buffer.from(m[3], 'hex').toString('latin1');
+      if (!/^Page \d+ of \d+$/.test(text)) assert.ok(Number(m[2]) >= lowest - 1, `"${text.slice(0, 20)}" at ${m[2]} is over the footer`);
+    }
+  }
+});
+
+test('a table never leaves its header alone at the foot of a page, wherever the page happens to end', () => {
+  for (let fill = 0; fill < 70; fill += 1) {
+    const doc = new PdfDocument();
+    for (let i = 0; i < fill; i += 1) doc.paragraph(`Filler line ${i}`, { size: 10 });
+    doc.table({ columns: [{ label: 'HEADCOL', width: 1 }, { label: 'OTHER', width: 1 }], rows: Array.from({ length: 12 }, (_, i) => [`Row ${i}`, [`a${i}`, `b${i}`, `c${i}`]]) });
+    for (const [index, page] of readPdf(doc.finish()).entries()) {
+      if (page.lines.includes('HEADCOL')) assert.ok(page.lines.some((line) => /^Row \d+$/.test(line)), `fill ${fill}, page ${index + 1}: a header with no row under it`);
+    }
+  }
+});
+
+test('a number too large for a coordinate is written as zero, never as an exponent a reader would reject', () => {
+  const doc = new PdfDocument();
+  doc.text('far away', { x: 1e21, y: 100 });
+  doc.rect({ x: 0, y: 0, w: 1e30, h: 10, fill: [1, 0, 0] });
+  const [page] = readPdf(doc.finish());
+  assert.ok(!/\de[+-]?\d/i.test(page.ops), 'no exponent in the content stream');
+});
+
+test('the catalog names the language, and the corrected widths for ± µ · ÷ ¯ are Helvetica’s, not a symbol font’s', () => {
+  assert.match(new PdfDocument().finish().toString('latin1'), /\/Type \/Catalog \/Pages 2 0 R \/Lang \(en-US\)/);
+  const unit = (ch, font) => Math.round(textWidth(toWinAnsi(ch), font, 1000));
+  assert.deepEqual(['±', '·', '÷', '¯', 'µ'].map((c) => unit(c, 'regular')), [584, 278, 584, 333, 556]);
+  assert.deepEqual(['±', '·', '÷', '¯', 'µ'].map((c) => unit(c, 'bold')), [584, 278, 584, 333, 611]);
+  assert.deepEqual(['±', '·', '÷', '¯', 'µ'].map((c) => unit(c, 'italic')), [584, 278, 584, 333, 556]);
+});
+
+test('every width in the tables matches the real font, checked against a PDF reader’s own measurements', { skip: !poppler }, () => {
+  for (const font of ['regular', 'bold', 'italic']) {
+    const doc = new PdfDocument({ size: [3000, 4200], margin: 10 });
+    const codes = [];
+    for (let c = 33; c <= 255; c += 1) if (![127, 129, 141, 143, 144, 157, 160, 173].includes(c)) codes.push(c);
+    codes.forEach((c, i) => doc.text(String.fromCharCode(c).repeat(10), { x: 10 + (i % 10) * 290, y: 50 + Math.floor(i / 10) * 60, size: 40, font }));
+    const dir = mkdtempSync(join(tmpdir(), 'pdf-widths-'));
+    try {
+      const file = join(dir, `${font}.pdf`);
+      writeFileSync(file, doc.finish());
+      const html = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' });
+      const seen = new Map();
+      for (const m of html.matchAll(/<word xMin="([\d.]+)" yMin="[\d.]+" xMax="([\d.]+)" yMax="[\d.]+">(.*?)<\/word>/g)) {
+        const text = m[3].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        if ([...text].length === 10 && new Set(text).size === 1) seen.set(text[0], ((Number(m[2]) - Number(m[1])) / 10 / 40) * 1000);
+      }
+      let checked = 0;
+      for (const c of codes) {
+        const unicode = new TextDecoder('windows-1252').decode(Uint8Array.of(c));
+        if (!seen.has(unicode)) continue;
+        checked += 1;
+        assert.ok(Math.abs(seen.get(unicode) - textWidth(String.fromCharCode(c), font, 1000)) <= 6, `${font} ${JSON.stringify(unicode)}: reader ${Math.round(seen.get(unicode))}, table ${textWidth(String.fromCharCode(c), font, 1000)}`);
+      }
+      assert.ok(checked > 150, `${font}: only ${checked} characters could be compared`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
