@@ -726,9 +726,10 @@ export function lenderReady(lender = LENDER) {
 }
 
 /**
- * What a booked appointment is about. The buyer books through one sheet either
- * way, but whoever picks the request up needs to know whether they are meeting
- * about the homes or about the money — those are different people.
+ * What a booked appointment is about. Today only financing is booked through the calendar ("Book a tour"
+ * is a call or a text to an agent), so new appointments are 'lender'; 'community' stays for the ones made
+ * before that, and for an older copy of the app still open on a phone. Whoever picks the request up needs
+ * to know whether they are meeting about the homes or about the money — those are different people.
  */
 export const TOUR_TOPICS = ['community', 'lender'];
 

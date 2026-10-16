@@ -449,8 +449,8 @@
   cursor: pointer;
 }
 .b-app.l-saltgrass .sg-head__menu:hover { background: rgba(255, 255, 255, 0.12); }
-/* The sticky bar carries "talk" and "plan" on phones; from 900px the bar goes,
-   so the header takes over: a white call button and a lime plan button. */
+/* The sticky bar carries "talk", "financing" and "plan" on phones; from 900px the bar goes, so the header
+   takes over: a white call button, an outlined financing button and a lime plan button. */
 .b-app.l-saltgrass .sg-head__talk {
   display: none;
   flex: none;
@@ -464,6 +464,20 @@
   cursor: pointer;
 }
 .b-app.l-saltgrass .sg-head__talk:hover { background: color-mix(in srgb, var(--t-onacc2) 90%, var(--t-acc2)); }
+/* "Talk about financing": outlined, so the three actions are not three solid blocks. */
+.b-app.l-saltgrass .sg-head__finance {
+  display: none;
+  flex: none;
+  min-height: 48px;
+  padding: 0 1.2rem;
+  border: 2px solid var(--t-onacc2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--t-onacc2);
+  font: 700 1rem/1 var(--t-font);
+  cursor: pointer;
+}
+.b-app.l-saltgrass .sg-head__finance:hover { background: rgba(255, 255, 255, 0.12); }
 .b-app.l-saltgrass .sg-head__plan {
   display: none;
   flex: none;
@@ -492,7 +506,14 @@
 }
 @media (min-width: 900px) {
   .b-app.l-saltgrass .sg-head__talk,
+  .b-app.l-saltgrass .sg-head__finance,
   .b-app.l-saltgrass .sg-head__plan { display: inline-flex; align-items: center; }
+}
+/* Three actions leave no room for the lender's lockup beside the development's name or logo at the narrow end
+   of the wide layout. It waits for a wider screen (the lender has the button, the Financing section and the
+   footer). In rem, so a larger text size waits for a wider screen too. */
+@media (min-width: 56.25rem) and (max-width: 74.99rem) {
+  .b-app.l-saltgrass .sg-head__lender--tight { display: none; }
 }
 
 /* ── sticky bar (phones) ──────────────────────────────────────────────── */
@@ -500,12 +521,15 @@
   position: fixed;
   inset: auto 0 0 0;
   z-index: 45;
+  /* One column per button, all the same width: two or three, or one on the plan. */
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   background: var(--sg-deep);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .b-app.l-saltgrass .sg-stick__talk,
+.b-app.l-saltgrass .sg-stick__finance,
 .b-app.l-saltgrass .sg-stick__plan {
   min-height: 60px;
   display: flex;
@@ -518,8 +542,10 @@
   text-decoration: none;
   cursor: pointer;
 }
-.b-app.l-saltgrass .sg-stick--solo { grid-template-columns: 1fr; }
 .b-app.l-saltgrass .sg-stick__talk { background: var(--t-acc); color: var(--t-onacc); }
+.b-app.l-saltgrass .sg-stick__finance { background: var(--t-onacc2); color: var(--t-acc2); }
+/* Three buttons on a 320px phone: a little smaller, and they wrap to two lines rather than clip. */
+.b-app.l-saltgrass .sg-stick:has(.sg-stick__finance) > * { font-size: 0.92rem; padding-inline: 0.35rem; }
 .b-app.l-saltgrass .sg-stick__plan { background: var(--sg-deep); color: var(--t-onacc2); box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.14); }
 @media (min-width: 900px) {
   .b-app.l-saltgrass .sg-stick { display: none; }
@@ -529,6 +555,7 @@
 @media (max-height: 480px) and (orientation: landscape) {
   .b-app.l-saltgrass .sg-head { position: relative; min-height: 56px; }
   .b-app.l-saltgrass .sg-stick__talk,
+  .b-app.l-saltgrass .sg-stick__finance,
   .b-app.l-saltgrass .sg-stick__plan { min-height: 48px; }
 }
 @media print {

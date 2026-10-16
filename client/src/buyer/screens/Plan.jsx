@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PLAN_LABELS, TOOL_KEYS, describeTour } from '@shared/domain.js';
 import { money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import { canTalkFinancing } from '../reach.js';
 
 /**
  * The booked time, for the buyer's own button. The shared description names the
@@ -16,8 +17,8 @@ function tourSummary(tour) {
 }
 
 /** The buyer's growing record — and the door to the PDF and the team. */
-export default function Plan({ onOpenTour }) {
-  const { homes, lead, track, features } = useBuyer();
+export default function Plan({ onOpenTour, onOpenLender }) {
+  const { community, homes, lead, track, features } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
 
@@ -102,11 +103,15 @@ export default function Plan({ onOpenTour }) {
         </>
       )}
 
-      <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>
-        {lead?.tour
-          ? `Booked ✓ ${tourSummary(lead.tour)}${features?.booking === false ? '' : ' — change it'}`
-          : 'Book a tour'}
-      </button>
+      {/* A tour is a call or a text to an agent; the time a buyer picks is for talking about financing. */}
+      <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>Book a tour</button>
+      {lead?.tour || canTalkFinancing(community, features) ? (
+        <button type="button" className="b-btn b-btn-outline" onClick={onOpenLender} style={{ marginTop: 10 }}>
+          {lead?.tour
+            ? `Booked ✓ ${tourSummary(lead.tour)}${features?.booking === false ? '' : ' — change it'}`
+            : 'Talk about financing'}
+        </button>
+      ) : null}
     </div>
   );
 }
