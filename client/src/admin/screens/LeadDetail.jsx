@@ -21,6 +21,9 @@ export default function LeadDetail({ community, reload }) {
   const [error, setError] = useState('');
   const [notesSaved, setNotesSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  const [pdfSaved, setPdfSaved] = useState('');
 
   const downloadMismo = async () => {
     setDownloading(true);
@@ -31,6 +34,19 @@ export default function LeadDetail({ community, reload }) {
       setError(err.message);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const downloadPdf = async () => {
+    setPdfBusy(true);
+    setPdfError('');
+    setPdfSaved('');
+    try {
+      setPdfSaved(await adminApi.downloadLeadPdf(token, leadId));
+    } catch (err) {
+      setPdfError(err.message);
+    } finally {
+      setPdfBusy(false);
     }
   };
 
@@ -232,6 +248,24 @@ export default function LeadDetail({ community, reload }) {
         >
           {notesSaved ? 'Saved ✓' : 'Save notes'}
         </button>
+      </div>
+      <div className="card elev-sm" style={{ gap: 8 }}>
+        <span className="card-kicker">Report for this person</span>
+        <p className="card-body" style={{ margin: 0 }}>
+          A PDF with their contact details, what they agreed to, the call they asked for, their homes,
+          what the tools worked out, their move-in plan, the notes you have saved and everything they did in the app.
+        </p>
+        <button
+          type="button" className="btn btn-secondary" onClick={downloadPdf}
+          disabled={pdfBusy} aria-busy={pdfBusy} style={{ alignSelf: 'flex-start' }}
+        >
+          {pdfBusy ? 'Building…' : 'Download PDF report'}
+        </button>
+        <span role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+          {pdfSaved ? `Download started: ${pdfSaved}` : ''}
+        </span>
+        {pdfSaved ? <p style={{ fontSize: 12.5, fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>Download started: {pdfSaved}</p> : null}
+        <ErrorNote>{pdfError}</ErrorNote>
       </div>
       <div className="card elev-sm" style={{ gap: 8 }}>
         <span className="card-kicker">Hand off to a lender</span>

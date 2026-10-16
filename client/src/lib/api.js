@@ -44,6 +44,55 @@ async function request(path, { method = 'GET', body, token } = {}) {
   return data;
 }
 
+/**
+ * A file from the admin API, handed to the browser to save. Fetched rather than linked because the admin API is
+ * Bearer-authenticated and an <a href> cannot carry the header, so the bytes come back here and the browser is
+ * given a blob. A refusal carries the server's own words (too many at once, a bad period) when it has them.
+ * Resolves to the name the file was saved under.
+ */
+async function saveFile(path, token, { fallbackName, failure, type = '' }) {
+  let res;
+  try {
+    res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    throw new Error('We couldn’t connect. Check your connection and try again.');
+  }
+  if (!res.ok) {
+    let said = '';
+    try {
+      said = (await res.json())?.error ?? '';
+    } catch {
+      said = '';
+    }
+    const error = new Error(said || PROXY_ANSWERS[res.status] || `${failure} (${res.status})`);
+    error.status = res.status;
+    throw error;
+  }
+  // A proxy or a login page in the way answers 200 with a page of its own: that is not the file, so do not save it as one.
+  if (type && !(res.headers.get('Content-Type') || '').toLowerCase().startsWith(type)) {
+    throw new Error('The server did not send the file. Reload the page and try again.');
+  }
+  let blob;
+  try {
+    blob = await res.blob();
+  } catch {
+    // The connection dropped part-way through the file.
+    throw new Error('We couldn’t connect. Check your connection and try again.');
+  }
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] || fallbackName;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Not at once: Safari on a phone reads the blob after the click has returned.
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return name;
+}
+
 // ── buyer ─────────────────────────────────────────────────────────────────
 export const buyerApi = {
   community: (id) => request(`/api/c/${encodeURIComponent(id)}`),
@@ -105,23 +154,20 @@ export const adminApi = {
    * is Bearer-authenticated and an <a href> cannot carry the header — so the
    * bytes come back here and the browser is handed a blob to save.
    */
-  downloadLeadMismo: async (token, leadId) => {
-    const res = await fetch(`/api/admin/leads/${encodeURIComponent(leadId)}/mismo`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(`Could not build the file (${res.status})`);
-    const disposition = res.headers.get('Content-Disposition') || '';
-    const name = /filename="([^"]+)"/.exec(disposition)?.[1] || 'lead-mismo34.xml';
-    const url = URL.createObjectURL(await res.blob());
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    return name;
-  },
+  downloadLeadMismo: (token, leadId) =>
+    saveFile(`/api/admin/leads/${encodeURIComponent(leadId)}/mismo`, token, {
+      fallbackName: 'lead-mismo34.xml', failure: 'Could not build the file',
+    }),
+  /** The leads report as a PDF. `period` is all, 7, 30 or 90 (days of sign-ups). Resolves to the saved file's name. */
+  downloadLeadsPdf: (token, communityId, period = 'all') =>
+    saveFile(`/api/admin/communities/${encodeURIComponent(communityId)}/reports/leads.pdf?period=${encodeURIComponent(period)}`, token, {
+      fallbackName: 'leads-report.pdf', failure: 'Could not build the report', type: 'application/pdf',
+    }),
+  /** One person's report as a PDF. */
+  downloadLeadPdf: (token, leadId) =>
+    saveFile(`/api/admin/leads/${encodeURIComponent(leadId)}/report.pdf`, token, {
+      fallbackName: 'user-report.pdf', failure: 'Could not build the report', type: 'application/pdf',
+    }),
   createResource: (token, communityId, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/resources`, { method: 'POST', body, token }),
   updateResource: (token, id, body) =>
