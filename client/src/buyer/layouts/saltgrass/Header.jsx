@@ -6,6 +6,7 @@ import { complianceOf } from '@shared/compliance.js';
 import { ChevronLeft, Menu } from '../../../components/Icons.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
 import CommunityMark from '../../CommunityMark.jsx';
+import { canTalkFinancing } from '../../financing.js';
 import LenderLogo from '../../LenderLogo.jsx';
 import StickyBar from './StickyBar.jsx';
 import useMedia from './useMedia.js';
@@ -19,15 +20,15 @@ import useMedia from './useMedia.js';
  * each route, the name when there is no logo, the menu button, and for a
  * visitor who has not signed in (the public guides) the way into the app in
  * place of a menu that would only bounce them to the sign-in page. What it adds
- * are the talk and plan buttons, which the stylesheet shows from 900px, where
- * the sticky bar on phones is not drawn.
+ * are the talk, financing and plan buttons, which the stylesheet shows from
+ * 900px, where the sticky bar on phones is not drawn.
  *
  * The sticky bar is rendered here but mounted at the end of the app shell (see
  * below), so that it follows the page in the tab order the way it follows it on
  * screen.
  */
 export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
-  const { community } = useBuyer();
+  const { community, features } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
@@ -65,8 +66,8 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
 
   const { lender } = complianceOf(community?.settings, { community });
   const hasLogo = Boolean(community?.logo || community?.logoLight);
-  // "Talk about financing" is offered only when there is a lender to talk to, as on the home screen.
-  const financing = lender.ready && onFinance ? onFinance : null;
+  // "Talk about financing" is offered only when there is a lender and something to do in the sheet it opens.
+  const financing = onFinance && canTalkFinancing(community, features) ? onFinance : null;
 
   return (
     <>
@@ -90,7 +91,10 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
           {/* The lender's mark follows the place's, after its own label. Label
               and logo go together or not at all. */}
           {roomy && lender.ready ? (
-            <div className="sg-head__lender">
+            // With the financing button in the header there is no room for this beside the name until the
+            // screen is wide (the stylesheet hides it from 900px to about 1200px); the lender has the button,
+            // the Financing section and the footer.
+            <div className={`sg-head__lender${financing ? ' sg-head__lender--tight' : ''}`}>
               <span className="sg-head__by">Preferred Lender</span>
               <LenderLogo tone="dark" height={44} />
             </div>

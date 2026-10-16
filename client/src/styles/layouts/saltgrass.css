@@ -449,8 +449,8 @@
   cursor: pointer;
 }
 .b-app.l-saltgrass .sg-head__menu:hover { background: rgba(255, 255, 255, 0.12); }
-/* The sticky bar carries "talk" and "plan" on phones; from 900px the bar goes,
-   so the header takes over: a white call button and a lime plan button. */
+/* The sticky bar carries "talk", "financing" and "plan" on phones; from 900px the bar goes, so the header
+   takes over: a white call button, an outlined financing button and a lime plan button. */
 .b-app.l-saltgrass .sg-head__talk {
   display: none;
   flex: none;
@@ -509,11 +509,11 @@
   .b-app.l-saltgrass .sg-head__finance,
   .b-app.l-saltgrass .sg-head__plan { display: inline-flex; align-items: center; }
 }
-/* Three actions need the room the name and place were using at the narrow end of the wide layout. */
-@media (min-width: 900px) and (max-width: 1099px) {
-  .b-app.l-saltgrass .sg-head__talk,
-  .b-app.l-saltgrass .sg-head__finance,
-  .b-app.l-saltgrass .sg-head__plan { padding: 0 0.8rem; font-size: 0.92rem; }
+/* Three actions leave no room for the lender's lockup beside the development's name or logo at the narrow end
+   of the wide layout. It waits for a wider screen (the lender has the button, the Financing section and the
+   footer). In rem, so a larger text size waits for a wider screen too. */
+@media (min-width: 56.25rem) and (max-width: 74.99rem) {
+  .b-app.l-saltgrass .sg-head__lender--tight { display: none; }
 }
 
 /* ── sticky bar (phones) ──────────────────────────────────────────────── */

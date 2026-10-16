@@ -109,7 +109,7 @@ export default function AvailabilityTab({ community, reload }) {
             <div className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
               {bookingOn
                 ? 'On: the “Book a tour” and “Talk about financing” buttons let buyers pick a day and a time from the list below.'
-                : 'Off: buyers are shown your phone, text and email instead. The times below are kept for when you switch it back on. You are not emailed when someone taps Call, Text or Email; it shows in their activity on the lead.'}
+                : 'Off: “Book a tour” shows your phone, text and email, and “Talk about financing” shows the lender’s, instead. The times below are kept for when you switch it back on. You are not emailed when someone taps Call, Text or Email; it shows in their activity on the lead.'}
             </div>
           </div>
           <Toggle on={bookingOn} onChange={flip} label="Buyers can book times" />

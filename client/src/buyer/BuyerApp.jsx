@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
+import { complianceOf } from '@shared/compliance.js';
 import { DEFAULT_THEME, THEME_COLORS } from '@shared/domain.js';
 import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialSheet } from './Chrome.jsx';
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
@@ -58,7 +59,7 @@ function Centered({ children }) {
 }
 
 function BuyerShell() {
-  const { community, layout, loading, loadError, signedIn } = useBuyer();
+  const { community, layout, loading, loadError, signedIn, track } = useBuyer();
   const { communityId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -118,7 +119,11 @@ function BuyerShell() {
         <Header
           onOpenMenu={() => setMenuOpen(true)}
           onTalk={() => setTourTopic('community')}
-          onFinance={() => setTourTopic('lender')}
+          onFinance={() => {
+            // Recorded like every other way into the lender sheet, so the builder sees who looked at financing.
+            track(`Tapped ${complianceOf(community?.settings, { community }).lender.name || 'the lender'}`);
+            setTourTopic('lender');
+          }}
           signedIn={!publicGuide}
         />
       ) : null}

@@ -421,7 +421,9 @@ two, and the choice saves the moment it is made:
 - **Salt Grass** — condensed uppercase headlines, a dark header and footer with an accent rule, large
   payment figures, and a bar fixed to the foot of the screen on phones: **Book a tour**, **Talk about financing**
   (only when the community has a lender set up; it opens the same day-then-time picker for the lender, or the lender's
-  phone and email) and **My Home Plan**. From 900px the header carries the same three buttons instead.
+  phone and email) and **My Home Plan**. From 900px the header carries the same three buttons instead (and the
+  "Preferred Lender" lockup waits for a screen about 1200px wide to make room for them). The financing button is
+  left out when its sheet would have nothing on it: booking off or no times posted, and the lender has no phone or email.
 
 A layout changes the typeface, shape, spacing and where things sit. It never changes what a tool
 does or what it calculates, and every screen reachable in one layout is reachable in the other.

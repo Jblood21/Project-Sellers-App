@@ -459,7 +459,7 @@ export function TourDialog({ topic, onClose }) {
   // with, and what is missing is said as it is: no times posted, or booking switched off.
   const intro = [
     lender
-      ? `Call, text or email ${lenderName} to talk about financing.`
+      ? (people.length ? `Call, text or email ${lenderName} to talk about financing.` : '')
       : (people.length ? 'Call, text or email to book an appointment.' : ''),
     !lender && bookingOn && !canPick ? `The ${community?.name} team hasn’t posted times to pick from yet.` : '',
   ].filter(Boolean).join(' ');

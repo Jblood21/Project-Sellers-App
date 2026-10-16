@@ -11,7 +11,7 @@ import saltgrass from './saltgrass/index.js';
  *
  *   traits  facts the shared components need to pick the right artwork, such as
  *           whether the footer sits on a light or a dark ground
- *   Header  replaces the sticky header; props { onOpenMenu, onTalk }
+ *   Header  replaces the sticky header; props { onOpenMenu, onTalk, onFinance }
  *   Home    replaces the tools home screen; props { model } (see useHomeModel)
  *
  * What a layout may not do is change what a tool does. It decides where the
