@@ -1,10 +1,18 @@
 import '../../../styles/layouts/foyer.css';
+import Header from './Header.jsx';
+import Home from './Home.jsx';
 
 /**
- * Foyer: a magazine-like layout (serif headlines, thin rules, numbered lists).
- * Placeholder until the header and home screen are built; everything it leaves
- * out falls back to the shared screens.
+ * Foyer: a calm, magazine-like layout for established communities. Serif
+ * headlines, hairline rules, a numbered index of tools, and a narrow centred
+ * column on the page's own light ground.
+ *
+ * Header and footer both sit on that light ground, which is what the traits say:
+ * the shared footer reads them to pick the colour logo and the ink Equal Housing
+ * mark.
  */
 export default {
   traits: { footerTone: 'light', headerTone: 'light' },
+  Header,
+  Home,
 };

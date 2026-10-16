@@ -35,8 +35,11 @@ export default function Landing({ onEntered }) {
         data-punct={/[.?!]$/.test(community?.name ?? '') || undefined}
       >
         {/* One element holding the words, so the hook can count the lines they take. */}
-        <span>Welcome to {community?.name}</span>
+        {/* "Welcome to" has its own element so a layout can set it apart from the name; the words and the span the hook measures are unchanged. */}
+        <span><span className="b-landing__hello">Welcome to </span>{community?.name}</span>
       </h1>
+      {/* Hidden here: a layout that sets the place under the name turns it on (Foyer does). */}
+      {community?.location ? <p className="b-landing__place" hidden>{community.location}</p> : null}
       {signedIn ? (
         <button
           type="button" className="b-btn" style={{ minHeight: 52, fontSize: 16 }}
