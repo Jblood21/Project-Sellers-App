@@ -464,20 +464,20 @@
   cursor: pointer;
 }
 .b-app.l-saltgrass .sg-head__talk:hover { background: color-mix(in srgb, var(--t-onacc2) 90%, var(--t-acc2)); }
-/* "Talk about financing": outlined, so the three actions are not three solid blocks. */
+/* "Talk about financing" looks like "Book a tour": the same white button. */
 .b-app.l-saltgrass .sg-head__finance {
   display: none;
   flex: none;
   min-height: 48px;
   padding: 0 1.2rem;
-  border: 2px solid var(--t-onacc2);
+  border: 0;
   border-radius: 8px;
-  background: transparent;
-  color: var(--t-onacc2);
+  background: var(--t-onacc2);
+  color: var(--t-acc2);
   font: 700 1rem/1 var(--t-font);
   cursor: pointer;
 }
-.b-app.l-saltgrass .sg-head__finance:hover { background: rgba(255, 255, 255, 0.12); }
+.b-app.l-saltgrass .sg-head__finance:hover { background: color-mix(in srgb, var(--t-onacc2) 90%, var(--t-acc2)); }
 .b-app.l-saltgrass .sg-head__plan {
   display: none;
   flex: none;
@@ -525,6 +525,7 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
+  gap: 2px;
   background: var(--sg-deep);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -542,8 +543,10 @@
   text-decoration: none;
   cursor: pointer;
 }
-.b-app.l-saltgrass .sg-stick__talk { background: var(--t-acc); color: var(--t-onacc); }
-.b-app.l-saltgrass .sg-stick__finance { background: var(--t-onacc2); color: var(--t-acc2); }
+/* "Book a tour" and "Talk about financing" are the same colour, so they read as a pair; the deep ground shows
+   between them (the grid gap) and "My Home Plan" stays the dark one. */
+.b-app.l-saltgrass .sg-stick__talk,
+.b-app.l-saltgrass .sg-stick__finance { background: var(--t-acc); color: var(--t-onacc); }
 /* Three buttons on a 320px phone: a little smaller, and they wrap to two lines rather than clip. */
 .b-app.l-saltgrass .sg-stick:has(.sg-stick__finance) > * { font-size: 0.92rem; padding-inline: 0.35rem; }
 .b-app.l-saltgrass .sg-stick__plan { background: var(--sg-deep); color: var(--t-onacc2); box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.14); }

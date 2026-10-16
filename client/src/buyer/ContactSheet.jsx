@@ -4,7 +4,7 @@ import { SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
 import { copyText, emailHref, useIsMobile } from '../lib/contact.js';
 import { useBuyer } from './BuyerContext.jsx';
 import TextAction from './TextAction.jsx';
-import useDialog from './useDialog.js';
+import useDialog, { closeOnBackdrop } from './useDialog.js';
 
 // The same rule the server applies to the address a message is sent from.
 const EMAIL_LOOKS_RIGHT = SAFE_EMAIL_RE;
@@ -83,7 +83,7 @@ export default function ContactSheet({
   };
 
   return (
-    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={dialogRef} className="b-sheet-backdrop" role="dialog" aria-modal="true" aria-label={title} {...closeOnBackdrop(onClose)}>
       <div className="b-sheet" style={{ maxHeight: '86vh', overflowY: 'auto' }}>
         <span className="b-head" style={{ fontSize: 20 }}>{title}</span>
 

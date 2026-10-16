@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { useBuyer } from '../BuyerContext.jsx';
 import { SheetDisclosure } from '../ComplianceFooter.jsx';
-import useDialog from '../useDialog.js';
+import useDialog, { closeOnBackdrop } from '../useDialog.js';
 import Afford from './Afford.jsx';
 import Compare from './Compare.jsx';
 import Dpa from './Dpa.jsx';
@@ -94,7 +94,7 @@ export function ToolSheet({ open, toolKey, onClose, label }) {
       role="dialog"
       aria-modal="true"
       aria-label={label ?? 'Tool'}
-      onClick={(event) => event.target === event.currentTarget && onClose()}
+      {...closeOnBackdrop(onClose)}
     >
       <div className="b-sheet b-sheet-tall">
         <button

@@ -3,6 +3,21 @@ import { useEffect, useRef } from 'react';
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
+ * Props for the dimmed backdrop of a sheet (the element that has `role="dialog"` and covers the screen):
+ * a tap on the backdrop itself closes the sheet, a tap on the sheet does not. A press that starts inside the
+ * sheet and ends on the backdrop (selecting text in a field and letting go outside it, say) is not a tap on
+ * the backdrop, so it closes nothing.
+ */
+export const closeOnBackdrop = (onClose) => ({
+  onPointerDown: (event) => { event.currentTarget.dataset.pressedOn = event.target === event.currentTarget ? 'backdrop' : 'sheet'; },
+  onClick: (event) => {
+    const startedOnBackdrop = event.currentTarget.dataset.pressedOn === 'backdrop';
+    event.currentTarget.dataset.pressedOn = '';
+    if (event.target === event.currentTarget && startedOnBackdrop) onClose();
+  },
+});
+
+/**
  * Makes a modal behave like one for a keyboard or screen-reader user.
  *
  * When it opens, focus moves into it; Tab and Shift+Tab stay inside it instead of
