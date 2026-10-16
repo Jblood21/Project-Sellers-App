@@ -1,0 +1,1047 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Keystone layout: compact, precise, data-forward.
+
+   Think of a clean dashboard or a banking app. Space Grotesk throughout with tabular
+   figures, 1px rules, sharp corners (6px on controls, 8px on cards), no shadows and
+   a tight grid. Navigation is a tab strip under a two-row header, so nothing is fixed
+   to the foot of the screen. Figures lead: a row of them tops the home screen.
+
+   A layout owns typeface, shape, spacing, the header, the home screen and the look of
+   every control; it does NOT own colour. Every colour here is a --t-* theme token (or
+   a colour-mix of two of them), so the layout reads on all ten themes:
+     --t-bg page ground    --t-sur cards        --t-ink text      --t-mut muted text
+     --t-acc a FILL        --t-onacc its text   --t-accT the accent as TEXT on light
+     --t-acc2 the secondary (the dark lender panel), --t-onacc2 its text
+   Tool screens are drawn with inline styles that read var(--t-*), so redefining the
+   tokens on the layout's root restyles them without a fight. !important appears only
+   where an inline font-size, padding or radius on a shared screen has to be beaten, and
+   each use says so.
+
+   Everything is scoped under .b-app.l-keystone (two classes), which beats the
+   one-class theme blocks in base.css that set the same tokens on the same element.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── tokens: type, shape, rules ───────────────────────────────────────── */
+.b-app.l-keystone {
+  --t-head: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t-font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t-headwt: 700;
+  --t-track: -0.01em;
+  --t-up: none;
+  --t-rad: 6px;
+  --t-radlg: 8px;
+  --t-radbtn: 6px;
+
+  /* Rules and card edges: the theme's line, a little stronger (ink into the card colour). */
+  --t-line: color-mix(in srgb, var(--t-ink) 22%, var(--t-sur));
+  /* The edge of something you can operate (an input, a segment, a secondary button). It has to
+     read at 3:1 against the card and against the page, on all ten themes. */
+  --ks-ctl: color-mix(in srgb, var(--t-ink) 58%, var(--t-sur));
+  /* The theme's own muted text, kept under its own name: --t-mut is darkened for everything inside
+     (below), and the muted text on a tint (4.3 to 4.7:1 on the light themes) needs the headroom. */
+  --ks-mut0: var(--t-mut);
+
+  --ks-col: 720px;
+  --ks-gutter: 16px;
+
+  font-family: var(--t-font);
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 400;
+  /* Figures line up: money and counts are what a buyer compares. */
+  font-variant-numeric: tabular-nums lining-nums;
+  min-width: 0;
+}
+/* Every direct child (header, page, footer, menu, sheets, toast) reads a muted text that clears 4.5:1
+   on the page, the card AND the tints. The dark lender panel redefines it again for itself. */
+.b-app.l-keystone > * { --t-mut: color-mix(in srgb, var(--ks-mut0) 78%, var(--t-ink)); }
+
+/* A control focused from the keyboard must not end up under the sticky header. The header sets its own
+   height on the root (--ks-head-h, see Header.jsx) because a long community name makes it taller than
+   its usual 97px; this is the fallback until it has. */
+:root:has(.b-app.l-keystone) { scroll-padding-top: calc(var(--ks-head-h, 97px) + 16px); }
+
+/* ── focus, motion ────────────────────────────────────────────────────── */
+/* The accent FILL is too pale to read as a ring on a light ground, so the ring is the text-safe accent. */
+.b-app.l-keystone a:focus-visible,
+.b-app.l-keystone button:focus-visible,
+.b-app.l-keystone [role='button']:focus-visible,
+.b-app.l-keystone summary:focus-visible,
+.b-app.l-keystone input:focus-visible,
+.b-app.l-keystone select:focus-visible,
+.b-app.l-keystone textarea:focus-visible {
+  outline: 2px solid var(--t-accT);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-app.l-keystone *,
+  .b-app.l-keystone *::before,
+  .b-app.l-keystone *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── the page column ──────────────────────────────────────────────────── */
+.b-app.l-keystone .b-shell {
+  max-width: var(--ks-col);
+  padding-left: var(--ks-gutter);
+  padding-right: var(--ks-gutter);
+}
+.b-app.l-keystone .b-main > .b-shell { padding-bottom: 24px; }
+/* Screens set their own top padding inline (16 to 24px); one tight value for all of them. */
+.b-app.l-keystone .b-main > .b-shell[style*='padding-top'] { padding-top: 16px !important; }
+
+/* Page titles: sentence case, 700, a hair tight. The size is inline on each screen (22 to 25px),
+   so a single size needs !important. */
+.b-app.l-keystone .b-shell > h1.b-head {
+  font-size: 22px !important;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  margin-bottom: 4px !important;
+}
+.b-app.l-keystone .b-shell > h1.b-head + p {
+  font-size: 14px !important;
+  line-height: 1.45;
+  margin-bottom: 14px !important;
+}
+/* A title that goes straight into its content (no line under it) leaves a little more air than one with a lede. */
+.b-app.l-keystone .b-shell > h1.b-head:has(+ :not(p)) { margin-bottom: 12px !important; }
+.b-app.l-keystone .b-head { text-transform: none; }
+
+/* ── micro-labels: tiny, uppercase, above a value ─────────────────────── */
+.b-app.l-keystone .b-lbl,
+.b-app.l-keystone .ks-micro {
+  font-family: var(--t-font);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-mut);
+}
+/* Wherever a screen paints a label in the accent it is the text-safe one already (--t-accT). */
+
+/* ── controls ─────────────────────────────────────────────────────────── */
+.b-app.l-keystone .b-field { gap: 6px; }
+.b-app.l-keystone .b-in,
+.b-app.l-keystone select.b-in {
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--ks-ctl);
+  border-radius: 6px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  font-size: 16px; /* 16px stops iOS zooming on focus */
+  line-height: 24px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+/* A placeholder is muted and lighter in weight than a typed value, so an example never reads as an answer. */
+.b-app.l-keystone .b-in::placeholder { color: var(--t-mut); opacity: 1; font-weight: 400; }
+.b-app.l-keystone .b-in:focus { border-color: var(--t-accT); }
+.b-app.l-keystone .b-in:focus-visible { outline: 2px solid var(--t-accT); outline-offset: 1px; }
+
+.b-app.l-keystone .b-btn,
+.b-app.l-keystone .ks-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  /* Vertical room for a label that wraps (the sign-in button carries the community's name). */
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  font-family: var(--t-font);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-keystone .b-btn { width: 100%; }
+@media (hover: hover) {
+  /* An inner ring rather than a darker fill: on a light accent with dark label text
+     (bronze, sage) darkening the fill takes the label under 4.5:1. */
+  .b-app.l-keystone .b-btn:not(.b-btn-outline):not(:disabled):hover,
+  .b-app.l-keystone .ks-btn--solid:hover {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--t-onacc) 40%, transparent);
+  }
+}
+/* A disabled primary is a softened fill with ink text, so its label does not go to mush. */
+.b-app.l-keystone .b-btn:disabled {
+  opacity: 1;
+  background: color-mix(in srgb, var(--t-acc) 36%, var(--t-bg));
+  color: var(--t-ink);
+  cursor: not-allowed;
+}
+/* The secondary button is neutral: a 1px control edge and ink text, the accent kept for the primary. */
+.b-app.l-keystone .b-btn-outline,
+.b-app.l-keystone .ks-btn--line {
+  background: var(--t-sur);
+  color: var(--t-ink);
+  border: 1px solid var(--ks-ctl);
+}
+@media (hover: hover) {
+  .b-app.l-keystone .b-btn-outline:not(:disabled):hover,
+  .b-app.l-keystone .ks-btn--line:hover { background: var(--t-tint); border-color: var(--t-ink); }
+}
+.b-app.l-keystone .b-btn-outline:disabled { background: var(--t-sur); color: var(--t-mut); border-color: var(--t-line); }
+
+/* Choice chips are segments of one control: joined edge to edge, the chosen one filled with ink. */
+.b-app.l-keystone .b-pill {
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--ks-ctl);
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  /* A segment wraps to a second line, at a space, before it pushes its neighbour out of the column;
+     it never splits a word, so it will not shrink below its longest word. */
+  min-width: min-content;
+  padding: 4px 8px;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+@media (hover: hover) {
+  .b-app.l-keystone .b-pill:hover { background: var(--t-tint); }
+}
+.b-app.l-keystone .b-pill[data-on='true'] { background: var(--t-ink); border-color: var(--t-ink); color: var(--t-sur); }
+/* The price beside a home's name is drawn at 75% opacity inline, which takes the label under 4.5:1. */
+.b-app.l-keystone .b-pill > span[style*='opacity'] { opacity: 1 !important; font-weight: 500; }
+/* A row of options with no gap between them (the inline gap is 6px, hence !important). The chooser of
+   homes is a stacked list and keeps its gap; so do the topic filters, which wrap. */
+.b-app.l-keystone .b-main [role='group'][style*='gap: 6px']:not([style*='column']):not([style*='wrap']):not(.b-gfilter) { gap: 0 !important; }
+.b-app.l-keystone .b-main [role='group'][style*='gap: 6px']:not([style*='column']):not([style*='wrap']):not(.b-gfilter) > .b-pill { border-radius: 0; }
+.b-app.l-keystone .b-main [role='group'][style*='gap: 6px']:not([style*='column']):not([style*='wrap']):not(.b-gfilter) > .b-pill + .b-pill { margin-left: -1px; }
+.b-app.l-keystone .b-main [role='group'][style*='gap: 6px']:not([style*='column']):not([style*='wrap']):not(.b-gfilter) > .b-pill:first-child { border-radius: 6px 0 0 6px; }
+.b-app.l-keystone .b-main [role='group'][style*='gap: 6px']:not([style*='column']):not([style*='wrap']):not(.b-gfilter) > .b-pill:last-child { border-radius: 0 6px 6px 0; }
+.b-app.l-keystone .b-main [role='group'][style*='gap: 6px']:not([style*='column']):not([style*='wrap']):not(.b-gfilter) > .b-pill:only-child { border-radius: 6px; }
+.b-app.l-keystone .b-main [role='group'] > .b-pill:focus-visible { position: relative; z-index: 2; }
+.b-app.l-keystone .b-main [role='group'] > .b-pill[data-on='true'] { position: relative; z-index: 1; }
+.b-app.l-keystone .b-gfilter { gap: 6px; }
+
+/* A tick box is a tap target too, and the browser's own is 13 to 20px. The box is drawn at 20px inside
+   a 44px hit area, and the negative margin gives the room back so a row keeps its height. The size is
+   inline on the shared screens, hence !important. */
+.b-app.l-keystone input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px !important;
+  height: 44px !important;
+  margin: -12px;
+  background: transparent;
+  cursor: pointer;
+}
+.b-app.l-keystone input[type='checkbox']::before,
+.b-app.l-keystone input[type='checkbox']::after { content: ''; grid-area: 1 / 1; }
+.b-app.l-keystone input[type='checkbox']::before {
+  width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  border: 1px solid var(--ks-ctl);
+  border-radius: 4px;
+  background: var(--t-sur);
+}
+.b-app.l-keystone input[type='checkbox']:checked::before { background: var(--t-ink); border-color: var(--t-ink); }
+.b-app.l-keystone input[type='checkbox']:checked::after {
+  width: 5px;
+  height: 10px;
+  margin-top: -2px;
+  border: solid var(--t-sur);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.b-app.l-keystone input[type='checkbox']:focus-visible { outline: 2px solid var(--t-accT); outline-offset: -4px; border-radius: 8px; }
+
+/* ── surfaces ─────────────────────────────────────────────────────────── */
+/* Flat: a rule separates things, not a shadow. */
+.b-app.l-keystone .b-card { background: var(--t-sur); border: 1px solid var(--t-line); border-radius: 8px; box-shadow: none; }
+.b-app.l-keystone .b-strip {
+  background: var(--t-tint);
+  border: 1px solid var(--t-line);
+  border-left: 3px solid var(--t-acc);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  color: var(--t-ink);
+  font-size: 13.5px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+/* A hairline with an accent tick at the left, where the shared styles draw a 3px gradient bar. */
+.b-app.l-keystone .b-rule {
+  height: 2px;
+  border-radius: 0;
+  background: linear-gradient(to right, var(--t-acc) 0, var(--t-acc) 32px, var(--t-line) 32px, var(--t-line) 100%);
+}
+.b-app.l-keystone .b-bar { height: 6px; border-radius: 0; background: var(--t-tint2); }
+.b-app.l-keystone .b-bar > span { border-radius: 0; background: var(--t-accT); }
+
+.b-app.l-keystone .b-sheet {
+  max-width: 560px;
+  border: 1px solid var(--t-line);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+}
+
+/* The close button of a tool in a sheet is a circle, inline. */
+.b-app.l-keystone .b-sheet-tall > button[aria-label='Close'] { border-radius: 6px !important; }
+
+/* The answer panel on a tool: a card with a 3px accent edge on top and the figure set large, in
+   tabular figures, with the breakdown beneath it as aligned rows. */
+.b-app.l-keystone .b-result {
+  border-top: 3px solid var(--t-acc);
+  padding: 14px 16px 16px !important; /* the padding is inline */
+  gap: 6px !important;
+}
+.b-app.l-keystone .b-result .b-bignum {
+  font-size: 40px !important; /* beats the inline 34px */
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.b-app.l-keystone .b-result .b-bignum > span { letter-spacing: 0; font-weight: 500; }
+.b-app.l-keystone .b-result > .b-head:not(.b-bignum) {
+  font-size: 28px !important; /* Afford's range; inline 28px, restated so it cannot drift */
+  letter-spacing: -0.02em;
+}
+.b-app.l-keystone .b-resultrow { font-size: 14px !important; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.b-app.l-keystone .b-resultrow > span:last-child { text-align: right; }
+
+/* ── inline colours on shared screens that fail 4.5:1 ─────────────────── */
+/* These are inline styles in the tool screens, which a layout may not edit, so they are matched by what
+   they say. Each fixes a pairing a theme makes unreadable. Done by redefining the token on the element
+   wherever that is enough, so the inline declaration is not fought with !important. */
+.b-app.l-keystone .b-main [style*='background: var(--t-tint2)'],
+.b-app.l-keystone .b-main [style*='background: var(--t-tint)'] { --t-mut: var(--t-ink); }
+.b-app.l-keystone .b-main [style*='background: var(--t-tint2)'] { --t-accT: var(--t-ink); }
+/* The accent is a FILL; where a screen paints it as text (Move-in's "Now", the star on a home card) the
+   text-safe accent stands in. */
+.b-app.l-keystone .b-main [style*='; color: var(--t-acc)'],
+.b-app.l-keystone .b-main [style^='color: var(--t-acc)'] { --t-acc: var(--t-accT); }
+/* A done Move-in step is faded to .55 inline, which leaves its text under 4.5:1 on every theme. The
+   strike-through already says it is done, so the fade comes off and the text is drawn muted. */
+.b-app.l-keystone .b-main [style*='opacity: 0.55'] { opacity: 1 !important; color: var(--t-mut); }
+
+/* Hints and fine print are set inline at 10 to 11.5px; the smallest size here is 12px, and
+   these are the lines a buyer is told to read. The attribute selector is the only way to reach
+   a size written in a style attribute. */
+.b-app.l-keystone .b-main [style*='font-size: 10px'],
+.b-app.l-keystone .b-main [style*='font-size: 10.5px'],
+.b-app.l-keystone .b-main [style*='font-size: 11px'],
+.b-app.l-keystone .b-main [style*='font-size: 11.5px'] { font-size: 12px !important; }
+/* Pills drawn inline (a status, a place's detail) are square-cornered like everything else. */
+.b-app.l-keystone .b-main [style*='border-radius: 999px'] { border-radius: 4px !important; }
+
+/* ── the header ───────────────────────────────────────────────────────── */
+.b-app.l-keystone .ks-head {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--t-sur);
+  border-bottom: 1px solid var(--t-line);
+  padding-top: env(safe-area-inset-top);
+}
+.b-app.l-keystone .ks-head__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* 52px for a name on one or two lines; a longer name grows the row rather than being cut. */
+  min-height: 52px;
+  max-width: var(--ks-col);
+  margin: 0 auto;
+  padding: 0 var(--ks-gutter) 0 8px;
+}
+.b-app.l-keystone .ks-head__back,
+.b-app.l-keystone .ks-head__menu {
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--t-ink);
+  cursor: pointer;
+}
+.b-app.l-keystone .ks-head__back { width: 36px; border-radius: 6px; }
+.b-app.l-keystone .ks-head__menu { width: 44px; border: 1px solid var(--ks-ctl); border-radius: 6px; background: var(--t-sur); }
+@media (hover: hover) {
+  .b-app.l-keystone .ks-head__back:hover,
+  .b-app.l-keystone .ks-head__menu:hover { background: var(--t-tint); }
+}
+.b-app.l-keystone .ks-head__id {
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px; /* 8 of padding + 8 = the page's 16px gutter */
+  padding: 3px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+.b-app.l-keystone .ks-head__back + .ks-head__id { margin-left: 0; }
+.b-app.l-keystone .ks-head__name {
+  max-width: 100%;
+  font-family: var(--t-head);
+  font-size: 15px;
+  line-height: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--t-ink);
+  /* Never cut: the community's name appears nowhere else on a tool screen, so a long one wraps and the
+     row grows to hold it (a 50-character name on a 320px phone makes the header about 120px, not 97px). */
+  overflow-wrap: anywhere;
+}
+/* The place is the second line of the header, and it is only there when it can be read whole: a phone has
+   no room beside the button and the menu (the menu's own heading carries it), a wider screen does. */
+.b-app.l-keystone .ks-head__place {
+  display: none;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--t-mut);
+  overflow-wrap: anywhere;
+}
+@media (min-width: 600px) {
+  .b-app.l-keystone .ks-head__place { display: block; }
+}
+.b-app.l-keystone .ks-head__mark { max-width: 100%; }
+/* "Book a tour": a 44px target around a 36px face. */
+.b-app.l-keystone .ks-head__book {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  font: inherit;
+}
+.b-app.l-keystone .ks-face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  font-size: 13.5px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.b-app.l-keystone .ks-head__book:focus-visible { outline: none; }
+.b-app.l-keystone .ks-head__book:focus-visible .ks-face { outline: 2px solid var(--t-accT); outline-offset: 2px; }
+@media (hover: hover) {
+  .b-app.l-keystone .ks-head__book:hover .ks-face { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--t-onacc) 40%, transparent); }
+}
+
+/* The tab strip. */
+.b-app.l-keystone .ks-tabs {
+  position: relative;
+  max-width: var(--ks-col);
+  height: 44px;
+  margin: 0 auto;
+}
+.b-app.l-keystone .ks-tabs__list {
+  display: flex;
+  height: 44px;
+  margin: 0;
+  padding: 0 4px;
+  list-style: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+}
+.b-app.l-keystone .ks-tabs__list::-webkit-scrollbar { display: none; }
+.b-app.l-keystone .ks-tabs__item { flex: none; }
+/* Financing is not a page, it opens a sheet: a rule sets it apart from the four that are. */
+.b-app.l-keystone .ks-tabs__item--action { margin-left: auto; position: relative; padding-left: 1px; }
+.b-app.l-keystone .ks-tabs__item--action::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--ks-ctl);
+}
+.b-app.l-keystone .ks-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--t-mut);
+  font-family: var(--t-font);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-keystone .ks-tab.is-active { color: var(--t-ink); font-weight: 700; }
+/* The indicator: a 3px bar on the strip's bottom edge, in the text-safe accent. */
+.b-app.l-keystone .ks-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 3px;
+  background: var(--t-accT);
+}
+@media (hover: hover) {
+  .b-app.l-keystone .ks-tab:hover { color: var(--t-ink); background: var(--t-tint); }
+}
+/* The strip scrolls, and a ring outside a tab would be clipped by it: the ring is drawn inside. */
+.b-app.l-keystone .ks-tab:focus-visible { outline: 2px solid var(--t-accT); outline-offset: -3px; }
+/* A fade at an edge says there is more past it. It goes when there is not. */
+.b-app.l-keystone .ks-tabs::before,
+.b-app.l-keystone .ks-tabs::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s linear;
+}
+.b-app.l-keystone .ks-tabs::before { left: 0; background: linear-gradient(to right, var(--t-sur) 20%, transparent); }
+.b-app.l-keystone .ks-tabs::after { right: 0; background: linear-gradient(to left, var(--t-sur) 20%, transparent); }
+.b-app.l-keystone .ks-tabs.has-start::before,
+.b-app.l-keystone .ks-tabs.has-end::after { opacity: 1; }
+
+/* A phone on its side has about 390px of height; the header would take a quarter of it, so it scrolls away. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .b-app.l-keystone .ks-head { position: relative; }
+  :root:has(.b-app.l-keystone) { scroll-padding-top: 16px; }
+}
+@media print {
+  .b-app.l-keystone .ks-head { display: none !important; }
+}
+
+/* ── home: greeting, status strip, sections ───────────────────────────── */
+.b-app.l-keystone .ks-home { padding-top: 16px; }
+.b-app.l-keystone .ks-greet { margin-bottom: 12px; }
+.b-app.l-keystone .ks-greet__h1 {
+  margin: 0 0 4px;
+  font-family: var(--t-head);
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--t-ink);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.b-app.l-keystone .ks-greet__lede { margin: 0; font-size: 14px; line-height: 1.45; color: var(--t-mut); }
+
+/* The strip: cells separated by 1px rules (the grid's gap shows the rule colour). */
+.b-app.l-keystone .ks-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--t-line);
+  border: 1px solid var(--t-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.b-app.l-keystone .ks-status > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+@media (min-width: 520px) {
+  .b-app.l-keystone .ks-status { grid-template-columns: repeat(var(--cells, 4), minmax(0, 1fr)); }
+  .b-app.l-keystone .ks-status > :last-child:nth-child(odd) { grid-column: auto; }
+}
+.b-app.l-keystone .ks-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 10px 12px 12px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .b-app.l-keystone a.ks-cell:hover { background: var(--t-tint); }
+}
+.b-app.l-keystone a.ks-cell:focus-visible { outline-offset: -3px; }
+.b-app.l-keystone .ks-cell__label { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-cell__value { display: block; font-family: var(--t-head); line-height: 1; }
+.b-app.l-keystone .ks-cell__value b { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; color: var(--t-ink); }
+.b-app.l-keystone .ks-cell__value small { font-size: 13px; font-weight: 500; letter-spacing: 0; color: var(--t-mut); }
+.b-app.l-keystone .ks-cell__meter { display: block; height: 4px; background: var(--t-tint2); }
+.b-app.l-keystone .ks-cell__meter > i { display: block; height: 100%; background: var(--t-accT); }
+
+/* A section: a micro-label with a hairline running out of it. */
+.b-app.l-keystone .ks-sec { margin-top: 24px; }
+.b-app.l-keystone .ks-sec__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-family: var(--t-font);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-mut);
+}
+.b-app.l-keystone .ks-sec__title::after { content: ''; flex: 1; height: 1px; background: var(--t-line); }
+.b-app.l-keystone .ks-incentive { margin-top: 24px; }
+
+/* Start here: two accent-edged cards with a big index. */
+.b-app.l-keystone .ks-leads { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 600px) {
+  .b-app.l-keystone .ks-leads { grid-template-columns: 1fr 1fr; }
+  .b-app.l-keystone .ks-leads > :only-child { grid-column: 1 / -1; }
+}
+.b-app.l-keystone .ks-lead {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 80px;
+  padding: 12px 12px 12px 18px;
+  border: 1px solid var(--t-line);
+  border-radius: 8px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.b-app.l-keystone .ks-lead::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--t-acc); }
+@media (hover: hover) {
+  .b-app.l-keystone .ks-lead:hover { border-color: var(--t-accT); }
+}
+.b-app.l-keystone .ks-lead:focus-visible { outline-offset: -3px; }
+.b-app.l-keystone .ks-lead__idx { font-family: var(--t-head); font-size: 32px; line-height: 1; font-weight: 700; letter-spacing: -0.04em; color: var(--t-accT); }
+.b-app.l-keystone .ks-lead__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.b-app.l-keystone .ks-lead__name { font-family: var(--t-head); font-size: 16px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-lead__q { font-size: 13px; line-height: 1.35; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-lead__side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; color: var(--t-accT); }
+
+.b-app.l-keystone .ks-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid var(--t-line);
+  border-radius: 4px;
+  background: var(--t-tint);
+  color: var(--t-ink);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.b-app.l-keystone .ks-chip > span { color: var(--t-accT); }
+.b-app.l-keystone .ks-dot { flex: none; width: 10px; height: 10px; border: 1.5px solid var(--ks-ctl); border-radius: 50%; }
+
+/* The other tools: a dense two-column grid of compact cards. */
+.b-app.l-keystone .ks-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.b-app.l-keystone .ks-tools > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.b-app.l-keystone .ks-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--t-line);
+  border-radius: 8px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  text-align: left;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .b-app.l-keystone .ks-tool:hover { border-color: var(--t-accT); }
+}
+.b-app.l-keystone .ks-tool__top { display: flex; align-items: center; justify-content: space-between; align-self: stretch; min-height: 20px; margin-bottom: 2px; }
+.b-app.l-keystone .ks-tool__idx { font-family: var(--t-head); font-size: 13px; line-height: 1; font-weight: 700; letter-spacing: 0.02em; color: var(--t-accT); }
+.b-app.l-keystone .ks-tool__name { font-family: var(--t-head); font-size: 14.5px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-tool__q { font-size: 12.5px; line-height: 1.35; color: var(--t-mut); overflow-wrap: anywhere; }
+
+/* Rows that lead somewhere, joined into one bordered list. */
+.b-app.l-keystone .ks-list { border: 1px solid var(--t-line); border-radius: 8px; background: var(--t-sur); overflow: hidden; }
+.b-app.l-keystone .ks-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--t-ink);
+  font-family: var(--t-font);
+  text-align: left;
+  cursor: pointer;
+}
+.b-app.l-keystone .ks-item + .ks-item { border-top: 1px solid var(--t-line); }
+@media (hover: hover) {
+  .b-app.l-keystone .ks-item:hover { background: var(--t-tint); }
+}
+.b-app.l-keystone .ks-item:focus-visible { outline-offset: -3px; }
+.b-app.l-keystone .ks-item__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border: 1px solid var(--t-line);
+  border-radius: 6px;
+  background: var(--t-tint);
+  color: var(--t-accT);
+}
+.b-app.l-keystone .ks-item__tile .photo-empty { font-size: 0; padding: 0; }
+.b-app.l-keystone .ks-item__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.b-app.l-keystone .ks-item__title { font-family: var(--t-head); font-size: 16px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-item__sub { font-size: 12.5px; line-height: 1.35; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-arrow { flex: none; color: var(--t-accT); }
+
+/* The two ways to the buyer's own record. */
+.b-app.l-keystone .ks-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.b-app.l-keystone .ks-pair .ks-btn { padding: 0 8px; }
+
+/* Guides: compact cards, three across from 640px. */
+.b-app.l-keystone .ks-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--ks-ctl);
+  border-radius: 6px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .b-app.l-keystone .ks-more:hover { background: var(--t-tint); border-color: var(--t-ink); }
+}
+@media (min-width: 640px) {
+  .b-app.l-keystone .ks-guides .b-glist { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Buttons that are not tool buttons: the pair on the home, the lender panel. */
+.b-app.l-keystone .ks-btn--solid { background: var(--t-acc); color: var(--t-onacc); }
+
+/* The lender: the one dark surface. The tokens are redefined for the panel so every colour inside it,
+   inline or not, lands on a legible value without a fight. */
+.b-app.l-keystone .ks-lender {
+  --t-ink: var(--t-onacc2);
+  --t-mut: color-mix(in srgb, var(--t-onacc2) 84%, var(--t-acc2));
+  --t-accT: var(--t-onacc2);
+  --t-line: rgba(255, 255, 255, 0.24);
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--t-acc2);
+  color: var(--t-onacc2);
+}
+.b-app.l-keystone .ks-lender__logo { justify-self: start; }
+.b-app.l-keystone .ks-lender__line { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--t-ink); overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-lender__actions { display: grid; gap: 8px; }
+@media (min-width: 520px) {
+  .b-app.l-keystone .ks-lender__actions { grid-template-columns: 1fr 1fr; }
+}
+.b-app.l-keystone .ks-btn--white { background: var(--t-onacc2); color: var(--t-acc2); border-color: var(--t-onacc2); width: 100%; }
+@media (hover: hover) {
+  .b-app.l-keystone .ks-btn--white:hover { background: color-mix(in srgb, var(--t-onacc2) 90%, var(--t-acc2)); }
+}
+.b-app.l-keystone .ks-btn--ghost { background: transparent; color: var(--t-onacc2); border: 1px solid color-mix(in srgb, var(--t-onacc2) 70%, var(--t-acc2)); width: 100%; }
+@media (hover: hover) {
+  .b-app.l-keystone .ks-btn--ghost:hover { background: color-mix(in srgb, var(--t-onacc2) 12%, transparent); border-color: var(--t-onacc2); }
+}
+.b-app.l-keystone .ks-lender a:focus-visible,
+.b-app.l-keystone .ks-lender button:focus-visible { outline-color: var(--t-onacc2); }
+.b-app.l-keystone .ks-lender__legal { display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--t-line); font-size: 12px; line-height: 1.5; color: var(--t-mut); }
+.b-app.l-keystone .ks-lender__legal > img { flex: none; }
+.b-app.l-keystone .ks-lender__id { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.b-app.l-keystone .ks-lender__tel { display: flex; align-items: center; min-height: 44px; color: var(--t-onacc2); font-weight: 700; }
+
+/* Resources. */
+.b-app.l-keystone .ks-res { display: flex; flex-direction: column; gap: 16px; }
+.b-app.l-keystone .ks-res__item { display: flex; flex-direction: column; gap: 8px; }
+.b-app.l-keystone .ks-res__title { margin: 0; font-family: var(--t-head); font-size: 16px; line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; color: var(--t-ink); }
+.b-app.l-keystone .ks-res__box { overflow: hidden; border: 1px solid var(--t-line); border-radius: 8px; background: var(--t-sur); }
+.b-app.l-keystone .ks-res__video { display: block; width: 100%; background: #000; }
+.b-app.l-keystone .ks-res__frame { position: relative; padding-top: 56.25%; }
+.b-app.l-keystone .ks-res__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.b-app.l-keystone .ks-res__body { margin: 0; padding: 12px; font-size: 14px; line-height: 1.55; color: var(--t-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ── builder incentive, the agent to tour with, FAQ ───────────────────── */
+.b-app.l-keystone .b-incentive {
+  position: relative;
+  gap: 6px;
+  padding: 14px 14px 14px 18px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--t-tint);
+}
+.b-app.l-keystone .b-incentive::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--t-acc); }
+.b-app.l-keystone .b-incentive__kicker { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.08em; }
+.b-app.l-keystone .b-incentive__title { font-size: 18px; line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; text-transform: none; }
+.b-app.l-keystone .b-incentive__body { font-size: 14px; }
+.b-app.l-keystone .b-incentive .b-btn { margin-top: 4px; }
+.b-app.l-keystone .b-tour { gap: 10px; }
+.b-app.l-keystone .b-tour__meet { font-size: 16px; line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; text-transform: none; }
+.b-app.l-keystone .b-tour__btn { margin-top: 2px; }
+
+/* The FAQ is one bordered list, its questions divided by rules. */
+.b-app.l-keystone .b-faq {
+  gap: 0;
+  border: 1px solid var(--t-line);
+  border-radius: 8px;
+  background: var(--t-sur);
+  overflow: hidden;
+}
+.b-app.l-keystone .b-faq__item { border: 0; border-top: 1px solid var(--t-line); border-radius: 0; background: transparent; }
+.b-app.l-keystone .b-faq__item:first-child { border-top: 0; }
+.b-app.l-keystone .b-faq__q { min-height: 48px; padding: 10px 12px; font-size: 14px; font-weight: 600; }
+.b-app.l-keystone .b-faq__q::after { content: '+'; font-size: 18px; font-weight: 500; }
+.b-app.l-keystone .b-faq__a { padding: 0 12px 14px; font-size: 14px; }
+@media (hover: hover) {
+  .b-app.l-keystone .b-faq__item:hover { background: var(--t-tint); border-color: var(--t-line); box-shadow: none; }
+  .b-app.l-keystone .b-faq__item:first-child:hover { border-top-color: transparent; }
+}
+.b-app.l-keystone .b-faq__item:has(> .b-faq__q:focus-visible) { background: var(--t-tint); border-color: var(--t-line); }
+.b-app.l-keystone .b-faq__item:first-child:has(> .b-faq__q:focus-visible) { border-top-color: transparent; }
+.b-app.l-keystone .b-faq__q:focus-visible { outline-offset: -3px; }
+
+/* ── guides: the list and the reading page ────────────────────────────── */
+.b-app.l-keystone .b-glist { gap: 8px; }
+.b-app.l-keystone .b-gcard { border-radius: 8px; box-shadow: none; }
+.b-app.l-keystone .b-gcard__body { gap: 4px; padding: 10px 12px 12px; }
+.b-app.l-keystone .b-gcard__kicker { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.08em; color: var(--t-accT); }
+.b-app.l-keystone .b-gcard__title { font-size: 15px; line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; text-transform: none; }
+/* The title link is stretched over the whole card, so the card is the target; the link box itself is also
+   made 44px or more, with negative margins giving the room back, so nothing measuring the link finds a
+   short one. */
+.b-app.l-keystone .b-gcard__link { display: block; padding: 13px 0; margin: -13px 0; }
+.b-app.l-keystone .b-gcard__link::after { border-radius: 8px; }
+/* The summary is shown whole: the shared style cuts it to a few lines with an ellipsis, and nothing here is cut. */
+.b-app.l-keystone .b-gcard__sum { display: block; overflow: visible; font-size: 12.5px; line-height: 1.4; -webkit-line-clamp: none; line-clamp: none; }
+.b-app.l-keystone .b-article__kicker { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.08em; }
+.b-app.l-keystone .b-article__title { font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; text-transform: none; text-wrap: balance; overflow-wrap: anywhere; }
+.b-app.l-keystone .b-article__byline { font-size: 13px; font-weight: 600; }
+.b-app.l-keystone .b-article__cta { border-radius: 8px; background: var(--t-tint); padding: 14px; }
+.b-app.l-keystone .b-article__cta > .b-head { font-size: 18px !important; /* beats the inline 19px */ }
+.b-app.l-keystone .md { font-size: 16px; line-height: 1.65; }
+.b-app.l-keystone .md-h2 { font-size: 22px; line-height: 1.25; font-weight: 700; letter-spacing: -0.015em; text-transform: none; }
+.b-app.l-keystone .md-h3 { font-size: 17px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em; text-transform: none; }
+.b-app.l-keystone .md-callout { border-radius: 6px; border-color: var(--t-line); border-left: 4px solid var(--t-acc); }
+.b-app.l-keystone .md-img { border-radius: 6px; border: 1px solid var(--t-line); }
+.b-app.l-keystone .md-link:focus-visible { outline-color: var(--t-accT); }
+.b-app.l-keystone .md-hr { border-top-color: var(--t-line); }
+@media (min-width: 640px) {
+  .b-app.l-keystone .b-article .b-glist { grid-template-columns: 1fr; }
+}
+
+/* ── realtors ─────────────────────────────────────────────────────────── */
+.b-app.l-keystone .b-agent { gap: 10px; padding: 12px; border-radius: 8px; }
+.b-app.l-keystone .b-agent__top { gap: 12px; }
+.b-app.l-keystone .b-agent__photo { width: 72px; height: 72px; border-radius: 6px; }
+.b-app.l-keystone .b-agent__name { font-size: 16px; line-height: 1.2; font-weight: 700; text-transform: none; }
+.b-app.l-keystone .b-agent__act {
+  border: 1px solid var(--ks-ctl);
+  border-radius: 6px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .b-app.l-keystone .b-agent__act:hover { background: var(--t-tint); border-color: var(--t-ink); }
+}
+.b-app.l-keystone .b-reach { border-radius: 8px; padding: 10px 12px; }
+
+/* ── explore: a horizontal card on phones, a vertical one on wide screens ─ */
+.b-app.l-keystone .b-main .b-card[role='button'] {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: stretch;
+  min-height: 96px;
+}
+/* The photograph is 96px square at the left (its height is inline, hence !important). */
+.b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(1) {
+  grid-column: 1;
+  height: 96px !important;
+  margin: 0 !important;
+  border-right: 1px solid var(--t-line);
+}
+/* A home with no photo yet shows the striped placeholder; its words ("The Aspen photo") do not fit a 96px
+   square and would be cut, and the card's own text names the home, so the square carries no words. */
+.b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(1) .photo-empty { font-size: 0; padding: 0; }
+.b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(2) {
+  grid-column: 2;
+  min-width: 0;
+  /* Room on the right for the 44px save star; the padding is inline. */
+  padding: 8px 54px 8px 12px !important;
+  gap: 2px !important;
+  justify-content: center;
+}
+/* Name above, price large under it (the row is a flex row inline; its direction is not). */
+.b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(2) > div:first-child { flex-direction: column; align-items: flex-start !important; gap: 0 !important; justify-content: flex-start; }
+.b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(2) .b-head { font-size: 15px !important; line-height: 1.2; letter-spacing: -0.01em; }
+.b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(2) > div:first-child > span:not(.b-head) {
+  font-family: var(--t-head);
+  font-size: 22px !important;
+  line-height: 1.15;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+/* The save star: the shared screen puts it at 12px from the corner with a drop shadow. Square, flat. */
+.b-app.l-keystone .b-main .b-card[role='button'] > button[aria-pressed] {
+  top: 6px !important;
+  right: 6px !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  border: 1px solid var(--t-line) !important;
+}
+@media (min-width: 640px) {
+  .b-app.l-keystone .b-main .b-stack:has(> .b-card[role='button']) { display: grid; grid-template-columns: 1fr 1fr; gap: 12px !important; }
+  .b-app.l-keystone .b-main .b-card[role='button'] { display: flex; flex-direction: column; }
+  .b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(1) { height: 168px !important; border-right: 0; border-bottom: 1px solid var(--t-line); }
+  .b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(1) .photo-empty { font-size: 11.5px; padding: 10px; }
+  .b-app.l-keystone .b-main .b-card[role='button'] > div:nth-of-type(2) { padding: 10px 12px 12px !important; }
+  .b-app.l-keystone .b-main .b-card[role='button'] > button[aria-pressed] { top: 8px !important; right: 8px !important; }
+}
+.b-app.l-keystone .b-main .b-card[role='button']:focus-visible { outline-offset: 2px; }
+@media (hover: hover) {
+  .b-app.l-keystone .b-main .b-card[role='button']:hover { border-color: var(--t-accT); }
+}
+
+/* Saved homes and the plan's rows are buttons drawn as cards. */
+.b-app.l-keystone .b-main button.b-card { font-family: var(--t-font); }
+@media (hover: hover) {
+  .b-app.l-keystone .b-main button.b-card:hover { border-color: var(--t-accT); }
+}
+
+/* ── a home ───────────────────────────────────────────────────────────── */
+.b-app.l-keystone .b-homehero { border-radius: 8px; border: 1px solid var(--t-line); }
+/* The name and the price share a row; the price is the figure, so it leads (its size is inline). */
+.b-app.l-keystone .b-shell > div:has(> h1.b-head) { align-items: baseline; }
+.b-app.l-keystone .b-shell > div > h1.b-head { font-size: 22px !important; line-height: 1.2; letter-spacing: -0.015em; }
+.b-app.l-keystone .b-shell > div:has(> h1.b-head) > span { font-family: var(--t-head); font-size: 26px !important; line-height: 1.1; letter-spacing: -0.02em; }
+.b-app.l-keystone .b-tiles { gap: 6px; }
+.b-app.l-keystone .b-tile { border-radius: 6px; }
+
+/* ── landing and sign-in: one bordered panel ──────────────────────────── */
+.b-app.l-keystone .b-landing {
+  max-width: 480px;
+  padding-bottom: 24px;
+}
+/* The picture heads the panel; the headline and the form continue it, so the three read as one card. */
+.b-app.l-keystone .b-landing__hero {
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+  max-height: min(34vh, 240px);
+  margin: 0;
+  border: 1px solid var(--t-line);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--t-acc2);
+}
+.b-app.l-keystone .b-landing__hero--none { aspect-ratio: auto; height: 64px; max-height: none; border-bottom: 4px solid var(--t-acc); }
+.b-app.l-keystone .b-landing h1.b-head.b-landing__welcome {
+  margin: 0 !important;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--t-line);
+  border-top: 0;
+  border-bottom: 0;
+  background: var(--t-sur);
+  /* 26px unless script has fitted the name (--welcome-size); the line height follows. */
+  font-size: var(--welcome-size, 26px) !important;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  text-align: left;
+}
+.b-app.l-keystone .b-landing .b-gateform {
+  padding: 0 16px 16px;
+  border: 1px solid var(--t-line);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: var(--t-sur);
+}
+/* Signed in already: the headline closes the panel and the one button sits under it. */
+.b-app.l-keystone .b-landing:not(:has(.b-gateform)) h1.b-head.b-landing__welcome { border-bottom: 1px solid var(--t-line); border-radius: 0 0 8px 8px; }
+.b-app.l-keystone .b-landing > .b-btn { margin-top: 12px; }
+.b-app.l-keystone .b-landing:not(:has(.b-landing__hero)) h1.b-head.b-landing__welcome { border-top: 1px solid var(--t-line); border-radius: 8px 8px 0 0; }
+
+/* ── compliance footer ────────────────────────────────────────────────── */
+/* The printed plan's footer (.b-footer--print) is excluded throughout so the shared black-on-white
+   print look applies untouched. On the card colour, a rule above it, in the page's column. */
+.b-app.l-keystone .b-footer:not(.b-footer--print) {
+  margin-top: 8px;
+  padding: 20px max(var(--ks-gutter), calc((100% - var(--ks-col)) / 2 + var(--ks-gutter))) calc(24px + env(safe-area-inset-bottom));
+  background: var(--t-sur);
+  color: var(--t-ink);
+  border-top: 1px solid var(--t-line);
+}
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__brand { gap: 14px 16px; margin: 0 0 12px; }
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__brand .b-lender-logo { min-width: 0; }
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__id { margin: 0 0 12px; font-size: 13px; line-height: 1.6; color: var(--t-mut); }
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__id strong { color: var(--t-ink); font-weight: 700; }
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__fine { margin: 0 0 8px; font-size: 12px; line-height: 1.6; color: var(--t-mut); }
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__links { gap: 0 16px; margin: 4px 0 0; }
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__links a { font-size: 12px; font-weight: 600; }
+.b-app.l-keystone .b-footer:not(.b-footer--print) .b-footer__copy { margin-top: 8px; }
+
+/* ── the menu drawer, the toast ───────────────────────────────────────── */
+/* The toast is a pill with a drop shadow, both inline. */
+.b-app.l-keystone > [role='status'] { border-radius: 6px !important; box-shadow: none !important; font-weight: 500 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .b-app.l-keystone .b-bar > span { transition: none; }
+}

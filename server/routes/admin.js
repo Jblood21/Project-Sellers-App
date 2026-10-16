@@ -15,6 +15,7 @@ import { emailConfigured } from '../lib/email.js';
 import { emailReport } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
+import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
@@ -289,6 +290,8 @@ export function adminRouter() {
   // send it twice in a breath, and a day has a ceiling.
   const reportBurst = createLimiter({ windowMs: 15 * 1000, max: 1 });
   const reportPerDay = createLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 30 });
+  // A PDF is built in memory from every lead, so the number made at once is kept small.
+  const pdfBurst = createLimiter({ windowMs: 10 * 1000, max: 4 });
   const failuresPerIp = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
   const failuresPerPerson = createLimiter({ windowMs: 15 * 60 * 1000, max: 8 });
   const failuresPerEmail = createLimiter({ windowMs: 15 * 60 * 1000, max: 60 });
@@ -1124,6 +1127,58 @@ export function adminRouter() {
       sent: true, to, at, ...(stamped ? {} : { notRecorded: true }),
       comingUp: report.comingUp.length, overdue: report.overdue.length, newPeople: report.fresh.length, everyone: report.everyone,
     });
+  });
+
+  /**
+   * A PDF file for the browser to save: private (it holds people's contact details and what they agreed to), never
+   * cached by the browser or a proxy, and never sniffed into anything else.
+   */
+  const sendPdf = (res, { buffer, filename }) => {
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(buffer.length),
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.send(buffer);
+  };
+
+  /**
+   * The leads report as a PDF: the summary, what people did, the calls waiting and everyone. `period` is `all`
+   * (the default) or the last 7, 30 or 90 days of sign-ups. Built from the store when asked and kept nowhere.
+   */
+  router.get('/communities/:id/reports/leads.pdf', async (req, res) => {
+    const period = req.query.period === undefined ? 'all' : req.query.period;
+    if (typeof period !== 'string' || !Object.hasOwn(PERIODS, period)) {
+      return res.status(400).json({ error: `Choose a period: ${Object.keys(PERIODS).join(', ')}.` });
+    }
+    const store = await getStore();
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const hold = reserve([[pdfBurst, community.id]]);
+    if (hold.wait) {
+      res.set('Retry-After', String(hold.wait));
+      return res.status(429).json({ error: tooMany('reports', hold.wait) });
+    }
+    const [leads, homes] = await Promise.all([store.listLeads(community.id), store.listHomes(community.id)]);
+    sendPdf(res, buildLeadsPdf({ community, leads, homes, period }));
+  });
+
+  /** One person's report as a PDF: contact, what they agreed to, their homes and plan, and everything they did. */
+  router.get('/leads/:id/report.pdf', async (req, res) => {
+    const store = await getStore();
+    const lead = await store.getLead(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    const hold = reserve([[pdfBurst, lead.communityId]]);
+    if (hold.wait) {
+      res.set('Retry-After', String(hold.wait));
+      return res.status(429).json({ error: tooMany('reports', hold.wait) });
+    }
+    const [community, homes, consents] = await Promise.all([
+      store.getCommunity(lead.communityId), store.listHomes(lead.communityId), store.listConsents(lead.id),
+    ]);
+    sendPdf(res, buildUserPdf({ community: community ?? { name: 'Community' }, lead, homes, consents }));
   });
 
   router.get('/communities/:id/leads', async (req, res) => {
