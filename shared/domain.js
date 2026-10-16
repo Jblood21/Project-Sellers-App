@@ -500,7 +500,7 @@ export const FEATURES = [
   { k: 'incentive', name: 'Builder incentive', q: 'Show the incentive card above Explore Homes' },
   { k: 'faq', name: 'FAQ', q: 'Show your frequently asked questions on the home screen' },
   // Switched on the Times tab, next to the times it governs, not in the list of home-screen extras.
-  { k: 'booking', name: 'Booking times', q: 'Let buyers pick a day and a time from the times you publish. Off: buyers call, text or email instead.' },
+  { k: 'booking', name: 'Booking times', q: 'Let buyers pick a day and a time to talk about financing from the times you publish. Off: they are shown the lender\u2019s phone, text and email instead.' },
 ];
 export const FEATURE_KEYS = FEATURES.map((f) => f.k);
 
@@ -510,8 +510,9 @@ export const DEFAULT_FEATURES = {
   incentive: false,
   // On, but the section only appears once there is at least one question and answer.
   faq: true,
-  // On: buyers can pick one of the published times. Off: every "book" button gives them the team's
-  // phone, text and email instead, and the times are kept for when it is switched back on.
+  // On: buyers can pick one of the published times to talk about financing. Off: "Talk about financing" gives
+  // them the lender's phone, text and email instead, and the times are kept for when it is switched back on.
+  // A tour is never booked: "Book a tour" goes to the agents.
   booking: true,
 };
 
@@ -567,8 +568,8 @@ export const DEFAULT_SETTINGS = {
   // email means a desktop visitor is shown the number to call instead.
   incentivePhone: '',
   incentiveEmail: '',
-  // The sales team's own phone and email: what a buyer is shown to call, text or email when booking is
-  // switched off (or no times are published). Blank when the builder has not said, so nothing is guessed.
+  // The sales team's own phone and email: what a buyer is shown to call, text or email for "Book a tour" when
+  // there is no agent to send them to. Blank when the builder has not said, so nothing is guessed.
   teamPhone: '',
   teamEmail: '',
   // The text the buyer's message starts with. {community} is the development.

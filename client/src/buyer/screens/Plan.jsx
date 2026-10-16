@@ -29,6 +29,9 @@ export default function Plan({ onOpenTour, onOpenLender }) {
     summary: lead.plan[key],
   }));
   const empty = items.length === 0 && savedHomes.length === 0;
+  // The one booked time is for financing now; an older one made for a tour is shown as that.
+  const financingTime = lead?.tour?.topic === 'lender';
+  const oldTour = lead?.tour && !financingTime;
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
@@ -104,11 +107,17 @@ export default function Plan({ onOpenTour, onOpenLender }) {
       )}
 
       {/* A tour is a call or a text to an agent; the time a buyer picks is for talking about financing. */}
-      <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>Book a tour</button>
-      {lead?.tour || canTalkFinancing(community, features) ? (
+      {onOpenTour ? <button type="button" className="b-btn b-btn-outline" onClick={onOpenTour}>Book a tour</button> : null}
+      {/* A tour booked before tours stopped being booked stays on record as a tour, and is not the financing time. */}
+      {oldTour ? (
+        <p style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'var(--t-mut)' }}>
+          Your tour: {tourSummary(lead.tour)}. To change it, call or text your agent.
+        </p>
+      ) : null}
+      {financingTime || canTalkFinancing(community, features) ? (
         <button type="button" className="b-btn b-btn-outline" onClick={onOpenLender} style={{ marginTop: 10 }}>
-          {lead?.tour
-            ? `Booked ✓ ${tourSummary(lead.tour)}${features?.booking === false ? '' : ' — change it'}`
+          {financingTime
+            ? `Booked ✓ ${tourSummary(lead.tour)}${features?.booking === false ? '' : ' — change\u00a0it'}`
             : 'Talk about financing'}
         </button>
       ) : null}

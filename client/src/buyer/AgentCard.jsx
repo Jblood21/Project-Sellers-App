@@ -33,13 +33,15 @@ function websiteLabel(href) {
  */
 export default function AgentCard({ agent, headingLevel = 3, tour = true, homeName }) {
   const Heading = `h${headingLevel}`;
-  const { community, lead } = useBuyer();
+  const { community, lead, track } = useBuyer();
   const brokerage = String(agent.brokerage ?? '').trim();
   const license = agentLicenseLine(agent);
   const phoneHref = telHref(agent.phone);
   const email = safeEmail(agent.email);
   const website = safeHref(agent.website);
   const first = String(agent.name ?? '').trim().split(/\s+/)[0];
+  // The builder sees who reached out to an agent, as for the people listed in the sheet.
+  const reached = (what) => track(`Reached out to book a tour (${what}): ${agent.name}`);
   const greeting = `Hi${first ? ` ${first}` : ''},${lead?.name ? ` this is ${lead.name}.` : ''} I have a question about ${community?.name ?? 'the community'}.`;
 
   return (
@@ -97,9 +99,9 @@ export default function AgentCard({ agent, headingLevel = 3, tour = true, homeNa
 
       {phoneHref || email ? (
         <div className="b-agent__actions">
-          {phoneHref ? <a className="b-agent__act" href={phoneHref}>Call</a> : null}
-          <TextAction className="b-agent__act" phone={agent.phone} message={greeting} />
-          {email ? <a className="b-agent__act" href={`mailto:${email}`}>Email</a> : null}
+          {phoneHref ? <a className="b-agent__act" href={phoneHref} onClick={() => reached('call')}>Call</a> : null}
+          <TextAction className="b-agent__act" phone={agent.phone} message={greeting} onAct={reached} />
+          {email ? <a className="b-agent__act" href={`mailto:${email}`} onClick={() => reached('email')}>Email</a> : null}
         </div>
       ) : null}
 

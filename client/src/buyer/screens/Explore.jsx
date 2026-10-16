@@ -6,8 +6,7 @@ import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import ImageViewer from '../ImageViewer.jsx';
-import { canReachAgents } from '../reach.js';
-import { complianceOf, telHref } from '@shared/compliance.js';
+import { canBookTour, canReachAgents, canTalkFinancing } from '../reach.js';
 
 export default function Explore({ onOpenTour, onOpenLender }) {
   const { community, homes, lead, toggleSave, track, agents, features, settings } = useBuyer();
@@ -22,15 +21,12 @@ export default function Explore({ onOpenTour, onOpenLender }) {
   // Two ways forward from the list, each offered only when it leads somewhere: the realtors (who do
   // the touring, by a call or a text) when there are some, else the sheet that shows which sales team
   // number or address to use; and the lender, by their contact or by booking a time to talk.
-  // Offered only when the sheet or page it opens has something to do: times to pick from (booking on and
-  // some posted), or someone with a phone or an email. A button into a dead end is worse than none.
-  const hasTimes = features.booking !== false && (community?.slots?.length ?? 0) > 0;
-  const lender = complianceOf(settings, { community }).lender;
-  const hasTeamContact = Boolean(String(settings.teamPhone ?? '').trim() || String(settings.teamEmail ?? '').trim());
+  // Offered only when the sheet or page it opens has something to do: someone with a phone or an email for a
+  // tour, times to pick from or a lender contact for financing. A button into a dead end is worse than none.
   const toRealtors = canReachAgents(features, agents);
   // A tour is a call or a text, never a booked time, so times do not make "Schedule a Tour" worth showing.
-  const canSchedule = toRealtors || hasTeamContact;
-  const canAskFinancing = hasTimes || Boolean(telHref(lender.phone) || lender.email);
+  const canSchedule = canBookTour(features, agents, settings);
+  const canAskFinancing = canTalkFinancing(community, features);
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>

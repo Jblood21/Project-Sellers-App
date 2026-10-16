@@ -37,7 +37,9 @@ const TUTORIAL = [
  *
  * Props, shared with the headers a layout may supply in its place:
  *   onOpenMenu  opens the menu drawer
- *   onTalk      opens the talk-to-the-team sheet; this header has no button for
+ *   onTalk      "Book a tour": goes to the Meet the agents page, or opens the sheet
+ *               of sales team contacts when there is no agent to reach; null when
+ *               there is no one to send a buyer to. This header has no button for
  *               it (the menu and every screen already do) and a layout's does
  *   onFinance   opens the same sheet for the lender ("Talk about financing"):
  *               the day and time to talk, or the lender's phone and email. A
@@ -532,7 +534,9 @@ export function TourDialog({ topic, onClose }) {
           <>
             {lead?.tour?.date && lead?.tour?.time ? (
               <span style={{ fontSize: 13.5, color: 'var(--t-ink)', lineHeight: 1.5, fontWeight: 600 }}>
-                You’re booked for {formatSlotDate(lead.tour.date)} at {formatSlotTime(lead.tour.time)}. To move it, pick another time.
+                {lead.tour.topic === 'lender'
+                  ? `You’re booked for ${formatSlotDate(lead.tour.date)} at ${formatSlotTime(lead.tour.time)}. To move it, pick another time.`
+                  : `You also have a tour booked for ${formatSlotDate(lead.tour.date)} at ${formatSlotTime(lead.tour.time)}. Booking a time here replaces it.`}
               </span>
             ) : null}
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>

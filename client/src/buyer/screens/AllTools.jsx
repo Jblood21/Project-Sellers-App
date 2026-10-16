@@ -430,8 +430,8 @@ const moreLink = {
  *
  * Last on the page, below the buyer's own plan and saved homes, because it is
  * an advertisement and they came here for the calculators. Tapping it opens the
- * same appointment sheet everything else uses -- one place to book, and the
- * request arrives tagged so whoever reads it knows to bring a loan officer.
+ * financing sheet -- the one place a time is booked, and the request arrives
+ * tagged so whoever reads it knows to bring a loan officer.
  *
  * Built from the community's own compliance settings, so what Setup says is
  * what the card says. Renders nothing at all until the lender has a name and an

@@ -121,7 +121,7 @@ export default function AvailabilityTab({ community, reload }) {
           </div>
           <Toggle on={bookingOn} onChange={flip} label="Buyers can book financing times" />
         </div>
-        {bookingOn && slots && !upcoming.length ? (
+        {bookingOn && slots && !upcoming.length && !financeNothing ? (
           <p className="text-muted" style={{ fontSize: 12.5, margin: 0 }}>
             No times are published, so “Talk about financing” shows the lender’s phone, text and email until you add some.
           </p>

@@ -96,11 +96,13 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
               34px the design specifies. A bare 34px button would be a harder
               tap than the rest of the app asks of a thumb.
             */}
-            <button type="button" className="cp-topbar__cta" onClick={onTalk} aria-label="Book a tour">
-              <span className="cp-btn cp-btn--primary cp-btn--sm">
-                Book<span className="cp-topbar__long"> a tour</span>
-              </span>
-            </button>
+            {onTalk ? (
+              <button type="button" className="cp-topbar__cta" onClick={onTalk} aria-label="Book a tour">
+                <span className="cp-btn cp-btn--primary cp-btn--sm">
+                  Book<span className="cp-topbar__long"> a tour</span>
+                </span>
+              </button>
+            ) : null}
             <button type="button" className="cp-topbar__menu" onClick={onOpenMenu} aria-label="Menu">
               <Menu />
             </button>

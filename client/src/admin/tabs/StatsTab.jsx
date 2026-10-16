@@ -24,7 +24,7 @@ export default function StatsTab({ community, leads }) {
   const cards = [
     { label: 'Total leads', value: leads.length },
     { label: 'New — to call', value: leads.filter((lead) => lead.status === 'new').length },
-    { label: 'Tour requests', value: leads.filter((lead) => lead.tour).length },
+    { label: 'Booked calls', value: leads.filter((lead) => lead.tour).length },
     { label: 'Avg plan progress', value: `${averageProgress}%` },
   ];
 

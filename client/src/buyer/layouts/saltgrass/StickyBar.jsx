@@ -2,9 +2,10 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 
 /**
  * The bar pinned to the foot of a phone: book a tour, talk about financing, and
- * the buyer's plan. The financing button is there only when the community has a
- * lender set up (the same test the Financing section on the home screen uses),
- * and it opens the same day-and-time sheet as "Book a tour", for the lender.
+ * the buyer's plan. "Book a tour" goes to the Meet the agents page (it books no
+ * time) and is there only when there is someone to send the buyer to. The
+ * financing button is there only when the community has a lender set up and its
+ * sheet has something to do, and it opens the day-and-time picker for the lender.
  *
  * It is rendered by the layout's header because BuyerApp mounts the header on
  * every route that has chrome, and the contact gate, the landing page and the
@@ -23,9 +24,11 @@ export default function StickyBar({ onTalk, onFinance }) {
   const onPlan = /\/plan\/?$/.test(pathname);
   return (
     <nav className="sg-stick" aria-label="Quick actions">
-      <button type="button" className="sg-stick__talk" onClick={onTalk}>
-        Book a tour
-      </button>
+      {onTalk ? (
+        <button type="button" className="sg-stick__talk" onClick={onTalk}>
+          Book a tour
+        </button>
+      ) : null}
       {onFinance ? (
         <button type="button" className="sg-stick__finance" onClick={onFinance}>
           Talk about financing
