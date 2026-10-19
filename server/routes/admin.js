@@ -15,6 +15,7 @@ import { emailConfigured } from '../lib/email.js';
 import { emailReport } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
+import { DEFAULT_LEAD_SORT, LEAD_SORTS } from '../../shared/domain.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
@@ -1153,6 +1154,10 @@ export function adminRouter() {
     if (typeof period !== 'string' || !Object.hasOwn(PERIODS, period)) {
       return res.status(400).json({ error: `Choose a period: ${Object.keys(PERIODS).join(', ')}.` });
     }
+    const sort = req.query.sort === undefined ? DEFAULT_LEAD_SORT : req.query.sort;
+    if (typeof sort !== 'string' || !Object.hasOwn(LEAD_SORTS, sort)) {
+      return res.status(400).json({ error: `Choose an order: ${Object.keys(LEAD_SORTS).join(', ')}.` });
+    }
     const store = await getStore();
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
@@ -1162,7 +1167,7 @@ export function adminRouter() {
       return res.status(429).json({ error: tooMany('reports', hold.wait) });
     }
     const [leads, homes] = await Promise.all([store.listLeads(community.id), store.listHomes(community.id)]);
-    sendPdf(res, buildLeadsPdf({ community, leads, homes, period }));
+    sendPdf(res, buildLeadsPdf({ community, leads, homes, period, sort }));
   });
 
   /** One person's report as a PDF: contact, what they agreed to, their homes and plan, and everything they did. */

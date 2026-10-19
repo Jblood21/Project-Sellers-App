@@ -314,3 +314,62 @@ test('every width in the tables matches the real font, checked against a PDF rea
     }
   }
 });
+
+test('text with letter spacing is wider by that much for every letter, and the spacing is set for that text only', () => {
+  const doc = new PdfDocument();
+  const plain = doc.text('ABCDE', { size: 10, x: 50, y: 100 });
+  const spaced = doc.text('ABCDE', { size: 10, x: 50, y: 120, spacing: 1 });
+  assert.ok(Math.abs(spaced - plain - 5) < 1e-9, '5 letters, 1 point each');
+  const [page] = readPdf(doc.finish());
+  assert.match(page.ops, /0 Tc 1 0 0 1 50 \d+ Tm/);
+  assert.match(page.ops, /1 Tc 1 0 0 1 50 \d+ Tm/);
+});
+
+test('a stat strip: every figure, its label and its line underneath, with thin rules between the cells', () => {
+  const doc = new PdfDocument({ margin: 36 });
+  doc.statStrip([
+    { value: '11', label: 'People', sub: '2 contacted' },
+    { value: '0', label: 'A rather long label that must wrap' },
+    { value: '82%', label: 'Agreed', sub: 'a long line that has to go onto a second line' },
+  ]);
+  const [page] = readPdf(doc.finish());
+  for (const wanted of ['11', 'PEOPLE', '2 contacted', '0', '82%', 'AGREED']) assert.ok(page.lines.includes(wanted), wanted);
+  assert.ok(page.lines.filter((l) => l.startsWith('A RATHER LONG LABEL')).length >= 1);
+  assert.equal((page.ops.match(/ l S/g) ?? []).length, 2, 'two rules between three cells');
+  assert.ok(doc.y > 36 + 30, 'and the cursor is below the strip');
+});
+
+test('a table can hold a boxed warning with a no sign, and a line in two styles', () => {
+  const doc = new PdfDocument({ margin: 36 });
+  doc.table({
+    columns: [{ label: 'NAME', width: 1 }, { label: 'PHONE · CONSENT', width: 2 }],
+    rows: [
+      ['Ann', [{ text: 'No phone' }, { tag: true, text: 'DO NOT CALL · NEVER ASKED', size: 6.2 }]],
+      ['Bo', [{ parts: [{ text: '(801) 555-0100 · ' }, { text: 'Agreed', font: 'bold' }] }]],
+      ['Cy', [{ parts: [{ text: `${'x'.repeat(200)} · ` }, { text: 'Agreed', font: 'bold' }] }]],
+    ],
+    header: [0.1, 0.3, 0.2], rules: false,
+  });
+  const [page] = readPdf(doc.finish());
+  assert.ok(page.lines.includes('DO NOT CALL · NEVER ASKED'));
+  assert.ok(page.lines.includes('(801) 555-0100 · ') && page.lines.includes('Agreed'), 'two runs on one line');
+  assert.ok(/ c /.test(page.ops) && / re S/.test(page.ops), 'a ring (curves) and a box (a stroked rectangle)');
+  assert.ok(page.lines.some((l) => l.startsWith('xxxx') && l.endsWith('...')), 'a line too wide for its cell is cut with dots, not run over the next column');
+  assert.equal(page.lines.filter((l) => l === 'Agreed').length, 1, 'and its second style is dropped with it');
+});
+
+test('a vertical rule and a no sign are plain path operators a reader accepts', { skip: !poppler }, () => {
+  const doc = new PdfDocument();
+  doc.vrule({ x: 100, y1: 100, y2: 200 });
+  doc.prohibit({ cx: 200, cy: 150, r: 10 });
+  doc.paragraph('shapes');
+  const dir = mkdtempSync(join(tmpdir(), 'pdf-shapes-'));
+  try {
+    const file = join(dir, 's.pdf');
+    writeFileSync(file, doc.finish());
+    assert.match(execFileSync('pdfinfo', [file], { encoding: 'utf8' }), /Pages:\s+1/);
+    execFileSync('pdftoppm', ['-r', '30', '-png', file, join(dir, 'p')]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

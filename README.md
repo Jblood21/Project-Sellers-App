@@ -390,11 +390,18 @@ Three messages — the app is deliberately quiet.
 
 - **PDF reports**, made only when the builder presses **Download PDF**, and saved to their own device: nothing
   is emailed and nothing is stored on the server. There are two. The **leads report** (on the Leads tab, and
-  under Stats) covers everyone, or only those who signed up in the last 7, 30 or 90 days: a summary row, what
-  people did (the most saved homes, the tools used, sign-ups for each of the last eight weeks), the scheduled
-  calls still waiting (past their day in red, "Do not call" beside anyone who did not agree), and everyone with
-  contact details, notes, saved homes, plan progress, status and what they agreed to. At most the newest 2,000
-  people are printed and the page says when it cut. The **user report** (on a person's own page) is one
+  under Stats) is one page for a small community: a title band (community name, what it covers, when it was
+  made), a strip of eight figures (people, calls waiting, past their day, gave a phone, agreed to calls, saved
+  a home, average plan progress, and **do not call** with how many declined or were never asked), three panels
+  (the most saved homes with the calls waiting under them, the tools used, sign-ups for each of the last
+  eight weeks) and then the list of people: name and email, phone with their answer (or a boxed **DO NOT
+  CALL** tag, with a no sign, for anyone who declined or was never asked), when they signed up, plan progress,
+  saved homes, and status with their call state. It covers everyone, or only those who signed up in the last
+  7, 30 or 90 days. **The people are listed in the order chosen on the Leads tab** (its Recent / Most ★
+  pills: newest first, or most saved homes first and the newest first among those who tie); the report says
+  which in its subtitle, and the Stats tab, which has no such choice, gets the newest first. The tab and the
+  PDF use one function (`sortLeads` in `shared/domain.js`). At most the first 2,000 people are printed and
+  the page says when it cut. The **user report** (on a person's own page) is one
   person: contact, what they agreed to (the answer, when, the exact words they were shown and its version,
   and every answer on record), the call they asked for, saved homes, what each tool worked out, their move-in
   plan, the team's notes and everything they did in the app. Both carry a title band in the community's
@@ -404,7 +411,7 @@ Three messages — the app is deliberately quiet.
   dependency: standard Helvetica (so no font file), text always written as hex strings so a name or note
   typed by a buyer can never be read as PDF syntax, and Windows-1252 text, so accents, curly quotes, the euro
   sign and dashes print and anything the encoding lacks (emoji, other scripts) prints as `?`.
-  `server/lib/pdfReports.js` lays out the two reports; `GET /api/admin/communities/:id/reports/leads.pdf?period=all|7|30|90`
+  `server/lib/pdfReports.js` lays out the two reports; `GET /api/admin/communities/:id/reports/leads.pdf?period=all|7|30|90&sort=recent|stars`
   and `GET /api/admin/leads/:id/report.pdf` serve them.
 
 Set `RESEND_API_KEY` and `EMAIL_FROM` to turn it on. Without them the app sends nothing

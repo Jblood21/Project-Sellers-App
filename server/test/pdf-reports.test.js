@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
-import { MAX_CALLS, MAX_PEOPLE, PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
+import { sortLeads } from '../../shared/domain.js';
+import { MAX_PEOPLE, PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { backends, startBackend } from './fixtures/harness.js';
 import { pdfText, readPdf } from './fixtures/pdfText.js';
 
@@ -45,24 +46,38 @@ const poppler = (() => {
 })();
 
 describe('the leads report PDF', () => {
-  test('a title band, the summary and the headings are there, and the file is named for the community and the day', () => {
+  test('a title band, the strip of figures, the panels and the table are there, and the file is named for the community and the day', () => {
     const made = leadsPdf([lead({ phone: '(801) 555-0100', consent: { granted: true, at: daysAgo(1) } }), lead()]);
     const text = pdfText(made.buffer);
     assert.equal(made.filename, 'willow-creek-leads-2026-10-16.pdf');
     assert.equal(made.people, 2);
-    for (const wanted of ['Willow Creek', 'Leads report', 'Everyone · Lehi, Utah', 'What people did', 'Scheduled calls waiting (0)', 'Everyone (2)']) {
-      assert.ok(text.includes(wanted), `${wanted}`);
-    }
-    assert.ok(text.includes('Generated Fri, Oct 16, 2026 at 12:00 PM MDT'), 'stamped in the builder’s day, with the zone');
+    for (const wanted of [
+      'Willow Creek', 'Leads report · Everyone · Lehi, Utah · Newest first', 'MOST SAVED HOMES', 'TOOLS USED · PEOPLE WHO SAVED A RESULT',
+      'SIGN-UPS PER WEEK · LAST 8 WEEKS', 'SCHEDULED CALLS WAITING (0)', 'EVERYONE (2)', 'NAME', 'PHONE · CONSENT', 'SIGNED UP', 'PLAN', 'SAVED HOMES', 'STATUS',
+    ]) assert.ok(text.includes(wanted), `${wanted}`);
+    assert.ok(text.includes('Generated Fri, Oct 16, 2026') && text.includes('12:00 PM MDT'), 'stamped in the builder’s day, with the zone');
     assert.ok(text.includes('No scheduled calls are waiting.'));
+    assert.ok(text.includes('Confidential. Personal information about app users; keep it private.') && text.includes('Page 1 of 1'));
+  });
+
+  test('the running header is on the first page too, and the strip shows the eight figures', () => {
+    const made = leadsPdf([lead({ phone: '(801) 555-0100', consent: { granted: true, at: daysAgo(1) } }), lead()]);
+    const first = readPdf(made.buffer)[0].lines;
+    assert.equal(first[0], 'Willow Creek · Leads report', 'the first thing on the page');
+    const labels = ['PEOPLE', 'CALLS WAITING', 'PAST THEIR', 'GAVE PHONE', 'AGREED TO', 'SAVED A HOME', 'AVG PLAN', 'DO NOT CALL'];
+    for (const label of labels) assert.ok(first.includes(label), label);
+    assert.deepEqual(made.figures, {
+      people: 2, everyone: 2, contacted: 0, waiting: 0, overdue: 0, gavePhone: 1, agreed: 1, declined: 0, neverAsked: 1, doNotCall: 1, savedHome: 0, averagePlan: 0,
+    });
   });
 
   test('with no one yet it still builds, and says so', () => {
     const made = leadsPdf([]);
     const text = pdfText(made.buffer);
     assert.ok(text.includes('No one has signed up yet.'));
-    assert.ok(!text.includes('What people did'), 'no charts for nobody');
+    assert.ok(!text.includes('MOST SAVED HOMES'), 'no panels for nobody');
     assert.equal(made.pages, 1);
+    assert.equal(made.figures.people, 0);
   });
 
   test('the period keeps only people who signed up in it, and says which', () => {
@@ -81,9 +96,9 @@ describe('the leads report PDF', () => {
     assert.deepEqual(names('90'), ['Recent Rae', 'Monthly Max', 'Quarterly Quinn']);
     assert.deepEqual(names('nonsense'), ['Recent Rae', 'Monthly Max', 'Quarterly Quinn', 'Ancient Ada'], 'an unknown period is everyone');
     const thirty = pdfText(leadsPdf(all, { period: '30' }).buffer);
-    assert.ok(thirty.includes(PERIODS['30'].label));
-    assert.ok(thirty.includes('PEOPLE (OF 4 IN ALL)'), 'the summary says how many there are altogether');
-    assert.ok(thirty.includes('Signed up in the last 30 days (2)'));
+    assert.ok(thirty.includes('Signed up in the last 30 days'));
+    assert.ok(thirty.includes('of 4 in all'), 'the strip says how many there are altogether');
+    assert.ok(thirty.includes('SIGNED UP IN THE LAST 30 DAYS (2)'));
     assert.equal(leadsPdf(all, { period: '7' }).people, 1);
   });
 
@@ -92,118 +107,145 @@ describe('the leads report PDF', () => {
     assert.ok(text.includes('No one signed up in this period.'));
   });
 
-  test('people are listed newest first', () => {
-    const text = pdfText(leadsPdf([
-      lead({ name: 'Older Olive', firstVisitAt: daysAgo(10) }), lead({ name: 'Newest Nell', firstVisitAt: daysAgo(1) }), lead({ name: 'Middle Mo', firstVisitAt: daysAgo(5) }),
-    ]).buffer);
-    const where = (name) => text.indexOf(name);
-    assert.ok(where('Newest Nell') < where('Middle Mo') && where('Middle Mo') < where('Older Olive'));
+  test('people are listed newest first by default, and most saved homes first when asked; the same order the Leads tab uses', () => {
+    const olderMore = lead({ name: 'Older Olive', firstVisitAt: daysAgo(10), savedHomeIds: ['h1', 'h2'] });
+    const newestNone = lead({ name: 'Newest Nell', firstVisitAt: daysAgo(1) });
+    const middleOne = lead({ name: 'Middle Mo', firstVisitAt: daysAgo(5), savedHomeIds: ['h1'] });
+    const middleOneNewer = lead({ name: 'Newer Ned', firstVisitAt: daysAgo(2), savedHomeIds: ['h2'] });
+    const all = [olderMore, newestNone, middleOne, middleOneNewer];
+    const order = (options) => {
+      const text = pdfText(leadsPdf(all, options).buffer);
+      return ['Older Olive', 'Newest Nell', 'Middle Mo', 'Newer Ned'].map((n) => [n, text.lastIndexOf(n)]).sort((a, b) => a[1] - b[1]).map(([n]) => n);
+    };
+    assert.deepEqual(order({}), ['Newest Nell', 'Newer Ned', 'Middle Mo', 'Older Olive']);
+    assert.deepEqual(order({ sort: 'recent' }), ['Newest Nell', 'Newer Ned', 'Middle Mo', 'Older Olive']);
+    assert.deepEqual(order({ sort: 'stars' }), ['Older Olive', 'Newer Ned', 'Middle Mo', 'Newest Nell'], 'two saved, then one (newest first), then none');
+    assert.deepEqual(order({ sort: 'nonsense' }), ['Newest Nell', 'Newer Ned', 'Middle Mo', 'Older Olive'], 'an unknown order is the default');
+    assert.ok(pdfText(leadsPdf(all, { sort: 'stars' }).buffer).includes('Leads report · Everyone · Lehi, Utah · Most saved homes first'), 'and the report says which order it is in');
+    // The page and the Leads tab call one function, so they cannot differ.
+    assert.deepEqual(sortLeads(all, 'stars').map((l) => l.name), ['Older Olive', 'Newer Ned', 'Middle Mo', 'Newest Nell']);
   });
 
-  test('scheduled calls: waiting ones with who, when, about what, and how to reach them; past their day in red wording; closed and handled left out', () => {
+  test('scheduled calls: the soonest waiting ones with when, who and what for, past their day in red; closed and handled left out', () => {
     const soon = lead({ name: 'Soon Sam', phone: '(801) 555-0100', consent: { granted: true, at: daysAgo(2) }, tour: { date: '2026-10-20', time: '14:00', contact: 'phone', topic: 'lender' } });
-    const past = lead({ name: 'Past Pat', tour: { date: '2026-10-12', time: '09:30', contact: 'email', topic: 'lender' } });
+    const past = lead({ name: 'Past Pat', tour: { date: '2026-10-12', time: '09:30', contact: 'email', topic: 'community' } });
     const handled = lead({ name: 'Handled Hal', tour: { date: '2026-10-20', time: '10:00', contact: 'phone', handledAt: daysAgo(1) } });
     const closed = lead({ name: 'Closed Cleo', archivedAt: daysAgo(1), tour: { date: '2026-10-21', time: '10:00', contact: 'phone' } });
     const made = leadsPdf([soon, past, handled, closed]);
     const text = pdfText(made.buffer);
-    assert.ok(text.includes('Scheduled calls waiting (2)'));
-    assert.ok(text.includes('Tue, Oct 20, 2026') && text.includes('2:00 PM'));
-    assert.ok(flat(made.buffer).includes('Financing (Summit Home Loans)'));
-    assert.ok(text.includes('Past their day'));
-    assert.ok(text.includes('by email') && text.includes('by phone'));
-    assert.ok(text.includes('Do not call · never asked'), 'a person who never agreed is marked, not just left blank');
-    const calls = text.slice(text.indexOf('Scheduled calls waiting'), text.indexOf('Everyone ('));
-    assert.ok(calls.includes('Soon Sam') && calls.includes('Past Pat'));
-    assert.ok(!calls.includes('Handled Hal') && !calls.includes('Closed Cleo'));
-    assert.ok(calls.indexOf('Soon Sam') < calls.indexOf('Past Pat'), 'upcoming before past their day');
+    assert.ok(text.includes('SCHEDULED CALLS WAITING (2)'));
+    assert.equal(made.figures.waiting, 2);
+    assert.equal(made.figures.overdue, 1);
+    const lines = text.split('\n');
+    const at = lines.indexOf('SCHEDULED CALLS WAITING (2)');
+    const panel = lines.slice(at, at + 6);
+    assert.deepEqual(panel.slice(1, 5), ['Tue, Oct 20 · 2:00 PM', 'Soon Sam · Financing', 'Mon, Oct 12 · 9:30 AM', 'Past Pat · Tour'], 'upcoming before past their day');
+    assert.ok(!text.includes('Closed Cleo'));
+    assert.ok(readPdf(made.buffer)[0].ops.includes('0.66 0.12 0.1 rg'), 'the one past its day is in red');
+    assert.ok(flat(made.buffer).includes('New · call waiting'), 'and the list says so beside each of them');
+    assert.ok(flat(made.buffer).includes('New · call handled'));
+  });
+
+  test('more waiting calls than fit the panel: the soonest five, and a pointer to the list', () => {
+    const many = Array.from({ length: 8 }, (_, i) => lead({ name: `Caller ${i}`, tour: { date: '2026-10-20', time: `${String(9 + i).padStart(2, '0')}:00`, contact: 'phone', topic: 'lender' } }));
+    const text = pdfText(leadsPdf(many).buffer);
+    assert.ok(text.includes('SCHEDULED CALLS WAITING (8)'));
+    assert.ok(text.includes('+3 more: see Status in the list'));
+    assert.equal((text.match(/^Caller \d · Financing$/gm) ?? []).length, 5);
   });
 
   test('the calls waiting do not depend on the period chosen', () => {
-    const waiting = lead({ name: 'Waiting Wes', firstVisitAt: daysAgo(150), tour: { date: '2026-10-22', time: '10:00', contact: 'phone' } });
-    const text = pdfText(leadsPdf([waiting], { period: '7' }).buffer);
-    assert.ok(text.includes('Scheduled calls waiting (1)') && text.includes('Waiting Wes'));
+    const waiting = lead({ name: 'Waiting Wes', firstVisitAt: daysAgo(150), tour: { date: '2026-10-22', time: '10:00', contact: 'phone', topic: 'lender' } });
+    const made = leadsPdf([waiting], { period: '7' });
+    const text = pdfText(made.buffer);
+    assert.ok(text.includes('SCHEDULED CALLS WAITING (1)') && text.includes('Waiting Wes · Financing'));
+    assert.equal(made.figures.waiting, 1);
   });
 
-  test('each person: contact, notes, saved homes, plan progress, status and what they agreed to', () => {
-    const text = pdfText(leadsPdf([
+  test('each person: name, email, phone with the answer, saved homes, plan progress and status; do-not-call people are tagged', () => {
+    const made = leadsPdf([
       lead({
-        name: 'Dana Reyes', email: 'dana@test.co', phone: '(801) 555-0111', extraEmails: ['dana.home@test.co'], notes: 'Wants a corner lot.\nPre-approved elsewhere.',
+        name: 'Dana Reyes', email: 'dana@test.co', phone: '(801) 555-0111', extraEmails: ['dana.home@test.co'], notes: 'Wants a corner lot.',
         savedHomeIds: ['h1', 'h2'], plan: { afford: 'Up to $400,000', payment: '$2,400 a month' }, status: 'contacted', consent: { granted: true, at: daysAgo(3) },
       }),
       lead({ name: 'Nia Park', phone: '(801) 555-0122', consent: { granted: false, at: daysAgo(3) } }),
+      lead({ name: 'Zed NoNumber' }),
       lead({ name: 'Old Oscar', archivedAt: daysAgo(1) }),
-    ]).buffer);
+    ]);
+    const text = pdfText(made.buffer);
+    const joined = flat(made.buffer);
     for (const wanted of [
-      'Dana Reyes', 'dana@test.co', 'also dana.home@test.co', '(801) 555-0111', 'Note: Wants a corner lot. Pre-approved elsewhere.',
-      '2 saved', 'The Aspen, The Birch', '38%', 'Contacted', 'Agreed', 'Declined',
-    ]) assert.ok(text.includes(wanted), wanted);
+      'Dana Reyes', 'dana@test.co', 'also dana.home@test.co', '(801) 555-0111 · ', 'Agreed', '2 saved: The Aspen, The Birch', '38%', 'Contacted',
+      'Nia Park', '(801) 555-0122', 'DO NOT CALL · DECLINED', 'Zed NoNumber', 'No phone', 'DO NOT CALL · NEVER ASKED',
+    ]) assert.ok(joined.includes(wanted), wanted);
+    assert.ok(!text.includes('Wants a corner lot'), 'the team’s notes are on the person’s own report, not on this list');
     assert.ok(!text.includes('Old Oscar') && !text.includes('Closed'), 'a closed person is not on the report, and nothing says "closed"');
   });
 
-  test('the summary counts: new and contacted, phones, agreed, saved and the average plan, for open people only', () => {
-    const text = pdfText(leadsPdf([
+  test('the strip: new and contacted, phones, agreed, saved, the average plan and who not to call, for open people only', () => {
+    const made = leadsPdf([
       lead({ phone: '1', consent: { granted: true, at: daysAgo(1) }, savedHomeIds: ['h1'], plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a' } }),
       lead({ phone: '2', consent: { granted: false, at: daysAgo(1) } }),
       lead({ archivedAt: daysAgo(1), phone: '3', consent: { granted: true, at: daysAgo(1) }, savedHomeIds: ['h1', 'h2'], plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b', savings: 'c' } }),
       lead({ status: 'contacted' }),
-    ]).buffer);
-    const lines = text.split('\n');
-    const value = (label) => lines[lines.indexOf(label.toUpperCase()) - 1];
-    assert.equal(value('People'), '3', 'the closed person is not one of them');
-    assert.equal(value('New · contacted'), '2 · 1');
-    assert.equal(value('Gave a phone · 67%'), '2');
-    assert.equal(value('Agreed to calls · 33%'), '1');
-    assert.equal(value('Saved a home · 33%'), '1');
-    assert.equal(value('Average plan progress'), '21%', '(63% for one person, none for two) / 3: the closed person’s plan is not in it');
+    ]);
+    assert.deepEqual(made.figures, {
+      people: 3, everyone: 3, contacted: 1, waiting: 0, overdue: 0, gavePhone: 2, agreed: 1, declined: 1, neverAsked: 1, doNotCall: 2, savedHome: 1, averagePlan: 21,
+    });
+    const first = readPdf(made.buffer)[0].lines;
+    const valueOf = (label) => first[first.indexOf(label) - 1];
+    assert.equal(valueOf('PEOPLE'), '3');
+    assert.equal(valueOf('GAVE PHONE'), '2');
+    assert.equal(valueOf('AGREED TO'), '1');
+    assert.equal(valueOf('DO NOT CALL'), '2');
+    assert.equal(valueOf('AVG PLAN'), '21%');
+    const strip = first.join(' ');
+    for (const sub of ['67%', '33%', '1 contacted', '1 declined · 1 never asked']) assert.ok(strip.includes(sub), sub);
   });
 
-  test('what people did: the most saved homes, the tools used and the sign-ups for each of the last eight weeks', () => {
+  test('the panels: the most saved homes, the tools used and the sign-ups for each of the last eight weeks', () => {
     const text = pdfText(leadsPdf([
       lead({ savedHomeIds: ['h1', 'h2'], plan: { afford: 'x' } }), lead({ savedHomeIds: ['h1'], plan: { afford: 'x', payment: 'y' } }), lead({ savedHomeIds: ['h1'] }),
     ]).buffer);
     assert.ok(/The Aspen\n3 saves\nThe Birch\n1 save\n/.test(text), 'most saved first, singular for one');
-    assert.ok(/My Price Range\n2 of 3\nMy Payment\n1 of 3\n/.test(text), 'the tool most used first');
-    assert.equal((text.match(/Week of /g) ?? []).length, 8);
-    assert.ok(text.includes('(this week)'));
+    assert.ok(/My Price Range\n2 of 3\nMy Payment\n1 of 3\nMy Loan Options\n0 of 3/.test(text), 'the tool most used first, then the rest in order');
+    assert.equal((text.match(/^(Aug|Sep|Oct) \d+( \(this wk\))?$/gm) ?? []).length, 8, 'eight weeks');
+    assert.ok(text.includes('Oct 12 (this wk)'));
   });
 
-  test('a name or note with a quote, accent, symbol or PDF syntax comes out as the text it is', () => {
+  test('a name or email with a quote, accent, symbol or PDF syntax comes out as the text it is', () => {
     const tricky = [
-      lead({ name: 'José Núñez', notes: 'He said “yes” — then asked about the € price…' }),
-      lead({ name: ') Tj ET /Evil (', notes: '\\ << /AA >> endstream' }),
-      lead({ name: 'Zoë O’Connor' }),
+      lead({ name: 'José Núñez', email: 'jose@test.co' }),
+      lead({ name: ') Tj ET /Evil (', email: '\\<< /AA >>@test.co' }),
+      lead({ name: 'Zoë O’Connor €5 …' }),
     ];
     const made = leadsPdf(tricky);
     const text = pdfText(made.buffer);
     assert.ok(text.includes('José Núñez'));
-    for (const [code, what] of [['\u0093yes\u0094', 'curly quotes'], ['\u0097', 'the dash'], ['\u0080', 'the euro'], ['\u0085', 'the ellipsis']]) {
-      assert.ok(flat(made.buffer).includes(code), `${what} keep their Windows-1252 code`);
-    }
     assert.ok(text.includes(') Tj ET /Evil ('));
-    assert.ok(text.includes('Zoë O\u0092Connor'));
+    assert.ok(text.includes('Zoë O\u0092Connor \u00805 \u0085'), 'the curly apostrophe, euro and ellipsis keep their Windows-1252 codes');
     for (const page of readPdf(made.buffer)) assert.ok(!/\)\s*Tj/.test(page.ops) && !page.ops.includes('Evil'));
   });
 
-  test('a long roster runs over several pages, repeating the table header, and never loses anyone', () => {
-    const people = Array.from({ length: 150 }, (_, i) => lead({ name: `Buyer Number ${i}`, email: `buyer${i}@test.co`, phone: '(801) 555-0100', savedHomeIds: ['h1', 'h2'], notes: i % 3 === 0 ? 'A note that goes on a little.' : '' }));
+  test('a long roster runs over several pages, repeating the header and the table heading, and never loses anyone', () => {
+    const people = Array.from({ length: 150 }, (_, i) => lead({ name: `Buyer Number ${i}`, email: `buyer${i}@test.co`, phone: '(801) 555-0100', savedHomeIds: ['h1', 'h2'], consent: { granted: true, at: daysAgo(1) } }));
     const made = leadsPdf(people);
     const pages = readPdf(made.buffer);
-    assert.ok(pages.length >= 10, `${pages.length} pages`);
+    assert.ok(pages.length >= 5, `${pages.length} pages`);
     assert.equal(made.pages, pages.length);
     const text = pages.flatMap((page) => page.lines).join('\n');
     for (let i = 0; i < 150; i += 1) assert.ok(text.includes(`Buyer Number ${i}`), `person ${i}`);
-    for (const [i, page] of pages.slice(1).entries()) {
-      assert.ok(page.lines.some((line) => line.includes('Leads report')), `page ${i + 2} has the running header`);
-      assert.ok(page.lines.includes(`Page ${i + 2} of ${pages.length}`), `page ${i + 2} is numbered`);
+    for (const [i, page] of pages.entries()) {
+      assert.equal(page.lines[0], 'Willow Creek · Leads report', `page ${i + 1} has the running header`);
+      assert.ok(page.lines.includes(`Page ${i + 1} of ${pages.length}`), `page ${i + 1} is numbered`);
+      assert.ok(page.lines.includes('PHONE · CONSENT'), `page ${i + 1} has the table heading`);
     }
-    assert.ok(pages[0].lines.includes(`Page 1 of ${pages.length}`));
   });
 
   test(`no more than ${MAX_PEOPLE} people are printed, and it says how many were left out`, () => {
     const people = Array.from({ length: MAX_PEOPLE + 5 }, (_, i) => lead({ name: `P${i}`, firstVisitAt: new Date(NOW.getTime() - (i + 1) * 60000).toISOString() }));
     const text = pdfText(leadsPdf(people).buffer);
-    assert.ok(text.includes(`Showing the newest ${MAX_PEOPLE} of ${MAX_PEOPLE + 5} people.`));
+    assert.ok(text.includes(`Showing the first ${MAX_PEOPLE} of ${MAX_PEOPLE + 5} people.`));
     assert.ok(text.includes('P0') && !text.includes(`P${MAX_PEOPLE + 4}\n`), 'the newest are kept, the oldest dropped');
   });
 
@@ -217,11 +259,12 @@ describe('the leads report PDF', () => {
     const forest = readPdf(leadsPdf([lead()]).buffer)[0].ops;
     const plain = readPdf(buildLeadsPdf({ community: { id: 'x', name: 'No Theme' }, leads: [], homes: [], now: NOW, timeZone: ZONE }).buffer)[0].ops;
     assert.ok(forest.includes('0.12 0.3 0.23 rg'), 'the forest primary #1F4D3A');
+    assert.ok(forest.includes('0.85 0.71 0.42 rg'), 'and its accent #D8B56A');
     assert.ok(plain.includes('0.06 0.16 0.26 rg'), 'the default theme primary #102A43');
   });
 
   test('a PDF reader opens it, and its pages and text agree with ours', { skip: !poppler }, () => {
-    const made = leadsPdf(Array.from({ length: 40 }, (_, i) => lead({ name: `José Núñez ${i}`, notes: '“Quoted” — €' })));
+    const made = leadsPdf(Array.from({ length: 40 }, (_, i) => lead({ name: `José Núñez ${i}`, email: `jose${i}@test.co`, phone: '(801) 555-0100', consent: { granted: true, at: daysAgo(1) } })));
     const dir = mkdtempSync(join(tmpdir(), 'pdf-reports-'));
     try {
       const file = join(dir, 'leads.pdf');
@@ -231,8 +274,8 @@ describe('the leads report PDF', () => {
       assert.match(info, /Title:\s+Willow Creek · Leads report/);
       const text = execFileSync('pdftotext', ['-enc', 'UTF-8', file, '-'], { encoding: 'utf8' });
       assert.ok(text.includes('José Núñez 39'));
-      assert.ok(text.includes('“Quoted” — €'));
       assert.ok(text.includes(`Page ${made.pages} of ${made.pages}`));
+      assert.ok(text.includes('Leads report · Everyone · Lehi, Utah · Newest first'));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -441,6 +484,50 @@ for (const kind of backends()) {
       }
     });
 
+    test('the order is the one chosen on the Leads tab: recent or stars, anything else is refused', async () => {
+      const sortCid = (await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Sort Estates' } })).body.id;
+      const home = (await admin(`/communities/${sortCid}/homes`, { method: 'POST', body: { name: 'The Aspen', price: 425000 } })).body;
+      const make = async (name, email, save) => {
+        const res = await api(`/api/c/${sortCid}/leads`, { method: 'POST', body: { name, email, phone: '' } });
+        assert.equal(res.status, 201, JSON.stringify(res.body));
+        if (save) await api('/api/me/saves', { method: 'POST', token: res.body.token, body: { homeId: home.id } });
+        return res.body.lead.id;
+      };
+      await make('Early Eve', 'eve@sort.test', true);
+      await make('Middle Max', 'max@sort.test', false);
+      await make('Late Lee', 'lee@sort.test', false);
+      const order = async (query) => {
+        const { status, buffer } = await getPdf(`/api/admin/communities/${sortCid}/reports/leads.pdf${query}`);
+        assert.equal(status, 200, query);
+        const text = pdfText(buffer);
+        return { text, names: ['Early Eve', 'Middle Max', 'Late Lee'].map((n) => [n, text.lastIndexOf(n)]).sort((a, b) => a[1] - b[1]).map(([n]) => n) };
+      };
+      assert.deepEqual((await order('')).names, ['Late Lee', 'Middle Max', 'Early Eve'], 'no choice: newest first');
+      assert.deepEqual((await order('?sort=recent')).names, ['Late Lee', 'Middle Max', 'Early Eve']);
+      const stars = await order('?sort=stars&period=all');
+      assert.deepEqual(stars.names, ['Early Eve', 'Late Lee', 'Middle Max'], 'the one with a saved home first, then newest first');
+      assert.ok(stars.text.includes('Most saved homes first'));
+      for (const bad of ['name', 'oldest', '__proto__', 'constructor', 'toString', '']) {
+        const res = await admin(`/communities/${sortCid}/reports/leads.pdf?sort=${bad}`);
+        assert.equal(res.status, 400, `sort=${bad}`);
+        assert.match(res.body.error, /Choose an order: recent, stars/);
+      }
+      assert.equal((await admin(`/communities/${sortCid}/reports/leads.pdf?sort[]=stars`)).status, 400, 'an array is not an order');
+    });
+
+    test('a person who has been closed is not in the PDF a builder downloads', async () => {
+      const closeCid = (await api('/api/admin/communities', { method: 'POST', token, body: { name: 'Close Estates' } })).body.id;
+      const make = async (name, email) => (await api(`/api/c/${closeCid}/leads`, { method: 'POST', body: { name, email, phone: '' } })).body.lead.id;
+      await make('Staying Sue', 'sue@close.test');
+      const going = await make('Closed Cal', 'cal@close.test');
+      assert.equal((await admin(`/leads/${going}`, { method: 'PATCH', body: { archived: true } })).status, 200);
+      const { status, buffer } = await getPdf(`/api/admin/communities/${closeCid}/reports/leads.pdf`);
+      assert.equal(status, 200);
+      const text = pdfText(buffer);
+      assert.ok(text.includes('Staying Sue') && text.includes('EVERYONE (1)'));
+      assert.ok(!text.includes('Closed Cal') && !text.includes('cal@close.test'));
+    });
+
     test('a community that is not there is a 404, not a PDF', async () => {
       const res = await admin('/communities/nope-xxxx/reports/leads.pdf');
       assert.equal(res.status, 404);
@@ -499,7 +586,7 @@ for (const kind of backends()) {
       assert.ok(pages.length >= 2, `${pages.length} pages`);
       const text = pages.flatMap((page) => page.lines).join('\n');
       for (let i = 0; i < 45; i += 1) assert.ok(text.includes(`Bulk Buyer ${i}`), `person ${i}`);
-      assert.ok(text.includes('Everyone (45)'));
+      assert.ok(text.includes('EVERYONE (45)'));
     });
 
     test('too many at once is held back with a wait time (the caps are on only when asked for)', async () => {

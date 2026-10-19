@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
-  countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, planProgress,
+  LEAD_SORTS, countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, planProgress, sortLeads,
 } from '@shared/domain.js';
 import CardButton from '../../components/CardButton.jsx';
 import { shortDate } from '../../lib/format.js';
@@ -25,9 +25,7 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup }) {
     else if (filter === 'tour') out = out.filter(isTourPending);
     const q = query.trim().toLowerCase();
     if (q) out = out.filter((lead) => `${lead.name} ${lead.email} ${lead.phone || ''}`.toLowerCase().includes(q));
-    if (sort === 'stars') out.sort((a, b) => b.savedHomeIds.length - a.savedHomeIds.length);
-    else out.reverse();
-    return out;
+    return sortLeads(out, sort);
   }, [filter, leads, query, sort]);
 
   if (!leads) return <Spinner label="Loading leads…" />;
@@ -41,7 +39,7 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <ReportButton community={community} reload={reload} onOpenSetup={onOpenSetup} />
-      <PdfReportButton community={community} title="PDF report" />
+      <PdfReportButton community={community} title="PDF report" sort={sort} />
       {pendingTours > 0 ? (
         <button
           type="button"
@@ -93,7 +91,7 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup }) {
           label="Sort leads"
           value={sort}
           onChange={setSort}
-          options={[{ value: 'recent', label: 'Recent' }, { value: 'stars', label: 'Most ★' }]}
+          options={Object.entries(LEAD_SORTS).map(([value, option]) => ({ value, label: option.label }))}
         />
       </div>
 
