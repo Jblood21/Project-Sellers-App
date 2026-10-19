@@ -25,7 +25,7 @@ const SCREENS = {
 /** Routes /c/:communityId/tool/:toolKey, respecting the admin's per-tool toggles. */
 export default function ToolScreen() {
   const { communityId, toolKey } = useParams();
-  const { community, planSaves } = useBuyer();
+  const { community, planSaves, toolOpened } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -44,7 +44,12 @@ export default function ToolScreen() {
   }, [navigate, planSaves, returnTo]);
 
   const Screen = SCREENS[toolKey];
-  if (!Screen || !community?.tools?.[toolKey]) return <Navigate to={`/c/${communityId}/tools`} replace />;
+  const available = Boolean(Screen && community?.tools?.[toolKey]);
+  // Opening a tool is using it: the builder is told, whether or not the answer is later saved.
+  useEffect(() => {
+    if (available) toolOpened(toolKey);
+  }, [available, toolKey, toolOpened]);
+  if (!available) return <Navigate to={`/c/${communityId}/tools`} replace />;
   return <Screen />;
 }
 
@@ -57,7 +62,7 @@ export default function ToolScreen() {
  * when they are done.
  */
 export function ToolSheet({ open, toolKey, onClose, label }) {
-  const { community, planSaves } = useBuyer();
+  const { community, planSaves, toolOpened } = useBuyer();
   const savesAtOpen = useRef(planSaves);
   const dialogRef = useRef(null);
   // Focus goes into the sheet, stays there, and Escape closes it.
@@ -85,7 +90,11 @@ export function ToolSheet({ open, toolKey, onClose, label }) {
   }, [open]);
 
   const Screen = SCREENS[toolKey];
-  if (!open || !Screen || !community?.tools?.[toolKey]) return null;
+  const available = Boolean(Screen && community?.tools?.[toolKey]);
+  useEffect(() => {
+    if (open && available) toolOpened(toolKey);
+  }, [open, available, toolKey, toolOpened]);
+  if (!open || !available) return null;
 
   return (
     <div

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { normalizeLayout } from '@shared/domain.js';
+import { TOOLS, normalizeLayout } from '@shared/domain.js';
 import { buyerApi } from '../lib/api.js';
 import { readJson, remove, writeJson } from '../lib/storage.js';
 
@@ -123,6 +123,24 @@ export function BuyerProvider({ communityId, children }) {
     (text) => {
       if (!token) return;
       buyerApi.track(token, text).catch(() => {});
+    },
+    [token],
+  );
+
+  /**
+   * The buyer opened a tool. Logged once per tool for as long as the page is open, so the builder sees which tools
+   * people used, not only whose answers were saved. Opening a tool from the tool list, from a home or from the plan
+   * all come through here, because it is the tool itself that says so.
+   */
+  const toolsOpened = useRef(new Set());
+  const toolOpened = useCallback(
+    (key) => {
+      const tool = TOOLS.find((item) => item.k === key);
+      const seen = `${token}:${key}`;
+      if (!token || !tool || toolsOpened.current.has(seen)) return;
+      toolsOpened.current.add(seen);
+      // If it did not reach the server, the next time the tool is opened tries again.
+      buyerApi.track(token, `Opened ${tool.name}`).catch(() => toolsOpened.current.delete(seen));
     },
     [token],
   );
@@ -271,6 +289,7 @@ export function BuyerProvider({ communityId, children }) {
       showToast,
       planSaves,
       track,
+      toolOpened,
       enter,
       toggleSave,
       savePlan,
@@ -282,7 +301,7 @@ export function BuyerProvider({ communityId, children }) {
     }),
     [
       community, communityId, emailPlan, enter, lead, loadError, loading, requestTour, savePlan,
-      planSaves, saveMoveIn, setTool, showToast, toast, toggleSave, token, tools, track,
+      planSaves, saveMoveIn, setTool, showToast, toast, toggleSave, token, toolOpened, tools, track,
     ],
   );
 

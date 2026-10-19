@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
-  LEAD_SORTS, countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, planProgress, sortLeads,
+  LEAD_SORTS, countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, sortLeads, toolsUsedOf,
 } from '@shared/domain.js';
 import { emailHref, textHref } from '../../lib/contact.js';
 import { shortDate } from '../../lib/format.js';
@@ -12,6 +12,8 @@ import ReportButton from '../ReportButton.jsx';
 import LeadDetail from '../screens/LeadDetail.jsx';
 import NavIcon from '../shell/navIcons.jsx';
 import { Dialog, PillRow, Spinner } from '../ui.jsx';
+
+const plural = (n, one) => `${n} ${n === 1 ? one : `${one}s`}`;
 
 /**
  * Everyone who entered the app. On a computer the list sits beside the person you picked; on a phone
@@ -170,7 +172,7 @@ export default function LeadsTab({
                   </span>
                   <span className="as-lead__line">{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
                   <span className="as-lead__meta">
-                    Plan {planProgress(lead)}% · ★ {lead.savedHomeIds.length} saved · {lead.activityCount ?? 0} actions ·{' '}
+                    {plural(toolsUsedOf(lead).length, 'tool')} used · ★ {lead.savedHomeIds.length} saved · {plural(lead.activityCount ?? 0, 'action')} ·{' '}
                     {shortDate(lead.firstVisitAt)}
                   </span>
                 </Link>

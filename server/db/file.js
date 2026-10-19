@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 
 import {
   communitySlugCandidates, DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME,
-  DEFAULT_TOOLS_ENABLED, isoDate, isSameLead,
+  DEFAULT_TOOLS_ENABLED, isoDate, isSameLead, toolOfActivity,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
@@ -33,6 +33,16 @@ export function createFileStore(path) {
     } catch {
       db = structuredClone(EMPTY);
     }
+    // Activity written before each line carried the tool it belongs to: tag it, so what people did before still
+    // counts as the use of a tool (the Postgres store does the same when it starts).
+    let tagged = false;
+    for (const action of db.activity) {
+      if (action.tool === undefined) {
+        action.tool = toolOfActivity(action.text);
+        tagged = true;
+      }
+    }
+    if (tagged) save();
   };
 
   const save = () => {
@@ -124,6 +134,18 @@ export function createFileStore(path) {
   const planOf = (leadId) =>
     Object.fromEntries(db.planItems.filter((p) => p.leadId === leadId).map((p) => [p.key, p.summary]));
   const moveInOf = (leadId) => shapeMoveIn(db.moveIn.find((m) => m.leadId === leadId));
+  /** How many times each tool was opened or worked in, per lead, from the activity log: Map(leadId -> { payment: 3 }). */
+  const toolUsesIndex = () => {
+    const byLead = new Map();
+    for (const action of db.activity) {
+      if (!action.tool) continue;
+      const counts = byLead.get(action.leadId) ?? {};
+      counts[action.tool] = (counts[action.tool] ?? 0) + 1;
+      byLead.set(action.leadId, counts);
+    }
+    return byLead;
+  };
+  const toolUsesOf = (leadId) => toolUsesIndex().get(leadId) ?? {};
   const activityOf = (leadId, limit = 200) =>
     db.activity
       .filter((a) => a.leadId === leadId)
@@ -700,10 +722,11 @@ export function createFileStore(path) {
     },
 
     async listLeads(communityId) {
+      const uses = toolUsesIndex();
       return db.leads
         .filter((l) => l.communityId === communityId)
         .map((l) => ({
-          ...shapeLead(l, { plan: planOf(l.id), moveIn: moveInOf(l.id), consent: consentOf(l.id) }),
+          ...shapeLead(l, { plan: planOf(l.id), moveIn: moveInOf(l.id), consent: consentOf(l.id), toolUses: uses.get(l.id) ?? {} }),
           activityCount: db.activity.filter((a) => a.leadId === l.id).length,
         }));
     },
@@ -712,7 +735,7 @@ export function createFileStore(path) {
       const row = db.leads.find((l) => l.id === id);
       return row
         ? shapeLead(row, {
-          plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id), consent: consentOf(id),
+          plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id), consent: consentOf(id), toolUses: toolUsesOf(id),
         })
         : null;
     },
@@ -722,7 +745,7 @@ export function createFileStore(path) {
       return row
         ? shapeLead(row, {
           plan: planOf(row.id), activity: activityOf(row.id), moveIn: moveInOf(row.id),
-          consent: consentOf(row.id),
+          consent: consentOf(row.id), toolUses: toolUsesOf(row.id),
         })
         : null;
     },
@@ -769,7 +792,7 @@ export function createFileStore(path) {
       // The consent answer comes back too, as it does from getLead and from the Postgres store: the admin
       // screen shows this row after a save, and "Do not call" is not a thing to print for someone who agreed.
       return shapeLead(row, {
-        plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id), consent: consentOf(id),
+        plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id), consent: consentOf(id), toolUses: toolUsesOf(id),
       });
     },
 
@@ -801,7 +824,7 @@ export function createFileStore(path) {
     },
 
     async addActivity(leadId, text) {
-      db.activity.push({ leadId, text, createdAt: now() });
+      db.activity.push({ leadId, text, createdAt: now(), tool: toolOfActivity(text) });
       save();
     },
   };

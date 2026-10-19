@@ -77,6 +77,18 @@ test('the call alert leads with what the builder needs to act on', async () => {
   assert.match(mail.text, /cornerpost\.example\/admin\/communities\/willow\/leads\/l1/, 'and a link to the lead, on a page the admin app has');
 });
 
+test('the alert names the tools they used, even ones whose answer they did not keep', async () => {
+  const sent = captureTransport();
+  await notifyCallRequest({ store, community: COMMUNITY, lead: { ...LEAD, toolUses: { payment: 2 } } });
+  assert.match(sent[0].text, /Tools they used: My Price Range, My Payment\n/, 'the saved one and the one only opened');
+  assert.match(sent[0].text, /What they have worked out so far:\n {2}· Looking at/);
+  await notifyCallRequest({ store, community: COMMUNITY, lead: { ...LEAD, plan: {}, toolUses: { loans: 1 } } });
+  assert.match(sent[1].text, /Tools they used: My Loan Options\n/);
+  assert.doesNotMatch(sent[1].text, /worked out so far|not used any tools/, 'used but nothing kept: no empty list, no "none"');
+  await notifyCallRequest({ store, community: COMMUNITY, lead: { ...LEAD, plan: {}, toolUses: {} } });
+  assert.match(sent[2].text, /They have not used any tools yet\./);
+});
+
 test('the alert falls back to the dashboard account when no address is set', async () => {
   const sent = captureTransport();
   await notifyCallRequest({

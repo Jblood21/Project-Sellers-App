@@ -338,4 +338,10 @@ CREATE TABLE IF NOT EXISTS lead_activity (
   text       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- The tool an action belongs to ('payment', ...) or '' for none; NULL only until init tags the rows written before this
+-- existed. Keep this ALTER directly under the table and above the index that uses the column.
+ALTER TABLE lead_activity ADD COLUMN IF NOT EXISTS tool TEXT;
 CREATE INDEX IF NOT EXISTS lead_activity_lead_idx ON lead_activity(lead_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS lead_activity_tool_idx ON lead_activity(lead_id) WHERE tool IS NOT NULL AND tool <> '';
+-- Empty once init has tagged the old rows, so finding the untagged ones at every start costs nothing.
+CREATE INDEX IF NOT EXISTS lead_activity_untagged_idx ON lead_activity(id) WHERE tool IS NULL;

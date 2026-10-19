@@ -1,5 +1,6 @@
 import {
-  complianceOf, complianceText, contactMethodLabel, describeTour, fillTokens, isoDate, lenderNameOf, money, isSafeEmail,
+  PLAN_LABELS, complianceOf, complianceText, contactMethodLabel, describeTour, fillTokens, isoDate, lenderNameOf, money, isSafeEmail,
+  toolsUsedOf,
 } from '../../shared/domain.js';
 import { moveInPlanLines, printableMoveIn } from '../../shared/moveInPrint.js';
 import { sendEmail } from './email.js';
@@ -33,6 +34,8 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     .map((id) => community.homes?.find((h) => h.id === id)?.name)
     .filter(Boolean);
   const planLines = Object.entries(lead.plan ?? {}).map(([, summary]) => `  · ${summary}`);
+  // A tool counts once they used it, whether or not they kept its answer.
+  const used = toolsUsedOf(lead).map((key) => PLAN_LABELS[key]);
 
   const prefersEmail = lead.tour?.contact === 'email';
   const text = [
@@ -48,8 +51,8 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     '',
     saved.length ? `Homes they saved: ${saved.join(', ')}` : 'They have not saved a home yet.',
     '',
-    planLines.length ? 'What they have worked out so far:' : 'They have not run any tools yet.',
-    ...planLines,
+    used.length ? `Tools they used: ${used.join(', ')}` : 'They have not used any tools yet.',
+    ...(planLines.length ? ['What they have worked out so far:', ...planLines] : []),
     '',
     baseUrl ? `Open the lead: ${baseUrl}/admin/communities/${community.id}/leads/${lead.id}` : '',
     '',

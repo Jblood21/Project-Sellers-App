@@ -108,7 +108,7 @@ export function shapeConsent(row) {
   };
 }
 
-export function shapeLead(row, { plan = {}, activity = [], moveIn = null, consent = null } = {}) {
+export function shapeLead(row, { plan = {}, activity = [], moveIn = null, consent = null, toolUses = {} } = {}) {
   if (!row) return null;
   return {
     id: row.id,
@@ -126,6 +126,8 @@ export function shapeLead(row, { plan = {}, activity = [], moveIn = null, consen
     firstVisitAt: row.first_visit_at ?? row.firstVisitAt ?? null,
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
     plan,
+    // How many times each tool was opened or worked in, from the activity log: { payment: 3, afford: 1 }.
+    toolUses,
     activity,
     moveIn,
     consent,

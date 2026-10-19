@@ -1207,6 +1207,58 @@ export function planProgress(lead) {
   return Math.round((done.length / PLAN_KEYS.length) * 100);
 }
 
+/** The tools, in the order the app nudges a buyer through them (the plan's order, without the saved homes). */
+export const TOOL_ORDER = PLAN_KEYS.filter((key) => key !== 'homes');
+
+const OPENED_TOOL = new Map(TOOLS.map((tool) => [`Opened ${tool.name}`, tool.k]));
+
+// What each tool writes to the activity log when somebody uses it, besides opening it. The first four lines of the
+// payment tool and the loan tool differ only in their ending, so the longer one is tested first.
+const TOOL_ACTIVITY = [
+  ['payment', [/^Opened payment for /, /^Explored .+ loan on payment tool$/, /^Tested .+ down on /]],
+  ['loans', [/^Explored .+ loan$/]],
+  ['compare', [new RegExp(`^Compared (${Object.values(PROGRAMS).join('|')})$`)]],
+  ['dpa', [/^DPA screener: /]],
+  ['movein', [/^Move-in driver: /, /^Added their own move-in step: /, /^Move-in paying: /, /^Wants to be moved in by /]],
+];
+
+/**
+ * The tool an action in the activity log belongs to ('payment', 'afford', ...), or '' when it belongs to none.
+ * Opening a tool, working in it and saving what it worked out all count: a tool was used when it was used,
+ * not only when its answer was kept. The buyer app writes these lines; the stores tag each one with this on the way in.
+ */
+export function toolOfActivity(text) {
+  const line = String(text ?? '');
+  if (OPENED_TOOL.has(line)) return OPENED_TOOL.get(line);
+  for (const [key, patterns] of TOOL_ACTIVITY) if (patterns.some((pattern) => pattern.test(line))) return key;
+  return TOOL_ORDER.find((key) => line.startsWith(`${PLAN_LABELS[key]} saved: `)) ?? '';
+}
+
+/**
+ * The tools this person used, in the app's order: any they opened or worked in (`lead.toolUses`, a count per tool from
+ * the activity log) and any whose answer they saved (`lead.plan`), or a move-in plan they made.
+ */
+export function toolsUsedOf(lead) {
+  return TOOL_ORDER.filter((key) => (lead?.toolUses?.[key] ?? 0) > 0 || Boolean(lead?.plan?.[key]) || (key === 'movein' && Boolean(lead?.moveIn)));
+}
+
+/** The tools this community offers its buyers, in the app's order: every one the builder has not switched off. */
+export function toolsOfferedBy(community) {
+  return TOOL_ORDER.filter((key) => community?.tools?.[key] !== false);
+}
+
+/**
+ * What a tool worked out for this person, as one line, or '' when they kept nothing. A move-in plan is kept as a
+ * plan of its own rather than a one-line answer, so one with a date is its answer (without a date it is only a
+ * preview, as everywhere else).
+ */
+export function toolAnswerOf(lead, key) {
+  const saved = String(lead?.plan?.[key] ?? '').trim();
+  if (saved) return saved;
+  const day = key === 'movein' ? lead?.moveIn?.targetDate : '';
+  return day ? `Move-in plan saved: keys by ${formatSlotDate(day)}, ${String(day).slice(0, 4)}` : '';
+}
+
 /**
  * A call request the builder still owes someone. Requests stay on the lead
  * forever, so without the handled stamp every badge would eventually be stale

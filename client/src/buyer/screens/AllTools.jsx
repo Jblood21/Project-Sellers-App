@@ -64,8 +64,8 @@ export function useHomeModel({ onOpenLender } = {}) {
       guides: `${base}/guides`,
       realtors: `${base}/realtors`,
     },
+    // The tool says it was opened once it is on screen (see ToolScreen), so this does not also log it.
     openTool: (tool) => {
-      track(`Opened ${tool.name}`);
       navigate(`${base}/tool/${tool.k}`, { state: here });
     },
     openExplore: () => {

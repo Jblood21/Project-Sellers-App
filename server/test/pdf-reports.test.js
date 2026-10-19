@@ -52,23 +52,26 @@ describe('the leads report PDF', () => {
     assert.equal(made.filename, 'willow-creek-leads-2026-10-16.pdf');
     assert.equal(made.people, 2);
     for (const wanted of [
-      'Willow Creek', 'Leads report · Everyone · Lehi, Utah · Newest first', 'MOST SAVED HOMES', 'TOOLS USED · PEOPLE WHO SAVED A RESULT',
-      'SIGN-UPS PER WEEK · LAST 8 WEEKS', 'SCHEDULED CALLS WAITING (0)', 'EVERYONE (2)', 'NAME', 'PHONE · CONSENT', 'SIGNED UP', 'PLAN', 'SAVED HOMES', 'STATUS',
+      'Willow Creek', 'Leads report · Everyone · Lehi, Utah · Newest first', 'MOST SAVED HOMES', 'TOOLS USED · PEOPLE WHO USED EACH',
+      'SIGN-UPS PER WEEK · LAST 8 WEEKS', 'SCHEDULED CALLS WAITING (0)', 'EVERYONE (2)', 'NAME', 'PHONE · CONSENT', 'SIGNED UP', 'TOOLS USED', 'SAVED HOMES', 'STATUS',
     ]) assert.ok(text.includes(wanted), `${wanted}`);
     assert.ok(text.includes('Generated Fri, Oct 16, 2026') && text.includes('12:00 PM MDT'), 'stamped in the builder’s day, with the zone');
     assert.ok(text.includes('No scheduled calls are waiting.'));
     assert.ok(text.includes('Confidential. Personal information about app users; keep it private.') && text.includes('Page 1 of 1'));
   });
 
-  test('the running header is on the first page too, and the strip shows the eight figures', () => {
+  test('the running header is on the first page too, and the strip shows the six figures (no past their day, no average plan)', () => {
     const made = leadsPdf([lead({ phone: '(801) 555-0100', consent: { granted: true, at: daysAgo(1) } }), lead()]);
     const first = readPdf(made.buffer)[0].lines;
     assert.equal(first[0], 'Willow Creek · Leads report', 'the first thing on the page');
-    const labels = ['PEOPLE', 'CALLS WAITING', 'PAST THEIR', 'GAVE PHONE', 'AGREED TO', 'SAVED A HOME', 'AVG PLAN', 'DO NOT CALL'];
+    const labels = ['PEOPLE', 'CALLS WAITING', 'GAVE PHONE', 'AGREED TO CALLS', 'SAVED A HOME', 'DO NOT CALL'];
     for (const label of labels) assert.ok(first.includes(label), label);
+    for (const gone of ['PAST THEIR', 'AVG PLAN']) assert.ok(!first.includes(gone), `${gone} is not in the strip`);
     assert.deepEqual(made.figures, {
-      people: 2, everyone: 2, contacted: 0, waiting: 0, overdue: 0, gavePhone: 1, agreed: 1, declined: 0, neverAsked: 1, doNotCall: 1, savedHome: 0, averagePlan: 0,
+      people: 2, everyone: 2, contacted: 0, waiting: 0, gavePhone: 1, agreed: 1, declined: 0, neverAsked: 1, doNotCall: 1, savedHome: 0,
+      toolUsers: { afford: 0, payment: 0, loans: 0, compare: 0, dpa: 0, savings: 0, movein: 0 },
     });
+    assert.ok(!/past their day|avg plan|plan progress/i.test(pdfText(made.buffer)), 'and nowhere else on the page either');
   });
 
   test('with no one yet it still builds, and says so', () => {
@@ -126,7 +129,7 @@ describe('the leads report PDF', () => {
     assert.deepEqual(sortLeads(all, 'stars').map((l) => l.name), ['Older Olive', 'Newer Ned', 'Middle Mo', 'Newest Nell']);
   });
 
-  test('scheduled calls: the soonest waiting ones with when, who and what for, past their day in red; closed and handled left out', () => {
+  test('scheduled calls: the waiting ones in the order of their day, with when, who and what for; closed and handled left out; none told apart as late', () => {
     const soon = lead({ name: 'Soon Sam', phone: '(801) 555-0100', consent: { granted: true, at: daysAgo(2) }, tour: { date: '2026-10-20', time: '14:00', contact: 'phone', topic: 'lender' } });
     const past = lead({ name: 'Past Pat', tour: { date: '2026-10-12', time: '09:30', contact: 'email', topic: 'community' } });
     const handled = lead({ name: 'Handled Hal', tour: { date: '2026-10-20', time: '10:00', contact: 'phone', handledAt: daysAgo(1) } });
@@ -135,14 +138,14 @@ describe('the leads report PDF', () => {
     const text = pdfText(made.buffer);
     assert.ok(text.includes('SCHEDULED CALLS WAITING (2)'));
     assert.equal(made.figures.waiting, 2);
-    assert.equal(made.figures.overdue, 1);
+    assert.ok(!('overdue' in made.figures), 'no count of the ones past their day');
     const lines = text.split('\n');
     const at = lines.indexOf('SCHEDULED CALLS WAITING (2)');
     const panel = lines.slice(at, at + 6);
-    assert.deepEqual(panel.slice(1, 5), ['Tue, Oct 20 · 2:00 PM', 'Soon Sam · Financing', 'Mon, Oct 12 · 9:30 AM', 'Past Pat · Tour'], 'upcoming before past their day');
+    assert.deepEqual(panel.slice(1, 5), ['Mon, Oct 12 · 9:30 AM', 'Past Pat · Tour', 'Tue, Oct 20 · 2:00 PM', 'Soon Sam · Financing'], 'in the order of their day');
     assert.ok(!text.includes('Closed Cleo'));
-    assert.ok(readPdf(made.buffer)[0].ops.includes('0.66 0.12 0.1 rg'), 'the one past its day is in red');
-    assert.ok(flat(made.buffer).includes('New · call waiting'), 'and the list says so beside each of them');
+    assert.ok(!/past their day/i.test(text), 'and nothing says which are past their day');
+    assert.ok(flat(made.buffer).includes('New · call waiting'), 'the list says so beside each of them');
     assert.ok(flat(made.buffer).includes('New · call handled'));
   });
 
@@ -162,7 +165,7 @@ describe('the leads report PDF', () => {
     assert.equal(made.figures.waiting, 1);
   });
 
-  test('each person: name, email, phone with the answer, saved homes, plan progress and status; do-not-call people are tagged', () => {
+  test('each person: name, email, phone with the answer, the tools they used, saved homes and status; do-not-call people are tagged', () => {
     const made = leadsPdf([
       lead({
         name: 'Dana Reyes', email: 'dana@test.co', phone: '(801) 555-0111', extraEmails: ['dana.home@test.co'], notes: 'Wants a corner lot.',
@@ -175,14 +178,14 @@ describe('the leads report PDF', () => {
     const text = pdfText(made.buffer);
     const joined = flat(made.buffer);
     for (const wanted of [
-      'Dana Reyes', 'dana@test.co', 'also dana.home@test.co', '(801) 555-0111 · ', 'Agreed', '2 saved: The Aspen, The Birch', '38%', 'Contacted',
+      'Dana Reyes', 'dana@test.co', 'also dana.home@test.co', '(801) 555-0111 · ', 'Agreed', '2 saved: The Aspen, The Birch', '2 tools', 'Price range, Payment', 'Contacted',
       'Nia Park', '(801) 555-0122', 'DO NOT CALL · DECLINED', 'Zed NoNumber', 'No phone', 'DO NOT CALL · NEVER ASKED',
     ]) assert.ok(joined.includes(wanted), wanted);
     assert.ok(!text.includes('Wants a corner lot'), 'the team’s notes are on the person’s own report, not on this list');
     assert.ok(!text.includes('Old Oscar') && !text.includes('Closed'), 'a closed person is not on the report, and nothing says "closed"');
   });
 
-  test('the strip: new and contacted, phones, agreed, saved, the average plan and who not to call, for open people only', () => {
+  test('the strip: new and contacted, phones, agreed, saved and who not to call, for open people only', () => {
     const made = leadsPdf([
       lead({ phone: '1', consent: { granted: true, at: daysAgo(1) }, savedHomeIds: ['h1'], plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a' } }),
       lead({ phone: '2', consent: { granted: false, at: daysAgo(1) } }),
@@ -190,17 +193,28 @@ describe('the leads report PDF', () => {
       lead({ status: 'contacted' }),
     ]);
     assert.deepEqual(made.figures, {
-      people: 3, everyone: 3, contacted: 1, waiting: 0, overdue: 0, gavePhone: 2, agreed: 1, declined: 1, neverAsked: 1, doNotCall: 2, savedHome: 1, averagePlan: 21,
+      people: 3, everyone: 3, contacted: 1, waiting: 0, gavePhone: 2, agreed: 1, declined: 1, neverAsked: 1, doNotCall: 2, savedHome: 1,
+      toolUsers: { afford: 1, payment: 1, loans: 1, compare: 1, dpa: 0, savings: 0, movein: 0 },
     });
     const first = readPdf(made.buffer)[0].lines;
     const valueOf = (label) => first[first.indexOf(label) - 1];
     assert.equal(valueOf('PEOPLE'), '3');
     assert.equal(valueOf('GAVE PHONE'), '2');
-    assert.equal(valueOf('AGREED TO'), '1');
+    assert.equal(valueOf('AGREED TO CALLS'), '1');
     assert.equal(valueOf('DO NOT CALL'), '2');
-    assert.equal(valueOf('AVG PLAN'), '21%');
     const strip = first.join(' ');
     for (const sub of ['67%', '33%', '1 contacted', '1 declined · 1 never asked']) assert.ok(strip.includes(sub), sub);
+  });
+
+  test('a tool the community switched off is left out of the tools panel, unless somebody used it before it was', () => {
+    const off = { ...community, tools: { dpa: false, savings: false } };
+    const text = pdfText(buildLeadsPdf({ community: off, leads: [lead({ toolUses: { savings: 1 } }), lead()], homes, now: NOW, timeZone: ZONE }).buffer);
+    assert.ok(text.includes('My Savings Plan'), 'used before it was switched off');
+    assert.ok(!text.includes('Down Payment Help'), 'switched off and never used');
+    assert.ok(text.includes('My Price Range\n0 of 2'), 'a tool still offered is listed at nought');
+    const none = { ...community, tools: Object.fromEntries(['payment', 'afford', 'loans', 'compare', 'dpa', 'savings', 'movein'].map((key) => [key, false])) };
+    const empty = pdfText(buildLeadsPdf({ community: none, leads: [lead()], homes, now: NOW, timeZone: ZONE }).buffer);
+    assert.ok(empty.includes('No tools are switched on.'), 'every tool off and none used: the panel says so');
   });
 
   test('the panels: the most saved homes, the tools used and the sign-ups for each of the last eight weeks', () => {
@@ -300,7 +314,7 @@ describe('the report PDF for one person', () => {
     assert.equal(made.filename, 'dana-reyes-report-2026-10-16.pdf');
     for (const wanted of [
       'Willow Creek', 'User report: Dana Reyes', 'dana@test.co', '(801) 555-0111', 'Contact', 'Calls and texts', 'Scheduled call',
-      'Homes saved (1)', 'What they worked out', 'Notes', 'Activity (2)', 'Prefers texts after 5.',
+      'Homes saved (1)', 'Tools they used', 'Notes', 'Activity (2)', 'Prefers texts after 5.',
     ]) assert.ok(text.includes(wanted), wanted);
     assert.ok(text.includes('Sep 20, 2026'), 'signed up');
     assert.ok(text.includes('Oct 15, 2026'), 'last activity');
@@ -348,13 +362,22 @@ describe('the report PDF for one person', () => {
     assert.ok(pdfText(userPdf(lead()).buffer).includes('No homes saved.'));
   });
 
-  test('what they worked out lists every tool, with what was saved or that it was not started', () => {
+  test('the tools they used lists every tool, with what was saved, or that it was used with nothing saved, or that it was not used', () => {
     const text = pdfText(userPdf(dana()).buffer);
     assert.ok(text.includes('My Price Range') && text.includes('Up to $400,000'));
     assert.ok(text.includes('My Payment') && text.includes('$2,400 a month'));
     assert.ok(text.includes('My Loan Options'));
-    assert.ok(text.includes('Not started'));
+    assert.ok(text.includes('Not used'));
+    assert.ok(!text.includes('Not started'));
     assert.ok(!text.includes('Homes I Like'), 'saved homes have their own section');
+  });
+
+  test('a saved move-in plan is the move-in tool\'s answer, not "nothing saved"; a tool the community switched off is not listed unless they used it', () => {
+    const withPlan = { ...dana(), moveIn: { homeId: 'h1', targetDate: '2027-03-01', drivers: [], payMethod: 'loan' } };
+    const text = pdfText(userPdf(withPlan).buffer);
+    assert.match(text, /My Move-In Plan\nMove-in plan saved: keys by Mon, Mar 1, 2027/);
+    const off = pdfText(userPdf({ ...dana(), toolUses: { savings: 1 } }, { community: { ...community, tools: { dpa: false, savings: false } } }).buffer);
+    assert.ok(off.includes('My Savings Plan') && !off.includes('Down Payment Help'));
   });
 
   test('the move-in plan: the sentence, the choices and every step, but only when they have a date of their own', () => {

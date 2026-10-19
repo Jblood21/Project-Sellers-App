@@ -49,18 +49,20 @@ describe('the period of the leads report', () => {
   });
 
   test('30 and 90 days use the same rule, and a clock change does not move the cut', () => {
-    const at = (iso) => lead({ name: `At ${iso}`, firstVisitAt: iso });
+    // The month, day and time are enough to tell them apart, and short enough that the name does not wrap in its column.
+    const tag = (iso) => `At ${iso.slice(5, 16)}`;
+    const at = (iso) => lead({ name: tag(iso), firstVisitAt: iso });
     // Oct 16 minus 29 days is Sep 17; minus 89 days is Jul 19 (Mountain Daylight Time, UTC-6, all of it).
     const days30 = pdfText(leadsPdf([at('2026-09-17T06:30:00Z'), at('2026-09-17T05:30:00Z')], { period: '30' }).buffer);
-    assert.ok(days30.includes('At 2026-09-17T06:30:00Z') && !days30.includes('At 2026-09-17T05:30:00Z'));
+    assert.ok(days30.includes(tag('2026-09-17T06:30:00Z')) && !days30.includes(tag('2026-09-17T05:30:00Z')));
     const days90 = pdfText(leadsPdf([at('2026-07-19T06:30:00Z'), at('2026-07-19T05:30:00Z')], { period: '90' }).buffer);
-    assert.ok(days90.includes('At 2026-07-19T06:30:00Z') && !days90.includes('At 2026-07-19T05:30:00Z'));
+    assert.ok(days90.includes(tag('2026-07-19T06:30:00Z')) && !days90.includes(tag('2026-07-19T05:30:00Z')));
     // Run just after a clock change: Nov 2 2026 is the first morning back on standard time (UTC-7).
     const after = buildLeadsPdf({ community, homes, timeZone: ZONE, now: new Date('2026-11-02T08:00:00Z'), period: '7',
       leads: [at('2026-10-27T07:30:00Z'), at('2026-10-27T05:30:00Z')] });
     const afterText = pdfText(after.buffer);
     assert.ok(afterText.includes('since Oct 27, 2026'));
-    assert.ok(afterText.includes('At 2026-10-27T07:30:00Z') && !afterText.includes('At 2026-10-27T05:30:00Z'), 'the cut is still the builder’s midnight');
+    assert.ok(afterText.includes(tag('2026-10-27T07:30:00Z')) && !afterText.includes(tag('2026-10-27T05:30:00Z')), 'the cut is still the builder’s midnight');
   });
 
   test('the summary counts only the people in the period, and says the calls are for everyone', () => {
@@ -74,9 +76,9 @@ describe('the period of the leads report', () => {
     assert.equal(made.figures.everyone, 3, 'three open people altogether; the closed person is neither');
     assert.ok(flat(made.buffer).includes('of 3 in all'));
     assert.ok(!text.includes('Closed In'));
-    assert.equal(made.figures.averagePlan, 38, 'only the person in the period: 3 of 8 tools');
+    assert.deepEqual(made.figures.toolUsers, { afford: 1, payment: 1, loans: 0, compare: 0, dpa: 0, savings: 0, movein: 0 }, 'only the person in the period used tools');
     assert.equal(made.figures.waiting, 1, 'everyone’s calls, as the note says');
-    assert.ok(flat(leadsPdf([inside, waitingOutside], { period: '7' }).buffer).includes('Calls waiting and Past their day count everyone, not only the people in this period.'));
+    assert.ok(flat(leadsPdf([inside, waitingOutside], { period: '7' }).buffer).includes('Calls waiting counts everyone, not only the people in this period.'));
     assert.ok(!flat(leadsPdf([inside]).buffer).includes('count everyone, not only'), 'no note when the report is everyone');
   });
 
@@ -193,7 +195,7 @@ describe('numbers that must agree with themselves', () => {
     const made = leadsPdf([gone, mixed]);
     const text = pdfText(made.buffer);
     assert.equal(made.figures.savedHome, 1, 'only the person with a home that still exists');
-    assert.ok(text.includes('1 saved: The Aspen'), 'the deleted one is not counted in a row either');
+    assert.ok(flat(made.buffer).includes('1 saved: The Aspen'), 'the deleted one is not counted in a row either');
     assert.ok(!text.includes('2 saved'));
     const person = pdfText(userPdf(mixed).buffer);
     assert.equal(tile(person, 'Homes saved'), '1');
@@ -207,20 +209,16 @@ describe('numbers that must agree with themselves', () => {
     const made = leadsPdf([lead({ phone: '1' }), lead({ phone: '2' }), lead()]);
     assert.equal(made.figures.gavePhone, 2);
     assert.ok(pdfText(made.buffer).split('\n').includes('67%'), '2 of 3 is 67%, not 66%');
-    assert.equal(made.figures.averagePlan, 0);
-    const average = leadsPdf([lead({ plan: { afford: 'x' } }), lead({ plan: { afford: 'x' } }), lead({ plan: { afford: 'x', payment: 'y' } })]);
-    assert.equal(average.figures.averagePlan, 17, '(13% + 13% + 25%) / 3 = 17%: each person rounded first, then averaged and rounded');
-    assert.ok(pdfText(average.buffer).includes('17%'));
   });
 
-  test('the waiting-calls and past-their-day tiles agree with the table', () => {
+  test('the waiting-calls tile agrees with the table, and the ones past their day are not told apart', () => {
     const upcoming = lead({ name: 'Up One', tour: { date: '2026-10-20', time: '10:00', contact: 'phone' } });
     const upcoming2 = lead({ name: 'Up Two', tour: { time: 'Tuesday afternoon', contact: 'phone' } });
     const past = lead({ name: 'Past One', tour: { date: '2026-10-01', time: '10:00', contact: 'phone' } });
     const made = leadsPdf([upcoming, upcoming2, past]);
     const text = pdfText(made.buffer);
     assert.equal(made.figures.waiting, 3);
-    assert.equal(made.figures.overdue, 1);
+    assert.ok(!('overdue' in made.figures) && !/past their day/i.test(text));
     assert.ok(text.includes('SCHEDULED CALLS WAITING (3)'));
     assert.ok(text.includes('Tuesday afternoon · Tour') || text.includes('Tuesday afternoon'), 'a request from before slots existed shows its own words');
     assert.equal((flat(made.buffer).match(/call waiting/g) ?? []).length, 3, 'and every one of them says so in the list');

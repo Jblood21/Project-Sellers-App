@@ -306,6 +306,22 @@ section asks first while there are unsaved notes.
 only the one in view shows, so edits (and half-typed FAQ rows or realtor forms) are kept when you move to another, one **Save settings** saves them all, and leaving the page asks first while anything
 is unsaved.
 
+## Which tools people used
+
+A tool counts as **used** when the buyer opens it or works in it, not only when they keep its answer. The tool screen
+(and the sheet a home opens it in) says so itself, once per tool per visit, through the activity log: `Opened See My
+Payment`, under the name on the tool's tile. The activity line is the record: every line is tagged with the tool it
+belongs to when it is written (`lead_activity.tool`, `toolOfActivity` in `shared/domain.js`), so opening a tool, working
+in it (`Explored FHA loan on payment tool`, `Compared VA`, `DPA screener: ...`, `Move-in driver: ...`) and saving what
+it worked out all count. A lead carries `toolUses`, a count per tool, and `toolsUsedOf(lead)` (that, plus any saved
+answer or move-in plan) is the one list the Leads tab, the person's panel, the Stats tab, the emailed report, its
+spreadsheet and both PDFs read. Activity written before the tag existed is tagged when the server starts (both stores),
+so what people did before still counts. A test reads the buyer app's own `track(...)` lines and fails if one stops
+being recognised as its tool. The reports list the tools the community offers (`toolsOfferedBy`), plus any tool it
+has since switched off that somebody used before it did, and a person's count is of the tools they used, not "of 7".
+A saved move-in plan with a date is that tool's answer (`toolAnswerOf`). The call-request alert names the tools the
+buyer used, and the Stats tab, like the reports, counts nobody the team has closed.
+
 ## Working the leads
 
 The Leads tab separates two things that used to share one field:
@@ -390,9 +406,9 @@ Three messages — the app is deliberately quiet.
   **Setup → Lead report** beside the address it goes to). One address per community, saved in Setup; the button
   always sends to the *saved* address, never one named by the request, and is held while the field has an
   unsaved change. The email lists the **scheduled calls still waiting** (a booked time or a call request that
-  nobody has marked handled; ones whose day has passed are listed apart so they are not missed) and the
+  nobody has marked handled), in one list in the order of their day, and the
   **people who signed up since the last report** (everyone, the first time), each with phone, email, second email,
-  saved homes, what they worked out, whether they agreed to calls and texts ("Do not call · declined" or
+  saved homes, the tools they used, what those worked out, whether they agreed to calls and texts ("Do not call · declined" or
   "never asked" beside the number when they did not, as on the Leads tab), and a link to open them. Each list is
   cut at 50 in the email ("…and 12 more, in the spreadsheet"). A **spreadsheet of everyone** is attached, so
   nothing is only in the email: it includes the team's own **notes and status** and the **phone numbers of people
@@ -420,19 +436,21 @@ Three messages — the app is deliberately quiet.
 - **PDF reports**, made only when the builder presses **Download PDF**, and saved to their own device: nothing
   is emailed and nothing is stored on the server. There are two. The **leads report** (on the Leads tab, and
   under Stats) is one page for a small community: a title band (community name, what it covers, when it was
-  made), a strip of eight figures (people, calls waiting, past their day, gave a phone, agreed to calls, saved
-  a home, average plan progress, and **do not call** with how many declined or were never asked), three panels
-  (the most saved homes with the calls waiting under them, the tools used, sign-ups for each of the last
-  eight weeks) and then the list of people: name and email, phone with their answer (or a boxed **DO NOT
-  CALL** tag, with a no sign, for anyone who declined or was never asked), when they signed up, plan progress,
-  saved homes, and status with their call state. It covers everyone, or only those who signed up in the last
+  made), a strip of six figures (people, calls waiting, gave a phone, agreed to calls, saved
+  a home, and **do not call** with how many declined or were never asked), three panels
+  (the most saved homes with the calls waiting under them in the order of their day, the tools used, sign-ups
+  for each of the last eight weeks) and then the list of people: name and email, phone with their answer (or a
+  boxed **DO NOT CALL** tag, with a no sign, for anyone who declined or was never asked), when they signed up,
+  the tools they used, saved homes, and status with their call state. The reports do not say which calls are
+  past their day and carry no average plan progress. It covers everyone, or only those who signed up in the last
   7, 30 or 90 days. **The people are listed in the order chosen on the Leads tab** (its Recent / Most ★
   pills: newest first, or most saved homes first and the newest first among those who tie); the report says
   which in its subtitle, and the Stats tab, which has no such choice, gets the newest first. The tab and the
   PDF use one function (`sortLeads` in `shared/domain.js`). At most the first 2,000 people are printed and
   the page says when it cut. The **user report** (on a person's own page) is one
   person: contact, what they agreed to (the answer, when, the exact words they were shown and its version,
-  and every answer on record), the call they asked for, saved homes, what each tool worked out, their move-in
+  and every answer on record), the call they asked for, saved homes, every tool with what it worked out when they
+  kept the answer (or "Used. Nothing saved." or "Not used"), their move-in
   plan, the team's notes and everything they did in the app. Both carry a title band in the community's
   colour, the page number and a confidentiality line on every page, and count days in `REPORT_TIME_ZONE`, as
   the emailed report does. They are admin-only (a buyer's token is refused), sent `Cache-Control: no-store`

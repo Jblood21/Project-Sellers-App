@@ -1,5 +1,5 @@
 import {
-  describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending, lenderNameOf, slugify,
+  PLAN_LABELS, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending, lenderNameOf, slugify, toolsUsedOf,
 } from '../../shared/domain.js';
 import { sendEmail } from './email.js';
 
@@ -8,7 +8,7 @@ import { sendEmail } from './email.js';
  * "Email the report", never on a schedule.
  *
  *  - The scheduled calls still waiting (a call someone asked for, or a time they booked, that nobody has marked
- *    handled), the ones whose day has passed listed apart so they are not missed.
+ *    handled), in the order of their day.
  *  - The people who signed up since the last report (everyone, the first time).
  *  - A spreadsheet of everyone, so nothing is only in the email.
  *
@@ -76,8 +76,11 @@ export const toCsv = (rows) => `﻿${rows.map((row) => row.map(csvCell).join(','
 
 const COLUMNS = [
   'Name', 'Email', 'Second email', 'Phone', 'Agreed to calls and texts', 'Signed up', 'Call date', 'Call time',
-  'Call by', 'Call about', 'Call status', 'Homes saved', 'What they worked out', 'Status', 'Notes', 'Link',
+  'Call by', 'Call about', 'Call status', 'Homes saved', 'Tools used', 'What they worked out', 'Status', 'Notes', 'Link',
 ];
+
+/** The tools this person used, by the names the reports give them: 'My Payment; My Loan Options'. */
+const toolNames = (lead) => toolsUsedOf(lead).map((key) => PLAN_LABELS[key]);
 
 /**
  * The lists the report is made of. `since` is when the last report was started and `until` when this one was:
@@ -108,8 +111,11 @@ export function buildReport({
       && (Number.isNaN(untilTime) || when(lead.firstVisitAt) <= untilTime))
     .sort((a, b) => when(b.firstVisitAt) - when(a.firstVisitAt));
 
+  // Every call still waiting, in the order of its day. (Past their day or not is not something a report tells apart.)
+  const callsWaiting = [...waiting].sort(byCall);
+
   return {
-    community, today, since, dayOf, link, savedNames, comingUp, overdue, fresh,
+    community, today, since, dayOf, link, savedNames, comingUp, overdue, waiting: callsWaiting, fresh,
     everyone: people.length,
     leads: people,
     filename: `${slugify(community.name) || 'community'}-leads-${today}.csv`,
@@ -135,6 +141,7 @@ export function leadsCsv(report) {
       tour ? (tour.topic === 'lender' ? `Financing (${lender})` : 'Tour of the community') : '',
       tour ? (tour.handledAt ? 'Handled' : 'Waiting') : '',
       report.savedNames(lead).join('; '),
+      toolNames(lead).join('; '),
       Object.values(lead.plan ?? {}).map(oneLine).filter(Boolean).join(' | '),
       lead.status ?? '',
       oneLine(lead.notes),
@@ -146,7 +153,7 @@ export function leadsCsv(report) {
 
 /** The email, as plain text. */
 export function reportText(report) {
-  const { community, comingUp, overdue, fresh } = report;
+  const { community, waiting, fresh } = report;
   const lender = lenderNameOf(community);
   const day = (iso) => `${formatSlotDate(iso)}, ${iso.slice(0, 4)}`;
   const reach = (lead) => [lead.phone || 'no phone', lead.email, ...(lead.extraEmails ?? []).map((e) => `also ${e}`)].join(' · ');
@@ -167,26 +174,21 @@ export function reportText(report) {
     `${name} — leads report for ${day(report.today)}`,
     report.dayOf(report.since) ? `The last report went out ${day(report.dayOf(report.since))}.` : 'This is the first report, so everyone is new.',
     '',
-    `SCHEDULED CALLS WAITING (${comingUp.length})`,
-    ...(comingUp.length ? cut(comingUp, callLines) : ['  None right now.']),
+    `SCHEDULED CALLS WAITING (${waiting.length})`,
+    ...(waiting.length ? cut(waiting, callLines) : ['  None right now.']),
     '',
   ];
-  if (overdue.length) {
-    lines.push(
-      `PAST THEIR DAY AND NOT MARKED HANDLED (${overdue.length})`,
-      ...cut(overdue, callLines),
-      '',
-    );
-  }
   lines.push(
     `NEW PEOPLE SINCE THE LAST REPORT (${fresh.length})`,
     ...(listed.length
       ? listed.flatMap((lead) => {
         const saved = report.savedNames(lead);
         const worked = Object.values(lead.plan ?? {}).map(oneLine).filter(Boolean).join('; ').slice(0, 200);
+        const used = toolNames(lead);
         return [
           `  ${oneLine(lead.name)} — ${reach(lead)}`,
           `    Signed up ${report.dayOf(lead.firstVisitAt)}${saved.length ? ` · Saved: ${saved.join(', ')}` : ''} · ${consentLabel(lead)}`,
+          ...(used.length ? [`    Used: ${used.join(', ')}`] : []),
           ...(worked ? [`    Worked out: ${worked}`] : []),
           ...(report.link(lead) ? [`    ${report.link(lead)}`] : []),
         ];
@@ -207,7 +209,7 @@ export const REPORT_SEND_TIMEOUT_MS = 20000;
 /** Builds the report and mails it, with the spreadsheet attached. */
 export async function emailReport({ community, leads, homes, to, baseUrl, now = new Date(), since = '', until = '' }) {
   const report = buildReport({ community, leads, homes, now, since, until, baseUrl });
-  const calls = report.comingUp.length + report.overdue.length;
+  const calls = report.waiting.length;
   const result = await sendEmail({
     to,
     subject: `${oneLine(community.name)}: ${plural(calls, 'scheduled call')} waiting, ${plural(report.fresh.length, 'new person', 'new people')}`,

@@ -1,9 +1,11 @@
-import { PLAN_LABELS, planProgress } from '@shared/domain.js';
+import { PLAN_LABELS, isArchived, toolsUsedOf } from '@shared/domain.js';
 import PdfReportButton from '../PdfReportButton.jsx';
 import { Spinner } from '../ui.jsx';
 
-export default function StatsTab({ community, leads }) {
-  if (!leads) return <Spinner label="Loading stats…" />;
+export default function StatsTab({ community, leads: everyone }) {
+  if (!everyone) return <Spinner label="Loading stats…" />;
+  // People the team has closed are counted nowhere here, as in the reports.
+  const leads = everyone.filter((lead) => !isArchived(lead));
 
   const saveCounts = {};
   for (const lead of leads) {
@@ -12,21 +14,18 @@ export default function StatsTab({ community, leads }) {
   const topHomeEntry = Object.entries(saveCounts).sort((a, b) => b[1] - a[1])[0];
   const topHome = topHomeEntry ? community.homes.find((h) => h.id === topHomeEntry[0]) : null;
 
+  // A tool counts for a person once they used it (opened it or worked in it), whether or not they kept its answer.
   const toolCounts = {};
   for (const lead of leads) {
-    for (const key of Object.keys(lead.plan ?? {})) toolCounts[key] = (toolCounts[key] ?? 0) + 1;
+    for (const key of toolsUsedOf(lead)) toolCounts[key] = (toolCounts[key] ?? 0) + 1;
   }
   const topToolEntry = Object.entries(toolCounts).sort((a, b) => b[1] - a[1])[0];
-
-  const averageProgress = leads.length
-    ? Math.round(leads.reduce((total, lead) => total + planProgress(lead), 0) / leads.length)
-    : 0;
 
   const cards = [
     { label: 'Total leads', value: leads.length },
     { label: 'New — to call', value: leads.filter((lead) => lead.status === 'new').length },
     { label: 'Booked calls', value: leads.filter((lead) => lead.tour).length },
-    { label: 'Avg plan progress', value: `${averageProgress}%` },
+    { label: 'Used a tool', value: leads.filter((lead) => toolsUsedOf(lead).length > 0).length },
   ];
 
   return (
@@ -52,9 +51,10 @@ export default function StatsTab({ community, leads }) {
           <span style={{ fontWeight: 600 }}>
             {topToolEntry ? PLAN_LABELS[topToolEntry[0]] ?? 'Tool' : 'No tool use yet'}
           </span>
-          <span className="text-muted">{topToolEntry ? `${topToolEntry[1]} leads` : '—'}</span>
+          <span className="text-muted">{topToolEntry ? `${topToolEntry[1]} ${topToolEntry[1] === 1 ? 'person' : 'people'}` : '—'}</span>
         </div>
       </div>
+      <p className="text-muted" style={{ fontSize: 12.5, margin: 0 }}>People you have closed are not counted.</p>
       <div className="card">
         <PdfReportButton
           community={community}
