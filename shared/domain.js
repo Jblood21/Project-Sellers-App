@@ -1285,6 +1285,33 @@ export function isArchived(lead) {
   return Boolean(lead?.archivedAt);
 }
 
+/**
+ * The orders people can be listed in, by the key the Leads tab's "Sort" pills use. The leads report is made in
+ * whichever the builder had chosen, so the tab and the PDF come from one function and cannot disagree.
+ */
+export const LEAD_SORTS = {
+  recent: { label: 'Recent', report: 'Newest first' },
+  stars: { label: 'Most ★', report: 'Most saved homes first' },
+};
+export const DEFAULT_LEAD_SORT = 'recent';
+
+/**
+ * People in the chosen order, as a new list. `recent`: newest sign-up first. `stars`: the most saved homes first,
+ * and the newest first among those with the same number. Anyone whose sign-up time cannot be read goes last.
+ */
+export function sortLeads(leads = [], sort = DEFAULT_LEAD_SORT) {
+  const time = (lead) => {
+    const t = lead?.firstVisitAt ? new Date(lead.firstVisitAt).getTime() : Number.NaN;
+    return Number.isNaN(t) ? -Infinity : t;
+  };
+  // The list as the stores give it is oldest first, so the later of two with the same time is the newer.
+  const indexed = leads.map((lead, index) => ({ lead, index }));
+  const newest = (a, b) => (time(b.lead) === time(a.lead) ? b.index - a.index : time(b.lead) - time(a.lead));
+  const saved = (item) => (item.lead.savedHomeIds ?? []).length;
+  indexed.sort(sort === 'stars' ? (a, b) => saved(b) - saved(a) || newest(a, b) : newest);
+  return indexed.map((item) => item.lead);
+}
+
 export function countPendingTours(leads = []) {
   return leads.filter(isTourPending).length;
 }

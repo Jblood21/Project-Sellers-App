@@ -158,9 +158,12 @@ export const adminApi = {
     saveFile(`/api/admin/leads/${encodeURIComponent(leadId)}/mismo`, token, {
       fallbackName: 'lead-mismo34.xml', failure: 'Could not build the file',
     }),
-  /** The leads report as a PDF. `period` is all, 7, 30 or 90 (days of sign-ups). Resolves to the saved file's name. */
-  downloadLeadsPdf: (token, communityId, period = 'all') =>
-    saveFile(`/api/admin/communities/${encodeURIComponent(communityId)}/reports/leads.pdf?period=${encodeURIComponent(period)}`, token, {
+  /**
+   * The leads report as a PDF. `period` is all, 7, 30 or 90 (days of sign-ups); `sort` is the Leads tab's own choice
+   * (recent or stars). Resolves to the saved file's name.
+   */
+  downloadLeadsPdf: (token, communityId, period = 'all', sort = 'recent') =>
+    saveFile(`/api/admin/communities/${encodeURIComponent(communityId)}/reports/leads.pdf?period=${encodeURIComponent(period)}&sort=${encodeURIComponent(sort)}`, token, {
       fallbackName: 'leads-report.pdf', failure: 'Could not build the report', type: 'application/pdf',
     }),
   /** One person's report as a PDF. */

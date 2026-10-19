@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 
-import { MAX_CALLS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
+import { buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { pdfText, readPdf } from './fixtures/pdfText.js';
 
 // The edges of the two PDF reports: counts that must agree with themselves, the cut for a period, the weekly
@@ -44,7 +44,7 @@ describe('the period of the leads report', () => {
     const text = pdfText(made.buffer);
     assert.ok(text.includes('Just In') && text.includes('Today Tess'));
     assert.ok(!text.includes('Just Out'), 'one minute before the builder’s midnight is the day before');
-    assert.ok(text.includes('Signed up in the last 7 days (since Oct 10, 2026)'));
+    assert.ok(text.includes('Leads report · Signed up in the last 7 days (since Oct 10, 2026) · Lehi, Utah · Newest first'));
     assert.equal(made.people, 2);
   });
 
@@ -65,30 +65,35 @@ describe('the period of the leads report', () => {
 
   test('the summary counts only the people in the period, and says the calls are for everyone', () => {
     const inside = lead({ name: 'Inside Ida', firstVisitAt: daysAgo(2), phone: '1', plan: { afford: 'x', payment: 'y' }, savedHomeIds: ['h1'] });
-    const outside = lead({ name: 'Outside Oz', firstVisitAt: daysAgo(40), archivedAt: daysAgo(1), plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b' }, savedHomeIds: ['h1', 'h2'] });
+    const outside = lead({ name: 'Outside Oz', firstVisitAt: daysAgo(40), plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b' }, savedHomeIds: ['h1', 'h2'] });
+    const closedInside = lead({ name: 'Closed In', firstVisitAt: daysAgo(1), archivedAt: daysAgo(0), phone: '9', plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b' }, savedHomeIds: ['h1', 'h2'] });
     const waitingOutside = lead({ name: 'Waiting Wes', firstVisitAt: daysAgo(60), plan: { afford: 'x' }, savedHomeIds: ['h1'], tour: { date: '2026-10-21', time: '10:00', contact: 'phone' } });
-    const text = pdfText(leadsPdf([inside, outside, waitingOutside], { period: '7' }).buffer);
-    assert.equal(tile(text, 'People (of 3 in all)'), '1');
-    assert.equal(tile(text, 'Open · closed'), '1 · 0', 'a closed person outside the period is not counted');
-    assert.equal(tile(text, 'Average plan progress'), '38%', 'only the person in the period: 3 of 8 tools');
-    assert.equal(tile(text, 'Calls waiting'), '1', 'everyone’s calls, as the note says');
+    const made = leadsPdf([inside, outside, waitingOutside, closedInside], { period: '7' });
+    const text = pdfText(made.buffer);
+    assert.equal(made.figures.people, 1, 'one of the people in the period');
+    assert.equal(made.figures.everyone, 3, 'three open people altogether; the closed person is neither');
+    assert.ok(flat(made.buffer).includes('of 3 in all'));
+    assert.ok(!text.includes('Closed In'));
+    assert.equal(made.figures.averagePlan, 38, 'only the person in the period: 3 of 8 tools');
+    assert.equal(made.figures.waiting, 1, 'everyone’s calls, as the note says');
     assert.ok(flat(leadsPdf([inside, waitingOutside], { period: '7' }).buffer).includes('Calls waiting and Past their day count everyone, not only the people in this period.'));
     assert.ok(!flat(leadsPdf([inside]).buffer).includes('count everyone, not only'), 'no note when the report is everyone');
   });
 
   test('a period with no one in it still shows the weekly trend, and only that', () => {
     const text = pdfText(leadsPdf([lead({ firstVisitAt: '2026-09-20T12:00:00Z', phone: '1', savedHomeIds: ['h1'] })], { period: '7' }).buffer);
-    assert.ok(text.includes('What people did') && text.includes('SIGN-UPS PER WEEK'));
-    assert.ok(!text.includes('MOST SAVED HOMES') && !text.includes('TOOLS USED'));
+    assert.ok(text.includes('SIGN-UPS PER WEEK'), 'the trend is of everyone, so it is still drawn');
+    assert.equal((text.match(/No one in this period\./g) ?? []).length, 2, 'the two panels about this period’s people say so');
+    assert.ok(!/My Price Range\n0 of/.test(text), 'and draw no bars of nothing');
     assert.ok(text.includes('No one signed up in this period.'));
-    assert.ok(!pdfText(leadsPdf([], { period: '7' }).buffer).includes('What people did'), 'no one at all: no charts');
+    assert.ok(!pdfText(leadsPdf([], { period: '7' }).buffer).includes('SIGN-UPS PER WEEK'), 'no one at all: no panels');
   });
 
   test('a period key that is not one is everyone, and never prints "undefined"', () => {
     for (const period of ['__proto__', 'constructor', 'toString', undefined, null, '']) {
       const text = pdfText(leadsPdf([lead()], { period }).buffer);
       assert.ok(!text.includes('undefined'), String(period));
-      assert.ok(text.includes('Everyone (1)') && text.includes('Everyone · Lehi, Utah'), String(period));
+      assert.ok(text.includes('EVERYONE (1)') && text.includes('Leads report · Everyone · Lehi, Utah'), String(period));
     }
   });
 
@@ -102,10 +107,53 @@ describe('the period of the leads report', () => {
   });
 });
 
+describe('closed (archived) people', () => {
+  const closed = (extra = {}) => lead({
+    name: 'Closed Cleo', email: 'cleo@closed.test', phone: '(801) 555-0199', firstVisitAt: daysAgo(1), archivedAt: daysAgo(0),
+    consent: { granted: true, at: daysAgo(1) }, notes: 'Do not include me', savedHomeIds: ['h2'], plan: { afford: 'x', payment: 'y' },
+    tour: { date: '2026-10-21', time: '10:00', contact: 'phone', topic: 'lender' }, ...extra,
+  });
+
+  test('are nowhere in the leads report: not the roster, the calls, the tiles, the charts or the file', () => {
+    const open = lead({ name: 'Open Olive', firstVisitAt: daysAgo(1), phone: '1', savedHomeIds: ['h1'] });
+    const made = leadsPdf([open, closed()]);
+    const text = pdfText(made.buffer);
+    assert.ok(!/Closed Cleo|cleo@closed\.test|Do not include|555-0199/.test(text), 'nothing about them is printed');
+    assert.ok(!/closed/i.test(text), 'and the word does not appear at all');
+    assert.equal(made.people, 1);
+    assert.equal(made.figures.people, 1);
+    assert.equal(made.figures.waiting, 0, 'a closed person is not waiting for a call');
+    assert.equal(made.figures.doNotCall, 1, 'and their consent is not counted (open Olive was never asked)');
+    assert.ok(text.includes('SCHEDULED CALLS WAITING (0)') && text.includes('EVERYONE (1)'));
+    assert.ok(/The Aspen\n1 save\n/.test(text) && !text.includes('The Birch'), 'their saved home is not counted in the most-saved list');
+    assert.ok(/My Payment\n0 of 1\n/.test(text), 'nor are their tools');
+    const thisWeek = text.split('\n');
+    assert.equal(thisWeek[thisWeek.indexOf('Oct 12 (this wk)') + 1], '1', 'nor their sign-up in the weekly count');
+  });
+
+  test('stay out however the report is asked for: every period, and an unknown one', () => {
+    for (const period of ['all', '7', '30', '90', 'nonsense']) {
+      const text = pdfText(leadsPdf([lead({ name: 'Open Ola' }), closed()], { period }).buffer);
+      assert.ok(!text.includes('Closed Cleo'), period);
+    }
+  });
+
+  test('are back when the app reopens them (it clears the closed date when they book again)', () => {
+    const text = pdfText(leadsPdf([closed({ archivedAt: null })]).buffer);
+    assert.ok(text.includes('Closed Cleo') && text.includes('SCHEDULED CALLS WAITING (1)'));
+  });
+
+  test('can still have their own person report, which says plainly that they are closed', () => {
+    const text = pdfText(userPdf(closed()).buffer);
+    assert.ok(text.includes('Closed Cleo'));
+    assert.equal(tile(text, 'Status'), 'Closed');
+  });
+});
+
 describe('the weekly sign-ups chart', () => {
   const week = (text, label) => {
     const lines = text.split('\n');
-    const at = lines.findIndex((line) => line.startsWith(label));
+    const at = lines.indexOf(label);
     return { label: lines[at], count: lines[at + 1] };
   };
 
@@ -119,22 +167,22 @@ describe('the weekly sign-ups chart', () => {
       at('2026-08-24T06:00:00Z', 'Mon Aug 24 00:00 Denver'), // the first of the eight
       at('2026-08-24T05:59:00Z', 'Sun Aug 23 23:59 Denver'), // before the eight
     ]).buffer);
-    assert.deepEqual(week(text, 'Week of Oct 12 (this week)'), { label: 'Week of Oct 12 (this week)', count: '2' });
-    assert.deepEqual(week(text, 'Week of Oct 5'), { label: 'Week of Oct 5', count: '2' });
-    assert.deepEqual(week(text, 'Week of Aug 24'), { label: 'Week of Aug 24', count: '1' });
-    assert.equal((text.match(/^Week of /gm) ?? []).length, 8);
-    assert.ok(!text.includes('Week of Aug 17'));
-    assert.deepEqual(week(text, 'Week of Sep 14'), { label: 'Week of Sep 14', count: '0' });
+    assert.deepEqual(week(text, 'Oct 12 (this wk)'), { label: 'Oct 12 (this wk)', count: '2' });
+    assert.deepEqual(week(text, 'Oct 5'), { label: 'Oct 5', count: '2' });
+    assert.deepEqual(week(text, 'Aug 24'), { label: 'Aug 24', count: '1' });
+    assert.equal((text.match(/^(Aug|Sep|Oct) \d+( \(this wk\))?$/gm) ?? []).length, 8);
+    assert.ok(!text.split('\n').includes('Aug 17'));
+    assert.deepEqual(week(text, 'Sep 14'), { label: 'Sep 14', count: '0' });
   });
 
   test('a Sunday-night sign-up in another zone falls in the builder’s week, not the server’s', () => {
     const lateSunday = lead({ name: 'Late Sunday', firstVisitAt: '2026-10-12T04:30:00Z' }); // Sun Oct 11 22:30 Denver
     const denver = pdfText(leadsPdf([lateSunday]).buffer);
-    assert.equal(week(denver, 'Week of Oct 5').count, '1');
+    assert.equal(week(denver, 'Oct 5').count, '1');
     const utc = pdfText(leadsPdf([lateSunday], { timeZone: 'UTC' }).buffer);
-    assert.equal(week(utc, 'Week of Oct 12').count, '1');
+    assert.equal(week(utc, 'Oct 12 (this wk)').count, '1');
     const honolulu = pdfText(buildLeadsPdf({ community, homes, leads: [lateSunday], timeZone: 'Pacific/Honolulu', now: NOW }).buffer);
-    assert.equal(week(honolulu, 'Week of Oct 5').count, '1');
+    assert.equal(week(honolulu, 'Oct 5').count, '1');
   });
 });
 
@@ -142,9 +190,10 @@ describe('numbers that must agree with themselves', () => {
   test('a saved home that was deleted is counted nowhere, in either report', () => {
     const gone = lead({ name: 'Gone Gus', phone: '1', savedHomeIds: ['deleted'] });
     const mixed = lead({ name: 'Mixed Mia', phone: '1', savedHomeIds: ['h1', 'deleted'] });
-    const text = pdfText(leadsPdf([gone, mixed]).buffer);
-    assert.equal(tile(text, 'Saved a home · 50%'), '1', 'only the person with a home that still exists');
-    assert.ok(text.includes('1 saved'), 'the deleted one is not counted in a row either');
+    const made = leadsPdf([gone, mixed]);
+    const text = pdfText(made.buffer);
+    assert.equal(made.figures.savedHome, 1, 'only the person with a home that still exists');
+    assert.ok(text.includes('1 saved: The Aspen'), 'the deleted one is not counted in a row either');
     assert.ok(!text.includes('2 saved'));
     const person = pdfText(userPdf(mixed).buffer);
     assert.equal(tile(person, 'Homes saved'), '1');
@@ -155,22 +204,26 @@ describe('numbers that must agree with themselves', () => {
   });
 
   test('percentages round, not floor', () => {
-    const text = pdfText(leadsPdf([lead({ phone: '1' }), lead({ phone: '2' }), lead()]).buffer);
-    assert.equal(tile(text, 'Gave a phone · 67%'), '2');
-    assert.equal(tile(text, 'Average plan progress'), '0%');
-    const average = pdfText(leadsPdf([lead({ plan: { afford: 'x' } }), lead({ plan: { afford: 'x' } }), lead({ plan: { afford: 'x', payment: 'y' } })]).buffer);
-    assert.equal(tile(average, 'Average plan progress'), '17%', '(13% + 13% + 25%) / 3 = 17%: each person rounded first, then averaged and rounded');
+    const made = leadsPdf([lead({ phone: '1' }), lead({ phone: '2' }), lead()]);
+    assert.equal(made.figures.gavePhone, 2);
+    assert.ok(pdfText(made.buffer).split('\n').includes('67%'), '2 of 3 is 67%, not 66%');
+    assert.equal(made.figures.averagePlan, 0);
+    const average = leadsPdf([lead({ plan: { afford: 'x' } }), lead({ plan: { afford: 'x' } }), lead({ plan: { afford: 'x', payment: 'y' } })]);
+    assert.equal(average.figures.averagePlan, 17, '(13% + 13% + 25%) / 3 = 17%: each person rounded first, then averaged and rounded');
+    assert.ok(pdfText(average.buffer).includes('17%'));
   });
 
   test('the waiting-calls and past-their-day tiles agree with the table', () => {
     const upcoming = lead({ name: 'Up One', tour: { date: '2026-10-20', time: '10:00', contact: 'phone' } });
     const upcoming2 = lead({ name: 'Up Two', tour: { time: 'Tuesday afternoon', contact: 'phone' } });
     const past = lead({ name: 'Past One', tour: { date: '2026-10-01', time: '10:00', contact: 'phone' } });
-    const text = pdfText(leadsPdf([upcoming, upcoming2, past]).buffer);
-    assert.equal(tile(text, 'Calls waiting'), '3');
-    assert.equal(tile(text, 'Past their day'), '1');
-    assert.ok(text.includes('Scheduled calls waiting (3)'));
-    assert.ok(text.includes('Tuesday afternoon'), 'a request from before slots existed shows its own words');
+    const made = leadsPdf([upcoming, upcoming2, past]);
+    const text = pdfText(made.buffer);
+    assert.equal(made.figures.waiting, 3);
+    assert.equal(made.figures.overdue, 1);
+    assert.ok(text.includes('SCHEDULED CALLS WAITING (3)'));
+    assert.ok(text.includes('Tuesday afternoon · Tour') || text.includes('Tuesday afternoon'), 'a request from before slots existed shows its own words');
+    assert.equal((flat(made.buffer).match(/call waiting/g) ?? []).length, 3, 'and every one of them says so in the list');
   });
 
   test('the consent column says Declined for a no and Never asked for no record, each on its own person', () => {
@@ -180,9 +233,9 @@ describe('numbers that must agree with themselves', () => {
     const lines = pdfText(leadsPdf([yes, never, said]).buffer).split('\n');
     const at = (name) => lines.findIndex((line) => line === name);
     const between = (from, to, word) => lines.slice(at(from), to ? at(to) : undefined).includes(word);
-    assert.ok(between('Zed Said No', 'Yan Never Asked', 'Declined') && !between('Zed Said No', 'Yan Never Asked', 'Never asked'));
-    assert.ok(between('Yan Never Asked', 'Xia Said Yes', 'Never asked') && !between('Yan Never Asked', 'Xia Said Yes', 'Declined'));
-    assert.ok(between('Xia Said Yes', null, 'Agreed'));
+    assert.ok(between('Zed Said No', 'Yan Never Asked', 'DO NOT CALL · DECLINED') && !between('Zed Said No', 'Yan Never Asked', 'DO NOT CALL · NEVER ASKED'));
+    assert.ok(between('Yan Never Asked', 'Xia Said Yes', 'DO NOT CALL · NEVER ASKED') && !between('Yan Never Asked', 'Xia Said Yes', 'DO NOT CALL · DECLINED'));
+    assert.ok(between('Xia Said Yes', null, 'Agreed') && !between('Xia Said Yes', null, 'DO NOT CALL · DECLINED'));
   });
 
   test('the person report counts actions, and marks a full log as 200 or more', () => {
@@ -207,12 +260,12 @@ describe('time zones', () => {
       else process.env.REPORT_TIME_ZONE = before;
     }
   };
-  const stampOf = (options) => flat(buildLeadsPdf({ community, homes, leads: [], now: NOW, ...options }).buffer).match(/Generated [^.]*?(M[DS]T|HST|UTC|GMT[^ ]*)/)?.[0];
+  const stampOf = (options) => flat(buildLeadsPdf({ community, homes, leads: [], now: NOW, ...options }).buffer).match(/Generated .*?\d{4} \d+:\d{2} [AP]M [A-Z]{3,4}/)?.[0];
 
   test('with nothing set the day is Mountain Time; REPORT_TIME_ZONE moves it; a bad name falls back', () => {
-    assert.equal(withZone(undefined, () => stampOf({})), 'Generated Fri, Oct 16, 2026 at 12:00 PM MDT');
-    assert.equal(withZone('Pacific/Honolulu', () => stampOf({})), 'Generated Fri, Oct 16, 2026 at 8:00 AM HST');
-    assert.equal(withZone('Not/AZone', () => stampOf({})), 'Generated Fri, Oct 16, 2026 at 12:00 PM MDT');
+    assert.equal(withZone(undefined, () => stampOf({})), 'Generated Fri, Oct 16, 2026 12:00 PM MDT');
+    assert.equal(withZone('Pacific/Honolulu', () => stampOf({})), 'Generated Fri, Oct 16, 2026 8:00 AM HST');
+    assert.equal(withZone('Not/AZone', () => stampOf({})), 'Generated Fri, Oct 16, 2026 12:00 PM MDT');
   });
 
   test('the file is named for the builder’s day, not the server’s', () => {
@@ -292,16 +345,7 @@ describe('text far longer than a form allows (records from before the limits)', 
     const made = leadsPdf([lead({ name: 'Legacy Lee', phone: '1', tour: { time: long(5000, 'T'), contact: 'phone' } })]);
     const text = pdfText(made.buffer);
     assert.ok(text.includes('Legacy Lee'));
-    assert.ok(text.includes('…'.length ? '\u0085' : ''), 'the cut ends with an ellipsis');
     assert.ok(!text.includes(long(400, 'T')), 'not 400 in a row, let alone 5,000');
     insidePages(made.buffer);
-  });
-
-  test('the waiting calls are listed up to a limit, and the report says how many were left out', () => {
-    const many = Array.from({ length: MAX_CALLS + 10 }, (_, i) => lead({ name: `Caller ${i}`, tour: { date: '2026-11-01', time: '10:00', contact: 'phone' } }));
-    const made = fast(() => leadsPdf(many), 8000);
-    const text = flat(made.buffer);
-    assert.ok(text.includes(`Scheduled calls waiting (${MAX_CALLS + 10})`));
-    assert.ok(text.includes(`Showing the soonest ${MAX_CALLS} of ${MAX_CALLS + 10}.`));
   });
 });

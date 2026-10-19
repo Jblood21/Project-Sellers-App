@@ -65,8 +65,9 @@ test('new people: everyone open the first time, then only those after the last r
   assert.deepEqual(first.fresh.map((l) => l.id), [c.id, b.id, a.id], 'newest first');
   const next = buildReport({ community, homes, now: NOW, leads: [a, b, c, closed], since: '2026-10-05T10:00:00Z' });
   assert.deepEqual(next.fresh.map((l) => l.id), [c.id], 'strictly after the last report');
-  assert.equal(next.everyone, 4);
-  assert.equal(next.closed, 1);
+  assert.equal(next.everyone, 3, 'a closed person is not counted as anyone');
+  assert.ok(!next.leads.some((l) => l.id === closed.id), 'and is not in the list the spreadsheet is made from');
+  assert.equal(next.closed, undefined, 'there is no closed count to print');
 });
 
 test('the email says what is waiting, who is new and where everyone is', () => {
@@ -99,20 +100,22 @@ test('a long list is cut in the email and complete in the spreadsheet', () => {
   assert.equal(leadsCsv(report).trim().split('\r\n').length, many.length + 1, 'the header and every person');
 });
 
-test('the spreadsheet: one row per person, closed ones marked, anything typed by a visitor made safe', () => {
+test('the spreadsheet: one row per open person, no closed column, anything typed by a visitor made safe', () => {
   const pat = lead({
     name: '=HYPERLINK("http://evil.example","click")', email: 'pat@test.co', phone: '(801) 555-0101', notes: 'line one\nline two',
     savedHomeIds: ['h1'], plan: { afford: 'About $400k', dpa: 'May qualify' }, consent: { granted: true },
     tour: tour('2026-10-13', '14:00', { topic: 'lender', contact: 'email' }), status: 'contacted',
   });
-  const quiet = lead({ name: 'Quinn, Q', archivedAt: '2026-10-10T10:00:00Z', tour: tour('2026-10-14', '09:30', { handledAt: '2026-10-11T00:00:00Z' }) });
-  const csv = leadsCsv(buildReport({ community, homes, now: NOW, leads: [pat, quiet], baseUrl: 'https://t.example' }));
+  const quiet = lead({ name: 'Quinn, Q', tour: tour('2026-10-14', '09:30', { handledAt: '2026-10-11T00:00:00Z' }) });
+  const closed = lead({ name: 'Closed Cleo', email: 'cleo@test.co', archivedAt: '2026-10-10T10:00:00Z', tour: tour('2026-10-14', '09:30') });
+  const csv = leadsCsv(buildReport({ community, homes, now: NOW, leads: [pat, quiet, closed], baseUrl: 'https://t.example' }));
   const lines = csv.replace('﻿', '').split('\r\n');
-  assert.equal(lines[0], 'Name,Email,Second email,Phone,Agreed to calls and texts,Signed up,Call date,Call time,Call by,Call about,Call status,Homes saved,What they worked out,Status,Notes,Closed,Link');
-  assert.ok(lines[1].startsWith(`"'=HYPERLINK(""http://evil.example"",""click"")",pat@test.co,,(801) 555-0101,Yes,2026-10-01,2026-10-13,2:00 PM,Email,Financing (Summit Home Loans),Waiting,The Aspen,About $400k | May qualify,contacted,line one line two,,https://t.example/admin/communities/willow-creek-abcd/leads/`), lines[1]);
+  assert.equal(lines[0], 'Name,Email,Second email,Phone,Agreed to calls and texts,Signed up,Call date,Call time,Call by,Call about,Call status,Homes saved,What they worked out,Status,Notes,Link');
+  assert.ok(lines[1].startsWith(`"'=HYPERLINK(""http://evil.example"",""click"")",pat@test.co,,(801) 555-0101,Yes,2026-10-01,2026-10-13,2:00 PM,Email,Financing (Summit Home Loans),Waiting,The Aspen,About $400k | May qualify,contacted,line one line two,https://t.example/admin/communities/willow-creek-abcd/leads/`), lines[1]);
   assert.ok(lines[2].startsWith('"Quinn, Q",'), lines[2]);
   assert.match(lines[2], /,Handled,/);
-  assert.match(lines[2], /,Yes,https:\/\/t\.example\/.*$/, 'closed is marked');
+  assert.equal(lines.filter((l) => l !== '').length, 3, 'the header and two people');
+  assert.ok(!csv.includes('Closed Cleo') && !csv.includes('cleo@test.co'), 'a closed person is nowhere in it');
 });
 
 test('days are the builder\'s, not the server\'s: an evening call is still today, and a sign-up keeps its local date', () => {
@@ -158,7 +161,7 @@ test('new people are those after the last report and by the time this one was st
     since: '2026-10-10T10:00:00.000Z', until: '2026-10-12T15:00:00.000Z',
   });
   assert.deepEqual(report.fresh.map((l) => l.id), [exactly.id, inside.id], 'not the one who signed up after it started: that is the next report\'s');
-  assert.equal(report.everyone, 4, 'but the spreadsheet is still everyone');
+  assert.equal(report.everyone, 4, 'but the spreadsheet is still everyone who is open');
 });
 
 test('a long list of calls is cut too, each section on its own', () => {
@@ -202,4 +205,28 @@ test('a call with no time given leaves the time blank, and a name with a line br
   const text = reportText(buildReport({ community: { ...community, name: 'Willow\nCreek' }, homes, now: NOW, leads: [vague] }));
   assert.match(text, /^Willow Creek — leads report/);
   assert.match(text, /— Vera Vague\n/);
+});
+
+test('a closed person is never in a report: not new, not waiting for a call, not counted, not in the spreadsheet, not in the email', () => {
+  const open = lead({ name: 'Open Olive', firstVisitAt: '2026-10-11T10:00:00Z', tour: tour('2026-10-20') });
+  const closed = lead({
+    name: 'Closed Cleo', email: 'cleo@test.co', firstVisitAt: '2026-10-11T10:00:00Z', archivedAt: '2026-10-12T10:00:00Z',
+    tour: tour('2026-10-20'), consent: { granted: true }, notes: 'Do not include',
+  });
+  const stillWaiting = lead({ name: 'Closed Wes', archivedAt: '2026-10-12T10:00:00Z', tour: tour('2026-10-09') }); // an unhandled call, once overdue
+  const report = buildReport({ community, homes, now: NOW, leads: [open, closed, stillWaiting], baseUrl: 'https://t.example' });
+  assert.deepEqual(report.comingUp.map((l) => l.id), [open.id]);
+  assert.deepEqual(report.overdue, []);
+  assert.deepEqual(report.fresh.map((l) => l.id), [open.id]);
+  assert.equal(report.everyone, 1);
+  const csv = leadsCsv(report);
+  const text = reportText(report);
+  for (const out of [csv, text]) {
+    assert.ok(!/Closed Cleo|Closed Wes|cleo@test\.co|Do not include/.test(out), 'nothing about them');
+  }
+  assert.match(text, /Everyone \(1 person\) is in the attached spreadsheet/);
+  assert.ok(!/closed/i.test(text.replace(/Closed/g, '')) || !/\d+ closed/.test(text), 'and no "N closed" line');
+  // Reopened (the app clears archivedAt when they book again): they are back.
+  const back = buildReport({ community, homes, now: NOW, leads: [{ ...closed, archivedAt: null }] });
+  assert.equal(back.everyone, 1);
 });

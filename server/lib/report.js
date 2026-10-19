@@ -73,7 +73,7 @@ export const toCsv = (rows) => `﻿${rows.map((row) => row.map(csvCell).join(','
 
 const COLUMNS = [
   'Name', 'Email', 'Second email', 'Phone', 'Agreed to calls and texts', 'Signed up', 'Call date', 'Call time',
-  'Call by', 'Call about', 'Call status', 'Homes saved', 'What they worked out', 'Status', 'Notes', 'Closed', 'Link',
+  'Call by', 'Call about', 'Call status', 'Homes saved', 'What they worked out', 'Status', 'Notes', 'Link',
 ];
 
 /**
@@ -91,27 +91,29 @@ export function buildReport({
   const savedNames = (lead) => (lead.savedHomeIds ?? []).map((id) => homeName.get(id)).filter(Boolean);
   const byCall = (a, b) => `${a.tour.date || '9999-12-31'} ${a.tour.time || ''}`.localeCompare(`${b.tour.date || '9999-12-31'} ${b.tour.time || ''}`);
 
-  const waiting = leads.filter(isTourPending);
+  // People the team has closed (archived) are never in a report, whatever else is asked: they are dropped here, once,
+  // before anything is listed or counted, so the email, the spreadsheet and the PDF cannot disagree about it. Somebody
+  // who books a time again is reopened by the app, and so is back.
+  const people = leads.filter((lead) => !isArchived(lead));
+  const waiting = people.filter(isTourPending);
   const comingUp = waiting.filter((lead) => !lead.tour.date || lead.tour.date >= today).sort(byCall);
   const overdue = waiting.filter((lead) => lead.tour.date && lead.tour.date < today).sort(byCall);
   const sinceTime = when(since);
   const untilTime = when(until);
-  const fresh = leads
-    .filter((lead) => !isArchived(lead)
-      && (Number.isNaN(sinceTime) || when(lead.firstVisitAt) > sinceTime)
+  const fresh = people
+    .filter((lead) => (Number.isNaN(sinceTime) || when(lead.firstVisitAt) > sinceTime)
       && (Number.isNaN(untilTime) || when(lead.firstVisitAt) <= untilTime))
     .sort((a, b) => when(b.firstVisitAt) - when(a.firstVisitAt));
 
   return {
     community, today, since, dayOf, link, savedNames, comingUp, overdue, fresh,
-    everyone: leads.length,
-    closed: leads.filter(isArchived).length,
-    leads,
+    everyone: people.length,
+    leads: people,
     filename: `${slugify(community.name) || 'community'}-leads-${today}.csv`,
   };
 }
 
-/** The spreadsheet: one row per person, oldest first, closed ones included and marked. */
+/** The spreadsheet: one row per person, oldest first. Closed people are not in it. */
 export function leadsCsv(report) {
   const lender = lenderNameOf(report.community);
   const rows = [COLUMNS];
@@ -128,12 +130,11 @@ export function leadsCsv(report) {
       tour?.time ? (tour.date ? formatSlotTime(tour.time) : oneLine(tour.time)) : '',
       tour ? (tour.contact === 'email' ? 'Email' : 'Phone') : '',
       tour ? (tour.topic === 'lender' ? `Financing (${lender})` : 'Tour of the community') : '',
-      tour ? (tour.handledAt ? 'Handled' : isArchived(lead) ? 'Closed' : 'Waiting') : '',
+      tour ? (tour.handledAt ? 'Handled' : 'Waiting') : '',
       report.savedNames(lead).join('; '),
       Object.values(lead.plan ?? {}).map(oneLine).filter(Boolean).join(' | '),
       lead.status ?? '',
       oneLine(lead.notes),
-      isArchived(lead) ? 'Yes' : '',
       report.link(lead),
     ]);
   }
@@ -190,7 +191,7 @@ export function reportText(report) {
       : ['  No one new.']),
     ...(fresh.length > listed.length ? [`  …and ${fresh.length - listed.length} more, in the spreadsheet.`] : []),
     '',
-    `Everyone (${plural(report.everyone, 'person', 'people')}${report.closed ? `, ${report.closed} closed` : ''}) is in the attached spreadsheet, ${report.filename}.`,
+    `Everyone (${plural(report.everyone, 'person', 'people')}) is in the attached spreadsheet, ${report.filename}.`,
     '',
     'Mark a call handled in the dashboard once you have been in touch, so it leaves the list.',
   );

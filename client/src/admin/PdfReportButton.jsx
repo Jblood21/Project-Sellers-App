@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
+import { DEFAULT_LEAD_SORT, LEAD_SORTS } from '@shared/domain.js';
 import { adminApi } from '../lib/api.js';
 import { useAdmin } from './AdminContext.jsx';
 import { ErrorNote } from './ui.jsx';
@@ -20,9 +21,10 @@ const hidden = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', 
  * (nothing is emailed), and covers everyone or only those who signed up in the last 7, 30 or 90 days. The report
  * is built when the button is pressed, from what is in the app at that moment.
  *
- * `title` and `note` let a screen say what it is for; the Leads and Stats tabs both use it.
+ * `sort` is the order chosen on the Leads tab (its Recent / Most ★ pills); the people in the PDF are listed in that
+ * order. A screen with no such choice (Stats) gets the newest first. `title` and `note` let a screen say what it is for.
  */
-export default function PdfReportButton({ community, title = '', note = '' }) {
+export default function PdfReportButton({ community, title = '', note = '', sort = DEFAULT_LEAD_SORT }) {
   const { token } = useAdmin();
   const id = useId();
   const [period, setPeriod] = useState('all');
@@ -50,7 +52,7 @@ export default function PdfReportButton({ community, title = '', note = '' }) {
     setError('');
     setSaved('');
     try {
-      setSaved(await adminApi.downloadLeadsPdf(token, community.id, period));
+      setSaved(await adminApi.downloadLeadsPdf(token, community.id, period, sort));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -79,6 +81,7 @@ export default function PdfReportButton({ community, title = '', note = '' }) {
       </div>
       {/* Always on the page, so a screen reader announces the text when it arrives (a region added with its text is often missed). */}
       <span role="status" style={hidden}>{saved ? `Download started: ${saved}` : ''}</span>
+      <span className="text-muted" style={textStyle}>Listed {(LEAD_SORTS[sort] ?? LEAD_SORTS[DEFAULT_LEAD_SORT]).report.toLowerCase()}.</span>
       {saved ? <p style={{ ...textStyle, margin: 0, fontWeight: 600 }}>Download started: {saved}</p> : null}
       <ErrorNote>{error}</ErrorNote>
     </div>

@@ -1,6 +1,6 @@
 import {
-  PLAN_KEYS, PLAN_LABELS, THEMES, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending, lenderNameOf, money,
-  planProgress, slugify,
+  DEFAULT_LEAD_SORT, LEAD_SORTS, PLAN_KEYS, PLAN_LABELS, THEMES, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending,
+  lenderNameOf, money, planProgress, slugify, sortLeads,
 } from '../../shared/domain.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
 import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, wrapText } from './pdf.js';
@@ -21,8 +21,6 @@ import { buildReport, reportTimeZone } from './report.js';
 
 /** Longest roster printed in the leads report; the emailed report's spreadsheet has everyone. */
 export const MAX_PEOPLE = 2000;
-/** Longest list of waiting calls printed; there are never anywhere near this many, but a report must not grow without limit. */
-export const MAX_CALLS = 500;
 
 /** The periods the leads report can cover, by the key the request names. */
 export const PERIODS = {
@@ -131,9 +129,44 @@ function startDocument({ community, title, subtitle, generated, theme }) {
   return { doc, primary, accent };
 }
 
-/** The leads report for a development, as a PDF. */
-export function buildLeadsPdf({ community, leads = [], homes = [], now = new Date(), period = 'all', timeZone = reportTimeZone() }) {
+/** The page furniture of the leads report: a running header, the title band and a footer, on narrow margins. */
+function startLeadsDocument({ community, subtitle, generated, theme }) {
+  const name = oneLine(community.name);
+  const doc = new PdfDocument({ title: `${name} · Leads report`, subject: subtitle, margin: 36 });
+  const primary = hexToRgb(theme.primary);
+  const accent = hexToRgb(theme.accent);
+  const running = (d) => d.text(fitLine(`${name} · Leads report`, { size: 7.5, width: d.contentWidth }), { y: 24, size: 7.5, color: COLORS.muted });
+  running(doc);
+  doc.onNewPage(running);
+
+  // Title band: the name and what the report covers on the left, when it was made on the right.
+  const top = doc.margin;
+  const bandHeight = 48;
+  doc.rect({ x: doc.left, y: top, w: doc.contentWidth, h: bandHeight, fill: primary });
+  doc.rect({ x: doc.left, y: top + bandHeight, w: doc.contentWidth, h: 3, fill: accent });
+  const stampLines = [`Generated ${generated.day}`, generated.clock];
+  const stampWidth = Math.max(...stampLines.map((line) => textWidth(line, 'regular', 8)));
+  doc.text(fitLine(name, { font: 'bold', size: 17, width: doc.contentWidth - stampWidth - 40 }), { x: doc.left + 14, y: top + 22, size: 17, font: 'bold', color: COLORS.white });
+  doc.text(fitLine(subtitle, { size: 8.5, width: doc.contentWidth - stampWidth - 40 }), { x: doc.left + 14, y: top + 37, size: 8.5, color: [0.88, 0.9, 0.93] });
+  stampLines.forEach((line, i) => doc.text(line, { x: doc.left, y: top + 21 + i * 11, size: 8, color: [0.88, 0.9, 0.93], align: 'right', width: doc.contentWidth - 14 }));
+  doc.y = top + bandHeight + 3;
+
+  doc.setFooter((d, page, count) => {
+    const y = d.height - 22;
+    d.text('Confidential. Personal information about app users; keep it private.', { y, size: 7, color: COLORS.muted });
+    d.text(`Page ${page} of ${count}`, { y, size: 7.5, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth });
+  });
+  return { doc, primary, accent };
+}
+
+/**
+ * The leads report for a development, as a PDF: a title band, a strip of eight figures, three small panels (the homes
+ * people saved, the tools they used, sign-ups by week) and then everyone, in the order `sort` names (the Leads tab's own
+ * Recent / Most ★ choice). People the team has closed are never in it (see buildReport).
+ */
+export function buildLeadsPdf({ community, leads = [], homes = [], now = new Date(), period = 'all', sort = DEFAULT_LEAD_SORT, timeZone = reportTimeZone() }) {
   const range = Object.hasOwn(PERIODS, period) ? PERIODS[period] : PERIODS.all;
+  const order = Object.hasOwn(LEAD_SORTS, sort) ? sort : DEFAULT_LEAD_SORT;
   const lender = clip(lenderNameOf(community), 80);
   const homeName = new Map(homes.map((home) => [home.id, clip(home.name, 80)]));
   // The same homes a person's saved list means: one that was deleted since is no longer counted or named.
@@ -142,135 +175,190 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
   // "The last 7 days" is today and the six days before it, by the builder's calendar, so the cut is a midnight.
   const firstDay = range.days ? addDays(today, 1 - range.days) : null;
   const signedUp = (lead) => (Number.isNaN(when(lead.firstVisitAt)) ? '' : calendarDay(when(lead.firstVisitAt), timeZone));
-  const byNewest = (a, b) => (when(b.firstVisitAt) || 0) - (when(a.firstVisitAt) || 0);
-  const roster = leads.filter((lead) => !firstDay || (signedUp(lead) && signedUp(lead) >= firstDay)).sort(byNewest);
+  // Closed people are never in a report: buildReport has already left them out, so everything below is about `people`.
+  const calls = buildReport({ community, leads, homes, now, timeZone });
+  const people = calls.leads;
+  const roster = sortLeads(people.filter((lead) => !firstDay || (signedUp(lead) && signedUp(lead) >= firstDay)), order);
   const since = Boolean(firstDay);
   const shown = roster.slice(0, MAX_PEOPLE);
-  const calls = buildReport({ community, leads, homes, now, timeZone });
   const waiting = [...calls.comingUp, ...calls.overdue];
-  const waitingShown = waiting.slice(0, MAX_CALLS);
 
   const theme = themeOf(community);
-  const generated = `${stamp(now, timeZone)} ${zoneName(timeZone, now)}`;
-  const { doc, accent } = startDocument({
-    community, title: 'Leads report', generated, theme,
-    subtitle: [since ? `${range.label} (since ${dayName(firstDay)})` : range.label, community.location && community.location !== 'Location TBD' ? clip(community.location, 80) : '']
-      .filter(Boolean).join(' · '),
+  const generated = { day: stamp(now, timeZone).split(' at ')[0], clock: `${stamp(now, timeZone).split(' at ')[1]} ${zoneName(timeZone, now)}` };
+  const { doc, primary, accent } = startLeadsDocument({
+    community, generated, theme,
+    subtitle: ['Leads report', since ? `${range.label} (since ${dayName(firstDay)})` : range.label,
+      community.location && community.location !== 'Location TBD' ? clip(community.location, 80) : '', LEAD_SORTS[order].report].filter(Boolean).join(' · '),
   });
+  const wash = [0.93, 0.94, 0.945];
 
-  // ── the summary ──
+  // ── the strip of figures ──
   const withPhone = roster.filter((lead) => lead.phone).length;
   const agreed = roster.filter((lead) => lead.consent?.granted).length;
+  const declined = roster.filter((lead) => lead.consent && !lead.consent.granted).length;
+  const neverAsked = roster.length - agreed - declined;
   const savedAny = roster.filter((lead) => savedOf(lead).length > 0).length;
   const average = roster.length ? Math.round(roster.reduce((sum, lead) => sum + planProgress(lead), 0) / roster.length) : 0;
-  const closed = roster.filter(isArchived).length;
-  const pct = (n) => (roster.length ? ` · ${Math.round((n / roster.length) * 100)}%` : '');
-  doc.statRow([
-    { label: since ? `People (of ${leads.length} in all)` : 'People', value: String(roster.length) },
-    { label: 'Open · closed', value: `${roster.length - closed} · ${closed}` },
-    { label: 'Calls waiting', value: String(waiting.length) },
-    { label: 'Past their day', value: String(calls.overdue.length) },
-    { label: `Gave a phone${pct(withPhone)}`, value: String(withPhone) },
-    { label: `Agreed to calls${pct(agreed)}`, value: String(agreed) },
-    { label: `Saved a home${pct(savedAny)}`, value: String(savedAny) },
-    { label: 'Average plan progress', value: `${average}%` },
-  ], { accent });
-  if (since) doc.paragraph('Calls waiting and Past their day count everyone, not only the people in this period.', { size: 8, color: COLORS.muted, gap: 2 });
+  const contacted = roster.filter((lead) => lead.status === 'contacted').length;
+  const pct = (n) => (roster.length ? `${Math.round((n / roster.length) * 100)}%` : '');
+  const noCall = declined + neverAsked;
+  doc.statStrip([
+    { value: String(roster.length), label: 'People', sub: since ? `of ${people.length} in all` : `${contacted} contacted` },
+    { value: String(waiting.length), label: 'Calls waiting' },
+    { value: String(calls.overdue.length), label: 'Past their day' },
+    { value: String(withPhone), label: 'Gave phone', sub: pct(withPhone) },
+    { value: String(agreed), label: 'Agreed to calls', sub: pct(agreed) },
+    { value: String(savedAny), label: 'Saved a home', sub: pct(savedAny) },
+    { value: `${average}%`, label: 'Avg plan progress' },
+    {
+      value: String(noCall), label: 'Do not call',
+      sub: !noCall ? 'no one' : declined && neverAsked ? `${declined} declined · ${neverAsked} never asked` : declined ? 'declined' : 'never asked',
+    },
+  ], { border: [0.8, 0.82, 0.84] });
+  if (since) doc.paragraph('Calls waiting and Past their day count everyone, not only the people in this period.', { size: 7.5, color: COLORS.muted, gap: 0 });
 
-  // ── what people did ──
-  if (leads.length) {
-    doc.heading('What people did');
-    if (roster.length) {
-      const saves = new Map();
-      for (const lead of roster) for (const id of savedOf(lead)) saves.set(id, (saves.get(id) ?? 0) + 1);
-      const topHomes = [...saves.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, n]) => ({ label: homeName.get(id), value: n, note: plural(n, 'save') }));
-      const toolUse = PLAN_KEYS.filter((key) => key !== 'homes')
-        .map((key) => ({ label: PLAN_LABELS[key], value: roster.filter((lead) => lead.plan?.[key]).length }))
-        .filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
+  // A section heading in the community's colour, with a rule under it.
+  const heading = (text, { x = doc.left, y, width = doc.contentWidth }) => {
+    doc.text(fitLine(text.toUpperCase(), { font: 'bold', size: 6.8, width }), { x, y: y + 7, size: 6.8, font: 'bold', color: primary, spacing: 0.5 });
+    doc.rule({ x1: x, x2: x + width, y: y + 11, color: primary, weight: 0.9 });
+    return y + 19;
+  };
+  /** A bar on a light track, `fraction` of the way across. */
+  const bar = ({ x, y, w, h = 5, fraction, color }) => {
+    doc.rect({ x, y, w, h, fill: wash });
+    if (fraction > 0) doc.rect({ x, y, w: Math.max(1.5, w * Math.min(1, fraction)), h, fill: color });
+  };
 
-      subhead(doc, 'Most saved homes');
-      if (topHomes.length) doc.barList(topHomes, { color: accent });
-      else doc.paragraph('No one has saved a home yet.', { color: COLORS.muted, gap: 4 });
+  // ── the three panels ──
+  if (people.length) {
+    const gap = 10.5;
+    const inner = doc.contentWidth - gap * 2;
+    const widths = [inner * 0.242, inner * 0.394, inner * 0.364];
+    const xs = [doc.left, doc.left + widths[0] + gap, doc.left + widths[0] + widths[1] + gap * 2];
 
-      doc.moveDown(8);
-      subhead(doc, 'Tools used (people who saved a result)');
-      if (toolUse.length) doc.barList(toolUse.map((item) => ({ ...item, note: `${item.value} of ${roster.length}` })), { color: accent });
-      else doc.paragraph('No one has saved a tool result yet.', { color: COLORS.muted, gap: 4 });
-      doc.moveDown(8);
-    }
-
-    // Sign-ups by week over the last eight weeks, from all leads so the trend does not depend on the period chosen.
+    const saves = new Map();
+    for (const lead of roster) for (const id of savedOf(lead)) saves.set(id, (saves.get(id) ?? 0) + 1);
+    const topHomes = [...saves.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const tools = PLAN_KEYS.filter((key) => key !== 'homes')
+      .map((key, index) => ({ key, index, label: PLAN_LABELS[key], value: roster.filter((lead) => lead.plan?.[key]).length }))
+      .sort((a, b) => b.value - a.value || a.index - b.index);
+    // Sign-ups by week over the last eight weeks, from all open people so the trend does not depend on the period chosen.
     const weeks = Array.from({ length: 8 }, (_, i) => addDays(mondayOf(today), -7 * (7 - i)));
     const counts = new Map(weeks.map((start) => [start, 0]));
-    for (const lead of leads) {
+    for (const lead of people) {
       const day = signedUp(lead);
       if (day && counts.has(mondayOf(day))) counts.set(mondayOf(day), counts.get(mondayOf(day)) + 1);
     }
-    subhead(doc, 'Sign-ups per week (last 8 weeks, all people)');
-    doc.barList(weeks.map((start, i) => ({
-      label: `Week of ${formatter('UTC', { month: 'short', day: 'numeric' }).format(new Date(`${start}T00:00:00Z`))}${i === 7 ? ' (this week)' : ''}`,
-      value: counts.get(start), note: String(counts.get(start)),
-    })), { color: accent });
-  }
+    const shownCalls = waiting.slice(0, 5);
 
-  // ── scheduled calls ──
-  doc.heading(`Scheduled calls waiting (${waiting.length})`);
-  if (waiting.length > waitingShown.length) {
-    doc.paragraph(`Showing the soonest ${waitingShown.length} of ${waiting.length}.`, { color: COLORS.muted, gap: 4 });
+    const row = 13;
+    const leftHeight = 19 + Math.max(1, topHomes.length) * row + 12 + 19 + (waiting.length ? shownCalls.length * 21 + (waiting.length > 5 ? 11 : 0) : 12);
+    const height = Math.max(leftHeight, 19 + tools.length * row, 19 + weeks.length * row) + 8;
+    doc.ensure(height);
+    const top = doc.y + 6;
+
+    // left: the homes people saved most, then the calls waiting
+    let y = heading('Most saved homes', { x: xs[0], y: top, width: widths[0] });
+    if (topHomes.length) {
+      for (const [id, n] of topHomes) {
+        const count = plural(n, 'save');
+        doc.text(fitLine(homeName.get(id), { size: 8, width: widths[0] - textWidth(count, 'bold', 8) - 8 }), { x: xs[0], y: y + 8, size: 8 });
+        doc.text(count, { x: xs[0], y: y + 8, size: 8, font: 'bold', align: 'right', width: widths[0] });
+        y += row;
+      }
+    } else {
+      doc.text(roster.length ? 'No one has saved a home yet.' : 'No one in this period.', { x: xs[0], y: y + 8, size: 8, color: COLORS.muted });
+      y += row;
+    }
+    y = heading(`Scheduled calls waiting (${waiting.length})`, { x: xs[0], y: y + 12, width: widths[0] });
+    if (waiting.length) {
+      for (const lead of shownCalls) {
+        const overdue = calls.overdue.includes(lead);
+        const [day, time] = callWhen(lead.tour);
+        doc.text(fitLine([day.replace(/, \d{4}$/, ''), time].filter(Boolean).join(' · '), { font: 'bold', size: 7.8, width: widths[0] }), { x: xs[0], y: y + 8, size: 7.8, font: 'bold', color: overdue ? RED : COLORS.ink });
+        doc.text(fitLine(`${clip(lead.name, 60)} · ${lead.tour.topic === 'lender' ? 'Financing' : 'Tour'}`, { size: 7.2, width: widths[0] }), { x: xs[0], y: y + 17.5, size: 7.2, color: COLORS.muted });
+        y += 21;
+      }
+      if (waiting.length > shownCalls.length) {
+        doc.text(`+${waiting.length - shownCalls.length} more: see Status in the list`, { x: xs[0], y: y + 7, size: 7, color: COLORS.muted });
+      }
+    } else {
+      doc.text('No scheduled calls are waiting.', { x: xs[0], y: y + 8, size: 8, color: COLORS.muted });
+    }
+
+    // middle: which tools people used
+    y = heading('Tools used · people who saved a result', { x: xs[1], y: top, width: widths[1] });
+    const labelW = 80;
+    const countW = 34;
+    if (!roster.length) doc.text('No one in this period.', { x: xs[1], y: y + 8, size: 8, color: COLORS.muted });
+    for (const tool of roster.length ? tools : []) {
+      doc.text(fitLine(tool.label, { size: 7.8, width: labelW - 4 }), { x: xs[1], y: y + 8, size: 7.8 });
+      bar({ x: xs[1] + labelW, y: y + 3, w: widths[1] - labelW - countW - 6, fraction: roster.length ? tool.value / roster.length : 0, color: primary });
+      doc.text(`${tool.value} of ${roster.length}`, { x: xs[1], y: y + 8, size: 7.2, color: COLORS.muted, align: 'right', width: widths[1] });
+      y += row;
+    }
+
+    // right: sign-ups for each of the last eight weeks
+    y = heading('Sign-ups per week · last 8 weeks', { x: xs[2], y: top, width: widths[2] });
+    const most = Math.max(1, ...counts.values());
+    weeks.forEach((start, i) => {
+      const label = formatter('UTC', { month: 'short', day: 'numeric' }).format(new Date(`${start}T00:00:00Z`));
+      doc.text(`${label}${i === weeks.length - 1 ? ' (this wk)' : ''}`, { x: xs[2], y: y + 8, size: 7.8 });
+      bar({ x: xs[2] + 64, y: y + 3, w: widths[2] - 64 - 18, fraction: counts.get(start) / most, color: accent });
+      doc.text(String(counts.get(start)), { x: xs[2], y: y + 8, size: 7.8, font: 'bold', align: 'right', width: widths[2] });
+      y += row;
+    });
+    doc.y = top + height - 6;
   }
-  doc.table({
-    columns: [
-      { label: 'WHEN', width: 1.6 }, { label: 'PERSON', width: 1.7 }, { label: 'ABOUT', width: 1.5 }, { label: 'HOW TO REACH THEM', width: 2.6 },
-    ],
-    rows: waitingShown.map((lead) => {
-      const overdue = calls.overdue.includes(lead);
-      const [day, time] = callWhen(lead.tour);
-      return [
-        [{ text: day, font: 'bold', color: overdue ? RED : COLORS.ink }, ...(time ? [time] : []), ...(overdue ? [{ text: 'Past their day', color: RED }] : [])],
-        [{ text: clip(lead.name, 120), font: 'bold' }, { text: `by ${lead.tour.contact === 'email' ? 'email' : 'phone'}`, color: COLORS.muted }],
-        callAbout(lead, lender),
-        [...reachWith(lead), ...(lead.consent?.granted ? [] : [{ text: `Do not call · ${lead.consent ? 'declined' : 'never asked'}`, color: RED }])],
-      ];
-    }),
-    empty: 'No scheduled calls are waiting.',
-  });
 
   // ── everyone ──
-  doc.heading(`${since ? range.label : 'Everyone'} (${roster.length})`);
-  if (roster.length > shown.length) {
-    doc.paragraph(`Showing the newest ${shown.length} of ${roster.length} people. The spreadsheet in the emailed report has everyone.`, { color: COLORS.muted, gap: 4 });
+  doc.ensure(60);
+  {
+    const y = doc.y + 4;
+    heading(`${since ? range.label : 'Everyone'} (${roster.length})`, { y });
+    doc.y = y + 19;
   }
+  if (roster.length > shown.length) {
+    doc.paragraph(`Showing the first ${shown.length} of ${roster.length} people. The spreadsheet in the emailed report has everyone.`, { size: 7.5, color: COLORS.muted, gap: 4 });
+  }
+  const small = 7;
   doc.table({
     columns: [
-      { label: 'NAME AND CONTACT', width: 3.3 }, { label: 'SIGNED UP', width: 1.15 }, { label: 'PLAN', width: 0.7, align: 'right' },
-      { label: 'SAVED HOMES', width: 1.7 }, { label: 'STATUS', width: 1.2 }, { label: 'CONSENT', width: 1.1 },
+      { label: 'NAME', width: 2.1 }, { label: 'PHONE · CONSENT', width: 2.5 }, { label: 'SIGNED UP', width: 1.12 },
+      { label: 'PLAN', width: 0.7, align: 'right' }, { label: 'SAVED HOMES', width: 1.7 }, { label: 'STATUS', width: 1.38 },
     ],
+    size: 8, padX: 6, padY: 4.5, header: primary, rules: false,
     rows: shown.map((lead) => {
       const names = savedOf(lead).map((id) => homeName.get(id));
-      const note = clip(lead.notes, 140);
+      const consent = lead.consent;
+      const reach = lead.phone || 'No phone';
       return [
         [
-          { text: clip(lead.name, 120), font: 'bold' },
-          { text: lead.email, color: COLORS.muted },
-          ...(lead.extraEmails ?? []).map((email) => ({ text: `also ${email}`, color: COLORS.muted })),
-          { text: lead.phone || 'No phone', color: COLORS.muted },
-          ...(note ? [{ text: `Note: ${note}`, font: 'italic', color: COLORS.muted, size: 7.5 }] : []),
+          { text: clip(lead.name, 120) },
+          { text: lead.email, color: COLORS.muted, size: small },
+          ...(lead.extraEmails ?? []).map((email) => ({ text: `also ${email}`, color: COLORS.muted, size: small })),
         ],
+        consent?.granted
+          ? [{ parts: [{ text: `${reach} · ` }, { text: 'Agreed', font: 'bold' }] }]
+          : [{ text: reach }, { tag: true, text: `DO NOT CALL · ${consent ? 'DECLINED' : 'NEVER ASKED'}`, size: 6.2 }],
         dayText(lead.firstVisitAt, timeZone),
         `${planProgress(lead)}%`,
-        names.length ? [`${names.length} saved`, { text: names.slice(0, 3).join(', ') + (names.length > 3 ? `, +${names.length - 3} more` : ''), color: COLORS.muted, size: 7.5 }] : [{ text: 'None', color: COLORS.muted }],
-        [
-          isArchived(lead) ? { text: 'Closed', font: 'bold' } : lead.status === 'contacted' ? 'Contacted' : 'New',
-          ...(lead.tour ? [{ text: isTourPending(lead) ? 'Call waiting' : lead.tour.handledAt ? 'Call handled' : 'Call booked', color: isTourPending(lead) ? RED : COLORS.muted }] : []),
-        ],
-        { text: consentWords(lead), color: lead.consent && !lead.consent.granted ? RED : lead.consent ? COLORS.ink : COLORS.muted },
-      ].map((cell) => (typeof cell === 'object' && !Array.isArray(cell) && cell.text !== undefined ? [cell] : cell));
+        names.length ? `${names.length} saved: ${names.slice(0, 3).join(', ')}${names.length > 3 ? `, +${names.length - 3} more` : ''}` : { text: 'None', color: COLORS.muted },
+        { font: 'bold', text: `${lead.status === 'contacted' ? 'Contacted' : 'New'}${lead.tour ? ` · call ${isTourPending(lead) ? 'waiting' : lead.tour.handledAt ? 'handled' : 'booked'}` : ''}` },
+      ].map((cell) => (typeof cell === 'object' && !Array.isArray(cell) && (cell.text !== undefined || cell.parts) ? [cell] : cell));
     }),
     empty: since ? 'No one signed up in this period.' : 'No one has signed up yet.',
   });
 
   const filename = `${slugify(community.name) || 'community'}-leads-${today}.pdf`;
-  return { buffer: doc.finish(), filename, people: roster.length, pages: doc.pages.length };
+  return {
+    buffer: doc.finish(), filename, people: roster.length, pages: doc.pages.length,
+    // The numbers in the strip at the top, for whoever needs them without reading the file.
+    figures: {
+      people: roster.length, everyone: people.length, contacted, waiting: waiting.length, overdue: calls.overdue.length, gavePhone: withPhone,
+      agreed, declined, neverAsked, doNotCall: noCall, savedHome: savedAny, averagePlan: average,
+    },
+  };
 }
 
 /** One person's report, as a PDF. */

@@ -277,15 +277,15 @@ export class PdfDocument {
   // ── drawing, at explicit positions ─────────────────────────────────────
 
   /** One line of text with its baseline at `y`. `align` is relative to x and, for right and centre, to `width`. */
-  text(value, { x = this.left, y = this.y, size = 10, font = 'regular', color = COLORS.ink, align = 'left', width = 0 } = {}) {
+  text(value, { x = this.left, y = this.y, size = 10, font = 'regular', color = COLORS.ink, align = 'left', width = 0, spacing = 0 } = {}) {
     const converted = toWinAnsi(value);
     if (converted === '') return 0;
-    const w = textWidth(converted, font, size);
+    const w = textWidth(converted, font, size) + spacing * converted.length;
     let px = x;
     if (align === 'right') px = x + width - w;
     else if (align === 'center') px = x + (width - w) / 2;
     this.current.ops.push(
-      `BT ${colorOps(color)} /${FONT_NAMES[font] ?? 'F1'} ${num(size)} Tf 1 0 0 1 ${num(px)} ${num(this.height - y)} Tm <${hexOf(converted)}> Tj ET`,
+      `BT ${colorOps(color)} /${FONT_NAMES[font] ?? 'F1'} ${num(size)} Tf ${num(spacing)} Tc 1 0 0 1 ${num(px)} ${num(this.height - y)} Tm <${hexOf(converted)}> Tj ET`,
     );
     return w;
   }
@@ -294,12 +294,33 @@ export class PdfDocument {
     this.current.ops.push(`${colorOps(color, true)} ${num(weight)} w ${num(x1)} ${num(this.height - y)} m ${num(x2)} ${num(this.height - y)} l S`);
   }
 
+  /** A vertical line at `x` from `y1` down to `y2`. */
+  vrule({ x, y1, y2, color = COLORS.rule, weight = 0.6 }) {
+    this.current.ops.push(`${colorOps(color, true)} ${num(weight)} w ${num(x)} ${num(this.height - y1)} m ${num(x)} ${num(this.height - y2)} l S`);
+  }
+
   rect({ x, y, w, h, fill = null, stroke = null, weight = 0.6 }) {
     const ops = [];
     if (fill) ops.push(colorOps(fill));
     if (stroke) ops.push(colorOps(stroke, true), `${num(weight)} w`);
     ops.push(`${num(x)} ${num(this.height - y - h)} ${num(w)} ${num(h)} re ${fill && stroke ? 'B' : fill ? 'f' : 'S'}`);
     this.current.ops.push(ops.join(' '));
+  }
+
+  /** A "no" sign: a ring with a slash through it, centred on (cx, cy). */
+  prohibit({ cx, cy, r, color = COLORS.ink, weight = 1 }) {
+    const k = 0.5523 * r;
+    const X = (v) => num(v);
+    const Y = (v) => num(this.height - v);
+    this.current.ops.push([
+      `${colorOps(color, true)} ${num(weight)} w`,
+      `${X(cx + r)} ${Y(cy)} m`,
+      `${X(cx + r)} ${Y(cy - k)} ${X(cx + k)} ${Y(cy - r)} ${X(cx)} ${Y(cy - r)} c`,
+      `${X(cx - k)} ${Y(cy - r)} ${X(cx - r)} ${Y(cy - k)} ${X(cx - r)} ${Y(cy)} c`,
+      `${X(cx - r)} ${Y(cy + k)} ${X(cx - k)} ${Y(cy + r)} ${X(cx)} ${Y(cy + r)} c`,
+      `${X(cx + k)} ${Y(cy + r)} ${X(cx + r)} ${Y(cy + k)} ${X(cx + r)} ${Y(cy)} c`,
+      `${X(cx - r * 0.7071)} ${Y(cy + r * 0.7071)} m ${X(cx + r * 0.7071)} ${Y(cy - r * 0.7071)} l S`,
+    ].join(' '));
   }
 
   // ── flow: things that move the cursor and break pages ──────────────────
@@ -342,6 +363,39 @@ export class PdfDocument {
     }
   }
 
+  /**
+   * One row of figures joined into a strip with thin rules between them: [{ value, label, sub? }]. A label or the line
+   * under it that is too long for its cell goes onto a second line. Returns nothing; the cursor moves below the strip.
+   */
+  statStrip(cells, { border = COLORS.rule, pad = 8 } = {}) {
+    const cellWidth = this.contentWidth / cells.length;
+    const inner = cellWidth - pad * 2;
+    const laid = cells.map((cell) => ({
+      ...cell,
+      labelLines: wrapText(String(cell.label).toUpperCase(), { size: 6.6, width: inner }).slice(0, 2),
+      subLines: cell.sub ? wrapText(String(cell.sub), { size: 7, width: inner }).slice(0, 2) : [],
+    }));
+    const height = 26 + Math.max(...laid.map((c) => c.labelLines.length * 8 + c.subLines.length * 8.6)) + 9;
+    this.ensure(height + 6);
+    const top = this.y;
+    this.rect({ x: this.left, y: top, w: this.contentWidth, h: height, stroke: border, weight: 0.7 });
+    laid.forEach((cell, i) => {
+      const x = this.left + i * cellWidth;
+      if (i > 0) this.vrule({ x, y1: top, y2: top + height, color: border, weight: 0.7 });
+      this.text(fitLine(String(cell.value), { font: 'bold', size: 16, width: inner }), { x: x + pad, y: top + 20, size: 16, font: 'bold' });
+      let y = top + 31;
+      for (const line of cell.labelLines) {
+        this.text(line, { x: x + pad, y, size: 6.6, color: COLORS.muted });
+        y += 8;
+      }
+      for (const line of cell.subLines) {
+        this.text(line, { x: x + pad, y: y + 0.6, size: 7, color: COLORS.muted });
+        y += 8.6;
+      }
+    });
+    this.y = top + height + 6;
+  }
+
   /** Horizontal bars: [{ label, value, note? }], the longest value filling the width. */
   barList(items, { labelWidth = 150, rowHeight = 17, color = COLORS.ink, size = 9 } = {}) {
     const max = Math.max(1, ...items.map((i) => i.value));
@@ -358,11 +412,12 @@ export class PdfDocument {
 
   /**
    * A table. columns: [{ label, width (a share of the width), align? }]. rows: arrays of cells, a cell being a string
-   * or a list of lines, a line being a string or { text, font, color, size }. A row is never split across pages, and
+   * or a list of lines, a line being a string or { text, font, color, size } or { tag: true, text, color } (a boxed
+   * label with a "no" sign, for a warning that must not be missed). A row is never split across pages, and
    * the header row is drawn again at the top of each new page, never left alone at the foot of one. A cell too tall
    * for a page (a long note) is cut short with "..." rather than run off it.
    */
-  table({ columns, rows, size = 8.5, padX = 5, padY = 4, header = COLORS.ink, headerText = COLORS.white, zebra = true, empty = '' }) {
+  table({ columns, rows, size = 8.5, padX = 5, padY = 4, header = COLORS.ink, headerText = COLORS.white, zebra = true, rules = true, empty = '' }) {
     const total = columns.reduce((sum, c) => sum + c.width, 0);
     const widths = columns.map((c) => (c.width / total) * this.contentWidth);
     const headerHeight = 17;
@@ -379,13 +434,31 @@ export class PdfDocument {
           const spec = typeof item === 'string' ? { text: item } : item;
           const lineSize = spec.size ?? size;
           const font = spec.font ?? 'regular';
+          if (spec.parts) {
+            // One line in two styles ("(801) 555-0100 · Agreed" with the last word bold); too wide, it is one plain cut line.
+            const parts = spec.parts.map((part) => ({ text: toWinAnsi(part.text), font: part.font ?? 'regular', color: part.color ?? spec.color ?? COLORS.ink }));
+            const wide = parts.reduce((sum, part) => sum + textWidth(part.text, part.font, lineSize), 0);
+            if (height + lineSize * 1.32 > tallest) break outer;
+            if (wide <= widths[i] - padX * 2) lines.push({ parts, size: lineSize, h: lineSize * 1.32 });
+            else lines.push({ text: fitLine(parts.map((part) => part.text).join(''), { size: lineSize, width: widths[i] - padX * 2 }), font: 'regular', color: spec.color ?? COLORS.ink, size: lineSize, h: lineSize * 1.32 });
+            height += lineSize * 1.32;
+            continue;
+          }
+          if (spec.tag) {
+            const h = lineSize + 8;
+            if (height + h > tallest) break outer;
+            const room = widths[i] - padX * 2 - lineSize - 16;
+            lines.push({ tag: true, text: fitLine(spec.text, { font: 'bold', size: lineSize, width: room }), font: 'bold', color: spec.color ?? COLORS.ink, size: lineSize, h });
+            height += h;
+            continue;
+          }
           for (const line of wrapText(spec.text, { font, size: lineSize, width: widths[i] - padX * 2 })) {
             if (height + lineSize * 1.32 > tallest) {
               const last = lines[lines.length - 1];
-              if (last) last.text = fitLine(`${last.text} ...`, { font: last.font, size: last.size, width: widths[i] - padX * 2 });
+              if (last && !last.tag) last.text = fitLine(`${last.text} ...`, { font: last.font, size: last.size, width: widths[i] - padX * 2 });
               break outer;
             }
-            lines.push({ text: line, font, color: spec.color ?? COLORS.ink, size: lineSize });
+            lines.push({ text: line, font, color: spec.color ?? COLORS.ink, size: lineSize, h: lineSize * 1.32 });
             height += lineSize * 1.32;
           }
         }
@@ -423,14 +496,27 @@ export class PdfDocument {
       cells.forEach((lines, i) => {
         let ly = this.y + padY;
         for (const line of lines) {
-          this.text(line.text, {
-            x: x + padX, width: widths[i] - padX * 2, y: ly + line.size * 0.95, size: line.size, font: line.font, color: line.color, align: columns[i].align ?? 'left',
-          });
-          ly += line.size * 1.32;
+          if (line.tag) {
+            const boxW = line.size + 12 + textWidth(toWinAnsi(line.text), 'bold', line.size) + line.text.length * 0.3;
+            this.rect({ x: x + padX, y: ly + 1.5, w: boxW, h: line.h - 3, stroke: line.color, weight: 1 });
+            this.prohibit({ cx: x + padX + 4 + line.size * 0.5, cy: ly + line.h / 2, r: line.size * 0.5, color: line.color, weight: 0.9 });
+            this.text(line.text, { x: x + padX + line.size + 8, y: ly + line.h / 2 + line.size * 0.34, size: line.size, font: 'bold', color: line.color, spacing: 0.3 });
+          } else if (line.parts) {
+            let px = x + padX;
+            for (const part of line.parts) {
+              this.text(part.text, { x: px, y: ly + line.size * 0.95, size: line.size, font: part.font, color: part.color });
+              px += textWidth(part.text, part.font, line.size);
+            }
+          } else {
+            this.text(line.text, {
+              x: x + padX, width: widths[i] - padX * 2, y: ly + line.size * 0.95, size: line.size, font: line.font, color: line.color, align: columns[i].align ?? 'left',
+            });
+          }
+          ly += line.h;
         }
         x += widths[i];
       });
-      this.rule({ y: this.y + height, color: COLORS.rule, weight: 0.4 });
+      if (rules) this.rule({ y: this.y + height, color: COLORS.rule, weight: 0.4 });
       this.y += height;
     });
     this.y += 4;
