@@ -15,7 +15,9 @@ import { emailConfigured } from '../lib/email.js';
 import { buildReport, emailReport, reportDay } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
-import { DEFAULT_LEAD_SORT, LEAD_SORTS, describeTour, isTourPending, isUnread, lenderNameOf } from '../../shared/domain.js';
+import {
+  DEFAULT_LEAD_SORT, LEAD_SORTS, describeTour, isReadyToCall, isTourPending, isUnread, lenderNameOf,
+} from '../../shared/domain.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
@@ -344,12 +346,19 @@ export function adminRouter() {
    * are open (closed ones are never counted), how many of them nobody has opened yet and how many wait for a call,
    * and the calls themselves, those past their day first and then the soonest. Read-only, built from the same
    * `buildReport` the emailed report uses, so the two agree about who is waiting.
+   *
+   * `ready` is everyone who agreed to calls and texts and gave a number but never booked a call (isReadyToCall):
+   * people the team may ring who have not asked for a time. Those nobody has marked contacted come first, then the
+   * most recent to agree; the list is capped and `totals` says how many there are.
    */
+  // The most people the Today page lists who agreed to calls without asking for a time; each community's Leads has the rest.
+  const READY_LISTED = 500;
   router.get('/today', async (_req, res) => {
     const store = await getStore();
     const now = new Date();
     const communities = [];
     const calls = [];
+    const ready = [];
     for (const row of await store.listCommunities()) {
       const [community, leads] = await Promise.all([store.getCommunity(row.id), store.listLeads(row.id)]);
       if (!community) continue;
@@ -363,20 +372,37 @@ export function adminRouter() {
           canCall: Boolean(lead.phone && lead.consent?.granted), when: describeTour(lead.tour, lender), overdue,
         });
       }
+      const agreed = report.leads.filter(isReadyToCall);
+      for (const lead of agreed) {
+        ready.push({
+          communityId: community.id, communityName: community.name, leadId: lead.id, name: lead.name, phone: lead.phone,
+          agreedAt: lead.consent?.at ?? null, firstVisitAt: lead.firstVisitAt ?? null, contacted: lead.status === 'contacted',
+        });
+      }
       communities.push({
         id: community.id, name: community.name, location: community.location, status: community.status, theme: community.theme,
         homesCount: row.homesCount, people: report.leads.length, unread: report.leads.filter(isUnread).length,
         waiting: report.comingUp.length + report.overdue.length, overdue: report.overdue.length,
+        ready: agreed.length, readyNew: agreed.filter((lead) => lead.status !== 'contacted').length,
       });
     }
     const sum = (key) => communities.reduce((total, c) => total + c[key], 0);
     // One order across every community, then the cap: a call that is past its day in the last community must not
     // be cut off by the later calls of the first. (Past their day means an earlier day, so the day alone orders them.)
     calls.sort((a, b) => a.key.localeCompare(b.key));
+    const time = (value) => {
+      const t = value ? new Date(value).getTime() : Number.NaN;
+      return Number.isNaN(t) ? -Infinity : t;
+    };
+    ready.sort((a, b) => (a.contacted - b.contacted) || (time(b.agreedAt ?? b.firstVisitAt) - time(a.agreedAt ?? a.firstVisitAt)));
     res.json({
       communities,
       calls: calls.slice(0, 30).map(({ key, ...call }) => call),
-      totals: { communities: communities.length, people: sum('people'), unread: sum('unread'), waiting: sum('waiting'), overdue: sum('overdue') },
+      ready: ready.slice(0, READY_LISTED).map(({ firstVisitAt, ...person }) => person),
+      totals: {
+        communities: communities.length, people: sum('people'), unread: sum('unread'), waiting: sum('waiting'), overdue: sum('overdue'),
+        ready: sum('ready'), readyNew: sum('readyNew'),
+      },
     });
   });
 
