@@ -1338,11 +1338,11 @@ export function isArchived(lead) {
 }
 
 /**
- * Somebody the team may ring who has not asked for a time: they agreed to calls and texts, gave a number, have no
- * call waiting and are not closed. (Once their call is handled they are back here, still agreed.)
+ * Somebody the team may ring who has never asked for a time: they agreed to calls and texts, gave a number, have
+ * booked no call (waiting or handled) and are not closed.
  */
 export function isReadyToCall(lead) {
-  return Boolean(lead?.phone && lead.consent?.granted && !isArchived(lead) && !isTourPending(lead));
+  return Boolean(lead?.phone && lead.consent?.granted && !isArchived(lead) && !lead.tour);
 }
 
 /**

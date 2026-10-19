@@ -8,7 +8,7 @@ import NavIcon from '../shell/navIcons.jsx';
 import { PillRow } from '../ui.jsx';
 
 /**
- * Everyone, across every community, who agreed to calls and texts and gave a number but has not asked for a time:
+ * Everyone, across every community, who agreed to calls and texts and gave a number but never asked for a time:
  * people the team may ring. Each opens in their own community's Leads, with that list showing the same people.
  *
  * The list scrolls in its own box, so a long one does not push the communities off the page, and it can be narrowed
@@ -18,18 +18,22 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
   const [view, setView] = useState('new');
   const [query, setQuery] = useState('');
   const [where, setWhere] = useState('');
-  const places = communities.filter((community) => community.ready > 0);
+  // Only the communities somebody in the current view belongs to, so picking one never shows an empty list.
+  const inView = people.filter((person) => view === 'all' || !person.contacted);
+  const places = communities.filter((community) => inView.some((person) => person.communityId === community.id));
+  // A community chosen before the view changed, with nobody left in it, is no longer a choice.
+  const place = places.some((community) => community.id === where) ? where : '';
 
   const rows = useMemo(() => {
     const words = query.trim().toLowerCase();
     const digits = words.replace(/\D/g, '');
     return people.filter((person) => (view === 'all' || !person.contacted)
-      && (!where || person.communityId === where)
+      && (!place || person.communityId === place)
       && (!words
         || person.name.toLowerCase().includes(words)
         || person.communityName.toLowerCase().includes(words)
         || (digits.length >= 3 && person.phone.replace(/\D/g, '').includes(digits))));
-  }, [people, query, view, where]);
+  }, [people, place, query, view]);
 
   if (!total) {
     return (
@@ -65,7 +69,7 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
             onChange={(event) => setQuery(event.target.value)}
           />
           {places.length > 1 ? (
-            <select className="input" aria-label="Community" value={where} onChange={(event) => setWhere(event.target.value)}>
+            <select className="input" aria-label="Community" value={place} onChange={(event) => setWhere(event.target.value)}>
               <option value="">Every community</option>
               {places.map((community) => <option key={community.id} value={community.id}>{community.name}</option>)}
             </select>
@@ -76,7 +80,7 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
       <div className="as-ready" role="region" aria-label="People who agreed to calls but have not booked one" tabIndex={-1}>
         {rows.length === 0 ? (
           <p className="text-muted" style={{ fontSize: 13, margin: 0, padding: 16 }}>
-            {view === 'new' && !query && !where ? 'Everyone here has been contacted. Choose Everyone to see them.' : 'No one matches.'}
+            {view === 'new' && !query && !place ? 'Everyone here has been contacted. Choose Everyone to see them.' : 'No one matches.'}
           </p>
         ) : (
           <ul className="as-ready__list">

@@ -284,8 +284,8 @@ button for people who agreed to calls and an Email button), the people nobody ha
 community. It is fed by `GET /api/admin/today`, which counts closed (archived) people nowhere.
 
 Under the calls waiting, **Agreed to calls, no call booked** lists everyone, in every community, who agreed to calls
-and texts and gave a number but has no call waiting (`isReadyToCall` in `shared/domain.js`; a person whose call was
-handled is back on it). Each row shows the name, the number and the community, with Call and Text buttons, and opens
+and texts and gave a number but has never booked a call (`isReadyToCall` in `shared/domain.js`; somebody whose call was
+handled booked one, so is not on it). Each row shows the name, the number and the community, with Call and Text buttons, and opens
 the person in their community's Leads with the **Agreed, no call** filter on (`?show=ready`). The list scrolls in its
 own box, starts on the people nobody has marked contacted (a switch shows everyone), and can be searched by name or
 number and narrowed to one community. It lists up to 500, those not contacted first and then the most recent to

@@ -347,7 +347,7 @@ export function adminRouter() {
    * and the calls themselves, those past their day first and then the soonest. Read-only, built from the same
    * `buildReport` the emailed report uses, so the two agree about who is waiting.
    *
-   * `ready` is everyone who agreed to calls and texts and gave a number but has no call waiting (isReadyToCall):
+   * `ready` is everyone who agreed to calls and texts and gave a number but never booked a call (isReadyToCall):
    * people the team may ring who have not asked for a time. Those nobody has marked contacted come first, then the
    * most recent to agree; the list is capped and `totals` says how many there are.
    */

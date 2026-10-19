@@ -159,10 +159,10 @@ for (const kind of backends()) {
       const mine = ready.filter((person) => [first, second].includes(person.communityId));
       assert.deepEqual(
         mine.map((person) => person.name),
-        ['Latest Lu', 'Handled Hank', 'Early Eve', 'Contacted Cora'],
-        'not contacted first, the most recent to agree first; a handled call is back here',
+        ['Latest Lu', 'Early Eve', 'Contacted Cora'],
+        'not contacted first, the most recent to agree first',
       );
-      for (const name of ['Waiting Wren', 'Declined Dot', 'Mailonly Max', 'Closed Cal', 'Never Ned']) {
+      for (const name of ['Handled Hank', 'Waiting Wren', 'Declined Dot', 'Mailonly Max', 'Closed Cal', 'Never Ned']) {
         assert.ok(!ready.some((person) => person.name === name), `${name} is not on it`);
       }
       assert.ok(never.id, 'a lead with no consent record was made');
@@ -176,7 +176,7 @@ for (const kind of backends()) {
       assert.equal(mine.at(-1).contacted, true);
       assert.ok(!('email' in lu) && !('firstVisitAt' in lu), 'only what the list shows');
       const byName = Object.fromEntries(communities.map((c) => [c.name, c]));
-      assert.deepEqual([byName['Ready Alpha'].ready, byName['Ready Alpha'].readyNew], [2, 2]);
+      assert.deepEqual([byName['Ready Alpha'].ready, byName['Ready Alpha'].readyNew], [1, 1], 'a person who booked a call, even one handled since, is not one who booked none');
       assert.deepEqual([byName['Ready Beta'].ready, byName['Ready Beta'].readyNew], [2, 1]);
       assert.equal(totals.ready, communities.reduce((sum, c) => sum + c.ready, 0));
       assert.equal(totals.readyNew, communities.reduce((sum, c) => sum + c.readyNew, 0));
