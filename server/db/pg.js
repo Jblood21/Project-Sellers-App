@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 import {
-  communitySlugCandidates, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead,
+  communitySlugCandidates, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead, toolOfActivity,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
@@ -98,6 +98,15 @@ export function createPostgresStore(connectionString) {
       [leadId],
     );
     return shapeConsent(rows[0] ?? null);
+  };
+
+  /** How many times each tool was opened or worked in, from the activity log: { payment: 3 }. */
+  const toolUsesFor = async (leadId) => {
+    const { rows } = await q(
+      `SELECT tool, count(*)::int AS n FROM lead_activity WHERE lead_id = $1 AND tool IS NOT NULL AND tool <> '' GROUP BY tool`,
+      [leadId],
+    );
+    return Object.fromEntries(rows.map((r) => [r.tool, r.n]));
   };
 
   const activityFor = async (leadId, limit = 200) => {
@@ -222,6 +231,22 @@ export function createPostgresStore(connectionString) {
 
     async init() {
       await q(readFileSync(join(here, 'schema.sql'), 'utf8'));
+      // Activity written before each line was tagged with the tool it belongs to: tag it, so what people did before
+      // still counts as the use of a tool. Rows are only ever tagged once (a line with no tool is tagged ''), and
+      // tagging the same row twice, from two instances booting together, writes the same thing.
+      // In batches, walking the ids, so a large log is neither read at once nor scanned again for every batch.
+      let after = 0;
+      for (;;) {
+        const { rows: untagged } = await q(`SELECT id, text FROM lead_activity WHERE tool IS NULL AND id > $1 ORDER BY id LIMIT 5000`, [after]);
+        if (!untagged.length) break;
+        after = untagged[untagged.length - 1].id;
+        const byTool = new Map();
+        for (const row of untagged) {
+          const tool = toolOfActivity(row.text);
+          byTool.set(tool, [...(byTool.get(tool) ?? []), row.id]);
+        }
+        for (const [tool, ids] of byTool) await q(`UPDATE lead_activity SET tool = $1 WHERE id = ANY($2::bigint[])`, [tool, ids]);
+      }
       // Every community that has never been given the supplied guides gets them
       // now: this is how communities that existed before guides shipped receive
       // them. The flag is claimed inside the same transaction as the inserts, so
@@ -979,13 +1004,16 @@ export function createPostgresStore(connectionString) {
                    FROM lead_plan_items p WHERE p.lead_id = l.id) AS plan,
                 (SELECT row_to_json(m) FROM lead_movein m WHERE m.lead_id = l.id) AS movein,
                 (SELECT row_to_json(c) FROM lead_consents c WHERE c.lead_id = l.id
-                  ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS consent
+                  ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS consent,
+                (SELECT coalesce(json_object_agg(t.tool, t.n), '{}'::json)
+                   FROM (SELECT a.tool, count(*)::int AS n FROM lead_activity a
+                          WHERE a.lead_id = l.id AND a.tool IS NOT NULL AND a.tool <> '' GROUP BY a.tool) t) AS tool_uses
          FROM leads l WHERE l.community_id = $1 ORDER BY l.first_visit_at`,
         [communityId],
       );
       return rows.map((r) => ({
         ...shapeLead(r, {
-          plan: r.plan || {}, moveIn: shapeMoveIn(r.movein), consent: shapeConsent(r.consent),
+          plan: r.plan || {}, moveIn: shapeMoveIn(r.movein), consent: shapeConsent(r.consent), toolUses: r.tool_uses || {},
         }),
         activityCount: r.activity_count,
       }));
@@ -996,7 +1024,7 @@ export function createPostgresStore(connectionString) {
       if (!rows[0]) return null;
       return shapeLead(rows[0], {
         plan: await planFor(id), activity: await activityFor(id), moveIn: await moveInFor(id),
-        consent: await consentFor(id),
+        consent: await consentFor(id), toolUses: await toolUsesFor(id),
       });
     },
 
@@ -1014,7 +1042,7 @@ export function createPostgresStore(connectionString) {
       if (!row) return null;
       return shapeLead(row, {
         plan: await planFor(row.id), activity: await activityFor(row.id),
-        consent: await consentFor(row.id),
+        consent: await consentFor(row.id), toolUses: await toolUsesFor(row.id),
       });
     },
 
@@ -1095,7 +1123,7 @@ export function createPostgresStore(connectionString) {
     },
 
     async addActivity(leadId, text) {
-      await q(`INSERT INTO lead_activity (lead_id, text) VALUES ($1,$2)`, [leadId, text]);
+      await q(`INSERT INTO lead_activity (lead_id, text, tool) VALUES ($1,$2,$3)`, [leadId, text, toolOfActivity(text)]);
     },
   };
 }

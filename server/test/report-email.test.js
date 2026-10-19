@@ -140,9 +140,9 @@ for (const kind of backends()) {
       assert.deepEqual(mail.to, ['sales@report.test']);
       const name = (await admin(`/communities/${cid}`)).body.name;
       assert.equal(mail.subject, `${name}: 2 scheduled calls waiting, 5 new people`);
-      assert.match(mail.text, /SCHEDULED CALLS WAITING \(1\)/);
-      assert.match(mail.text, /Pat Vale/);
-      assert.match(mail.text, /PAST THEIR DAY AND NOT MARKED HANDLED \(1\)\n {2}.* — Quinn Past/);
+      assert.match(mail.text, /SCHEDULED CALLS WAITING \(2\)/);
+      assert.match(mail.text, /— Quinn Past[^]*— Pat Vale/, 'one list, in the order of their day');
+      assert.doesNotMatch(mail.text, /PAST THEIR DAY/i);
       assert.match(mail.text, /NEW PEOPLE SINCE THE LAST REPORT \(5\)/);
       assert.match(mail.text, new RegExp(`/admin/communities/${cid}/leads/${pat.lead.id}`), 'a link to each person');
       assert.match(mail.text, /Saved: The Aspen/);

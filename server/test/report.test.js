@@ -54,6 +54,7 @@ test('calls: waiting ones only, split into coming up and past their day, soonest
   const report = buildReport({ community, homes, now: NOW, leads: [later, nobody, handled, soon, closed, past, noDate, sooner] });
   assert.deepEqual(report.comingUp.map((l) => l.id), [sooner.id, soon.id, later.id, noDate.id], 'soonest first; one with no date after the dated ones');
   assert.deepEqual(report.overdue.map((l) => l.id), [past.id]);
+  assert.deepEqual(report.waiting.map((l) => l.id), [past.id, sooner.id, soon.id, later.id, noDate.id], 'a report lists them all in the order of their day, not apart');
 });
 
 test('new people: everyone open the first time, then only those after the last report; closed ones are never listed', () => {
@@ -80,9 +81,10 @@ test('the email says what is waiting, who is new and where everyone is', () => {
   const text = reportText(report);
   assert.match(text, /^Willow Creek — leads report for Mon, Oct 12, 2026\nThis is the first report, so everyone is new\./);
   assert.match(text, /SCHEDULED CALLS WAITING \(1\)\n {2}Tue, Oct 13 at 2:00 PM · by email · about financing \(Summit Home Loans\) — Pat Vale\n {4}\(801\) 555-0101 · pat@test\.co · also spouse@test\.co\n {4}https:\/\/touradoor\.example\/admin\/communities\/willow-creek-abcd\/leads\/l/);
-  assert.doesNotMatch(text, /PAST THEIR DAY/, 'that section appears only when there is something in it');
+  assert.doesNotMatch(text, /PAST THEIR DAY/i);
   assert.match(text, /NEW PEOPLE SINCE THE LAST REPORT \(1\)\n {2}Pat Vale — \(801\) 555-0101/);
   assert.match(text, /Saved: The Aspen, The Birch · Agreed to calls and texts/, 'a deleted home is skipped');
+  assert.match(text, /Used: My Price Range\n/, 'the tools they used are named, because their answer was saved');
   assert.match(text, /Worked out: You can afford about \$400,000\./);
   assert.match(text, /Everyone \(1 person\) is in the attached spreadsheet, willow-creek-leads-2026-10-12\.csv\./);
   const empty = reportText(buildReport({ community, homes, now: NOW, leads: [], since: '2026-10-09T10:00:00Z' }));
@@ -110,8 +112,8 @@ test('the spreadsheet: one row per open person, no closed column, anything typed
   const closed = lead({ name: 'Closed Cleo', email: 'cleo@test.co', archivedAt: '2026-10-10T10:00:00Z', tour: tour('2026-10-14', '09:30') });
   const csv = leadsCsv(buildReport({ community, homes, now: NOW, leads: [pat, quiet, closed], baseUrl: 'https://t.example' }));
   const lines = csv.replace('﻿', '').split('\r\n');
-  assert.equal(lines[0], 'Name,Email,Second email,Phone,Agreed to calls and texts,Signed up,Call date,Call time,Call by,Call about,Call status,Homes saved,What they worked out,Status,Notes,Link');
-  assert.ok(lines[1].startsWith(`"'=HYPERLINK(""http://evil.example"",""click"")",pat@test.co,,(801) 555-0101,Yes,2026-10-01,2026-10-13,2:00 PM,Email,Financing (Summit Home Loans),Waiting,The Aspen,About $400k | May qualify,contacted,line one line two,https://t.example/admin/communities/willow-creek-abcd/leads/`), lines[1]);
+  assert.equal(lines[0], 'Name,Email,Second email,Phone,Agreed to calls and texts,Signed up,Call date,Call time,Call by,Call about,Call status,Homes saved,Tools used,What they worked out,Status,Notes,Link');
+  assert.ok(lines[1].startsWith(`"'=HYPERLINK(""http://evil.example"",""click"")",pat@test.co,,(801) 555-0101,Yes,2026-10-01,2026-10-13,2:00 PM,Email,Financing (Summit Home Loans),Waiting,The Aspen,My Price Range; Down Payment Help,About $400k | May qualify,contacted,line one line two,https://t.example/admin/communities/willow-creek-abcd/leads/`), lines[1]);
   assert.ok(lines[2].startsWith('"Quinn, Q",'), lines[2]);
   assert.match(lines[2], /,Handled,/);
   assert.equal(lines.filter((l) => l !== '').length, 3, 'the header and two people');
@@ -164,17 +166,30 @@ test('new people are those after the last report and by the time this one was st
   assert.equal(report.everyone, 4, 'but the spreadsheet is still everyone who is open');
 });
 
-test('a long list of calls is cut too, each section on its own', () => {
+test('a long list of calls is cut too, in one list in the order of their day', () => {
   const waiting = Array.from({ length: MAX_LISTED + 3 }, (_, i) => lead({ name: `Caller ${i}`, tour: tour('2026-10-20', `${String(8 + (i % 10)).padStart(2, '0')}:00`) }));
   const late = Array.from({ length: MAX_LISTED + 2 }, (_, i) => lead({ name: `Late ${i}`, tour: tour('2026-10-01') }));
   const text = reportText(buildReport({ community, homes, now: NOW, leads: [...waiting, ...late] }));
-  const calls = text.split('PAST THEIR DAY')[0];
-  const past = text.split('PAST THEIR DAY')[1].split('NEW PEOPLE')[0];
-  assert.equal((calls.match(/— Caller \d+/g) ?? []).length, MAX_LISTED);
-  assert.match(calls, /SCHEDULED CALLS WAITING \(53\)/, 'the heading still counts them all');
-  assert.match(calls, /…and 3 more, in the spreadsheet\./);
-  assert.equal((past.match(/— Late \d+/g) ?? []).length, MAX_LISTED);
-  assert.match(past, /…and 2 more, in the spreadsheet\./);
+  const calls = text.split('NEW PEOPLE')[0];
+  assert.match(calls, /SCHEDULED CALLS WAITING \(105\)/, 'the heading counts them all');
+  assert.equal((calls.match(/— (Caller|Late) \d+/g) ?? []).length, MAX_LISTED);
+  assert.match(calls, /…and 55 more, in the spreadsheet\./);
+  assert.ok(!/— Caller/.test(calls), 'the earlier days come first, so the fifty listed are the earliest');
+  assert.doesNotMatch(text, /PAST THEIR DAY/i);
+});
+
+test('a tool counts when it was used, not only when its answer was saved: the email and the spreadsheet name it', () => {
+  const opened = lead({ name: 'Opened Olive', toolUses: { payment: 3, loans: 1 }, plan: {}, savedHomeIds: [] });
+  const none = lead({ name: 'Nothing Nell' });
+  const report = buildReport({ community, homes, now: NOW, leads: [opened, none] });
+  const text = reportText(report);
+  assert.match(text, /Opened Olive — [^\n]*\n {4}Signed up [^\n]*\n {4}Used: My Payment, My Loan Options\n/, 'used, with nothing saved');
+  const lines = text.split('\n');
+  const nell = lines.findIndex((line) => line.includes('Nothing Nell —'));
+  assert.ok(nell !== -1 && !/^ {4}Used:/.test(lines[nell + 2] ?? ''), 'someone who used nothing has no Used line');
+  const rows = leadsCsv(report).replace('﻿', '').split('\r\n');
+  assert.match(rows[1], /,My Payment; My Loan Options,,/, 'the spreadsheet column, with no saved answer after it');
+  assert.ok(/Nothing Nell.*,,,/.test(rows[2]));
 });
 
 test('a person who cannot be called says so beside their number, as in the Leads tab', () => {

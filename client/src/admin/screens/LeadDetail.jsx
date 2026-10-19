@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
-  formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS, TOOL_KEYS,
-  describeTour, isTourPending, lenderNameOf, planProgress,
+  formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS, TOOL_ORDER,
+  describeTour, isTourPending, lenderNameOf, toolsUsedOf,
 } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -95,7 +95,8 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
   const tel = canReach ? telHref(lead.phone) : '';
   const sms = canReach ? textHref(lead.phone) : '';
   const savedHomes = lead.savedHomeIds.map((id) => community.homes.find((h) => h.id === id)).filter(Boolean);
-  const planItems = TOOL_KEYS.filter((key) => lead.plan[key]).map((key) => ({ key, summary: lead.plan[key] }));
+  // Every tool they used, with what it worked out when they kept the answer.
+  const toolsUsed = toolsUsedOf(lead).map((key) => ({ key, summary: lead.plan[key] || '' }));
 
   /**
    * Every change here has to be pushed back to the list this screen was opened
@@ -141,7 +142,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: 21 }}>{lead.name}</h3>
           <span className="text-muted" style={{ fontSize: 12 }}>
-            First visit {shortDate(lead.firstVisitAt)} · plan {planProgress(lead)}% complete
+            First visit {shortDate(lead.firstVisitAt)} · {toolsUsed.length} of {TOOL_ORDER.length} tools used
           </span>
         </div>
         <span className={lead.status === 'new' ? 'tag tag-accent' : 'tag tag-neutral'}>
@@ -242,14 +243,14 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
       </div>
 
       <div className="card" style={{ gap: 10, marginBottom: 12 }}>
-        <span className="card-kicker">Their home plan so far</span>
-        {planItems.length === 0 ? (
+        <span className="card-kicker">Tools they used</span>
+        {toolsUsed.length === 0 ? (
           <span className="text-muted" style={{ fontSize: 13 }}>Hasn&apos;t used any tools yet.</span>
         ) : null}
-        {planItems.map((item) => (
+        {toolsUsed.map((item) => (
           <div key={item.key}>
             <div style={{ fontSize: 13.5, fontWeight: 700 }}>{PLAN_LABELS[item.key]}</div>
-            <div className="text-muted" style={{ fontSize: 13 }}>{item.summary}</div>
+            <div className="text-muted" style={{ fontSize: 13 }}>{item.summary || 'Used. Nothing saved.'}</div>
           </div>
         ))}
       </div>

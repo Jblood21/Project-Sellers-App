@@ -1,10 +1,15 @@
 import {
-  DEFAULT_LEAD_SORT, LEAD_SORTS, PLAN_KEYS, PLAN_LABELS, THEMES, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending,
-  lenderNameOf, money, planProgress, slugify, sortLeads,
+  DEFAULT_LEAD_SORT, LEAD_SORTS, PLAN_LABELS, THEMES, TOOL_ORDER, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending,
+  lenderNameOf, money, slugify, sortLeads, toolsUsedOf,
 } from '../../shared/domain.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
 import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, wrapText } from './pdf.js';
 import { buildReport, reportTimeZone } from './report.js';
+
+/** The tools by short names, for the places a full list has to fit a narrow column. */
+const TOOL_SHORT = {
+  afford: 'Price range', payment: 'Payment', loans: 'Loans', compare: 'Compare', dpa: 'Down payment help', savings: 'Savings', movein: 'Move-in',
+};
 
 /**
  * The reports a builder can download as a PDF: the leads report for a development, and the report for one person.
@@ -160,7 +165,7 @@ function startLeadsDocument({ community, subtitle, generated, theme }) {
 }
 
 /**
- * The leads report for a development, as a PDF: a title band, a strip of eight figures, three small panels (the homes
+ * The leads report for a development, as a PDF: a title band, a strip of six figures, three small panels (the homes
  * people saved, the tools they used, sign-ups by week) and then everyone, in the order `sort` names (the Leads tab's own
  * Recent / Most ★ choice). People the team has closed are never in it (see buildReport).
  */
@@ -181,7 +186,7 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
   const roster = sortLeads(people.filter((lead) => !firstDay || (signedUp(lead) && signedUp(lead) >= firstDay)), order);
   const since = Boolean(firstDay);
   const shown = roster.slice(0, MAX_PEOPLE);
-  const waiting = [...calls.comingUp, ...calls.overdue];
+  const waiting = calls.waiting;
 
   const theme = themeOf(community);
   const generated = { day: stamp(now, timeZone).split(' at ')[0], clock: `${stamp(now, timeZone).split(' at ')[1]} ${zoneName(timeZone, now)}` };
@@ -198,24 +203,21 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
   const declined = roster.filter((lead) => lead.consent && !lead.consent.granted).length;
   const neverAsked = roster.length - agreed - declined;
   const savedAny = roster.filter((lead) => savedOf(lead).length > 0).length;
-  const average = roster.length ? Math.round(roster.reduce((sum, lead) => sum + planProgress(lead), 0) / roster.length) : 0;
   const contacted = roster.filter((lead) => lead.status === 'contacted').length;
   const pct = (n) => (roster.length ? `${Math.round((n / roster.length) * 100)}%` : '');
   const noCall = declined + neverAsked;
   doc.statStrip([
     { value: String(roster.length), label: 'People', sub: since ? `of ${people.length} in all` : `${contacted} contacted` },
     { value: String(waiting.length), label: 'Calls waiting' },
-    { value: String(calls.overdue.length), label: 'Past their day' },
     { value: String(withPhone), label: 'Gave phone', sub: pct(withPhone) },
     { value: String(agreed), label: 'Agreed to calls', sub: pct(agreed) },
     { value: String(savedAny), label: 'Saved a home', sub: pct(savedAny) },
-    { value: `${average}%`, label: 'Avg plan progress' },
     {
       value: String(noCall), label: 'Do not call',
       sub: !noCall ? 'no one' : declined && neverAsked ? `${declined} declined · ${neverAsked} never asked` : declined ? 'declined' : 'never asked',
     },
   ], { border: [0.8, 0.82, 0.84] });
-  if (since) doc.paragraph('Calls waiting and Past their day count everyone, not only the people in this period.', { size: 7.5, color: COLORS.muted, gap: 0 });
+  if (since) doc.paragraph('Calls waiting counts everyone, not only the people in this period.', { size: 7.5, color: COLORS.muted, gap: 0 });
 
   // A section heading in the community's colour, with a rule under it.
   const heading = (text, { x = doc.left, y, width = doc.contentWidth }) => {
@@ -239,8 +241,9 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     const saves = new Map();
     for (const lead of roster) for (const id of savedOf(lead)) saves.set(id, (saves.get(id) ?? 0) + 1);
     const topHomes = [...saves.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const tools = PLAN_KEYS.filter((key) => key !== 'homes')
-      .map((key, index) => ({ key, index, label: PLAN_LABELS[key], value: roster.filter((lead) => lead.plan?.[key]).length }))
+    // A tool counts for a person once they used it (opened it or worked in it), whether or not they kept its answer.
+    const tools = TOOL_ORDER
+      .map((key, index) => ({ key, index, label: PLAN_LABELS[key], value: roster.filter((lead) => toolsUsedOf(lead).includes(key)).length }))
       .sort((a, b) => b.value - a.value || a.index - b.index);
     // Sign-ups by week over the last eight weeks, from all open people so the trend does not depend on the period chosen.
     const weeks = Array.from({ length: 8 }, (_, i) => addDays(mondayOf(today), -7 * (7 - i)));
@@ -273,9 +276,8 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     y = heading(`Scheduled calls waiting (${waiting.length})`, { x: xs[0], y: y + 12, width: widths[0] });
     if (waiting.length) {
       for (const lead of shownCalls) {
-        const overdue = calls.overdue.includes(lead);
         const [day, time] = callWhen(lead.tour);
-        doc.text(fitLine([day.replace(/, \d{4}$/, ''), time].filter(Boolean).join(' · '), { font: 'bold', size: 7.8, width: widths[0] }), { x: xs[0], y: y + 8, size: 7.8, font: 'bold', color: overdue ? RED : COLORS.ink });
+        doc.text(fitLine([day.replace(/, \d{4}$/, ''), time].filter(Boolean).join(' · '), { font: 'bold', size: 7.8, width: widths[0] }), { x: xs[0], y: y + 8, size: 7.8, font: 'bold' });
         doc.text(fitLine(`${clip(lead.name, 60)} · ${lead.tour.topic === 'lender' ? 'Financing' : 'Tour'}`, { size: 7.2, width: widths[0] }), { x: xs[0], y: y + 17.5, size: 7.2, color: COLORS.muted });
         y += 21;
       }
@@ -287,7 +289,7 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     }
 
     // middle: which tools people used
-    y = heading('Tools used · people who saved a result', { x: xs[1], y: top, width: widths[1] });
+    y = heading('Tools used · people who used each', { x: xs[1], y: top, width: widths[1] });
     const labelW = 80;
     const countW = 34;
     if (!roster.length) doc.text('No one in this period.', { x: xs[1], y: y + 8, size: 8, color: COLORS.muted });
@@ -322,10 +324,16 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     doc.paragraph(`Showing the first ${shown.length} of ${roster.length} people. The spreadsheet in the emailed report has everyone.`, { size: 7.5, color: COLORS.muted, gap: 4 });
   }
   const small = 7;
+  /** How many of the tools this person used, and which, in the words the buyer reads on the tool list. */
+  const toolsCell = (lead) => {
+    const used = toolsUsedOf(lead);
+    if (!used.length) return [{ text: 'None', color: COLORS.muted }];
+    return [{ text: `${used.length} of ${TOOL_ORDER.length}`, font: 'bold' }, { text: used.map((key) => TOOL_SHORT[key]).join(', '), size: 6.6, color: COLORS.muted }];
+  };
   doc.table({
     columns: [
-      { label: 'NAME', width: 2.1 }, { label: 'PHONE · CONSENT', width: 2.5 }, { label: 'SIGNED UP', width: 1.12 },
-      { label: 'PLAN', width: 0.7, align: 'right' }, { label: 'SAVED HOMES', width: 1.7 }, { label: 'STATUS', width: 1.38 },
+      { label: 'NAME', width: 1.8 }, { label: 'PHONE · CONSENT', width: 2.5 }, { label: 'SIGNED UP', width: 1.12 },
+      { label: 'TOOLS USED', width: 1.5 }, { label: 'SAVED HOMES', width: 1.3 }, { label: 'STATUS', width: 1.28 },
     ],
     size: 8, padX: 6, padY: 4.5, header: primary, rules: false,
     rows: shown.map((lead) => {
@@ -342,7 +350,7 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
           ? [{ parts: [{ text: `${reach} · ` }, { text: 'Agreed', font: 'bold' }] }]
           : [{ text: reach }, { tag: true, text: `DO NOT CALL · ${consent ? 'DECLINED' : 'NEVER ASKED'}`, size: 6.2 }],
         dayText(lead.firstVisitAt, timeZone),
-        `${planProgress(lead)}%`,
+        toolsCell(lead),
         names.length ? `${names.length} saved: ${names.slice(0, 3).join(', ')}${names.length > 3 ? `, +${names.length - 3} more` : ''}` : { text: 'None', color: COLORS.muted },
         { font: 'bold', text: `${lead.status === 'contacted' ? 'Contacted' : 'New'}${lead.tour ? ` · call ${isTourPending(lead) ? 'waiting' : lead.tour.handledAt ? 'handled' : 'booked'}` : ''}` },
       ].map((cell) => (typeof cell === 'object' && !Array.isArray(cell) && (cell.text !== undefined || cell.parts) ? [cell] : cell));
@@ -355,8 +363,10 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     buffer: doc.finish(), filename, people: roster.length, pages: doc.pages.length,
     // The numbers in the strip at the top, for whoever needs them without reading the file.
     figures: {
-      people: roster.length, everyone: people.length, contacted, waiting: waiting.length, overdue: calls.overdue.length, gavePhone: withPhone,
-      agreed, declined, neverAsked, doNotCall: noCall, savedHome: savedAny, averagePlan: average,
+      people: roster.length, everyone: people.length, contacted, waiting: waiting.length, gavePhone: withPhone,
+      agreed, declined, neverAsked, doNotCall: noCall, savedHome: savedAny,
+      // How many of these people used each tool, by tool key.
+      toolUsers: Object.fromEntries(TOOL_ORDER.map((key) => [key, roster.filter((lead) => toolsUsedOf(lead).includes(key)).length])),
     },
   };
 }
@@ -407,7 +417,7 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
   // ── who ──
   const lastActive = activity.find((item) => item.createdAt)?.createdAt;
   doc.statRow([
-    { label: 'Plan progress', value: `${planProgress(lead)}%` },
+    { label: 'Tools used', value: `${toolsUsedOf(lead).length} of ${TOOL_ORDER.length}` },
     { label: 'Homes saved', value: String(saved.length) },
     { label: 'Actions in the app', value: String(activity.length >= 200 ? '200+' : activity.length) },
     { label: 'Status', value: isArchived(lead) ? 'Closed' : lead.status === 'contacted' ? 'Contacted' : 'New' },
@@ -467,13 +477,16 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
     empty: 'No homes saved.',
   });
 
-  // ── what the tools worked out ──
-  doc.heading('What they worked out');
+  // ── the tools they used, and what each worked out when they kept it ──
+  doc.heading('Tools they used');
+  const used = new Set(toolsUsedOf(lead));
   doc.table({
     columns: [{ label: 'TOOL', width: 1.5 }, { label: 'RESULT', width: 4.2 }],
-    rows: PLAN_KEYS.filter((key) => key !== 'homes').map((key) => [
+    rows: TOOL_ORDER.map((key) => [
       { text: PLAN_LABELS[key], font: 'bold' },
-      lead.plan?.[key] ? clip(lead.plan[key], 400) : { text: 'Not started', color: COLORS.muted },
+      lead.plan?.[key]
+        ? clip(lead.plan[key], 400)
+        : used.has(key) ? { text: 'Used. Nothing saved.' } : { text: 'Not used', color: COLORS.muted },
     ].map((cell) => (typeof cell === 'object' ? [cell] : cell))),
   });
 

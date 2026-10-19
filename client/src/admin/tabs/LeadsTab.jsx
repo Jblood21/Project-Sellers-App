@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
-  LEAD_SORTS, countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, planProgress, sortLeads,
+  LEAD_SORTS, countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, sortLeads, TOOL_ORDER, toolsUsedOf,
 } from '@shared/domain.js';
 import { emailHref, textHref } from '../../lib/contact.js';
 import { shortDate } from '../../lib/format.js';
@@ -170,7 +170,7 @@ export default function LeadsTab({
                   </span>
                   <span className="as-lead__line">{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
                   <span className="as-lead__meta">
-                    Plan {planProgress(lead)}% · ★ {lead.savedHomeIds.length} saved · {lead.activityCount ?? 0} actions ·{' '}
+                    Tools {toolsUsedOf(lead).length} of {TOOL_ORDER.length} · ★ {lead.savedHomeIds.length} saved · {lead.activityCount ?? 0} actions ·{' '}
                     {shortDate(lead.firstVisitAt)}
                   </span>
                 </Link>
