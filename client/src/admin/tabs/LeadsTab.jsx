@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
-  LEAD_SORTS, countPendingTours, describeTour, isArchived, isTourPending, isUnread, lenderNameOf, sortLeads, toolsUsedOf,
+  LEAD_SORTS, countPendingTours, describeTour, isArchived, isReadyToCall, isTourPending, isUnread, lenderNameOf, sortLeads, toolsUsedOf,
 } from '@shared/domain.js';
 import { emailHref, textHref } from '../../lib/contact.js';
 import { shortDate } from '../../lib/format.js';
@@ -24,7 +24,9 @@ export default function LeadsTab({
   community, leads, reload, onOpenSetup, leadId = '', onOpened, notesDirtyRef, leaveOk,
 }) {
   const [query, setQuery] = useState('');
-  const [chosen, setFilter] = useState('active');
+  // A link from the Today page can say which people to show first (?show=ready or ?show=tour).
+  const [params] = useSearchParams();
+  const [chosen, setFilter] = useState(() => (['unread', 'tour', 'ready', 'closed'].includes(params.get('show')) ? params.get('show') : 'active'));
   const [sort, setSort] = useState('recent');
   const [reportsOpen, setReportsOpen] = useState(false);
 
@@ -34,10 +36,12 @@ export default function LeadsTab({
   const pendingTours = countPendingTours(everyone);
   const unread = everyone.filter((lead) => isUnread(lead) && !isArchived(lead)).length;
   const archived = everyone.filter(isArchived).length;
+  const agreed = everyone.filter(isReadyToCall).length;
   // The filter in use. If the one chosen has nobody left (the last unread person was opened, the last call was
   // handled, the last closed person was brought back), its pill is gone and so is it: back to Active, never an
   // empty list with nothing highlighted.
-  const filter = (chosen === 'unread' && !unread) || (chosen === 'tour' && !pendingTours) || (chosen === 'closed' && !archived)
+  const filter = (chosen === 'unread' && !unread) || (chosen === 'tour' && !pendingTours) || (chosen === 'ready' && !agreed)
+    || (chosen === 'closed' && !archived)
     ? 'active'
     : chosen;
 
@@ -50,6 +54,8 @@ export default function LeadsTab({
     // does not vanish from under you.
     if (filter === 'unread') out = out.filter((lead) => isUnread(lead) || lead.id === leadId);
     else if (filter === 'tour') out = out.filter(isTourPending);
+    // Agreed to calls and gave a number, but no call waiting; the person on screen stays, as with Unread.
+    else if (filter === 'ready') out = out.filter((lead) => isReadyToCall(lead) || lead.id === leadId);
     const q = query.trim().toLowerCase();
     if (q) out = out.filter((lead) => `${lead.name} ${lead.email} ${lead.phone || ''}`.toLowerCase().includes(q));
     return sortLeads(out, sort);
@@ -86,6 +92,7 @@ export default function LeadsTab({
                 { value: 'active', label: 'Active' },
                 ...(unread ? [{ value: 'unread', label: `Unread ${unread}` }] : []),
                 ...(pendingTours ? [{ value: 'tour', label: `📞 ${pendingTours}` }] : []),
+                ...(agreed ? [{ value: 'ready', label: `Agreed, no call ${agreed}` }] : []),
                 ...(archived ? [{ value: 'closed', label: `Closed ${archived}` }] : []),
               ]}
             />

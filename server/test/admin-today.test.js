@@ -43,7 +43,10 @@ for (const kind of backends()) {
     test('with nothing yet it is empty, not an error', async () => {
       const res = await admin('/today');
       assert.equal(res.status, 200);
-      assert.deepEqual(res.body, { communities: [], calls: [], totals: { communities: 0, people: 0, unread: 0, waiting: 0, overdue: 0 } });
+      assert.deepEqual(res.body, {
+        communities: [], calls: [], ready: [],
+        totals: { communities: 0, people: 0, unread: 0, waiting: 0, overdue: 0, ready: 0, readyNew: 0 },
+      });
     });
 
     test('counts open people, those nobody has opened and the calls waiting for each community, and lists the calls', async () => {
@@ -72,7 +75,7 @@ for (const kind of backends()) {
       assert.equal(byName['Today Beta'].people, 1);
       assert.equal(byName['Today Beta'].waiting, 0);
       assert.equal(typeof byName['Today Alpha'].homesCount, 'number');
-      assert.deepEqual(res.body.totals, { communities: 2, people: 4, unread: 3, waiting: 2, overdue: 1 });
+      assert.deepEqual(res.body.totals, { communities: 2, people: 4, unread: 3, waiting: 2, overdue: 1, ready: 0, readyNew: 0 });
 
       assert.deepEqual(res.body.calls.map((c) => c.name), ['Past Pat', 'Soon Sam'], 'past their day first, then the soonest');
       assert.equal(res.body.calls[0].overdue, true);
@@ -133,6 +136,51 @@ for (const kind of backends()) {
       assert.ok(totals.waiting > 30);
       assert.equal(calls[0].leadId, late.lead.id, 'the call furthest past its day is first');
       assert.equal(calls[0].overdue, true);
+    });
+
+    test('the people who agreed to calls but booked none: who is in, who is not, in what order, and the counts', async () => {
+      const first = await community('Ready Alpha');
+      const second = await community('Ready Beta');
+      const early = await signUp(first, { name: 'Early Eve', email: 'eve@ready.test', phone: '(801) 555-0201', consent: true });
+      const handled = await signUp(first, { name: 'Handled Hank', email: 'hank@ready.test', phone: '(801) 555-0202', consent: true });
+      const waiting = await signUp(first, { name: 'Waiting Wren', email: 'wren@ready.test', phone: '(801) 555-0203', consent: true });
+      const declined = await signUp(first, { name: 'Declined Dot', email: 'dot@ready.test', phone: '(801) 555-0204', consent: false });
+      const noPhone = await signUp(first, { name: 'Mailonly Max', email: 'max@ready.test' });
+      const closed = await signUp(first, { name: 'Closed Cal', email: 'cal@ready.test', phone: '(801) 555-0205', consent: true });
+      const contacted = await signUp(second, { name: 'Contacted Cora', email: 'cora@ready.test', phone: '(801) 555-0206', consent: true });
+      const latest = await signUp(second, { name: 'Latest Lu', email: 'lu@ready.test', phone: '(801) 555-0207', consent: true });
+      const never = await app.store.createLead(second, { name: 'Never Ned', email: 'ned@ready.test', phone: '(801) 555-0208' });
+      await app.store.updateLead(handled.lead.id, callFor(1, { handledAt: new Date().toISOString() }));
+      await app.store.updateLead(waiting.lead.id, callFor(1));
+      await admin(`/leads/${closed.lead.id}`, { method: 'PATCH', body: { archived: true } });
+      await admin(`/leads/${contacted.lead.id}`, { method: 'PATCH', body: { status: 'contacted' } });
+
+      const { ready, totals, communities } = (await admin('/today')).body;
+      const mine = ready.filter((person) => [first, second].includes(person.communityId));
+      assert.deepEqual(
+        mine.map((person) => person.name),
+        ['Latest Lu', 'Handled Hank', 'Early Eve', 'Contacted Cora'],
+        'not contacted first, the most recent to agree first; a handled call is back here',
+      );
+      for (const name of ['Waiting Wren', 'Declined Dot', 'Mailonly Max', 'Closed Cal', 'Never Ned']) {
+        assert.ok(!ready.some((person) => person.name === name), `${name} is not on it`);
+      }
+      assert.ok(never.id, 'a lead with no consent record was made');
+      const lu = mine[0];
+      assert.equal(lu.communityName, 'Ready Beta');
+      assert.equal(lu.communityId, second);
+      assert.equal(lu.leadId, latest.lead.id);
+      assert.equal(lu.phone, '(801) 555-0207');
+      assert.equal(lu.contacted, false);
+      assert.ok(lu.agreedAt, 'when they agreed');
+      assert.equal(mine.at(-1).contacted, true);
+      assert.ok(!('email' in lu) && !('firstVisitAt' in lu), 'only what the list shows');
+      const byName = Object.fromEntries(communities.map((c) => [c.name, c]));
+      assert.deepEqual([byName['Ready Alpha'].ready, byName['Ready Alpha'].readyNew], [2, 2]);
+      assert.deepEqual([byName['Ready Beta'].ready, byName['Ready Beta'].readyNew], [2, 1]);
+      assert.equal(totals.ready, communities.reduce((sum, c) => sum + c.ready, 0));
+      assert.equal(totals.readyNew, communities.reduce((sum, c) => sum + c.readyNew, 0));
+      assert.ok(early.lead.id && declined.lead.id && noPhone.lead.id);
     });
 
     test('a call about financing names the community\'s own lender', async () => {

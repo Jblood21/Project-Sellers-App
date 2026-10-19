@@ -10,6 +10,7 @@ import AdminShell from '../shell/AdminShell.jsx';
 import NavIcon from '../shell/navIcons.jsx';
 import { ErrorNote, Spinner } from '../ui.jsx';
 import NewCommunityDialog from './NewCommunityDialog.jsx';
+import ReadyToCall from './ReadyToCall.jsx';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -52,6 +53,10 @@ export default function Today() {
               <span>past their day</span>
             </div>
             <div className="as-tile">
+              <strong>{totals.ready}</strong>
+              <span>agreed to calls, no call booked</span>
+            </div>
+            <div className="as-tile">
               <strong>{totals.unread}</strong>
               <span>new, not opened yet</span>
             </div>
@@ -86,7 +91,7 @@ export default function Today() {
                     <div className="as-call__actions">
                       {tel ? <a className="btn btn-primary" href={tel}><NavIcon name="phone" size={16} /> Call</a> : null}
                       {mail ? <a className="btn btn-secondary" href={mail}><NavIcon name="mail" size={16} /> Email</a> : null}
-                      <Link className="btn btn-ghost" to={`/admin/communities/${call.communityId}/leads/${call.leadId}`}>Open</Link>
+                      <Link className="btn btn-ghost" to={`/admin/communities/${call.communityId}/leads/${call.leadId}?show=tour`}>Open</Link>
                     </div>
                   </li>
                 );
@@ -98,6 +103,13 @@ export default function Today() {
               Showing the first {data.calls.length} of {totals.waiting}. Open a community to see the rest.
             </p>
           ) : null}
+
+          <h2 className="as-section-title" id="ready">Agreed to calls, no call booked</h2>
+          <p className="text-muted" style={{ fontSize: 13, margin: '-4px 0 10px' }}>
+            They said yes to calls and texts and gave a number, but have not asked for a time. Open one to see them in
+            their community&apos;s Leads.
+          </p>
+          <ReadyToCall people={data.ready} total={totals.ready} totalNew={totals.readyNew} communities={data.communities} />
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '24px 0 10px' }}>
             <h2 className="as-section-title" style={{ margin: 0 }}>Your communities</h2>

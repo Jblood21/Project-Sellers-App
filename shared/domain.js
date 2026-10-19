@@ -1338,6 +1338,14 @@ export function isArchived(lead) {
 }
 
 /**
+ * Somebody the team may ring who has not asked for a time: they agreed to calls and texts, gave a number, have no
+ * call waiting and are not closed. (Once their call is handled they are back here, still agreed.)
+ */
+export function isReadyToCall(lead) {
+  return Boolean(lead?.phone && lead.consent?.granted && !isArchived(lead) && !isTourPending(lead));
+}
+
+/**
  * The orders people can be listed in, by the key the Leads tab's "Sort" pills use. The leads report is made in
  * whichever the builder had chosen, so the tab and the PDF come from one function and cannot disagree.
  */
