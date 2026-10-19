@@ -277,6 +277,35 @@ Two consequences worth knowing:
 Identity is scoped per community — the same person at two developments is two leads, because they
 are two separate conversations.
 
+## The admin layout
+
+The admin opens on **Today**: the calls waiting across every community (past-their-day ones first, with a Call
+button for people who agreed to calls and an Email button), the people nobody has opened yet, and a card for each
+community. It is fed by `GET /api/admin/today`, which counts closed (archived) people nowhere.
+
+Inside a community every section has its own address, `/admin/communities/<id>/<section>`: `leads`, `stats`,
+`homes`, `area`, `learn`, `times`, `tools` and `setup`. On a computer a **side menu** lists them in three groups
+(Sales, Content, Buyer app) beside a community switcher; on a phone a **bottom bar** holds Leads, Homes, Times and
+Stats, and **More** opens Area, Learn, Tools, Setup, the buyer app, the QR code and flyer, Edit community,
+Switch community, Today and Sign out. The Leads badge counts people who are unread or waiting for a call. Older
+links of the form `/admin/communities/<id>?tab=setup` still land on the right section.
+
+**Leads** is a list with the person you picked beside it (on a phone the list and the person are two pages, with a
+back button). *Show* (Active, Unread, calls waiting, Closed) and *Sort* (Recent, Most ★) are separate controls, and
+the **Reports** button opens the emailed report and the PDF, the PDF being made in the order chosen here. A row shows
+Call and Text only for someone who agreed to calls and texts, and Email whenever the address is safe to link; a
+person who did not agree shows **Do not call** beside the number, as before, and the panel for that person offers
+no Call or Text either. A call is **late** when its day has passed in the report time zone (`REPORT_TIME_ZONE`), the
+same day the reports and the Today page count in; the list gets that from the server (`callLate`), not from the
+device's clock. Notes typed into the panel are not saved until **Save notes**; moving to another person or another
+section asks first while there are unsaved notes.
+
+**Setup** is four parts with one form behind them, each its own address: `setup/look` (layout, theme, logo, artwork),
+`setup/team` (realtors, call-request alerts, the lead report address), `setup/home` (builder incentive, FAQ) and
+`setup/rules` (lender and compliance, rates, costs, assistance rules, credit cutoffs). All four stay on the page and
+only the one in view shows, so edits (and half-typed FAQ rows or realtor forms) are kept when you move to another, one **Save settings** saves them all, and leaving the page asks first while anything
+is unsaved.
+
 ## Working the leads
 
 The Leads tab separates two things that used to share one field:
@@ -658,9 +687,10 @@ client/src/
                      footer and the seven tools
   buyer/layouts/     Porch, Ridgeline, Foyer and Keystone: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
-  admin/             the admin app: communities, 8 tabs (Homes, Area, Learn, Times, Tools, Leads, Stats,
-                     Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
+  admin/             the admin app: the Today page and, per community, 8 sections (Leads, Stats, Homes, Area,
+                     Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
                      display-feature switches
+  admin/shell/       the frame: side menu, phone top and bottom bars, the section list (sections.js)
   admin/setup/       the Setup cards: layout, development logo, lender & compliance, realtors, builder incentive, FAQ
   admin/learn/       the buyer-guide list and editor
   lib/               API client, formatting, photo downscaling, storage

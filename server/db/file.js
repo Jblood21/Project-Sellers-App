@@ -766,7 +766,11 @@ export function createFileStore(path) {
       }
       row.updatedAt = now();
       save();
-      return shapeLead(row, { plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id) });
+      // The consent answer comes back too, as it does from getLead and from the Postgres store: the admin
+      // screen shows this row after a save, and "Do not call" is not a thing to print for someone who agreed.
+      return shapeLead(row, {
+        plan: planOf(id), activity: activityOf(id), moveIn: moveInOf(id), consent: consentOf(id),
+      });
     },
 
     async upsertPlanItem(leadId, key, summary) {

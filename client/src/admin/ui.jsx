@@ -23,7 +23,9 @@ export function Dialog({ title, children, actions, onClose, wide = false }) {
     // Remember what had focus so closing the dialog puts the keyboard back where
     // it was, instead of dropping it at the top of the page.
     const opener = document.activeElement;
-    ref.current?.querySelector('input, textarea, select, button')?.focus();
+    // A dialog whose first thing to reach is a link (a menu of places to go) marks it with data-autofocus; the rest
+    // start on their first field or button.
+    (ref.current?.querySelector('[data-autofocus]') ?? ref.current?.querySelector('input, textarea, select, button'))?.focus();
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
     };
@@ -213,7 +215,7 @@ export function Toggle({ on, onChange, label }) {
       style={{
         width: 46, height: 27, flex: 'none', borderRadius: 999, border: 'none', cursor: 'pointer',
         position: 'relative', padding: 0,
-        background: on ? 'var(--color-accent-2-500)' : 'var(--color-neutral-300)',
+        background: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
         transition: 'background .18s',
       }}
     >

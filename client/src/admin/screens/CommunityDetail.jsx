@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { COMMUNITY_STATUSES, normalizeCommunitySlug } from '@shared/domain.js';
-import { ChevronLeft, Pencil, QrIcon } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import PhotoPicker from '../PhotoPicker.jsx';
+import AdminShell from '../shell/AdminShell.jsx';
+import { SECTIONS, sectionOf } from '../shell/sections.js';
 import AreaTab from '../tabs/AreaTab.jsx';
 import AvailabilityTab from '../tabs/AvailabilityTab.jsx';
 import HomesTab from '../tabs/HomesTab.jsx';
@@ -16,21 +17,9 @@ import StatsTab from '../tabs/StatsTab.jsx';
 import ToolsTab from '../tabs/ToolsTab.jsx';
 import { Dialog, ErrorNote, PillRow, Spinner, TextField } from '../ui.jsx';
 import Flyer from './Flyer.jsx';
-import LeadDetail from './LeadDetail.jsx';
 import QrDialog from './QrDialog.jsx';
 
-const TABS = [
-  ['homes', 'Homes'],
-  ['area', 'Area'],
-  ['learn', 'Learn'],
-  ['times', 'Times'],
-  ['tools', 'Tools'],
-  ['leads', 'Leads'],
-  ['stats', 'Stats'],
-  ['setup', 'Setup'],
-];
-
-/** Loads one community (plus its leads) and shares it with every tab and sub-route. */
+/** Loads one community (plus its leads) and shares it with every section and sub-page. */
 export default function CommunityDetail() {
   const { token } = useAdmin();
   const { communityId } = useParams();
@@ -53,100 +42,86 @@ export default function CommunityDetail() {
     reload().catch((err) => setError(err.message));
   }, [reload]);
 
+  // Opening a person marks them read on the server; the list was loaded before that, so say so here too.
+  const markOpened = useCallback((lead) => {
+    setLeads((rows) => (rows ? rows.map((row) => (row.id === lead.id && !row.openedAt ? { ...row, openedAt: lead.openedAt } : row)) : rows));
+  }, []);
+
   if (error) return <div className="a-shell"><ErrorNote>{error}</ErrorNote></div>;
   if (!community) return <div className="a-shell"><Spinner /></div>;
 
   return (
     <Routes>
-      <Route index element={<CommunityTabs community={community} leads={leads} reload={reload} />} />
-      <Route path="leads/:leadId" element={<LeadDetail community={community} reload={reload} />} />
+      <Route index element={<OldAddress community={community} />} />
       <Route path="flyer" element={<Flyer community={community} />} />
+      <Route path="*" element={<CommunityPages community={community} leads={leads} reload={reload} markOpened={markOpened} />} />
     </Routes>
   );
 }
 
-function CommunityTabs({ community, leads, reload }) {
+/**
+ * The community's own address used to be one page with ?tab=leads and the like. Every section has its
+ * own address now; a saved link or a bookmark with the old form lands on the same section.
+ */
+function OldAddress({ community }) {
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab');
+  const target = SECTIONS.some((section) => section.key === tab) ? tab : 'leads';
+  return <Navigate to={`/admin/communities/${community.id}/${target}`} replace />;
+}
+
+/** The section the address names, inside the frame. Everything the sections share lives here. */
+function CommunityPages({ community, leads, reload, markOpened }) {
   const { token } = useAdmin();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tab = TABS.some(([key]) => key === searchParams.get('tab')) ? searchParams.get('tab') : 'homes';
+  const rest = (useParams()['*'] ?? '').split('/').filter(Boolean);
   const [qrOpen, setQrOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  // SetupTab keeps this true while its form holds edits that are not saved yet.
+  // SetupTab keeps the first true while its form holds edits that are not saved yet; the person panel keeps the
+  // second true while its notes box holds text that is not saved. Anything that leaves either page asks first.
   const setupDirty = useRef(false);
-  const leaveSetupOk = () => !setupDirty.current
-    || window.confirm('You have unsaved changes on the Setup tab. Leave and lose them?');
-
-  const setTab = (next) => {
-    if (next !== tab && !leaveSetupOk()) return;
-    setSearchParams(next === 'homes' ? {} : { tab: next }, { replace: true });
+  const notesDirty = useRef(false);
+  const leaveOk = () => {
+    if (setupDirty.current) return window.confirm('You have unsaved changes on the Setup page. Leave and lose them?');
+    if (notesDirty.current) return window.confirm('You have notes that are not saved yet. Leave and lose them?');
+    return true;
   };
 
-  // The row scrolls sideways on a phone. Bring the active pill into view so the
-  // person can see which section they are in; the row is scrolled directly,
-  // because scrollIntoView could also move the whole page.
-  const tabRow = useRef(null);
+  const section = sectionOf(rest[0]);
+  // A new section opens at its top, not wherever the last one was scrolled to. Keyed on the section only, so moving
+  // between Setup's parts or picking a person beside the list does not jump the page.
   useEffect(() => {
-    const row = tabRow.current;
-    const pill = row?.querySelector('[aria-pressed="true"]');
-    if (!row || !pill) return;
-    const r = row.getBoundingClientRect();
-    const p = pill.getBoundingClientRect();
-    row.scrollLeft += p.left - r.left - (r.width - p.width) / 2;
-  }, [tab]);
+    window.scrollTo(0, 0);
+  }, [section?.key]);
+  if (!section) return <Navigate to={`/admin/communities/${community.id}/leads`} replace />;
+  const go = (path) => navigate(`/admin/communities/${community.id}/${path}`);
 
   return (
-    <div className="a-shell">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
-          type="button" className="btn btn-secondary btn-icon" aria-label="Back to communities"
-          onClick={() => leaveSetupOk() && navigate('/admin')}
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <h3 style={{ margin: 0, fontSize: 21 }}>{community.name}</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>{community.location} · {community.status}</span>
-        </div>
-        <button type="button" className="btn btn-secondary btn-icon" aria-label="Edit community" onClick={() => setEditOpen(true)}>
-          <Pencil />
-        </button>
-        <button type="button" className="btn btn-secondary btn-icon" aria-label="Community QR code" onClick={() => setQrOpen(true)}>
-          <QrIcon />
-        </button>
-      </div>
-
-      {/* Eight tabs do not fit a 390px phone at their natural width, so the row scrolls
-          sideways instead of widening the whole page. */}
-      <div ref={tabRow} className="scroll-x" role="group" aria-label="Sections" style={{ display: 'flex', gap: 5, margin: '16px 0 18px', overflowX: 'auto' }}>
-        {TABS.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            aria-pressed={tab === key}
-            style={{
-              flex: '1 0 auto', minHeight: 44, whiteSpace: 'nowrap', borderRadius: 999,
-              border: '1px solid var(--color-divider)', cursor: 'pointer', padding: '0 14px',
-              background: tab === key ? 'var(--color-accent)' : 'transparent',
-              color: tab === key ? '#fff' : 'var(--color-text)',
-              fontFamily: 'var(--font-heading)', fontSize: 12.5, fontWeight: 600,
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
-      {tab === 'area' ? <AreaTab community={community} reload={reload} /> : null}
-      {tab === 'learn' ? <LearnTab community={community} reload={reload} /> : null}
-      {tab === 'times' ? <AvailabilityTab community={community} reload={reload} /> : null}
-      {tab === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
-      {tab === 'leads' ? <LeadsTab community={community} leads={leads} reload={reload} onOpenSetup={() => setTab('setup')} /> : null}
-      {tab === 'stats' ? <StatsTab community={community} leads={leads} /> : null}
-      {tab === 'setup' ? <SetupTab community={community} reload={reload} dirtyRef={setupDirty} /> : null}
+    <AdminShell
+      community={community}
+      leads={leads}
+      section={section.key}
+      leaveOk={leaveOk}
+      onEdit={() => setEditOpen(true)}
+      onQr={() => setQrOpen(true)}
+    >
+      {section.key === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
+      {section.key === 'area' ? <AreaTab community={community} reload={reload} /> : null}
+      {section.key === 'learn' ? <LearnTab community={community} reload={reload} /> : null}
+      {section.key === 'times' ? <AvailabilityTab community={community} reload={reload} /> : null}
+      {section.key === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
+      {section.key === 'leads' ? (
+        <LeadsTab
+          community={community} leads={leads} reload={reload} leadId={rest[1] ?? ''}
+          onOpenSetup={() => go('setup/team')}
+          onOpened={markOpened} notesDirtyRef={notesDirty} leaveOk={leaveOk}
+        />
+      ) : null}
+      {section.key === 'stats' ? <StatsTab community={community} leads={leads} /> : null}
+      {section.key === 'setup' ? (
+        <SetupTab community={community} reload={reload} dirtyRef={setupDirty} part={rest[1] ?? ''} />
+      ) : null}
 
       {qrOpen ? (
         <QrDialog
@@ -154,9 +129,9 @@ function CommunityTabs({ community, leads, reload }) {
           onChanged={reload}
           onClose={() => setQrOpen(false)}
           onOpenFlyer={() => {
-            if (!leaveSetupOk()) return;
+            if (!leaveOk()) return;
             setQrOpen(false);
-            navigate(`/admin/communities/${community.id}/flyer`);
+            go('flyer');
           }}
         />
       ) : null}
@@ -173,7 +148,7 @@ function CommunityTabs({ community, leads, reload }) {
           onDeleted={() => navigate('/admin')}
         />
       ) : null}
-    </div>
+    </AdminShell>
   );
 }
 
