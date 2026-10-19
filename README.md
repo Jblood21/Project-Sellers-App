@@ -279,11 +279,11 @@ are two separate conversations.
 
 ## The admin layout
 
-The admin opens on **Today**: the calls waiting across every community (past-their-day ones first, with a Call
-button for people who agreed to calls and an Email button), the people nobody has opened yet, and a card for each
-community. It is fed by `GET /api/admin/today`, which counts closed (archived) people nowhere.
+The admin opens on **Today**: the counts across every community (calls waiting, people nobody has opened yet), a card
+for each community, and under the cards the calls waiting (past-their-day ones first, with a Call button for people
+who agreed to calls and an Email button). It is fed by `GET /api/admin/today`, which counts closed (archived) people nowhere.
 
-Under the calls waiting, **Agreed to calls, no call booked** lists everyone, in every community, who agreed to calls
+Under those, **Agreed to calls, no call booked** lists everyone, in every community, who agreed to calls
 and texts and gave a number but has never booked a call (`isReadyToCall` in `shared/domain.js`; somebody whose call was
 handled booked one, so is not on it). Each row shows the name, the number and the community, with Call and Text buttons, and opens
 the person in their community's Leads with the **Agreed, no call** filter on (`?show=ready`). The list scrolls in its

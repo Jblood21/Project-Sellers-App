@@ -15,8 +15,8 @@ import ReadyToCall from './ReadyToCall.jsx';
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * Where the admin opens: what needs a person today, across every community, then the communities.
- * The calls come first because a buyer who asked for a call is the one thing that goes cold.
+ * Where the admin opens: the counts that need a person today, the communities, and under them the calls waiting and
+ * the people who agreed to calls without booking one, across every community.
  */
 export default function Today() {
   const { token } = useAdmin();
@@ -66,7 +66,45 @@ export default function Today() {
             </div>
           </div>
 
-          <h2 className="as-section-title" style={{ marginTop: 0 }}>Calls waiting</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '0 0 10px' }}>
+            <h2 className="as-section-title" style={{ margin: 0 }}>Your communities</h2>
+            <Link className="btn btn-primary" to="/admin?new=1"><NavIcon name="plus" size={16} /> New community</Link>
+          </div>
+          {data.communities.length === 0 ? (
+            <div className="as-empty">
+              <strong>No communities yet.</strong>
+              <span>Create your first one to get its QR code, buyer app and lead list.</span>
+            </div>
+          ) : (
+            <div className="as-cards">
+              {data.communities.map((community) => (
+                <article key={community.id} className="card elev-sm as-community">
+                  <div className="as-community__head">
+                    <Link className="card-title as-community__name" to={`/admin/communities/${community.id}/leads`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {community.name}
+                    </Link>
+                    <span className="tag tag-accent-2">{community.status}</span>
+                  </div>
+                  <span className="text-muted" style={{ fontSize: 13 }}>{community.location || 'Location TBD'}</span>
+                  <div className="as-community__stats">
+                    {community.waiting ? <span className={`as-chip ${community.overdue ? 'as-chip--late' : 'as-chip--call'}`}>{plural(community.waiting, 'call')} waiting{community.overdue ? ` · ${community.overdue} late` : ''}</span> : null}
+                    {community.unread ? <span className="as-chip as-chip--soft">{community.unread} new</span> : null}
+                    {!community.waiting && !community.unread ? <span className="as-chip">All caught up</span> : null}
+                  </div>
+                  <div className="card-meta">
+                    {plural(community.homesCount, 'home')} · {plural(community.people, 'person', 'people')} · {THEMES[community.theme]?.name} theme
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                    <Link className="btn btn-secondary" to={`/admin/communities/${community.id}/leads`}>Leads</Link>
+                    <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/homes`}>Homes</Link>
+                    <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/setup`}>Setup</Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          <h2 className="as-section-title" style={{ marginTop: 28 }}>Calls waiting</h2>
           {data.calls.length === 0 ? (
             <div className="as-empty">
               <strong>Nobody is waiting for a call.</strong>
@@ -110,44 +148,6 @@ export default function Today() {
             their community&apos;s Leads.
           </p>
           <ReadyToCall people={data.ready} total={totals.ready} totalNew={totals.readyNew} communities={data.communities} />
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '24px 0 10px' }}>
-            <h2 className="as-section-title" style={{ margin: 0 }}>Your communities</h2>
-            <Link className="btn btn-primary" to="/admin?new=1"><NavIcon name="plus" size={16} /> New community</Link>
-          </div>
-          {data.communities.length === 0 ? (
-            <div className="as-empty">
-              <strong>No communities yet.</strong>
-              <span>Create your first one to get its QR code, buyer app and lead list.</span>
-            </div>
-          ) : (
-            <div className="as-cards">
-              {data.communities.map((community) => (
-                <article key={community.id} className="card elev-sm as-community">
-                  <div className="as-community__head">
-                    <Link className="card-title as-community__name" to={`/admin/communities/${community.id}/leads`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                      {community.name}
-                    </Link>
-                    <span className="tag tag-accent-2">{community.status}</span>
-                  </div>
-                  <span className="text-muted" style={{ fontSize: 13 }}>{community.location || 'Location TBD'}</span>
-                  <div className="as-community__stats">
-                    {community.waiting ? <span className={`as-chip ${community.overdue ? 'as-chip--late' : 'as-chip--call'}`}>{plural(community.waiting, 'call')} waiting{community.overdue ? ` · ${community.overdue} late` : ''}</span> : null}
-                    {community.unread ? <span className="as-chip as-chip--soft">{community.unread} new</span> : null}
-                    {!community.waiting && !community.unread ? <span className="as-chip">All caught up</span> : null}
-                  </div>
-                  <div className="card-meta">
-                    {plural(community.homesCount, 'home')} · {plural(community.people, 'person', 'people')} · {THEMES[community.theme]?.name} theme
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                    <Link className="btn btn-secondary" to={`/admin/communities/${community.id}/leads`}>Leads</Link>
-                    <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/homes`}>Homes</Link>
-                    <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/setup`}>Setup</Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
         </>
       ) : null}
 
