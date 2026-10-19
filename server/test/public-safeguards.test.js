@@ -150,7 +150,12 @@ test('a buyer is shown their own record, never the builder\'s notes on it', asyn
 test('the call alert links to a page the admin app really has', async () => {
   const client = (file) => readFileSync(join(here, '../../client/src/admin', file), 'utf8');
   assert.match(client('AdminApp.jsx'), /path="communities\/:communityId\/\*"/);
-  assert.match(client('screens/CommunityDetail.jsx'), /path="leads\/:leadId"/);
+  // A person's address is .../<community>/leads/<lead>: the community's route takes everything after its id,
+  // the page reads the section and the person from it, and the Leads list opens that person.
+  assert.match(client('screens/CommunityDetail.jsx'), /path="\*"/);
+  assert.match(client('screens/CommunityDetail.jsx'), /leadId=\{rest\[1\]/);
+  assert.match(client('shell/sections.js'), /key: 'leads'/);
+  assert.match(client('tabs/LeadsTab.jsx'), /<LeadDetail[^>]*leadId=\{leadId\}/);
 
   process.env.PUBLIC_ORIGIN = 'https://touradoor.example';
   const { community, slots, token, lead } = await scene();

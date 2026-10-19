@@ -12,10 +12,10 @@ import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
-import { emailReport } from '../lib/report.js';
+import { buildReport, emailReport } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
-import { DEFAULT_LEAD_SORT, LEAD_SORTS } from '../../shared/domain.js';
+import { DEFAULT_LEAD_SORT, LEAD_SORTS, describeTour, isUnread, lenderNameOf } from '../../shared/domain.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
@@ -337,6 +337,42 @@ export function adminRouter() {
   router.get('/communities', async (_req, res) => {
     const store = await getStore();
     res.json(await store.listCommunities());
+  });
+
+  /**
+   * What needs the team across every community, for the page the admin opens on: for each community the people who
+   * are open (closed ones are never counted), how many of them nobody has opened yet and how many wait for a call,
+   * and the calls themselves, those past their day first and then the soonest. Read-only, built from the same
+   * `buildReport` the emailed report uses, so the two agree about who is waiting.
+   */
+  router.get('/today', async (_req, res) => {
+    const store = await getStore();
+    const now = new Date();
+    const communities = [];
+    const calls = [];
+    for (const row of await store.listCommunities()) {
+      const [community, leads] = await Promise.all([store.getCommunity(row.id), store.listLeads(row.id)]);
+      if (!community) continue;
+      const report = buildReport({ community, leads, now });
+      const lender = lenderNameOf(community);
+      for (const [lead, overdue] of [...report.overdue.map((l) => [l, true]), ...report.comingUp.map((l) => [l, false])]) {
+        calls.push({
+          communityId: community.id, communityName: community.name, leadId: lead.id, name: lead.name, phone: lead.phone || '', email: lead.email,
+          canCall: Boolean(lead.phone && lead.consent?.granted), when: describeTour(lead.tour, lender), overdue,
+        });
+      }
+      communities.push({
+        id: community.id, name: community.name, location: community.location, status: community.status, theme: community.theme,
+        homesCount: row.homesCount, people: report.leads.length, unread: report.leads.filter(isUnread).length,
+        waiting: report.comingUp.length + report.overdue.length, overdue: report.overdue.length,
+      });
+    }
+    const sum = (key) => communities.reduce((total, c) => total + c[key], 0);
+    res.json({
+      communities,
+      calls: calls.slice(0, 30),
+      totals: { communities: communities.length, people: sum('people'), unread: sum('unread'), waiting: sum('waiting'), overdue: sum('overdue') },
+    });
   });
 
   router.post('/communities', async (req, res) => {

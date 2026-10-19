@@ -120,6 +120,7 @@ export const adminApi = {
   login: (email, password) => request('/api/admin/login', { method: 'POST', body: { email, password } }),
   me: (token) => request('/api/admin/me', { token }),
   communities: (token) => request('/api/admin/communities', { token }),
+  today: (token) => request('/api/admin/today', { token }),
   community: (token, id) => request(`/api/admin/communities/${encodeURIComponent(id)}`, { token }),
   createCommunity: (token, body) => request('/api/admin/communities', { method: 'POST', body, token }),
   updateCommunity: (token, id, body) =>

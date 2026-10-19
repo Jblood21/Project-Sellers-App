@@ -213,7 +213,7 @@ export function Toggle({ on, onChange, label }) {
       style={{
         width: 46, height: 27, flex: 'none', borderRadius: 999, border: 'none', cursor: 'pointer',
         position: 'relative', padding: 0,
-        background: on ? 'var(--color-accent-2-500)' : 'var(--color-neutral-300)',
+        background: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
         transition: 'background .18s',
       }}
     >

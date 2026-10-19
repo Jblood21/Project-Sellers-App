@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import {
   formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS, TOOL_KEYS,
@@ -7,15 +7,19 @@ import {
 } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
-import { emailHref } from '../../lib/contact.js';
+import { emailHref, textHref } from '../../lib/contact.js';
 import { money, shortDate } from '../../lib/format.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { ErrorNote, Spinner } from '../ui.jsx';
 
-export default function LeadDetail({ community, reload }) {
+/**
+ * One person. `embedded` is the panel beside the Leads list on a computer: no page frame of its own, and a
+ * back button only where the list is not already on screen.
+ */
+export default function LeadDetail({ community, reload, leadId, embedded = false }) {
   const { token } = useAdmin();
-  const { communityId, leadId } = useParams();
   const navigate = useNavigate();
+  const frame = embedded ? 'as-detail' : 'a-shell';
   const [lead, setLead] = useState(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
@@ -60,8 +64,8 @@ export default function LeadDetail({ community, reload }) {
       .catch((err) => setError(err.message));
   }, [leadId, token]);
 
-  if (error && !lead) return <div className="a-shell"><ErrorNote>{error}</ErrorNote></div>;
-  if (!lead) return <div className="a-shell"><Spinner /></div>;
+  if (error && !lead) return <div className={frame}><ErrorNote>{error}</ErrorNote></div>;
+  if (!lead) return <div className={frame}><Spinner /></div>;
 
   const savedHomes = lead.savedHomeIds.map((id) => community.homes.find((h) => h.id === id)).filter(Boolean);
   const planItems = TOOL_KEYS.filter((key) => lead.plan[key]).map((key) => ({ key, summary: lead.plan[key] }));
@@ -99,11 +103,11 @@ export default function LeadDetail({ community, reload }) {
   };
 
   return (
-    <div className="a-shell">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+    <div className={frame}>
+      <div className={embedded ? 'as-detail__head' : undefined} style={embedded ? undefined : { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <button
-          type="button" className="btn btn-secondary btn-icon" aria-label="Back"
-          onClick={() => navigate(`/admin/communities/${communityId}?tab=leads`)}
+          type="button" className={`btn btn-secondary btn-icon${embedded ? ' as-narrow-only' : ''}`} aria-label="Back to the list"
+          onClick={() => navigate(`/admin/communities/${community.id}/leads`)}
         >
           <ChevronLeft size={18} />
         </button>
@@ -180,6 +184,7 @@ export default function LeadDetail({ community, reload }) {
         <ConsentNote consent={lead.consent} hasPhone={Boolean(lead.phone)} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
           {lead.phone ? <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a> : null}
+          {lead.phone && lead.consent?.granted && textHref(lead.phone) ? <a className="btn btn-secondary" href={textHref(lead.phone)}>Text</a> : null}
           {/* emailHref refuses an address that carries ?bcc= or similar, which the server's check lets through */}
           {emailHref(lead.email) ? <a className="btn btn-secondary" href={emailHref(lead.email)}>Email</a> : null}
           {(lead.extraEmails ?? []).filter((address) => emailHref(address)).map((address) => (

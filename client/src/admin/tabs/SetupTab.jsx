@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { THEMES, THEME_CHIPS, num } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
@@ -6,6 +7,7 @@ import { adminApi } from '../../lib/api.js';
 import { dateTime, fullDate } from '../../lib/format.js';
 import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { DEFAULT_SETUP_PART, SETUP_PARTS } from '../shell/sections.js';
 import ComplianceCard from '../setup/ComplianceCard.jsx';
 import FaqCard from '../setup/FaqCard.jsx';
 import IncentiveCard from '../setup/IncentiveCard.jsx';
@@ -24,8 +26,9 @@ const DPA_KEYS = ['dpaProgram', 'dpaIncomeLimit', 'dpaMinCredit', 'dpaPriceCap',
 const orDash = (value) => (String(value ?? '').trim() || '–');
 
 /** Every value on this tab flows straight into the buyer tools. */
-export default function SetupTab({ community, reload, dirtyRef }) {
+export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
   const { token } = useAdmin();
+  const active = SETUP_PARTS.some((item) => item.key === part) ? part : DEFAULT_SETUP_PART;
   const [settings, setSettings] = useState(community.settings);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -119,7 +122,22 @@ export default function SetupTab({ community, reload, dirtyRef }) {
 
   return (
     <div className="ax-setup" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <h4 style={{ margin: '0 0 -4px', fontSize: 17 }}>Look &amp; feel</h4>
+      {/* Four parts, each its own address. The form is one: edits made in one part are kept when you move to another, and one Save settings saves them all. */}
+      <nav className="as-parts" aria-label="Setup parts">
+        {SETUP_PARTS.map((item) => (
+          <Link
+            key={item.key}
+            to={`/admin/communities/${community.id}/setup/${item.key}`}
+            className={`as-part${item.key === active ? ' active' : ''}`}
+            aria-current={item.key === active ? 'page' : undefined}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+
+      {active === 'look' ? (
+        <>
       <LayoutCard community={community} reload={reload} />
 
       <div className="card elev-sm" style={{ gap: 10 }}>
@@ -161,15 +179,66 @@ export default function SetupTab({ community, reload, dirtyRef }) {
 
       <LogoCard community={community} reload={reload} />
 
-      <ComplianceCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
+      <CommunityArtwork community={community} reload={reload} />
+        </>
+      ) : null}
 
+      {active === 'team' ? (
+        <>
       <RealtorsCard community={community} reload={reload} />
 
-      <h4 style={{ margin: '6px 0 -4px', fontSize: 17 }}>Home screen</h4>
+      <div className="card elev-sm" style={{ gap: 10 }}>
+        <span className="card-kicker">Call request alerts</span>
+        <TextField
+          label="Send call requests to"
+          value={settings.notifyEmail}
+          onChange={set('notifyEmail')}
+          inputMode="email"
+          placeholder="sales@yourcompany.com"
+        />
+        <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
+          Leave blank to use the account you sign in with. A buyer asking for a call is
+          time-sensitive, so this is the one thing the app will email you about.
+        </span>
+        <EmailStatus status={community.emailStatus} />
+      </div>
+
+      {/* Its own card: the address is saved with the rest, and the button sends to the SAVED address. */}
+      <div className="card elev-sm" style={{ gap: 10 }}>
+        <span className="card-kicker">Lead report</span>
+        <TextField
+          label="Send lead reports to"
+          value={settings.reportEmail}
+          onChange={set('reportEmail')}
+          inputMode="email"
+          placeholder="sales@yourcompany.com"
+        />
+        <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
+          One address. The report lists the scheduled calls still waiting and the people who signed up since the
+          last report. The spreadsheet attached has everyone, with their phone numbers (including people who said
+          no to calls and texts), your notes, status and closed leads. It is sent only when you press the button,
+          never on its own, and changing the address does not change who counts as new.
+        </span>
+        <ReportButton
+          community={community}
+          reload={reload}
+          blocked={(settings.reportEmail ?? '') !== (community.settings.reportEmail ?? '') ? 'Save settings first: the report goes to the saved address.' : ''}
+        />
+      </div>
+        </>
+      ) : null}
+
+      {active === 'home' ? (
+        <>
       <IncentiveCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
       <FaqCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
+        </>
+      ) : null}
 
-      <h4 style={{ margin: '6px 0 -4px', fontSize: 17 }}>Rates, costs and rules</h4>
+      {active === 'rules' ? (
+        <>
+      <ComplianceCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
+
       <Disclosure
         title="Live rates"
         summary={`Conv ${orDash(settings.rateConv)}% · FHA ${orDash(settings.rateFha)}% · VA ${orDash(settings.rateVa)}% · updated ${settings.ratesUpdatedAt ? dateTime(settings.ratesUpdatedAt) : 'never'}`}
@@ -259,45 +328,6 @@ export default function SetupTab({ community, reload, dirtyRef }) {
       </Disclosure>
 
       <div className="card elev-sm" style={{ gap: 10 }}>
-        <span className="card-kicker">Call request alerts</span>
-        <TextField
-          label="Send call requests to"
-          value={settings.notifyEmail}
-          onChange={set('notifyEmail')}
-          inputMode="email"
-          placeholder="sales@yourcompany.com"
-        />
-        <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
-          Leave blank to use the account you sign in with. A buyer asking for a call is
-          time-sensitive, so this is the one thing the app will email you about.
-        </span>
-        <EmailStatus status={community.emailStatus} />
-      </div>
-
-      {/* Its own card: the address is saved with the rest, and the button sends to the SAVED address. */}
-      <div className="card elev-sm" style={{ gap: 10 }}>
-        <span className="card-kicker">Lead report</span>
-        <TextField
-          label="Send lead reports to"
-          value={settings.reportEmail}
-          onChange={set('reportEmail')}
-          inputMode="email"
-          placeholder="sales@yourcompany.com"
-        />
-        <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
-          One address. The report lists the scheduled calls still waiting and the people who signed up since the
-          last report. The spreadsheet attached has everyone, with their phone numbers (including people who said
-          no to calls and texts), your notes, status and closed leads. It is sent only when you press the button,
-          never on its own, and changing the address does not change who counts as new.
-        </span>
-        <ReportButton
-          community={community}
-          reload={reload}
-          blocked={(settings.reportEmail ?? '') !== (community.settings.reportEmail ?? '') ? 'Save settings first: the report goes to the saved address.' : ''}
-        />
-      </div>
-
-      <div className="card elev-sm" style={{ gap: 10 }}>
         <span className="card-kicker">Credit range cutoffs</span>
         <div className="grid-3">
           <TextField label="Excellent ≥" value={settings.creditExcellentMin} onChange={set('creditExcellentMin')} inputMode="numeric" />
@@ -308,10 +338,11 @@ export default function SetupTab({ community, reload, dirtyRef }) {
           Buyers see these as ranges, e.g. &ldquo;Good {settings.creditGoodMin}–{num(settings.creditExcellentMin) - 1}&rdquo;.
         </span>
       </div>
+        </>
+      ) : null}
 
-      <CommunityArtwork community={community} reload={reload} />
-
-      {/* Sticky: the lender and compliance fields sit mid-page, a long way above the foot. */}
+      {/* Sticky: the lender and compliance fields sit mid-page, a long way above the foot. Look & feel saves as you go, so it only needs the bar once something is waiting. */}
+      {dirty || error || active !== 'look' ? (
       <div className="ax-savebar">
         <ErrorNote>{error}</ErrorNote>
         <button
@@ -321,6 +352,7 @@ export default function SetupTab({ community, reload, dirtyRef }) {
           {saving ? 'Saving…' : dirty ? 'Save settings' : savedAt ? 'Saved ✓' : 'Saved'}
         </button>
       </div>
+      ) : null}
     </div>
   );
 }
