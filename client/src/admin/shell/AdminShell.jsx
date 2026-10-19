@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 
 import { COMMUNITY_STATUSES, isArchived, isTourPending, isUnread } from '@shared/domain.js';
@@ -58,8 +58,11 @@ export default function AdminShell({
   const countFor = (key) => (key === 'leads' ? attention : 0);
   const url = community ? buyerUrl(community) : '';
 
-  const sectionLink = (item, { onNavigate, className = 'as-link' } = {}) => (
-    <NavLink key={item.key} to={`${base}/${item.key}`} className={className} onClick={guard(onNavigate)}>
+  const sectionLink = (item, { onNavigate, className = 'as-link', first = false } = {}) => (
+    <NavLink
+      key={item.key} to={`${base}/${item.key}`} className={className} onClick={guard(onNavigate)}
+      data-autofocus={first ? '' : undefined}
+    >
       <NavIcon name={item.key} />
       <span className="as-link__label">{item.label}</span>
       <Badge count={countFor(item.key)} />
@@ -203,8 +206,8 @@ export default function AdminShell({
           actions={<button type="button" className="btn btn-secondary" onClick={() => setMoreOpen(false)}>Close</button>}
         >
           <div className="as-sheet">
-            {SECTIONS.filter((item) => !BOTTOM_KEYS.includes(item.key)).map((item) => sectionLink(item, {
-              className: 'as-sheet__row', onNavigate: () => setMoreOpen(false),
+            {SECTIONS.filter((item) => !BOTTOM_KEYS.includes(item.key)).map((item, index) => sectionLink(item, {
+              className: 'as-sheet__row', onNavigate: () => setMoreOpen(false), first: index === 0,
             }))}
             <hr className="as-sheet__rule" />
             <a className="as-sheet__row" href={url} target="_blank" rel="noopener noreferrer" onClick={() => setMoreOpen(false)}>
@@ -245,10 +248,16 @@ function SwitchDialog({ current, leaveOk, onClose }) {
   const { token } = useAdmin();
   const [list, setList] = useState(null);
   const [error, setError] = useState('');
+  const sheet = useRef(null);
 
   useEffect(() => {
     adminApi.communities(token).then(setList).catch((err) => setError(err.message));
   }, [token]);
+
+  // The list arrives after the pop-up opens; put the keyboard on this community (or the first) once it is there.
+  useEffect(() => {
+    if (list) sheet.current?.querySelector('[aria-current="true"], a.as-sheet__row')?.focus();
+  }, [list]);
 
   const guard = (event) => {
     if (!leaveOk()) {
@@ -266,7 +275,7 @@ function SwitchDialog({ current, leaveOk, onClose }) {
     >
       <ErrorNote>{error}</ErrorNote>
       {list === null && !error ? <Spinner /> : null}
-      <div className="as-sheet">
+      <div className="as-sheet" ref={sheet}>
         {(list ?? []).map((item) => (
           <Link
             key={item.id}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { telHref } from '@shared/compliance.js';
 import {
   formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS, TOOL_KEYS,
   describeTour, isTourPending, lenderNameOf, planProgress,
@@ -15,8 +16,12 @@ import { ErrorNote, Spinner } from '../ui.jsx';
 /**
  * One person. `embedded` is the panel beside the Leads list on a computer: no page frame of its own, and a
  * back button only where the list is not already on screen.
+ *
+ * `onOpened` is told when the person has been read, so the list and the menu badge stop calling them unread.
+ * `dirtyRef` is kept true while the notes box holds text that is not saved yet, and `leaveOk` is asked before the
+ * back button throws that text away (the list's own links ask it too).
  */
-export default function LeadDetail({ community, reload, leadId, embedded = false }) {
+export default function LeadDetail({ community, reload, leadId, embedded = false, onOpened, dirtyRef, leaveOk }) {
   const { token } = useAdmin();
   const navigate = useNavigate();
   const frame = embedded ? 'as-detail' : 'a-shell';
@@ -60,13 +65,35 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
       .then((data) => {
         setLead(data);
         setNotes(data.notes);
+        // Reading a person is what marks them read; the list was loaded before that happened.
+        if (data.openedAt) onOpened?.(data);
       })
       .catch((err) => setError(err.message));
   }, [leadId, token]);
 
+  // Typed notes are not saved until the button is pressed. Say so before they are lost: leaving the page asks (the
+  // browser does, here) and CommunityDetail asks before a click on another person or a section.
+  const notesDirty = Boolean(lead) && notes !== lead.notes;
+  useEffect(() => {
+    if (dirtyRef) dirtyRef.current = notesDirty;
+    if (!notesDirty) return undefined;
+    const warn = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [notesDirty, dirtyRef]);
+  useEffect(() => () => {
+    if (dirtyRef) dirtyRef.current = false;
+  }, [dirtyRef]);
+
   if (error && !lead) return <div className={frame}><ErrorNote>{error}</ErrorNote></div>;
   if (!lead) return <div className={frame}><Spinner /></div>;
 
+  const canReach = Boolean(lead.phone && lead.consent?.granted);
+  const tel = canReach ? telHref(lead.phone) : '';
+  const sms = canReach ? textHref(lead.phone) : '';
   const savedHomes = lead.savedHomeIds.map((id) => community.homes.find((h) => h.id === id)).filter(Boolean);
   const planItems = TOOL_KEYS.filter((key) => lead.plan[key]).map((key) => ({ key, summary: lead.plan[key] }));
 
@@ -93,7 +120,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
   const saveNotes = async () => {
     setError('');
     try {
-      await adminApi.updateLead(token, lead.id, { notes });
+      setLead(await adminApi.updateLead(token, lead.id, { notes }));
       await reload?.();
       setNotesSaved(true);
       window.setTimeout(() => setNotesSaved(false), 1800);
@@ -107,7 +134,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
       <div className={embedded ? 'as-detail__head' : undefined} style={embedded ? undefined : { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <button
           type="button" className={`btn btn-secondary btn-icon${embedded ? ' as-narrow-only' : ''}`} aria-label="Back to the list"
-          onClick={() => navigate(`/admin/communities/${community.id}/leads`)}
+          onClick={() => leaveOk?.() !== false && navigate(`/admin/communities/${community.id}/leads`)}
         >
           <ChevronLeft size={18} />
         </button>
@@ -177,14 +204,19 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
           </div>
         ))}
         {lead.phone ? (
-          <div style={{ fontSize: 14 }}>{lead.phone}</div>
+          <div style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>{lead.phone}</span>
+            {/* Beside the number, where the eye goes before the dial; the box below says why. */}
+            {canReach ? null : <span className="as-chip as-chip--stop">Do not call · {lead.consent ? 'declined' : 'never asked'}</span>}
+          </div>
         ) : (
           <div className="text-muted" style={{ fontSize: 13 }}>No cell number yet. They signed up with just an email.</div>
         )}
         <ConsentNote consent={lead.consent} hasPhone={Boolean(lead.phone)} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-          {lead.phone ? <a className="btn btn-primary" href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}>Call</a> : null}
-          {lead.phone && lead.consent?.granted && textHref(lead.phone) ? <a className="btn btn-secondary" href={textHref(lead.phone)}>Text</a> : null}
+          {/* One-tap Call and Text only for someone who agreed, and only for a number that can be dialled safely. */}
+          {tel ? <a className="btn btn-primary" href={tel}>Call</a> : null}
+          {sms ? <a className="btn btn-secondary" href={sms}>Text</a> : null}
           {/* emailHref refuses an address that carries ?bcc= or similar, which the server's check lets through */}
           {emailHref(lead.email) ? <a className="btn btn-secondary" href={emailHref(lead.email)}>Email</a> : null}
           {(lead.extraEmails ?? []).filter((address) => emailHref(address)).map((address) => (

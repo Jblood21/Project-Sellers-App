@@ -106,6 +106,85 @@ for (const kind of backends()) {
       const res = await admin('/today');
       assert.equal(res.body.calls.length, 30);
       assert.ok(res.body.totals.waiting >= 33);
+      assert.ok(res.body.calls.every((call) => !('key' in call)), 'the sort key stays on the server');
+    });
+
+    test('one order across every community: a call past its day in a later community comes before an earlier community\'s later calls', async () => {
+      const first = await community('Today Eta');
+      const second = await community('Today Theta');
+      const upcoming = await signUp(first, { name: 'Upcoming Una', email: 'una@today.test' });
+      const late = await signUp(second, { name: 'Late Lou', email: 'lou@today.test' });
+      await app.store.updateLead(upcoming.lead.id, callFor(1));
+      await app.store.updateLead(late.lead.id, callFor(-4));
+      const { calls } = (await admin('/today')).body;
+      const names = calls.map((call) => call.name);
+      assert.ok(names.indexOf('Late Lou') !== -1 && names.indexOf('Late Lou') < names.indexOf('Upcoming Una'), names.join(', '));
+      const firstOnTime = calls.findIndex((call) => !call.overdue);
+      assert.ok(calls.slice(firstOnTime).every((call) => !call.overdue), 'every call past its day comes before every other');
+    });
+
+    test('the 30-call cap never cuts off a call past its day, whichever community it is in', async () => {
+      // The store already holds well over 30 upcoming calls from the cap test above.
+      const last = await community('Today Zeta');
+      const late = await signUp(last, { name: 'Last Lee', email: 'lee2@today.test' });
+      await app.store.updateLead(late.lead.id, callFor(-6));
+      const { calls, totals } = (await admin('/today')).body;
+      assert.equal(calls.length, 30);
+      assert.ok(totals.waiting > 30);
+      assert.equal(calls[0].leadId, late.lead.id, 'the call furthest past its day is first');
+      assert.equal(calls[0].overdue, true);
+    });
+
+    test('a call about financing names the community\'s own lender', async () => {
+      const cid = await community('Today Iota');
+      await admin(`/communities/${cid}`, { method: 'PATCH', body: { settings: { lenderName: 'Acme Loans' } } });
+      const person = await signUp(cid, { name: 'Lender Lia', email: 'lia@today.test', phone: '(801) 555-0105', consent: true });
+      await app.store.updateLead(person.lead.id, callFor(2));
+      const call = (await admin('/today')).body.calls.find((c) => c.leadId === person.lead.id);
+      assert.match(call.when, /Acme Loans/);
+    });
+  });
+
+  describe(`which calls the Leads list calls late (${kind} store)`, () => {
+    let app;
+    let api;
+    let token;
+
+    before(async () => {
+      app = await startBackend(kind, 'lead_call_late');
+      ({ api, token } = app);
+    });
+    after(async () => {
+      await app.stop();
+    });
+
+    const admin = (path, opts = {}) => api(`/api/admin${path}`, { token, ...opts });
+
+    test('only a call still waiting whose day has passed is late', async () => {
+      const cid = (await admin('/communities', { method: 'POST', body: { name: 'Late Check' } })).body.id;
+      const make = async (name, tour, patch = {}) => {
+        const made = await api(`/api/c/${cid}/leads`, { method: 'POST', body: { name, email: `${name.replace(/\W/g, '').toLowerCase()}@late.test`, phone: '' } });
+        assert.equal(made.status, 201, JSON.stringify(made.body));
+        await app.store.updateLead(made.body.lead.id, { tour, ...patch });
+        return made.body.lead.id;
+      };
+      const call = (daysAhead, extra = {}) => ({ slotId: null, date: dayIso(daysAhead), time: '10:00', contact: 'phone', topic: 'lender', requestedAt: new Date().toISOString(), ...extra });
+      const ids = {
+        past: await make('Past Pia', call(-4)),
+        future: await make('Future Fay', call(4)),
+        handled: await make('Handled Hal', call(-4, { handledAt: new Date().toISOString() })),
+        closed: await make('Closed Cy', call(-4), { archivedAt: new Date().toISOString() }),
+        none: await make('Plain Pam', null),
+        undated: await make('Undated Una', { slotId: null, date: '', time: '', contact: 'email', topic: 'community', requestedAt: new Date().toISOString() }),
+      };
+      const list = (await admin(`/communities/${cid}/leads`)).body;
+      const late = Object.fromEntries(list.map((lead) => [lead.id, lead.callLate]));
+      assert.equal(late[ids.past], true);
+      assert.equal(late[ids.future], false);
+      assert.equal(late[ids.handled], false, 'handled is not waiting');
+      assert.equal(late[ids.closed], false, 'closed is not waiting');
+      assert.equal(late[ids.none], false);
+      assert.equal(late[ids.undated], false, 'no day, so no day has passed');
     });
   });
 }

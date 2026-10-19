@@ -52,6 +52,9 @@ function dayCounter(timeZone) {
   };
 }
 
+/** Today's calendar day in the report zone ('2026-10-12'): the day a booked call is measured against. */
+export const reportDay = (now = new Date()) => dayCounter(reportTimeZone())(now);
+
 /** What a lead agreed to, in the words the Leads tab uses beside a phone number. */
 const consentLabel = (lead) => (lead.consent?.granted
   ? 'Agreed to calls and texts'

@@ -156,6 +156,11 @@
   .as-head__actions { display: flex; }
 }
 
+/* A Setup part. All four stay mounted (what is typed in one survives a visit to another); only the one in view
+   shows, and its cards stay flex items of the page so the gap between them is unchanged. */
+.as-part-body { display: contents; }
+.as-part-body[hidden] { display: none; }
+
 /* Setup is split into parts; a row of links, not a page of cards. */
 .as-parts { display: flex; gap: 4px; overflow-x: auto; margin: 0 0 18px; border-bottom: 1px solid var(--color-divider); }
 .as-part {
@@ -164,11 +169,18 @@
   font-family: var(--font-heading); font-size: 13.5px; font-weight: 600;
 }
 .as-part:hover { color: var(--color-text); }
+/* Inside the row's own box: the row scrolls, and a ring drawn outside it would be clipped. */
+.as-part:focus-visible { outline-offset: -3px; }
+/* Four parts do not fit a phone in one line; wrap them rather than hide the last one off the edge. */
+@media (max-width: 560px) { .as-parts { flex-wrap: wrap; overflow: visible; } }
 .as-part.active { color: var(--color-accent-700); border-bottom-color: var(--color-accent); }
 
 /* The sticky "Save settings" bar sits inside the page padding and above the phone's bottom bar. */
 .as-page .ax-savebar { margin: 0 calc(-1 * var(--as-pad)); padding-left: var(--as-pad); padding-right: var(--as-pad); }
 @media (max-width: 979px) {
+  /* Tab and Shift+Tab bring a control into view; it must stop clear of the top bar and the bottom bar, not land under
+     them. `html` is less specific than the Setup rule below, which keeps its larger bottom value. */
+  html { scroll-padding-top: 76px; scroll-padding-bottom: calc(var(--as-bottom-h, 64px) + env(safe-area-inset-bottom) + 24px); }
   .as-page .ax-savebar { bottom: calc(var(--as-bottom-h) + env(safe-area-inset-bottom)); padding-bottom: 10px; }
   :root:has(.ax-setup) { scroll-padding-bottom: 220px; }
 }

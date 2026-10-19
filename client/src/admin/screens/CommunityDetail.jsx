@@ -38,13 +38,14 @@ export default function CommunityDetail() {
     return next;
   }, [communityId, token]);
 
-  // Another community must not show the last one's data while it loads.
   useEffect(() => {
-    setCommunity(null);
-    setLeads(null);
-    setError('');
     reload().catch((err) => setError(err.message));
   }, [reload]);
+
+  // Opening a person marks them read on the server; the list was loaded before that, so say so here too.
+  const markOpened = useCallback((lead) => {
+    setLeads((rows) => (rows ? rows.map((row) => (row.id === lead.id && !row.openedAt ? { ...row, openedAt: lead.openedAt } : row)) : rows));
+  }, []);
 
   if (error) return <div className="a-shell"><ErrorNote>{error}</ErrorNote></div>;
   if (!community) return <div className="a-shell"><Spinner /></div>;
@@ -53,7 +54,7 @@ export default function CommunityDetail() {
     <Routes>
       <Route index element={<OldAddress community={community} />} />
       <Route path="flyer" element={<Flyer community={community} />} />
-      <Route path="*" element={<CommunityPages community={community} leads={leads} reload={reload} />} />
+      <Route path="*" element={<CommunityPages community={community} leads={leads} reload={reload} markOpened={markOpened} />} />
     </Routes>
   );
 }
@@ -70,19 +71,29 @@ function OldAddress({ community }) {
 }
 
 /** The section the address names, inside the frame. Everything the sections share lives here. */
-function CommunityPages({ community, leads, reload }) {
+function CommunityPages({ community, leads, reload, markOpened }) {
   const { token } = useAdmin();
   const navigate = useNavigate();
   const rest = (useParams()['*'] ?? '').split('/').filter(Boolean);
   const [qrOpen, setQrOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  // SetupTab keeps this true while its form holds edits that are not saved yet.
+  // SetupTab keeps the first true while its form holds edits that are not saved yet; the person panel keeps the
+  // second true while its notes box holds text that is not saved. Anything that leaves either page asks first.
   const setupDirty = useRef(false);
-  const leaveOk = () => !setupDirty.current
-    || window.confirm('You have unsaved changes on the Setup page. Leave and lose them?');
+  const notesDirty = useRef(false);
+  const leaveOk = () => {
+    if (setupDirty.current) return window.confirm('You have unsaved changes on the Setup page. Leave and lose them?');
+    if (notesDirty.current) return window.confirm('You have notes that are not saved yet. Leave and lose them?');
+    return true;
+  };
 
   const section = sectionOf(rest[0]);
+  // A new section opens at its top, not wherever the last one was scrolled to. Keyed on the section only, so moving
+  // between Setup's parts or picking a person beside the list does not jump the page.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [section?.key]);
   if (!section) return <Navigate to={`/admin/communities/${community.id}/leads`} replace />;
   const go = (path) => navigate(`/admin/communities/${community.id}/${path}`);
 
@@ -104,6 +115,7 @@ function CommunityPages({ community, leads, reload }) {
         <LeadsTab
           community={community} leads={leads} reload={reload} leadId={rest[1] ?? ''}
           onOpenSetup={() => go('setup/team')}
+          onOpened={markOpened} notesDirtyRef={notesDirty} leaveOk={leaveOk}
         />
       ) : null}
       {section.key === 'stats' ? <StatsTab community={community} leads={leads} /> : null}

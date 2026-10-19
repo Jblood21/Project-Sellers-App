@@ -23,7 +23,9 @@ export function Dialog({ title, children, actions, onClose, wide = false }) {
     // Remember what had focus so closing the dialog puts the keyboard back where
     // it was, instead of dropping it at the top of the page.
     const opener = document.activeElement;
-    ref.current?.querySelector('input, textarea, select, button')?.focus();
+    // A dialog whose first thing to reach is a link (a menu of places to go) marks it with data-autofocus; the rest
+    // start on their first field or button.
+    (ref.current?.querySelector('[data-autofocus]') ?? ref.current?.querySelector('input, textarea, select, button'))?.focus();
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
     };

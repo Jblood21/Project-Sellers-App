@@ -113,7 +113,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
       await reload();
       if (!result.webhookConfigured) {
         setError('No rate inbox connected yet — set RATES_WEBHOOK_SECRET and point Zapier at /api/communities/' +
-          community.id + '/rates. Rates above can be edited by hand meanwhile.');
+          community.id + '/rates. Rates can be typed by hand meanwhile, under Live rates on Rates & rules.');
       }
     } catch (err) {
       setError(err.message);
@@ -122,7 +122,9 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
 
   return (
     <div className="ax-setup" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Four parts, each its own address. The form is one: edits made in one part are kept when you move to another, and one Save settings saves them all. */}
+      {/* Four parts, each its own address. The form is one: all four stay mounted and only the one in view shows, so
+          what is typed in any card (a FAQ row, a realtor's form) is still there when you come back, and one Save
+          settings saves them all. */}
       <nav className="as-parts" aria-label="Setup parts">
         {SETUP_PARTS.map((item) => (
           <Link
@@ -136,8 +138,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
         ))}
       </nav>
 
-      {active === 'look' ? (
-        <>
+      <div className="as-part-body" hidden={active !== 'look'}>
       <LayoutCard community={community} reload={reload} />
 
       <div className="card elev-sm" style={{ gap: 10 }}>
@@ -180,11 +181,9 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
       <LogoCard community={community} reload={reload} />
 
       <CommunityArtwork community={community} reload={reload} />
-        </>
-      ) : null}
+      </div>
 
-      {active === 'team' ? (
-        <>
+      <div className="as-part-body" hidden={active !== 'team'}>
       <RealtorsCard community={community} reload={reload} />
 
       <div className="card elev-sm" style={{ gap: 10 }}>
@@ -216,7 +215,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
         <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
           One address. The report lists the scheduled calls still waiting and the people who signed up since the
           last report. The spreadsheet attached has everyone, with their phone numbers (including people who said
-          no to calls and texts), your notes, status and closed leads. It is sent only when you press the button,
+          no to calls and texts), your notes and status. People you have closed are left out. It is sent only when you press the button,
           never on its own, and changing the address does not change who counts as new.
         </span>
         <ReportButton
@@ -225,18 +224,14 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
           blocked={(settings.reportEmail ?? '') !== (community.settings.reportEmail ?? '') ? 'Save settings first: the report goes to the saved address.' : ''}
         />
       </div>
-        </>
-      ) : null}
+      </div>
 
-      {active === 'home' ? (
-        <>
+      <div className="as-part-body" hidden={active !== 'home'}>
       <IncentiveCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
       <FaqCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
-        </>
-      ) : null}
+      </div>
 
-      {active === 'rules' ? (
-        <>
+      <div className="as-part-body" hidden={active !== 'rules'}>
       <ComplianceCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
 
       <Disclosure
@@ -338,8 +333,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
           Buyers see these as ranges, e.g. &ldquo;Good {settings.creditGoodMin}–{num(settings.creditExcellentMin) - 1}&rdquo;.
         </span>
       </div>
-        </>
-      ) : null}
+      </div>
 
       {/* Sticky: the lender and compliance fields sit mid-page, a long way above the foot. Look & feel saves as you go, so it only needs the bar once something is waiting. */}
       {dirty || error || active !== 'look' ? (

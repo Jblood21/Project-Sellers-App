@@ -294,12 +294,16 @@ links of the form `/admin/communities/<id>?tab=setup` still land on the right se
 back button). *Show* (Active, Unread, calls waiting, Closed) and *Sort* (Recent, Most ★) are separate controls, and
 the **Reports** button opens the emailed report and the PDF, the PDF being made in the order chosen here. A row shows
 Call and Text only for someone who agreed to calls and texts, and Email whenever the address is safe to link; a
-person who did not agree shows **Do not call** beside the number, as before.
+person who did not agree shows **Do not call** beside the number, as before, and the panel for that person offers
+no Call or Text either. A call is **late** when its day has passed in the report time zone (`REPORT_TIME_ZONE`), the
+same day the reports and the Today page count in; the list gets that from the server (`callLate`), not from the
+device's clock. Notes typed into the panel are not saved until **Save notes**; moving to another person or another
+section asks first while there are unsaved notes.
 
 **Setup** is four parts with one form behind them, each its own address: `setup/look` (layout, theme, logo, artwork),
 `setup/team` (realtors, call-request alerts, the lead report address), `setup/home` (builder incentive, FAQ) and
-`setup/rules` (lender and compliance, rates, costs, assistance rules, credit cutoffs). Edits made in one part are
-kept when you move to another, one **Save settings** saves them all, and leaving the page asks first while anything
+`setup/rules` (lender and compliance, rates, costs, assistance rules, credit cutoffs). All four stay on the page and
+only the one in view shows, so edits (and half-typed FAQ rows or realtor forms) are kept when you move to another, one **Save settings** saves them all, and leaving the page asks first while anything
 is unsaved.
 
 ## Working the leads

@@ -12,10 +12,10 @@ import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
-import { buildReport, emailReport } from '../lib/report.js';
+import { buildReport, emailReport, reportDay } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
-import { DEFAULT_LEAD_SORT, LEAD_SORTS, describeTour, isUnread, lenderNameOf } from '../../shared/domain.js';
+import { DEFAULT_LEAD_SORT, LEAD_SORTS, describeTour, isTourPending, isUnread, lenderNameOf } from '../../shared/domain.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
@@ -357,6 +357,8 @@ export function adminRouter() {
       const lender = lenderNameOf(community);
       for (const [lead, overdue] of [...report.overdue.map((l) => [l, true]), ...report.comingUp.map((l) => [l, false])]) {
         calls.push({
+          // Sorted on, then dropped: the same key the report orders its own calls by, so a call with no day goes last.
+          key: `${lead.tour.date || '9999-12-31'} ${lead.tour.time || ''}`,
           communityId: community.id, communityName: community.name, leadId: lead.id, name: lead.name, phone: lead.phone || '', email: lead.email,
           canCall: Boolean(lead.phone && lead.consent?.granted), when: describeTour(lead.tour, lender), overdue,
         });
@@ -368,9 +370,12 @@ export function adminRouter() {
       });
     }
     const sum = (key) => communities.reduce((total, c) => total + c[key], 0);
+    // One order across every community, then the cap: a call that is past its day in the last community must not
+    // be cut off by the later calls of the first. (Past their day means an earlier day, so the day alone orders them.)
+    calls.sort((a, b) => a.key.localeCompare(b.key));
     res.json({
       communities,
-      calls: calls.slice(0, 30),
+      calls: calls.slice(0, 30).map(({ key, ...call }) => call),
       totals: { communities: communities.length, people: sum('people'), unread: sum('unread'), waiting: sum('waiting'), overdue: sum('overdue') },
     });
   });
@@ -1224,7 +1229,12 @@ export function adminRouter() {
 
   router.get('/communities/:id/leads', async (req, res) => {
     const store = await getStore();
-    res.json(await store.listLeads(req.params.id));
+    // `callLate`: a call still waiting whose day has passed, by the same day the reports and the Today page count
+    // in (REPORT_TIME_ZONE), so the Leads list cannot call a request late when they do not, whatever the device's clock says.
+    const today = reportDay();
+    res.json((await store.listLeads(req.params.id)).map((lead) => ({
+      ...lead, callLate: Boolean(isTourPending(lead) && lead.tour.date && lead.tour.date < today),
+    })));
   });
 
   /**

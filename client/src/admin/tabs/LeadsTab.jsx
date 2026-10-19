@@ -13,44 +13,48 @@ import LeadDetail from '../screens/LeadDetail.jsx';
 import NavIcon from '../shell/navIcons.jsx';
 import { Dialog, PillRow, Spinner } from '../ui.jsx';
 
-/** Today's date as the day-only text a booked call carries ("2026-10-19"), in this device's time zone. */
-const today = () => {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-};
-
 /**
  * Everyone who entered the app. On a computer the list sits beside the person you picked; on a phone
  * the list is one page and the person is the next. Filtering (who is shown) and sorting (in what order)
  * are separate controls, and the reports live behind one button.
  */
-export default function LeadsTab({ community, leads, reload, onOpenSetup, leadId = '' }) {
+export default function LeadsTab({
+  community, leads, reload, onOpenSetup, leadId = '', onOpened, notesDirtyRef, leaveOk,
+}) {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('active');
+  const [chosen, setFilter] = useState('active');
   const [sort, setSort] = useState('recent');
   const [reportsOpen, setReportsOpen] = useState(false);
+
+  // Pills that would only ever read zero are not shown at all — an empty filter
+  // is one more thing to scan past for no information.
+  const everyone = leads ?? [];
+  const pendingTours = countPendingTours(everyone);
+  const unread = everyone.filter((lead) => isUnread(lead) && !isArchived(lead)).length;
+  const archived = everyone.filter(isArchived).length;
+  // The filter in use. If the one chosen has nobody left (the last unread person was opened, the last call was
+  // handled, the last closed person was brought back), its pill is gone and so is it: back to Active, never an
+  // empty list with nothing highlighted.
+  const filter = (chosen === 'unread' && !unread) || (chosen === 'tour' && !pendingTours) || (chosen === 'closed' && !archived)
+    ? 'active'
+    : chosen;
 
   const rows = useMemo(() => {
     if (!leads) return [];
     // Every view except "Closed" hides archived leads — that is what archiving is
     // for. Closed shows only those, so nothing is ever unreachable.
     let out = filter === 'closed' ? leads.filter(isArchived) : leads.filter((l) => !isArchived(l));
-    if (filter === 'unread') out = out.filter(isUnread);
+    // The person on screen stays in the Unread list after opening them marks them read, so the row you clicked
+    // does not vanish from under you.
+    if (filter === 'unread') out = out.filter((lead) => isUnread(lead) || lead.id === leadId);
     else if (filter === 'tour') out = out.filter(isTourPending);
     const q = query.trim().toLowerCase();
     if (q) out = out.filter((lead) => `${lead.name} ${lead.email} ${lead.phone || ''}`.toLowerCase().includes(q));
     return sortLeads(out, sort);
-  }, [filter, leads, query, sort]);
+  }, [filter, leadId, leads, query, sort]);
 
   if (!leads) return <Spinner label="Loading leads…" />;
 
-  const pendingTours = countPendingTours(leads);
-  // Pills that would only ever read zero are not shown at all — an empty filter
-  // is one more thing to scan past for no information.
-  const unread = leads.filter((lead) => isUnread(lead) && !isArchived(lead)).length;
-  const archived = leads.filter(isArchived).length;
-  const day = today();
   const lender = lenderNameOf(community);
 
   return (
@@ -129,13 +133,18 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup, leadId
             const sms = canReach ? textHref(lead.phone) : '';
             const mail = emailHref(lead.email);
             const pending = isTourPending(lead);
-            const late = pending && lead.tour.date && lead.tour.date < day;
+            // Late by the day the reports and the Today page count in (the server's), not this device's clock.
+            const late = pending && lead.callLate;
             return (
               <li key={lead.id} className={`as-lead${selected ? ' is-selected' : ''}`}>
                 <Link
                   className="as-lead__main"
                   to={`/admin/communities/${community.id}/leads/${lead.id}`}
                   aria-current={selected ? 'true' : undefined}
+                  onClick={(event) => {
+                    // Typed notes on the person on screen would be lost: ask first.
+                    if (!selected && leaveOk && !leaveOk()) event.preventDefault();
+                  }}
                 >
                   <span className="as-lead__top">
                     {isUnread(lead) ? <span className="as-lead__dot" title="Not opened yet" aria-hidden="true" /> : null}
@@ -180,7 +189,10 @@ export default function LeadsTab({ community, leads, reload, onOpenSetup, leadId
 
       <section className="as-leads__detail" aria-label="Person">
         {leadId ? (
-          <LeadDetail key={leadId} community={community} reload={reload} leadId={leadId} embedded />
+          <LeadDetail
+            key={leadId} community={community} reload={reload} leadId={leadId} embedded
+            onOpened={onOpened} dirtyRef={notesDirtyRef} leaveOk={leaveOk}
+          />
         ) : (
           <div className="as-leads__empty">
             <strong>Pick someone from the list</strong>
