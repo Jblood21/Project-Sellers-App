@@ -583,6 +583,12 @@ above it were last updated (from Setup → Live rates), left out if rates have n
 
 Under **Setup → Home screen**:
 
+- **Home screen heading.** The heading at the top of the buyer's home screen ("Hi Dana — can you buy one of these?")
+  and the line under it, in the builder's words (`settings.homeHeadline`, up to 120 characters, and
+  `settings.homeSubhead`, up to 280). `{name}` is the buyer's first name ("there" when there is none) and `{community}`
+  the development's name. A box left empty keeps the layout's own wording, which the field shows in grey; all four
+  layouts read the same two settings (`homeGreeting` in `shared/domain.js`), and a preview shows how it reads. It goes
+  live with Save settings.
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
   shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state, and
   they are typed in Setup, so write dollar amounts in full with the dollar sign (`$20,000`).

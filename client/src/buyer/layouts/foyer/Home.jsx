@@ -208,9 +208,9 @@ export default function Home({ model }) {
   return (
     <div className="b-shell fy-home">
       <div className="fy-masthead">
-        <h1 className="fy-hello">Hello{model.firstName ? `, ${model.firstName}` : ''}.</h1>
+        <h1 className="fy-hello">{model.greeting.headline || `Hello${model.firstName ? `, ${model.firstName}` : ''}.`}</h1>
         <p className="fy-sub">
-          Can you buy one of these? Find out what works for you, and build your own home plan.
+          {model.greeting.subhead || 'Can you buy one of these? Find out what works for you, and build your own home plan.'}
         </p>
       </div>
 
