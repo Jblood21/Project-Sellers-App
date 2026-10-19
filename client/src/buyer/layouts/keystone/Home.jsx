@@ -244,9 +244,9 @@ export default function Home({ model }) {
   return (
     <div className="b-shell ks-home">
       <div className="ks-greet">
-        <h1 className="ks-greet__h1">Hi {model.firstName} — can you buy one of these?</h1>
+        <h1 className="ks-greet__h1">{model.greeting.headline || `Hi ${model.firstName} — can you buy one of these?`}</h1>
         <p className="ks-greet__lede">
-          Take a few minutes to find out what works for you and build your own home plan.
+          {model.greeting.subhead || 'Take a few minutes to find out what works for you and build your own home plan.'}
         </p>
       </div>
 

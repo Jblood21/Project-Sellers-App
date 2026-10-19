@@ -532,8 +532,8 @@ export function adminRouter() {
           if (faq === null) return res.status(400).json({ error: 'The FAQ could not be read. Send a list of questions and answers.' });
           settings[key] = faq;
         } else {
-          // The incentive card is printed on the home screen like the compliance copy.
-          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive') || key.startsWith('team');
+          // The incentive card and the home screen's heading are printed on the home screen like the compliance copy.
+          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive') || key.startsWith('team') || key.startsWith('home');
           settings[key] = capped ? text.slice(0, settingMaxLength(key)) : text;
         }
       }

@@ -179,9 +179,9 @@ export default function Home({ model }) {
   return (
     <div className="b-shell cp-home">
       <div className="cp-header">
-        <h1 className="cp-display">Hi {model.firstName} — can you buy one of these?</h1>
+        <h1 className="cp-display">{model.greeting.headline || `Hi ${model.firstName} — can you buy one of these?`}</h1>
         <p className="cp-lede">
-          Take a few minutes to find out what works for you and build your own home plan.
+          {model.greeting.subhead || 'Take a few minutes to find out what works for you and build your own home plan.'}
         </p>
       </div>
 

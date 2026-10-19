@@ -109,8 +109,14 @@ export const LONG_SETTING_MAX = 4000;
  * The longest a setting may be. Applied by the server before storing: these are
  * rendered on every page of the buyer app, so a pasted novel would be too.
  */
+/** The home screen's heading and the line under it: printed large at the top of the buyer app, so kept short. */
+export const HOME_HEADLINE_MAX = 120;
+export const HOME_SUBHEAD_MAX = 280;
+
 export function settingMaxLength(key) {
   if (key === 'faqJson') return FAQ_JSON_MAX;
+  if (key === 'homeHeadline') return HOME_HEADLINE_MAX;
+  if (key === 'homeSubhead') return HOME_SUBHEAD_MAX;
   return LONG_SETTING_KEYS.includes(key) ? LONG_SETTING_MAX : SHORT_SETTING_MAX;
 }
 

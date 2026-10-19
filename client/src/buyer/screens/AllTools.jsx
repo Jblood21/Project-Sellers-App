@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { HOME_GUIDES, TOOLS, videoEmbed } from '@shared/domain.js';
+import { HOME_GUIDES, TOOLS, homeGreeting, videoEmbed } from '@shared/domain.js';
 import { complianceOf } from '@shared/compliance.js';
 import Photo from '../../components/Photo.jsx';
 import { firstName } from '../../lib/format.js';
@@ -40,6 +40,8 @@ export function useHomeModel({ onOpenLender } = {}) {
     communityId,
     homesCount: homes.length,
     firstName: firstName(lead?.name),
+    // The builder's own heading and the line under it, from Setup; each is '' to keep the layout's wording.
+    greeting: homeGreeting(community?.settings, { firstName: firstName(lead?.name), community: community?.name }),
     savedCount: lead?.savedHomeIds?.length ?? 0,
     inPlan: (toolKey) => Boolean(lead?.plan?.[toolKey]),
     leadTools: enabled.filter((tool) => LEAD_TOOLS.includes(tool.k)),
@@ -106,10 +108,10 @@ export function HomeScreen({ model }) {
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h1 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>
-        Hi {model.firstName} — can you buy one of these?
+        {model.greeting.headline || `Hi ${model.firstName} — can you buy one of these?`}
       </h1>
       <p style={{ margin: '0 0 16px', color: 'var(--t-mut)', fontSize: 13 }}>
-        Take a few minutes to find out what works for you and build your own home plan.
+        {model.greeting.subhead || 'Take a few minutes to find out what works for you and build your own home plan.'}
       </p>
 
       {lead2.length ? (

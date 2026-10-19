@@ -10,6 +10,7 @@ import { useAdmin } from '../AdminContext.jsx';
 import { DEFAULT_SETUP_PART, SETUP_PARTS } from '../shell/sections.js';
 import ComplianceCard from '../setup/ComplianceCard.jsx';
 import FaqCard from '../setup/FaqCard.jsx';
+import HomeHeadingCard from '../setup/HomeHeadingCard.jsx';
 import IncentiveCard from '../setup/IncentiveCard.jsx';
 import LayoutCard from '../setup/LayoutCard.jsx';
 import LogoCard from '../setup/LogoCard.jsx';
@@ -227,6 +228,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
       </div>
 
       <div className="as-part-body" hidden={active !== 'home'}>
+      <HomeHeadingCard community={community} settings={settings} setSettings={setSettings} />
       <IncentiveCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
       <FaqCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
       </div>

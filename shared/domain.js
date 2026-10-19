@@ -1,4 +1,4 @@
-import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE, isSafeEmail } from './compliance.js';
+import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE, fillTokens, isSafeEmail } from './compliance.js';
 import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
 
 export {
@@ -587,6 +587,12 @@ export const DEFAULT_SETTINGS = {
   teamEmail: '',
   // The text the buyer's message starts with. {community} is the development.
   incentiveMessage: 'Contact me about the preferred lender incentive for {community}.',
+
+  // ── the heading at the top of the buyer app's home screen, and the line under it ───────
+  // Blank keeps each layout's own wording ("Hi Dana — can you buy one of these?"). {name} is the buyer's first name
+  // and {community} the development's.
+  homeHeadline: '',
+  homeSubhead: '',
 
   // ── the FAQ shown on the home screen: a JSON list, edited in Setup ───────
   // Starts as the starter questions in shared/faq.js; the builder edits them.
@@ -1240,6 +1246,17 @@ export function toolOfActivity(text) {
  */
 export function toolsUsedOf(lead) {
   return TOOL_ORDER.filter((key) => (lead?.toolUses?.[key] ?? 0) > 0 || Boolean(lead?.plan?.[key]) || (key === 'movein' && Boolean(lead?.moveIn)));
+}
+
+/**
+ * The home screen's heading and the line under it, as the builder wrote them in Setup, with {name} as the buyer's
+ * first name ("there" when there is none) and {community} as the development's name. Each is '' when the builder left
+ * it blank, and the layout then shows its own wording.
+ */
+export function homeGreeting(settings, { firstName = '', community = '' } = {}) {
+  const values = { name: String(firstName ?? '').trim() || 'there', community: String(community ?? '').trim() };
+  const fill = (text) => fillTokens(String(text ?? '').trim(), values);
+  return { headline: fill(settings?.homeHeadline), subhead: fill(settings?.homeSubhead) };
 }
 
 /** The tools this community offers its buyers, in the app's order: every one the builder has not switched off. */
