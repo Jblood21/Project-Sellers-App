@@ -295,7 +295,9 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     y = heading('Tools used · people who used each', { x: xs[1], y: top, width: widths[1] });
     const labelW = 80;
     const countW = 34;
-    if (!roster.length) doc.text('No one in this period.', { x: xs[1], y: y + 8, size: 8, color: COLORS.muted });
+    if (!roster.length || !tools.length) {
+      doc.text(roster.length ? 'No tools are switched on.' : 'No one in this period.', { x: xs[1], y: y + 8, size: 8, color: COLORS.muted });
+    }
     for (const tool of roster.length ? tools : []) {
       doc.text(fitLine(tool.label, { size: 7.8, width: labelW - 4 }), { x: xs[1], y: y + 8, size: 7.8 });
       bar({ x: xs[1] + labelW, y: y + 3, w: widths[1] - labelW - countW - 6, fraction: roster.length ? tool.value / roster.length : 0, color: primary });

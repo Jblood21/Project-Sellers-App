@@ -226,27 +226,46 @@ export function createPostgresStore(connectionString) {
     return rows[0];
   };
 
+  /**
+   * Activity written before each line was tagged with the tool it belongs to: tag it, so what people did before still
+   * counts as the use of a tool. A line with no tool is tagged '', so a row is only ever tagged once. In batches,
+   * walking the ids, so a large log is neither read at once nor scanned again for every batch; and each batch locks
+   * its rows in id order, so instances starting together wait for one another instead of deadlocking.
+   */
+  let retag = null;
+  const tagUntaggedActivity = async () => {
+    let after = 0;
+    for (;;) {
+      const { rows: untagged } = await q(`SELECT id, text FROM lead_activity WHERE tool IS NULL AND id > $1 ORDER BY id LIMIT 5000`, [after]);
+      if (!untagged.length) break;
+      after = untagged[untagged.length - 1].id;
+      const byTool = new Map();
+      for (const row of untagged) {
+        const tool = toolOfActivity(row.text);
+        byTool.set(tool, [...(byTool.get(tool) ?? []), row.id]);
+      }
+      for (const [tool, ids] of byTool) {
+        await q(
+          `UPDATE lead_activity a SET tool = $1
+             FROM (SELECT id FROM lead_activity WHERE id = ANY($2::bigint[]) ORDER BY id FOR UPDATE) locked
+            WHERE a.id = locked.id`,
+          [tool, ids],
+        );
+      }
+    }
+  };
+
   return {
     kind: 'postgres',
 
     async init() {
       await q(readFileSync(join(here, 'schema.sql'), 'utf8'));
-      // Activity written before each line was tagged with the tool it belongs to: tag it, so what people did before
-      // still counts as the use of a tool. Rows are only ever tagged once (a line with no tool is tagged ''), and
-      // tagging the same row twice, from two instances booting together, writes the same thing.
-      // In batches, walking the ids, so a large log is neither read at once nor scanned again for every batch.
-      let after = 0;
-      for (;;) {
-        const { rows: untagged } = await q(`SELECT id, text FROM lead_activity WHERE tool IS NULL AND id > $1 ORDER BY id LIMIT 5000`, [after]);
-        if (!untagged.length) break;
-        after = untagged[untagged.length - 1].id;
-        const byTool = new Map();
-        for (const row of untagged) {
-          const tool = toolOfActivity(row.text);
-          byTool.set(tool, [...(byTool.get(tool) ?? []), row.id]);
-        }
-        for (const [tool, ids] of byTool) await q(`UPDATE lead_activity SET tool = $1 WHERE id = ANY($2::bigint[])`, [tool, ids]);
-      }
+      await tagUntaggedActivity();
+      // An older instance still running through a deploy can write a few untagged lines after this one has started:
+      // one more pass once the old one is surely gone picks them up. unref() keeps it from holding the process open.
+      clearTimeout(retag);
+      retag = setTimeout(() => tagUntaggedActivity().catch(() => {}), 2 * 60 * 1000);
+      retag.unref?.();
       // Every community that has never been given the supplied guides gets them
       // now: this is how communities that existed before guides shipped receive
       // them. The flag is claimed inside the same transaction as the inserts, so
@@ -266,6 +285,7 @@ export function createPostgresStore(connectionString) {
     },
 
     async close() {
+      clearTimeout(retag);
       await pool.end();
     },
 

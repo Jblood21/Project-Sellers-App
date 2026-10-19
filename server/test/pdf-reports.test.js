@@ -212,6 +212,9 @@ describe('the leads report PDF', () => {
     assert.ok(text.includes('My Savings Plan'), 'used before it was switched off');
     assert.ok(!text.includes('Down Payment Help'), 'switched off and never used');
     assert.ok(text.includes('My Price Range\n0 of 2'), 'a tool still offered is listed at nought');
+    const none = { ...community, tools: Object.fromEntries(['payment', 'afford', 'loans', 'compare', 'dpa', 'savings', 'movein'].map((key) => [key, false])) };
+    const empty = pdfText(buildLeadsPdf({ community: none, leads: [lead()], homes, now: NOW, timeZone: ZONE }).buffer);
+    assert.ok(empty.includes('No tools are switched on.'), 'every tool off and none used: the panel says so');
   });
 
   test('the panels: the most saved homes, the tools used and the sign-ups for each of the last eight weeks', () => {
