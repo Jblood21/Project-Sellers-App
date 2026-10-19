@@ -27,12 +27,14 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
   const rows = useMemo(() => {
     const words = query.trim().toLowerCase();
     const digits = words.replace(/\D/g, '');
+    // A number is matched as it was typed and as the Call button dials it, so "+1 801 555 3246" finds "(801) 555-3246".
+    const numbers = (phone) => `${phone.replace(/\D/g, '')} ${telHref(phone).replace(/\D/g, '')}`;
     return people.filter((person) => (view === 'all' || !person.contacted)
       && (!place || person.communityId === place)
       && (!words
         || person.name.toLowerCase().includes(words)
         || person.communityName.toLowerCase().includes(words)
-        || (digits.length >= 3 && person.phone.replace(/\D/g, '').includes(digits))));
+        || (digits.length >= 3 && numbers(person.phone).includes(digits))));
   }, [people, place, query, view]);
 
   if (!total) {
@@ -110,7 +112,7 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
           </ul>
         )}
       </div>
-      <p className="text-muted" style={{ fontSize: 12.5, margin: '8px 0 0' }}>
+      <p className="text-muted" role="status" style={{ fontSize: 12.5, margin: '8px 0 0' }}>
         {rows.length === 1 ? '1 person' : `${rows.length} people`} shown
         {people.length < total ? `, from the ${people.length} listed here of ${total}. Each community's Leads, under Agreed, has everyone.` : '.'}
       </p>

@@ -229,7 +229,7 @@
    communities off the page. */
 .as-ready-wrap .as-bar { margin-bottom: 10px; }
 .as-ready {
-  max-height: min(460px, 62vh); overflow-y: auto; overscroll-behavior: contain;
+  max-height: min(460px, 62vh); overflow-y: auto;
   border: 1px solid var(--color-divider); border-radius: 14px; background: var(--color-neutral-100);
 }
 .as-ready__list { margin: 0; padding: 0; list-style: none; }
