@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
-  formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS, TOOL_ORDER,
-  describeTour, isTourPending, lenderNameOf, toolsUsedOf,
+  formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS,
+  describeTour, isTourPending, lenderNameOf, toolAnswerOf, toolsUsedOf,
 } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -96,7 +96,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
   const sms = canReach ? textHref(lead.phone) : '';
   const savedHomes = lead.savedHomeIds.map((id) => community.homes.find((h) => h.id === id)).filter(Boolean);
   // Every tool they used, with what it worked out when they kept the answer.
-  const toolsUsed = toolsUsedOf(lead).map((key) => ({ key, summary: lead.plan[key] || '' }));
+  const toolsUsed = toolsUsedOf(lead).map((key) => ({ key, summary: toolAnswerOf(lead, key) }));
 
   /**
    * Every change here has to be pushed back to the list this screen was opened
@@ -142,7 +142,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: 21 }}>{lead.name}</h3>
           <span className="text-muted" style={{ fontSize: 12 }}>
-            First visit {shortDate(lead.firstVisitAt)} · {toolsUsed.length} of {TOOL_ORDER.length} tools used
+            First visit {shortDate(lead.firstVisitAt)} · {toolsUsed.length} {toolsUsed.length === 1 ? 'tool' : 'tools'} used
           </span>
         </div>
         <span className={lead.status === 'new' ? 'tag tag-accent' : 'tag tag-neutral'}>
@@ -291,7 +291,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         <span className="card-kicker">Report for this person</span>
         <p className="card-body" style={{ margin: 0 }}>
           A PDF with their contact details, what they agreed to, the call they asked for, their homes,
-          what the tools worked out, their move-in plan, the notes you have saved and everything they did in the app.
+          the tools they used and what each worked out, their move-in plan, the notes you have saved and everything they did in the app.
         </p>
         <button
           type="button" className="btn btn-secondary" onClick={downloadPdf}

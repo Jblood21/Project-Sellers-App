@@ -1,9 +1,11 @@
-import { PLAN_LABELS, toolsUsedOf } from '@shared/domain.js';
+import { PLAN_LABELS, isArchived, toolsUsedOf } from '@shared/domain.js';
 import PdfReportButton from '../PdfReportButton.jsx';
 import { Spinner } from '../ui.jsx';
 
-export default function StatsTab({ community, leads }) {
-  if (!leads) return <Spinner label="Loading stats…" />;
+export default function StatsTab({ community, leads: everyone }) {
+  if (!everyone) return <Spinner label="Loading stats…" />;
+  // People the team has closed are counted nowhere here, as in the reports.
+  const leads = everyone.filter((lead) => !isArchived(lead));
 
   const saveCounts = {};
   for (const lead of leads) {
@@ -52,6 +54,7 @@ export default function StatsTab({ community, leads }) {
           <span className="text-muted">{topToolEntry ? `${topToolEntry[1]} ${topToolEntry[1] === 1 ? 'person' : 'people'}` : '—'}</span>
         </div>
       </div>
+      <p className="text-muted" style={{ fontSize: 12.5, margin: 0 }}>People you have closed are not counted.</p>
       <div className="card">
         <PdfReportButton
           community={community}

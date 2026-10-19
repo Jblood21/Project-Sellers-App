@@ -1,6 +1,6 @@
 import {
   DEFAULT_LEAD_SORT, LEAD_SORTS, PLAN_LABELS, THEMES, TOOL_ORDER, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending,
-  lenderNameOf, money, slugify, sortLeads, toolsUsedOf,
+  lenderNameOf, money, slugify, sortLeads, toolAnswerOf, toolsOfferedBy, toolsUsedOf,
 } from '../../shared/domain.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
 import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, wrapText } from './pdf.js';
@@ -242,8 +242,11 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     for (const lead of roster) for (const id of savedOf(lead)) saves.set(id, (saves.get(id) ?? 0) + 1);
     const topHomes = [...saves.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
     // A tool counts for a person once they used it (opened it or worked in it), whether or not they kept its answer.
+    // The tools this community offers, and any it has since switched off that somebody here used before it did.
+    const offered = toolsOfferedBy(community);
     const tools = TOOL_ORDER
       .map((key, index) => ({ key, index, label: PLAN_LABELS[key], value: roster.filter((lead) => toolsUsedOf(lead).includes(key)).length }))
+      .filter((tool) => offered.includes(tool.key) || tool.value > 0)
       .sort((a, b) => b.value - a.value || a.index - b.index);
     // Sign-ups by week over the last eight weeks, from all open people so the trend does not depend on the period chosen.
     const weeks = Array.from({ length: 8 }, (_, i) => addDays(mondayOf(today), -7 * (7 - i)));
@@ -324,16 +327,16 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     doc.paragraph(`Showing the first ${shown.length} of ${roster.length} people. The spreadsheet in the emailed report has everyone.`, { size: 7.5, color: COLORS.muted, gap: 4 });
   }
   const small = 7;
-  /** How many of the tools this person used, and which, in the words the buyer reads on the tool list. */
+  /** How many tools this person used, and which, by short names. */
   const toolsCell = (lead) => {
     const used = toolsUsedOf(lead);
     if (!used.length) return [{ text: 'None', color: COLORS.muted }];
-    return [{ text: `${used.length} of ${TOOL_ORDER.length}`, font: 'bold' }, { text: used.map((key) => TOOL_SHORT[key]).join(', '), size: 6.6, color: COLORS.muted }];
+    return [{ text: used.length === 1 ? '1 tool' : `${used.length} tools`, font: 'bold' }, { text: used.map((key) => TOOL_SHORT[key]).join(', '), size: 6.6, color: COLORS.muted }];
   };
   doc.table({
     columns: [
-      { label: 'NAME', width: 1.8 }, { label: 'PHONE · CONSENT', width: 2.5 }, { label: 'SIGNED UP', width: 1.12 },
-      { label: 'TOOLS USED', width: 1.5 }, { label: 'SAVED HOMES', width: 1.3 }, { label: 'STATUS', width: 1.28 },
+      { label: 'NAME', width: 2.1 }, { label: 'PHONE · CONSENT', width: 2.25 }, { label: 'SIGNED UP', width: 1.1 },
+      { label: 'TOOLS USED', width: 1.4 }, { label: 'SAVED HOMES', width: 1.3 }, { label: 'STATUS', width: 1.35 },
     ],
     size: 8, padX: 6, padY: 4.5, header: primary, rules: false,
     rows: shown.map((lead) => {
@@ -417,7 +420,7 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
   // ── who ──
   const lastActive = activity.find((item) => item.createdAt)?.createdAt;
   doc.statRow([
-    { label: 'Tools used', value: `${toolsUsedOf(lead).length} of ${TOOL_ORDER.length}` },
+    { label: 'Tools used', value: String(toolsUsedOf(lead).length) },
     { label: 'Homes saved', value: String(saved.length) },
     { label: 'Actions in the app', value: String(activity.length >= 200 ? '200+' : activity.length) },
     { label: 'Status', value: isArchived(lead) ? 'Closed' : lead.status === 'contacted' ? 'Contacted' : 'New' },
@@ -480,12 +483,14 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
   // ── the tools they used, and what each worked out when they kept it ──
   doc.heading('Tools they used');
   const used = new Set(toolsUsedOf(lead));
+  const offered = toolsOfferedBy(community);
   doc.table({
     columns: [{ label: 'TOOL', width: 1.5 }, { label: 'RESULT', width: 4.2 }],
-    rows: TOOL_ORDER.map((key) => [
+    // The tools the community offers, and any it has since switched off that this person used before it did.
+    rows: TOOL_ORDER.filter((key) => offered.includes(key) || used.has(key)).map((key) => [
       { text: PLAN_LABELS[key], font: 'bold' },
-      lead.plan?.[key]
-        ? clip(lead.plan[key], 400)
+      toolAnswerOf(lead, key)
+        ? clip(toolAnswerOf(lead, key), 400)
         : used.has(key) ? { text: 'Used. Nothing saved.' } : { text: 'Not used', color: COLORS.muted },
     ].map((cell) => (typeof cell === 'object' ? [cell] : cell))),
   });

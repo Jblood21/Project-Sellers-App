@@ -178,7 +178,7 @@ describe('the leads report PDF', () => {
     const text = pdfText(made.buffer);
     const joined = flat(made.buffer);
     for (const wanted of [
-      'Dana Reyes', 'dana@test.co', 'also dana.home@test.co', '(801) 555-0111 · ', 'Agreed', '2 saved: The Aspen, The Birch', '2 of 7', 'Price range, Payment', 'Contacted',
+      'Dana Reyes', 'dana@test.co', 'also dana.home@test.co', '(801) 555-0111 · ', 'Agreed', '2 saved: The Aspen, The Birch', '2 tools', 'Price range, Payment', 'Contacted',
       'Nia Park', '(801) 555-0122', 'DO NOT CALL · DECLINED', 'Zed NoNumber', 'No phone', 'DO NOT CALL · NEVER ASKED',
     ]) assert.ok(joined.includes(wanted), wanted);
     assert.ok(!text.includes('Wants a corner lot'), 'the team’s notes are on the person’s own report, not on this list');
@@ -204,6 +204,14 @@ describe('the leads report PDF', () => {
     assert.equal(valueOf('DO NOT CALL'), '2');
     const strip = first.join(' ');
     for (const sub of ['67%', '33%', '1 contacted', '1 declined · 1 never asked']) assert.ok(strip.includes(sub), sub);
+  });
+
+  test('a tool the community switched off is left out of the tools panel, unless somebody used it before it was', () => {
+    const off = { ...community, tools: { dpa: false, savings: false } };
+    const text = pdfText(buildLeadsPdf({ community: off, leads: [lead({ toolUses: { savings: 1 } }), lead()], homes, now: NOW, timeZone: ZONE }).buffer);
+    assert.ok(text.includes('My Savings Plan'), 'used before it was switched off');
+    assert.ok(!text.includes('Down Payment Help'), 'switched off and never used');
+    assert.ok(text.includes('My Price Range\n0 of 2'), 'a tool still offered is listed at nought');
   });
 
   test('the panels: the most saved homes, the tools used and the sign-ups for each of the last eight weeks', () => {
@@ -359,6 +367,14 @@ describe('the report PDF for one person', () => {
     assert.ok(text.includes('Not used'));
     assert.ok(!text.includes('Not started'));
     assert.ok(!text.includes('Homes I Like'), 'saved homes have their own section');
+  });
+
+  test('a saved move-in plan is the move-in tool\'s answer, not "nothing saved"; a tool the community switched off is not listed unless they used it', () => {
+    const withPlan = { ...dana(), moveIn: { homeId: 'h1', targetDate: '2027-03-01', drivers: [], payMethod: 'loan' } };
+    const text = pdfText(userPdf(withPlan).buffer);
+    assert.match(text, /My Move-In Plan\nMove-in plan saved: keys by Mon, Mar 1, 2027/);
+    const off = pdfText(userPdf({ ...dana(), toolUses: { savings: 1 } }, { community: { ...community, tools: { dpa: false, savings: false } } }).buffer);
+    assert.ok(off.includes('My Savings Plan') && !off.includes('Down Payment Help'));
   });
 
   test('the move-in plan: the sentence, the choices and every step, but only when they have a date of their own', () => {

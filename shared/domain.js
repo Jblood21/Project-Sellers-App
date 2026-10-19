@@ -1242,6 +1242,23 @@ export function toolsUsedOf(lead) {
   return TOOL_ORDER.filter((key) => (lead?.toolUses?.[key] ?? 0) > 0 || Boolean(lead?.plan?.[key]) || (key === 'movein' && Boolean(lead?.moveIn)));
 }
 
+/** The tools this community offers its buyers, in the app's order: every one the builder has not switched off. */
+export function toolsOfferedBy(community) {
+  return TOOL_ORDER.filter((key) => community?.tools?.[key] !== false);
+}
+
+/**
+ * What a tool worked out for this person, as one line, or '' when they kept nothing. A move-in plan is kept as a
+ * plan of its own rather than a one-line answer, so one with a date is its answer (without a date it is only a
+ * preview, as everywhere else).
+ */
+export function toolAnswerOf(lead, key) {
+  const saved = String(lead?.plan?.[key] ?? '').trim();
+  if (saved) return saved;
+  const day = key === 'movein' ? lead?.moveIn?.targetDate : '';
+  return day ? `Move-in plan saved: keys by ${formatSlotDate(day)}, ${String(day).slice(0, 4)}` : '';
+}
+
 /**
  * A call request the builder still owes someone. Requests stay on the lead
  * forever, so without the handled stamp every badge would eventually be stale

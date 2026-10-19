@@ -317,7 +317,10 @@ it worked out all count. A lead carries `toolUses`, a count per tool, and `tools
 answer or move-in plan) is the one list the Leads tab, the person's panel, the Stats tab, the emailed report, its
 spreadsheet and both PDFs read. Activity written before the tag existed is tagged when the server starts (both stores),
 so what people did before still counts. A test reads the buyer app's own `track(...)` lines and fails if one stops
-being recognised as its tool.
+being recognised as its tool. The reports list the tools the community offers (`toolsOfferedBy`), plus any tool it
+has since switched off that somebody used before it did, and a person's count is of the tools they used, not "of 7".
+A saved move-in plan with a date is that tool's answer (`toolAnswerOf`). The call-request alert names the tools the
+buyer used, and the Stats tab, like the reports, counts nobody the team has closed.
 
 ## Working the leads
 

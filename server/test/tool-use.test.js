@@ -6,7 +6,7 @@ import { after, before, describe, test } from 'node:test';
 
 import pg from 'pg';
 
-import { PLAN_LABELS, TOOLS, toolOfActivity, toolsUsedOf } from '../../shared/domain.js';
+import { PLAN_LABELS, TOOLS, TOOL_ORDER, toolAnswerOf, toolOfActivity, toolsOfferedBy, toolsUsedOf } from '../../shared/domain.js';
 import { createFileStore } from '../db/file.js';
 import { PG_URL, backends, startBackend } from './fixtures/harness.js';
 import { pdfText } from './fixtures/pdfText.js';
@@ -54,8 +54,24 @@ describe('which tool an action in the activity log belongs to', () => {
 
   test('the screen that opens a tool says so, once, under the name on its tile', () => {
     const source = readFileSync(join(here, '../../client/src/buyer/BuyerContext.jsx'), 'utf8');
-    assert.match(source, /track\(`Opened \$\{tool\.name\}`\)/);
+    assert.match(source, /`Opened \$\{tool\.name\}`/);
     assert.match(readFileSync(join(here, '../../client/src/buyer/tools/index.jsx'), 'utf8'), /toolOpened\(toolKey\)/);
+  });
+});
+
+describe('the tools a community offers, and what a tool worked out', () => {
+  test('every tool unless the builder switched it off', () => {
+    assert.deepEqual(toolsOfferedBy({}), TOOL_ORDER);
+    assert.deepEqual(toolsOfferedBy(null), TOOL_ORDER);
+    assert.deepEqual(toolsOfferedBy({ tools: { dpa: false, savings: false, payment: true } }), TOOL_ORDER.filter((key) => key !== 'dpa' && key !== 'savings'));
+  });
+  test('the saved answer, or for the move-in tool the plan they saved', () => {
+    assert.equal(toolAnswerOf({ plan: { afford: '  About $400,000 ' } }, 'afford'), 'About $400,000');
+    assert.equal(toolAnswerOf({ plan: {} }, 'afford'), '');
+    assert.equal(toolAnswerOf({ moveIn: { targetDate: '2027-03-01' } }, 'movein'), 'Move-in plan saved: keys by Mon, Mar 1, 2027');
+    assert.equal(toolAnswerOf({ moveIn: { targetDate: '' } }, 'movein'), '', 'a plan with no date is a preview, not an answer');
+    assert.equal(toolAnswerOf({ plan: { movein: 'Keys in March' }, moveIn: { targetDate: '2027-03-01' } }, 'movein'), 'Keys in March', 'a kept one-line answer wins');
+    assert.equal(toolAnswerOf(null, 'movein'), '');
   });
 });
 
@@ -146,7 +162,7 @@ for (const kind of backends()) {
       const res = await api(`/api/admin/leads/${lee.lead.id}/report.pdf`, { token, raw: true });
       assert.equal(res.status, 200);
       const text = pdfText(Buffer.from(await res.arrayBuffer()));
-      assert.ok(text.includes('Tools they used') && text.includes('1 of 7'));
+      assert.ok(text.includes('Tools they used'));
       assert.match(text, /My Price Range\nUsed\. Nothing saved\./);
       assert.match(text, /My Payment\nNot used/);
     });

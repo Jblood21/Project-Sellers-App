@@ -160,18 +160,21 @@ export default function HomeDetail({ onOpenLender }) {
             Talk about financing
           </button>
         ) : null}
-        <button
-          type="button"
-          className="b-btn b-btn-outline"
-          style={{ minHeight: 50 }}
-          onClick={() => {
-            setTool('pay', { homeId: home.id });
-            track(`Opened payment for ${home.name}`);
-            setPaymentOpen(true);
-          }}
-        >
-          See My Payment for This Home
-        </button>
+        {/* Only when the payment tool is on: with it off the sheet cannot open, so the button would do nothing. */}
+        {community?.tools?.payment ? (
+          <button
+            type="button"
+            className="b-btn b-btn-outline"
+            style={{ minHeight: 50 }}
+            onClick={() => {
+              setTool('pay', { homeId: home.id });
+              track(`Opened payment for ${home.name}`);
+              setPaymentOpen(true);
+            }}
+          >
+            See My Payment for This Home
+          </button>
+        ) : null}
         <button
           type="button"
           className="b-btn b-btn-outline"

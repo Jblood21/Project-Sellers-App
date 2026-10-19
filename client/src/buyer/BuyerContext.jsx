@@ -139,9 +139,10 @@ export function BuyerProvider({ communityId, children }) {
       const seen = `${token}:${key}`;
       if (!token || !tool || toolsOpened.current.has(seen)) return;
       toolsOpened.current.add(seen);
-      track(`Opened ${tool.name}`);
+      // If it did not reach the server, the next time the tool is opened tries again.
+      buyerApi.track(token, `Opened ${tool.name}`).catch(() => toolsOpened.current.delete(seen));
     },
-    [token, track],
+    [token],
   );
 
   const enter = useCallback(
