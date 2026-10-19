@@ -143,10 +143,12 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
   const firstDay = range.days ? addDays(today, 1 - range.days) : null;
   const signedUp = (lead) => (Number.isNaN(when(lead.firstVisitAt)) ? '' : calendarDay(when(lead.firstVisitAt), timeZone));
   const byNewest = (a, b) => (when(b.firstVisitAt) || 0) - (when(a.firstVisitAt) || 0);
-  const roster = leads.filter((lead) => !firstDay || (signedUp(lead) && signedUp(lead) >= firstDay)).sort(byNewest);
+  // Closed people are never in a report: buildReport has already left them out, so everything below is about `people`.
+  const calls = buildReport({ community, leads, homes, now, timeZone });
+  const people = calls.leads;
+  const roster = people.filter((lead) => !firstDay || (signedUp(lead) && signedUp(lead) >= firstDay)).sort(byNewest);
   const since = Boolean(firstDay);
   const shown = roster.slice(0, MAX_PEOPLE);
-  const calls = buildReport({ community, leads, homes, now, timeZone });
   const waiting = [...calls.comingUp, ...calls.overdue];
   const waitingShown = waiting.slice(0, MAX_CALLS);
 
@@ -163,11 +165,11 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
   const agreed = roster.filter((lead) => lead.consent?.granted).length;
   const savedAny = roster.filter((lead) => savedOf(lead).length > 0).length;
   const average = roster.length ? Math.round(roster.reduce((sum, lead) => sum + planProgress(lead), 0) / roster.length) : 0;
-  const closed = roster.filter(isArchived).length;
+  const contacted = roster.filter((lead) => lead.status === 'contacted').length;
   const pct = (n) => (roster.length ? ` · ${Math.round((n / roster.length) * 100)}%` : '');
   doc.statRow([
-    { label: since ? `People (of ${leads.length} in all)` : 'People', value: String(roster.length) },
-    { label: 'Open · closed', value: `${roster.length - closed} · ${closed}` },
+    { label: since ? `People (of ${people.length} in all)` : 'People', value: String(roster.length) },
+    { label: 'New · contacted', value: `${roster.length - contacted} · ${contacted}` },
     { label: 'Calls waiting', value: String(waiting.length) },
     { label: 'Past their day', value: String(calls.overdue.length) },
     { label: `Gave a phone${pct(withPhone)}`, value: String(withPhone) },
@@ -178,7 +180,7 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
   if (since) doc.paragraph('Calls waiting and Past their day count everyone, not only the people in this period.', { size: 8, color: COLORS.muted, gap: 2 });
 
   // ── what people did ──
-  if (leads.length) {
+  if (people.length) {
     doc.heading('What people did');
     if (roster.length) {
       const saves = new Map();
@@ -202,7 +204,7 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
     // Sign-ups by week over the last eight weeks, from all leads so the trend does not depend on the period chosen.
     const weeks = Array.from({ length: 8 }, (_, i) => addDays(mondayOf(today), -7 * (7 - i)));
     const counts = new Map(weeks.map((start) => [start, 0]));
-    for (const lead of leads) {
+    for (const lead of people) {
       const day = signedUp(lead);
       if (day && counts.has(mondayOf(day))) counts.set(mondayOf(day), counts.get(mondayOf(day)) + 1);
     }
@@ -260,7 +262,7 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
         `${planProgress(lead)}%`,
         names.length ? [`${names.length} saved`, { text: names.slice(0, 3).join(', ') + (names.length > 3 ? `, +${names.length - 3} more` : ''), color: COLORS.muted, size: 7.5 }] : [{ text: 'None', color: COLORS.muted }],
         [
-          isArchived(lead) ? { text: 'Closed', font: 'bold' } : lead.status === 'contacted' ? 'Contacted' : 'New',
+          lead.status === 'contacted' ? 'Contacted' : 'New',
           ...(lead.tour ? [{ text: isTourPending(lead) ? 'Call waiting' : lead.tour.handledAt ? 'Call handled' : 'Call booked', color: isTourPending(lead) ? RED : COLORS.muted }] : []),
         ],
         { text: consentWords(lead), color: lead.consent && !lead.consent.granted ? RED : lead.consent ? COLORS.ink : COLORS.muted },

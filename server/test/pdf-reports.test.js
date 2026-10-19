@@ -136,25 +136,26 @@ describe('the leads report PDF', () => {
     ]).buffer);
     for (const wanted of [
       'Dana Reyes', 'dana@test.co', 'also dana.home@test.co', '(801) 555-0111', 'Note: Wants a corner lot. Pre-approved elsewhere.',
-      '2 saved', 'The Aspen, The Birch', '38%', 'Contacted', 'Agreed', 'Declined', 'Closed',
+      '2 saved', 'The Aspen, The Birch', '38%', 'Contacted', 'Agreed', 'Declined',
     ]) assert.ok(text.includes(wanted), wanted);
+    assert.ok(!text.includes('Old Oscar') && !text.includes('Closed'), 'a closed person is not on the report, and nothing says "closed"');
   });
 
-  test('the summary counts: open and closed, phones, agreed, saved and the average plan', () => {
+  test('the summary counts: new and contacted, phones, agreed, saved and the average plan, for open people only', () => {
     const text = pdfText(leadsPdf([
       lead({ phone: '1', consent: { granted: true, at: daysAgo(1) }, savedHomeIds: ['h1'], plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a' } }),
       lead({ phone: '2', consent: { granted: false, at: daysAgo(1) } }),
-      lead({ archivedAt: daysAgo(1) }),
-      lead(),
+      lead({ archivedAt: daysAgo(1), phone: '3', consent: { granted: true, at: daysAgo(1) }, savedHomeIds: ['h1', 'h2'], plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b', savings: 'c' } }),
+      lead({ status: 'contacted' }),
     ]).buffer);
     const lines = text.split('\n');
     const value = (label) => lines[lines.indexOf(label.toUpperCase()) - 1];
-    assert.equal(value('People'), '4');
-    assert.equal(value('Open · closed'), '3 · 1');
-    assert.equal(value('Gave a phone · 50%'), '2');
-    assert.equal(value('Agreed to calls · 25%'), '1');
-    assert.equal(value('Saved a home · 25%'), '1');
-    assert.equal(value('Average plan progress'), '16%', '(5 of 8 is 63% for one person, none for three) / 4');
+    assert.equal(value('People'), '3', 'the closed person is not one of them');
+    assert.equal(value('New · contacted'), '2 · 1');
+    assert.equal(value('Gave a phone · 67%'), '2');
+    assert.equal(value('Agreed to calls · 33%'), '1');
+    assert.equal(value('Saved a home · 33%'), '1');
+    assert.equal(value('Average plan progress'), '21%', '(63% for one person, none for two) / 3: the closed person’s plan is not in it');
   });
 
   test('what people did: the most saved homes, the tools used and the sign-ups for each of the last eight weeks', () => {

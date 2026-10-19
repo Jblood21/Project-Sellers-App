@@ -65,11 +65,13 @@ describe('the period of the leads report', () => {
 
   test('the summary counts only the people in the period, and says the calls are for everyone', () => {
     const inside = lead({ name: 'Inside Ida', firstVisitAt: daysAgo(2), phone: '1', plan: { afford: 'x', payment: 'y' }, savedHomeIds: ['h1'] });
-    const outside = lead({ name: 'Outside Oz', firstVisitAt: daysAgo(40), archivedAt: daysAgo(1), plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b' }, savedHomeIds: ['h1', 'h2'] });
+    const outside = lead({ name: 'Outside Oz', firstVisitAt: daysAgo(40), plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b' }, savedHomeIds: ['h1', 'h2'] });
+    const closedInside = lead({ name: 'Closed In', firstVisitAt: daysAgo(1), archivedAt: daysAgo(0), phone: '9', plan: { afford: 'x', payment: 'y', loans: 'z', compare: 'a', dpa: 'b' }, savedHomeIds: ['h1', 'h2'] });
     const waitingOutside = lead({ name: 'Waiting Wes', firstVisitAt: daysAgo(60), plan: { afford: 'x' }, savedHomeIds: ['h1'], tour: { date: '2026-10-21', time: '10:00', contact: 'phone' } });
-    const text = pdfText(leadsPdf([inside, outside, waitingOutside], { period: '7' }).buffer);
-    assert.equal(tile(text, 'People (of 3 in all)'), '1');
-    assert.equal(tile(text, 'Open · closed'), '1 · 0', 'a closed person outside the period is not counted');
+    const text = pdfText(leadsPdf([inside, outside, waitingOutside, closedInside], { period: '7' }).buffer);
+    assert.equal(tile(text, 'People (of 3 in all)'), '1', 'three open people, one of them in the period; the closed person is neither');
+    assert.equal(tile(text, 'New · contacted'), '1 · 0');
+    assert.ok(!text.includes('Closed In'));
     assert.equal(tile(text, 'Average plan progress'), '38%', 'only the person in the period: 3 of 8 tools');
     assert.equal(tile(text, 'Calls waiting'), '1', 'everyone’s calls, as the note says');
     assert.ok(flat(leadsPdf([inside, waitingOutside], { period: '7' }).buffer).includes('Calls waiting and Past their day count everyone, not only the people in this period.'));
@@ -99,6 +101,48 @@ describe('the period of the leads report', () => {
     assert.ok(all.indexOf('Real Date') < all.indexOf('No Date'), 'the dated one is newest');
     const week = pdfText(leadsPdf(odd, { period: '7' }).buffer);
     assert.ok(week.includes('Real Date') && !week.includes('No Date') && !week.includes('Bad Date'));
+  });
+});
+
+describe('closed (archived) people', () => {
+  const closed = (extra = {}) => lead({
+    name: 'Closed Cleo', email: 'cleo@closed.test', phone: '(801) 555-0199', firstVisitAt: daysAgo(1), archivedAt: daysAgo(0),
+    consent: { granted: true, at: daysAgo(1) }, notes: 'Do not include me', savedHomeIds: ['h2'], plan: { afford: 'x', payment: 'y' },
+    tour: { date: '2026-10-21', time: '10:00', contact: 'phone', topic: 'lender' }, ...extra,
+  });
+
+  test('are nowhere in the leads report: not the roster, the calls, the tiles, the charts or the file', () => {
+    const open = lead({ name: 'Open Olive', firstVisitAt: daysAgo(1), phone: '1', savedHomeIds: ['h1'] });
+    const made = leadsPdf([open, closed()]);
+    const text = pdfText(made.buffer);
+    assert.ok(!/Closed Cleo|cleo@closed\.test|Do not include|555-0199/.test(text), 'nothing about them is printed');
+    assert.ok(!/closed/i.test(text), 'and the word does not appear at all');
+    assert.equal(made.people, 1);
+    assert.equal(tile(text, 'People'), '1');
+    assert.equal(tile(text, 'Calls waiting'), '0', 'a closed person is not waiting for a call');
+    assert.ok(text.includes('Scheduled calls waiting (0)') && text.includes('Everyone (1)'));
+    assert.ok(/The Aspen\n1 save\n/.test(text) && !text.includes('The Birch'), 'their saved home is not counted in the most-saved list');
+    assert.ok(!/My Payment/.test(text), 'nor are their tools');
+    const thisWeek = text.split('\n');
+    assert.equal(thisWeek[thisWeek.findIndex((l) => l.startsWith('Week of Oct 12')) + 1], '1', 'nor their sign-up in the weekly count');
+  });
+
+  test('stay out however the report is asked for: every period, and an unknown one', () => {
+    for (const period of ['all', '7', '30', '90', 'nonsense']) {
+      const text = pdfText(leadsPdf([lead({ name: 'Open Ola' }), closed()], { period }).buffer);
+      assert.ok(!text.includes('Closed Cleo'), period);
+    }
+  });
+
+  test('are back when the app reopens them (it clears the closed date when they book again)', () => {
+    const text = pdfText(leadsPdf([closed({ archivedAt: null })]).buffer);
+    assert.ok(text.includes('Closed Cleo') && text.includes('Scheduled calls waiting (1)'));
+  });
+
+  test('can still have their own person report, which says plainly that they are closed', () => {
+    const text = pdfText(userPdf(closed()).buffer);
+    assert.ok(text.includes('Closed Cleo'));
+    assert.equal(tile(text, 'Status'), 'Closed');
   });
 });
 

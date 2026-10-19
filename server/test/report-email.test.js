@@ -131,7 +131,7 @@ for (const kind of backends()) {
       assert.equal(res.status, 200, JSON.stringify(res.body));
       assert.deepEqual(
         { to: res.body.to, comingUp: res.body.comingUp, overdue: res.body.overdue, newPeople: res.body.newPeople, everyone: res.body.everyone },
-        { to: 'sales@report.test', comingUp: 1, overdue: 1, newPeople: 5, everyone: 6 },
+        { to: 'sales@report.test', comingUp: 1, overdue: 1, newPeople: 5, everyone: 5 },
         'to the saved address, whatever the request says',
       );
 
@@ -146,8 +146,9 @@ for (const kind of backends()) {
       assert.match(mail.text, /NEW PEOPLE SINCE THE LAST REPORT \(5\)/);
       assert.match(mail.text, new RegExp(`/admin/communities/${cid}/leads/${pat.lead.id}`), 'a link to each person');
       assert.match(mail.text, /Saved: The Aspen/);
-      assert.ok(!/Sam Closed/.test(mail.text), 'a closed person is in the spreadsheet only');
-      assert.match(mail.text, /Everyone \(6 people, 1 closed\) is in the attached spreadsheet/);
+      assert.ok(!/Sam Closed|sam@report\.test/.test(mail.text), 'a closed person is not in the email');
+      assert.match(mail.text, /Everyone \(5 people\) is in the attached spreadsheet/);
+      assert.ok(!/closed/i.test(mail.text), 'and the email does not mention anyone being closed');
 
       assert.equal(mail.attachments.length, 1);
       assert.match(mail.attachments[0].filename, /^report-main-\d+-leads-\d{4}-\d{2}-\d{2}\.csv$/);
@@ -155,8 +156,9 @@ for (const kind of backends()) {
       assert.ok(csv.startsWith('﻿Name,Email,'), 'a byte-order mark, then the header');
       assert.ok(csv.includes('\r\n'));
       const lines = csv.slice(1).trim().split('\r\n');
-      assert.equal(lines.length, 7, 'the header and six people (a name with a line break would split a line; none has one)');
-      assert.ok(lines.some((l) => l.startsWith('Sam Closed,sam@report.test') && /,Yes,http/.test(l)), 'the closed one is there, marked');
+      assert.equal(lines.length, 6, 'the header and five people (a name with a line break would split a line; none has one)');
+      assert.ok(!csv.includes('Sam Closed') && !csv.includes('sam@report.test'), 'the closed one is not in the spreadsheet either');
+      assert.ok(!lines[0].split(',').includes('Closed'), 'and there is no closed column');
       assert.ok(lines.some((l) => l.startsWith(`"'=HYPERLINK(""http://evil.example"",""x"")",evil@report.test`)), 'a formula typed as a name is plain text');
       assert.ok(lines.some((l) => l.startsWith('"Last, First ""Q""",comma@report.test')), 'commas and quotes are quoted');
       assert.ok(lines.some((l) => l.startsWith('Rae Handled') && /,Handled,/.test(l)));

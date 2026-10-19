@@ -366,8 +366,8 @@ Three messages — the app is deliberately quiet.
   saved homes, what they worked out, whether they agreed to calls and texts ("Do not call · declined" or
   "never asked" beside the number when they did not, as on the Leads tab), and a link to open them. Each list is
   cut at 50 in the email ("…and 12 more, in the spreadsheet"). A **spreadsheet of everyone** is attached, so
-  nothing is only in the email: it includes the team's own **notes and status**, **closed leads** (marked), and
-  the **phone numbers of people who declined calls and texts** (the column says Declined / Never asked), so it
+  nothing is only in the email: it includes the team's own **notes and status** and the **phone numbers of people
+  who declined calls and texts** (the column says Declined / Never asked), so it
   should be treated like the Leads tab itself. Names and notes are typed by buyers, so any spreadsheet cell that
   starts with `=`, `+`, `-` or `@` is written as plain text and cannot run as a formula (a phone number typed with a
   leading `+` therefore opens with an apostrophe: the safe trade). Days in the report ("today", the day someone
@@ -380,6 +380,13 @@ Three messages — the app is deliberately quiet.
   send. A buyer the team closed who books a time again is reopened, so they come back to the list and to the
   next report. It is limited to one every 15 seconds and 30 a day per community. The address and the stamp are
   never served to buyers (the rate webhook's reply leaves them out too).
+
+- **Closed people are never in a report.** Once the team closes (archives) somebody, they are left out of the
+  emailed report, its spreadsheet and the leads PDF, in every community: not listed, not counted, not in the
+  charts, not waiting for a call. There is no setting for it, and nothing in a request changes it. It is done in
+  one place (`buildReport` in `server/lib/report.js`), which the email, the spreadsheet and the PDF all use, so they
+  cannot disagree. A buyer the team closed who books a time again is reopened by the app and is back. A person's
+  own report (the button on their page) can still be made for a closed person, and says they are closed.
 
 - **PDF reports**, made only when the builder presses **Download PDF**, and saved to their own device: nothing
   is emailed and nothing is stored on the server. There are two. The **leads report** (on the Leads tab, and
