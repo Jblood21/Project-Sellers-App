@@ -3,6 +3,7 @@ import {
   lenderNameOf, money, slugify, sortLeads, toolAnswerOf, toolsOfferedBy, toolsUsedOf,
 } from '../../shared/domain.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
+import { lenderBrandOf, lenderContact, lenderTitle } from './lenderBrand.js';
 import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, wrapText } from './pdf.js';
 import { buildReport, reportTimeZone } from './report.js';
 
@@ -22,6 +23,9 @@ const TOOL_SHORT = {
  *
  * Dates are the builder's day (REPORT_TIME_ZONE), not the server's, as in the emailed report. Everything a visitor
  * typed is text in the file and never PDF syntax (see pdf.js).
+ *
+ * Both are prepared by the lender set in Setup (see lenderBrand.js): their logo, name, NMLS ID and how to reach them
+ * sit under the title band, and their name runs along the top and bottom of every page.
  */
 
 /** Longest roster printed in the leads report; the emailed report's spreadsheet has everyone. */
@@ -104,9 +108,63 @@ const callWhen = (tour) => {
 };
 const reachWith = (lead) => [lead.phone || 'No phone', lead.email, ...(lead.extraEmails ?? []).map((email) => `also ${email}`)];
 
+/** "Prepared by" and the lender, for the running header: '' when Setup has no lender. */
+const preparedBy = (brand) => (brand?.name ? `Prepared by ${oneLine(brand.name)}` : '');
+
+/**
+ * The lender's row under the title band: their logo (or, without one, nothing), then "Prepared by" with their name and
+ * NMLS ID, and how to reach them. Draws nothing when Setup has no lender; returns the y below what it drew.
+ */
+function lenderStrip(doc, brand, { y, logoHeight = 22, maxLogoWidth = 150 }) {
+  if (!brand?.name) return y;
+  const height = Math.max(logoHeight, 22) + 12;
+  let x = doc.left;
+  if (brand.logo) {
+    let h = logoHeight;
+    let w = (h * brand.logo.width) / brand.logo.height;
+    // A wide logo is held to its width rather than run into the words beside it.
+    if (w > maxLogoWidth) {
+      w = maxLogoWidth;
+      h = (w * brand.logo.height) / brand.logo.width;
+    }
+    doc.image(brand.logo, { x, y: y + (height - h) / 2, w, h });
+    x += w + 12;
+    doc.vrule({ x, y1: y + 7, y2: y + height - 7, color: COLORS.rule, weight: 0.7 });
+    x += 12;
+  }
+  const width = doc.right - x;
+  const title = oneLine(lenderTitle(brand));
+  const contact = oneLine(lenderContact(brand));
+  const lo = brand.lo ? oneLine(`Loan officer: ${brand.lo.name} · NMLS #${brand.lo.nmls}`) : '';
+  const second = [contact, lo].filter(Boolean).join(' · ');
+  const top = second ? y + height / 2 - 2 : y + height / 2 + 3;
+  const lead = 'Prepared by ';
+  const leadWidth = textWidth(lead, 'regular', 8.5);
+  doc.text(lead, { x, y: top, size: 8.5, color: COLORS.muted });
+  doc.text(fitLine(title, { font: 'bold', size: 9.5, width: width - leadWidth }), { x: x + leadWidth, y: top, size: 9.5, font: 'bold' });
+  if (second) doc.text(fitLine(second, { size: 7.8, width }), { x, y: top + 11, size: 7.8, color: COLORS.muted });
+  doc.rule({ y: y + height, color: COLORS.rule, weight: 0.6 });
+  return y + height;
+}
+
+/** The footer both reports end each page with: privacy on the left, the lender and the page number on the right. */
+function footerOf(brand, { size = 7.5, gap = 22, privacy }) {
+  const lender = oneLine(lenderTitle(brand));
+  return (d, page, count) => {
+    const y = d.height - gap;
+    const number = `Page ${page} of ${count}`;
+    let used = d.text(number, { y, size, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth });
+    if (lender) {
+      const name = fitLine(lender, { size, width: d.contentWidth / 2 - used });
+      used += d.text(name, { y, size, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth - used - 14 }) + 14;
+    }
+    d.text(fitLine(privacy, { size: size - 0.5, width: d.contentWidth - used - 16 }), { y, size: size - 0.5, color: COLORS.muted });
+  };
+}
+
 /** The page furniture both reports share: a title band, a running header and a footer with page numbers. */
-function startDocument({ community, title, subtitle, generated, theme }) {
-  const doc = new PdfDocument({ title: `${oneLine(community.name)} · ${title}`, subject: subtitle });
+function startDocument({ community, title, subtitle, generated, theme, brand }) {
+  const doc = new PdfDocument({ title: `${oneLine(community.name)} · ${title}`, subject: subtitle, author: oneLine(brand?.name) || 'Touradoor' });
   const primary = hexToRgb(theme.primary);
   const accent = hexToRgb(theme.accent);
   // Full-width band across the top of the first page, then the cursor goes below it.
@@ -118,29 +176,36 @@ function startDocument({ community, title, subtitle, generated, theme }) {
   const stampWidth = textWidth(stampText, 'regular', 9);
   doc.text(fitLine(subtitle, { size: 9, width: doc.contentWidth - stampWidth - 16 }), { y: 76, size: 9, color: [0.86, 0.88, 0.92] });
   doc.text(stampText, { y: 76, size: 9, color: [0.86, 0.88, 0.92], align: 'right', x: doc.left, width: doc.contentWidth });
-  doc.y = 112;
+  doc.y = brand?.name ? lenderStrip(doc, brand, { y: 103, logoHeight: 34 }) + 14 : 112;
 
   doc.onNewPage((d) => {
-    d.text(fitLine(`${oneLine(community.name)} · ${title}`, { size: 8.5, width: d.contentWidth }), { y: d.margin - 12, size: 8.5, color: COLORS.muted });
+    const by = preparedBy(brand);
+    const byWidth = by ? textWidth(fitLine(by, { size: 8.5, width: d.contentWidth / 2 }), 'regular', 8.5) : 0;
+    d.text(fitLine(`${oneLine(community.name)} · ${title}`, { size: 8.5, width: d.contentWidth - byWidth - 16 }), { y: d.margin - 12, size: 8.5, color: COLORS.muted });
+    if (by) d.text(fitLine(by, { size: 8.5, width: d.contentWidth / 2 }), { y: d.margin - 12, size: 8.5, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth });
     d.rule({ y: d.margin - 5 });
     d.y = d.margin + 10;
   });
+  const footer = footerOf(brand, { size: 8, gap: 38, privacy: 'Confidential. Personal information about app users; keep it private.' });
   doc.setFooter((d, page, count) => {
-    const y = d.height - 38;
-    d.rule({ y: y - 10 });
-    d.text('Confidential. This report contains personal information about people who used the app; keep it private.', { y, size: 7.5, color: COLORS.muted });
-    d.text(`Page ${page} of ${count}`, { y, size: 8, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth });
+    d.rule({ y: d.height - 48 });
+    footer(d, page, count);
   });
   return { doc, primary, accent };
 }
 
 /** The page furniture of the leads report: a running header, the title band and a footer, on narrow margins. */
-function startLeadsDocument({ community, subtitle, generated, theme }) {
+function startLeadsDocument({ community, subtitle, generated, theme, brand }) {
   const name = oneLine(community.name);
-  const doc = new PdfDocument({ title: `${name} · Leads report`, subject: subtitle, margin: 36 });
+  const doc = new PdfDocument({ title: `${name} · Leads report`, subject: subtitle, margin: 36, author: oneLine(brand?.name) || 'Touradoor' });
   const primary = hexToRgb(theme.primary);
   const accent = hexToRgb(theme.accent);
-  const running = (d) => d.text(fitLine(`${name} · Leads report`, { size: 7.5, width: d.contentWidth }), { y: 24, size: 7.5, color: COLORS.muted });
+  const by = preparedBy(brand);
+  const running = (d) => {
+    const byWidth = by ? textWidth(fitLine(by, { size: 7.5, width: d.contentWidth / 2 }), 'regular', 7.5) : 0;
+    d.text(fitLine(`${name} · Leads report`, { size: 7.5, width: d.contentWidth - byWidth - 16 }), { y: 24, size: 7.5, color: COLORS.muted });
+    if (by) d.text(fitLine(by, { size: 7.5, width: d.contentWidth / 2 }), { y: 24, size: 7.5, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth });
+  };
   running(doc);
   doc.onNewPage(running);
 
@@ -155,12 +220,9 @@ function startLeadsDocument({ community, subtitle, generated, theme }) {
   doc.text(fitLine(subtitle, { size: 8.5, width: doc.contentWidth - stampWidth - 40 }), { x: doc.left + 14, y: top + 37, size: 8.5, color: [0.88, 0.9, 0.93] });
   stampLines.forEach((line, i) => doc.text(line, { x: doc.left, y: top + 21 + i * 11, size: 8, color: [0.88, 0.9, 0.93], align: 'right', width: doc.contentWidth - 14 }));
   doc.y = top + bandHeight + 3;
+  if (brand?.name) doc.y = lenderStrip(doc, brand, { y: doc.y + 4, logoHeight: 30 }) + 8;
 
-  doc.setFooter((d, page, count) => {
-    const y = d.height - 22;
-    d.text('Confidential. Personal information about app users; keep it private.', { y, size: 7, color: COLORS.muted });
-    d.text(`Page ${page} of ${count}`, { y, size: 7.5, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth });
-  });
+  doc.setFooter(footerOf(brand, { privacy: 'Confidential. Personal information about app users; keep it private.' }));
   return { doc, primary, accent };
 }
 
@@ -169,7 +231,9 @@ function startLeadsDocument({ community, subtitle, generated, theme }) {
  * people saved, the tools they used, sign-ups by week) and then everyone, in the order `sort` names (the Leads tab's own
  * Recent / Most ★ choice). People the team has closed are never in it (see buildReport).
  */
-export function buildLeadsPdf({ community, leads = [], homes = [], now = new Date(), period = 'all', sort = DEFAULT_LEAD_SORT, timeZone = reportTimeZone() }) {
+export function buildLeadsPdf({
+  community, leads = [], homes = [], now = new Date(), period = 'all', sort = DEFAULT_LEAD_SORT, timeZone = reportTimeZone(), brand = lenderBrandOf(community),
+}) {
   const range = Object.hasOwn(PERIODS, period) ? PERIODS[period] : PERIODS.all;
   const order = Object.hasOwn(LEAD_SORTS, sort) ? sort : DEFAULT_LEAD_SORT;
   const lender = clip(lenderNameOf(community), 80);
@@ -191,7 +255,7 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
   const theme = themeOf(community);
   const generated = { day: stamp(now, timeZone).split(' at ')[0], clock: `${stamp(now, timeZone).split(' at ')[1]} ${zoneName(timeZone, now)}` };
   const { doc, primary, accent } = startLeadsDocument({
-    community, generated, theme,
+    community, generated, theme, brand,
     subtitle: ['Leads report', since ? `${range.label} (since ${dayName(firstDay)})` : range.label,
       community.location && community.location !== 'Location TBD' ? clip(community.location, 80) : '', LEAD_SORTS[order].report].filter(Boolean).join(' · '),
   });
@@ -377,12 +441,12 @@ export function buildLeadsPdf({ community, leads = [], homes = [], now = new Dat
 }
 
 /** One person's report, as a PDF. */
-export function buildUserPdf({ community, lead, homes = [], consents = [], now = new Date(), timeZone = reportTimeZone() }) {
+export function buildUserPdf({ community, lead, homes = [], consents = [], now = new Date(), timeZone = reportTimeZone(), brand = lenderBrandOf(community) }) {
   const lender = clip(lenderNameOf(community), 80);
   const theme = themeOf(community);
   const generated = `${stamp(now, timeZone)} ${zoneName(timeZone, now)}`;
   const { doc, accent } = startDocument({
-    community, title: `User report: ${clip(lead.name, 120)}`, subtitle: oneLine(lead.email), generated, theme,
+    community, title: `User report: ${clip(lead.name, 120)}`, subtitle: oneLine(lead.email), generated, theme, brand,
   });
   const homeById = new Map(homes.map((home) => [home.id, home]));
   const activity = lead.activity ?? [];

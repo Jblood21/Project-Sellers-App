@@ -2,6 +2,7 @@ import {
   PLAN_LABELS, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending, lenderNameOf, slugify, toolsUsedOf,
 } from '../../shared/domain.js';
 import { sendEmail } from './email.js';
+import { lenderBrandOf, lenderContact, lenderTitle } from './lenderBrand.js';
 
 /**
  * The lead report: what a builder's team needs on one page to follow up. Built when somebody presses
@@ -169,9 +170,14 @@ export function reportText(report) {
   ];
   const listed = fresh.slice(0, MAX_LISTED);
   const name = oneLine(community.name);
+  // Prepared by the lender set in Setup, as the PDF reports are; nothing is said when there is none.
+  const brand = lenderBrandOf(community);
+  const preparedBy = oneLine(lenderTitle(brand));
+  const reachLender = oneLine(lenderContact(brand));
 
   const lines = [
     `${name} — leads report for ${day(report.today)}`,
+    ...(preparedBy ? [`Prepared by ${preparedBy}`] : []),
     report.dayOf(report.since) ? `The last report went out ${day(report.dayOf(report.since))}.` : 'This is the first report, so everyone is new.',
     '',
     `SCHEDULED CALLS WAITING (${waiting.length})`,
@@ -199,6 +205,8 @@ export function reportText(report) {
     `Everyone (${plural(report.everyone, 'person', 'people')}) is in the attached spreadsheet, ${report.filename}.`,
     '',
     'Mark a call handled in the dashboard once you have been in touch, so it leaves the list.',
+    ...(preparedBy ? ['', '—', preparedBy, ...(reachLender ? [reachLender] : []),
+      ...(brand.lo ? [oneLine(`Loan officer: ${brand.lo.name} · NMLS #${brand.lo.nmls}`)] : [])] : []),
   );
   return lines.join('\n');
 }

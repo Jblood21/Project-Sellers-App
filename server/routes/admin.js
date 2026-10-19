@@ -18,6 +18,7 @@ import { buildMismo34, mismoFilename } from '../lib/mismo.js';
 import {
   DEFAULT_LEAD_SORT, LEAD_SORTS, describeTour, isReadyToCall, isTourPending, isUnread, lenderNameOf,
 } from '../../shared/domain.js';
+import { loadLenderBrand } from '../lib/lenderBrand.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
 
@@ -1233,8 +1234,10 @@ export function adminRouter() {
       res.set('Retry-After', String(hold.wait));
       return res.status(429).json({ error: tooMany('reports', hold.wait) });
     }
-    const [leads, homes] = await Promise.all([store.listLeads(community.id), store.listHomes(community.id)]);
-    sendPdf(res, buildLeadsPdf({ community, leads, homes, period, sort }));
+    const [leads, homes, brand] = await Promise.all([
+      store.listLeads(community.id), store.listHomes(community.id), loadLenderBrand(store, community),
+    ]);
+    sendPdf(res, buildLeadsPdf({ community, leads, homes, period, sort, brand }));
   });
 
   /** One person's report as a PDF: contact, what they agreed to, their homes and plan, and everything they did. */
@@ -1250,7 +1253,8 @@ export function adminRouter() {
     const [community, homes, consents] = await Promise.all([
       store.getCommunity(lead.communityId), store.listHomes(lead.communityId), store.listConsents(lead.id),
     ]);
-    sendPdf(res, buildUserPdf({ community: community ?? { name: 'Community' }, lead, homes, consents }));
+    const brand = await loadLenderBrand(store, community);
+    sendPdf(res, buildUserPdf({ community: community ?? { name: 'Community' }, lead, homes, consents, brand }));
   });
 
   router.get('/communities/:id/leads', async (req, res) => {
