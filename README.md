@@ -469,6 +469,18 @@ Three messages — the app is deliberately quiet.
   `server/lib/pdfReports.js` lays out the two reports; `GET /api/admin/communities/:id/reports/leads.pdf?period=all|7|30|90&sort=recent|stars`
   and `GET /api/admin/leads/:id/report.pdf` serve them.
 
+- **The lead reports are prepared by the lender in Setup.** Both PDFs carry, under the title band, the lender's
+  logo, "Prepared by" their name and NMLS ID, and their phone, email and website (and a named loan officer with
+  their NMLS ID, when Setup has one); every later page has "Prepared by" the lender at the top, and every page
+  has the lender and NMLS ID beside the page number at the bottom. The PDF's author is the lender. The emailed
+  report opens with the same "Prepared by" line and ends with how to reach them. The logo is the one uploaded
+  under **Setup → Lender logo**. Without an upload, the supplied Summit Home Loans logo is used only while the
+  lender is still Summit Home Loans; for any other lender the report shows their name and no logo, so a report
+  never carries another company's mark. A PNG or JPEG upload is drawn (transparent backgrounds kept); a WebP or
+  GIF upload gives the lender's name instead, never the supplied logo. With no lender name in Setup the reports
+  say nothing about a lender. `server/lib/lenderBrand.js` picks the logo and words; `server/lib/pdfImage.js`
+  reads a JPEG or PNG for the PDF writer with no dependency.
+
 Set `RESEND_API_KEY` and `EMAIL_FROM` to turn it on. Without them the app sends nothing
 and everything else works unchanged — a call request is still recorded and still shows in
 the builder's queue. **Sending never breaks the thing that triggered it:** if the provider

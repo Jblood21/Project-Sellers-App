@@ -79,7 +79,8 @@ test('the email says what is waiting, who is new and where everyone is', () => {
   });
   const report = buildReport({ community, homes, now: NOW, leads: [pat], baseUrl: 'https://touradoor.example' });
   const text = reportText(report);
-  assert.match(text, /^Willow Creek — leads report for Mon, Oct 12, 2026\nThis is the first report, so everyone is new\./);
+  assert.match(text, /^Willow Creek — leads report for Mon, Oct 12, 2026\nPrepared by Summit Home Loans · NMLS #1790749\nThis is the first report, so everyone is new\./);
+  assert.match(text, /\n—\nSummit Home Loans · NMLS #1790749\n801-855-8535 · myloanteam@summithomeloans\.com$/, 'it ends with how to reach the lender');
   assert.match(text, /SCHEDULED CALLS WAITING \(1\)\n {2}Tue, Oct 13 at 2:00 PM · by email · about financing \(Summit Home Loans\) — Pat Vale\n {4}\(801\) 555-0101 · pat@test\.co · also spouse@test\.co\n {4}https:\/\/touradoor\.example\/admin\/communities\/willow-creek-abcd\/leads\/l/);
   assert.doesNotMatch(text, /PAST THEIR DAY/i);
   assert.match(text, /NEW PEOPLE SINCE THE LAST REPORT \(1\)\n {2}Pat Vale — \(801\) 555-0101/);

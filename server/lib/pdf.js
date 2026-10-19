@@ -238,6 +238,8 @@ export class PdfDocument {
     this.pages = [];
     this.pageHooks = [];
     this.footer = null;
+    // Each picture is written into the file once, however many pages draw it.
+    this.images = new Map();
     this.y = margin;
     this.addPage();
   }
@@ -305,6 +307,13 @@ export class PdfDocument {
     if (stroke) ops.push(colorOps(stroke, true), `${num(weight)} w`);
     ops.push(`${num(x)} ${num(this.height - y - h)} ${num(w)} ${num(h)} re ${fill && stroke ? 'B' : fill ? 'f' : 'S'}`);
     this.current.ops.push(ops.join(' '));
+  }
+
+  /** A picture from pdfImageFrom, its top-left corner at (x, y), drawn `w` by `h` points. */
+  image(picture, { x, y, w, h }) {
+    if (!picture) return;
+    if (!this.images.has(picture)) this.images.set(picture, `Im${this.images.size + 1}`);
+    this.current.ops.push(`q ${num(w)} 0 0 ${num(h)} ${num(x)} ${num(this.height - y - h)} cm /${this.images.get(picture)} Do Q`);
   }
 
   /** A "no" sign: a ring with a slash through it, centred on (cx, cy). */
@@ -546,7 +555,22 @@ export class PdfDocument {
       `<< /Title ${infoString(this.info.title)} /Subject ${infoString(this.info.subject)} /Author ${infoString(this.info.author)} `
       + `/Creator ${infoString(this.info.creator)} /Producer ${infoString('Touradoor')} /CreationDate (${pdfDate(this.created)}) >>`,
     );
-    const resources = `<< /Font << ${Object.keys(FONT_NAMES).map((key, i) => `/${FONT_NAMES[key]} ${fontRefs[i]} 0 R`).join(' ')} >> >>`;
+    const addStream = (dict, data) => add(Buffer.concat([
+      Buffer.from(`<< ${dict} /Length ${data.length} >>\nstream\n`, 'latin1'), data, Buffer.from('\nendstream', 'latin1'),
+    ]));
+    const imageRefs = [...this.images].map(([picture, name]) => {
+      const size = `/Width ${picture.width} /Height ${picture.height} /BitsPerComponent 8`;
+      // See-through pixels ride in a soft mask: a grey picture of the same size where white is solid.
+      const mask = picture.alpha ? addStream(`/Type /XObject /Subtype /Image ${size} /ColorSpace /DeviceGray /Filter /FlateDecode`, picture.alpha) : null;
+      const ref = addStream(
+        `/Type /XObject /Subtype /Image ${size} /ColorSpace /${picture.colorSpace} /Filter /${picture.filter}`
+        + `${picture.decode ? ` /Decode [${picture.decode.join(' ')}]` : ''}${mask ? ` /SMask ${mask} 0 R` : ''}`,
+        picture.data,
+      );
+      return `/${name} ${ref} 0 R`;
+    });
+    const resources = `<< /Font << ${Object.keys(FONT_NAMES).map((key, i) => `/${FONT_NAMES[key]} ${fontRefs[i]} 0 R`).join(' ')} >>`
+      + `${imageRefs.length ? ` /XObject << ${imageRefs.join(' ')} >>` : ''} >>`;
     const pageRefs = [];
     for (const page of this.pages) {
       const stream = deflateSync(Buffer.from(page.ops.join('\n'), 'latin1'));
