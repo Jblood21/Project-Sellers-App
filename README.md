@@ -521,9 +521,9 @@ opens the section it is in. Sections start folded each time the page is opened.
 ## Layouts
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
-seven, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
+eight, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
 is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`, `redrock`, `trailhead`,
-`showcase`.)
+`showcase`, `ledger`.)
 
 - **Porch** (key `cornerpost`; what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Book a tour* button in the header of every page, and **Talk about financing**
@@ -617,6 +617,27 @@ is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`, 
   with Instrument Serif titles; a tool's answer and the footer sit on the dark ground. Each home's first photo is
   what a buyer sees first, so a wide, bright exterior shot reads best. Reads best on Black, White & Orange or
   Charcoal & Bronze.
+- **Ledger** (key `ledger`) — the buyer's own dashboard: IBM Plex Sans for words and headings, IBM Plex Mono for every
+  figure, 12px tiles, 8px buttons and thin rules. A slim dark header says whose dashboard it is ("Dana's dashboard")
+  under the development's name or logo, with **Homes I Like** as a heart with its count and the menu. The home screen
+  is a bento of tiles of different sizes, figures first, each built from the buyer's own answers by the same sum the
+  tool uses, so a tile always says what its tool would: **Your buying power** on the one dark tile (See What I Can
+  Afford's comfortable figure, with a half-circle gauge and the cheapest homes under it marked "In budget"), **Monthly payment** (the
+  Payment tool's sum for the home picked there, or the lowest-priced home for sale, as a five-part bar with its key,
+  its terms and "An estimate, not a loan offer"), **Down payment** (the Savings Plan's saved-so-far against what is
+  needed, as a ring), **Plan** (how many of the tools are in the plan, as dots), **Rates today** (the community's
+  three rates and the date they were set), **Homes in your budget** (each home's price and monthly estimate, marked
+  In budget, Worth asking or Above your range once the buyer has given an income, and a heart to save it), **Next step** (the first tool not
+  yet in the plan, with Start) and **Down Payment Help** (the community's own amount and price limit). A figure the
+  buyer has not given yet says so and offers the tool instead; a tool that is switched off has no tile, and payments
+  appear only while the Payment tool is on. The incentive, the tools as a checklist, the lender, the area, the agents,
+  the guides, the FAQ and the builder's own videos follow as tiles in the same grid, laid out so no row is left with
+  a gap whichever tiles a community has. Two columns on a phone (one under 360px) and four from 768px, with a bar at
+  the foot of the screen for **Book a tour**, **Talk about financing** and **My Home Plan** on Ridgeline's
+  conditions; from 900px the header carries them, and from 1024px a narrow dark rail runs down the left (Dashboard,
+  Homes, Tools, Learn, My Home Plan, Menu), the bar beside it turns light and the grid uses the full width. Tool answers are
+  white figure tiles with the number large in the mono. Dark header, light footer; reads best on Ice Blue & Dark
+  Navy, the theme it was drawn with.
 
 Keystone, the compact figure-led layout that was the fourth choice, has been taken away. A community still storing
 `keystone` is shown Marketplace (the layout nearest in spirit, not the default), to buyers and in Setup, and
@@ -631,7 +652,8 @@ Porch is Manrope only, so a community whose theme brought its own serif face los
 face under it. Each layout also has themes it reads best on: Ridgeline on Navy & Gold, Ice Blue & Dark Navy and Slate Blue &
 Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Marketplace on Modern Blue &
 White, Teal & Navy and Navy & Gold; Red Rock on Rust & Desert Plum; Trailhead on Forest Green & Cream and Slate Blue &
-Soft Green; Showcase on Black, White & Orange and Charcoal & Bronze. That theme, the eleventh, is rust and desert plum
+Soft Green; Showcase on Black, White & Orange and Charcoal & Bronze; Ledger on Ice Blue & Dark Navy, Modern Blue &
+White and Teal & Navy. That theme, the eleventh, is rust and desert plum
 on warm sand (the one theme whose cards are sand rather than white), set in Fraunces and Figtree, and it works
 under any layout like the others.
 
@@ -692,7 +714,7 @@ Under **Setup → Home screen**:
   `settings.homeSubhead`, up to 280). `{name}` is the buyer's first name ("there" when there is none) and `{community}`
   the development's name. A box left empty keeps the layout's own wording, which the field shows in grey for the
   layout the community is on (Marketplace's is "Homes at Willow Creek", Red Rock's "Hi Dana. Could one of these be
-  yours?"). All seven layouts read the same two settings
+  yours?"). All eight layouts read the same two settings
   (`homeGreeting` in `shared/domain.js`), and a preview shows how it reads. It goes live with Save settings.
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
   shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state, and
@@ -822,7 +844,8 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Porch, Ridgeline, Foyer, Marketplace, Red Rock, Trailhead and Showcase: header and home screen per layout
+  buyer/layouts/     Porch, Ridgeline, Foyer, Marketplace, Red Rock, Trailhead, Showcase and Ledger: header and home screen
+                     per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: the Today page and, per community, 8 sections (Leads, Stats, Homes, Area,
                      Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and

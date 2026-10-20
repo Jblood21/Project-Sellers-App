@@ -148,6 +148,57 @@ function Wire({ layoutKey }) {
       </svg>
     );
   }
+  if (layoutKey === 'ledger') {
+    // A dark rail down the left beside a light bar, then a bento of tiles: buying power on the dark tile with its cyan gauge and the homes it reaches filled, the payment with its five-part bar, a ring, the plan's dots, the rates, the homes in rows, Start and the help.
+    return (
+      <svg className="ax-wire" viewBox="0 0 160 72" aria-hidden="true" focusable="false">
+        <rect width="160" height="72" fill="#f1f5f9" />
+        <rect width="12" height="72" fill="#0f172a" />
+        <rect x="2" y="3" width="8" height="7" rx="1.5" fill="#06b6d4" />
+        <g fill="#cbd5e1"><rect x="3" y="14" width="6" height="3" /><rect x="3" y="21" width="6" height="3" /><rect x="3" y="28" width="6" height="3" /><rect x="3" y="35" width="6" height="3" /></g>
+        <rect x="17" y="3" width="20" height="1.5" fill="#69707d" />
+        <rect x="17" y="6" width="30" height="3.5" fill="#0f172a" />
+        <rect x="112" y="3" width="8" height="6" rx="1" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.5" />
+        <rect x="122" y="3" width="14" height="6" rx="1" fill="#ffffff" stroke="#0f172a" strokeWidth="0.5" />
+        <rect x="138" y="3" width="15" height="6" rx="1" fill="#06b6d4" />
+        <rect x="17" y="13" width="67" height="22" rx="2" fill="#0f172a" />
+        <rect x="21" y="16" width="14" height="1.5" fill="#cbd5e1" />
+        <rect x="21" y="20" width="22" height="4" fill="#ffffff" />
+        <path d="M65 31A8 8 0 0 1 81 31" fill="none" stroke="#334155" strokeWidth="2.5" />
+        <path d="M65 31A8 8 0 0 1 70 23.6" fill="none" stroke="#06b6d4" strokeWidth="2.5" />
+        <g fill="#06b6d4"><rect x="21" y="27.5" width="12" height="5" rx="1" /><rect x="35" y="27.5" width="12" height="5" rx="1" /></g>
+        <rect x="49" y="27.5" width="12" height="5" rx="1" fill="none" stroke="#64748b" strokeWidth="0.5" />
+        <rect x="86" y="13" width="67" height="22" rx="2" fill="#ffffff" stroke="#e2e8f0" strokeWidth="0.5" />
+        <rect x="90" y="16" width="16" height="1.5" fill="#0f172a" />
+        <rect x="90" y="19.5" width="18" height="4" fill="#0f172a" />
+        <rect x="90" y="26" width="44" height="2" fill="#06b6d4" />
+        <rect x="134.5" y="26" width="5" height="2" fill="#0f172a" />
+        <rect x="140" y="26" width="4" height="2" fill="#83dbea" />
+        <rect x="144.5" y="26" width="3" height="2" fill="#69707d" />
+        <rect x="148" y="26" width="1.5" height="2" fill="#eeeff0" stroke="#94a3b8" strokeWidth="0.3" />
+        <g fill="#69707d"><rect x="90" y="30.5" width="24" height="1.2" /><rect x="118" y="30.5" width="24" height="1.2" /></g>
+        <g fill="#ffffff" stroke="#e2e8f0" strokeWidth="0.5"><rect x="17" y="37" width="32.5" height="15" rx="2" /><rect x="51.5" y="37" width="32.5" height="15" rx="2" /><rect x="86" y="37" width="67" height="15" rx="2" /></g>
+        <circle cx="25" cy="45" r="3.5" fill="none" stroke="#e2e8f0" strokeWidth="1.5" />
+        <path d="M25 41.5A3.5 3.5 0 1 1 21.7 46.2" fill="none" stroke="#047a8e" strokeWidth="1.5" />
+        <g fill="#0f172a"><rect x="31" y="42.5" width="12" height="2.5" /><rect x="55" y="40" width="14" height="3" /></g>
+        <rect x="31" y="46.5" width="10" height="1.2" fill="#69707d" />
+        <g fill="#047a8e"><circle cx="56.5" cy="47.5" r="1.3" /><circle cx="60" cy="47.5" r="1.3" /></g>
+        <g fill="none" stroke="#69707d" strokeWidth="0.5"><circle cx="63.5" cy="47.5" r="1.1" /><circle cx="67" cy="47.5" r="1.1" /><circle cx="70.5" cy="47.5" r="1.1" /></g>
+        <rect x="90" y="40" width="16" height="1.5" fill="#0f172a" />
+        <g fill="#0f172a"><rect x="90" y="45" width="14" height="3" /><rect x="112" y="45" width="14" height="3" /><rect x="134" y="45" width="14" height="3" /></g>
+        <g fill="#e2e8f0"><rect x="109" y="44" width="0.5" height="5" /><rect x="131" y="44" width="0.5" height="5" /></g>
+        <g fill="#ffffff" stroke="#e2e8f0" strokeWidth="0.5"><rect x="17" y="54" width="67" height="15" rx="2" /><rect x="86" y="54" width="32.5" height="15" rx="2" /><rect x="120.5" y="54" width="32.5" height="15" rx="2" /></g>
+        <g fill="#9fc9a0"><rect x="20" y="56.5" width="6" height="4.5" rx="0.5" /><rect x="20" y="62.5" width="6" height="4.5" rx="0.5" /></g>
+        <g fill="#0f172a"><rect x="28" y="57.5" width="14" height="1.5" /><rect x="28" y="63.5" width="12" height="1.5" /><rect x="66" y="57.5" width="14" height="1.5" /><rect x="66" y="63.5" width="14" height="1.5" /></g>
+        <rect x="70" y="59.8" width="10" height="1.5" rx="0.5" fill="#bfe9f1" />
+        <rect x="90" y="56.5" width="18" height="2" fill="#0f172a" />
+        <rect x="90" y="62" width="24.5" height="5" rx="1" fill="#06b6d4" />
+        <rect x="124.5" y="56.5" width="16" height="1.5" fill="#0f172a" />
+        <rect x="124.5" y="60" width="18" height="3.5" fill="#0f172a" />
+        <rect x="124.5" y="65" width="22" height="1.2" fill="#69707d" />
+      </svg>
+    );
+  }
   if (layoutKey === 'saltgrass') {
     return (
       <svg className="ax-wire" viewBox="0 0 160 72" aria-hidden="true" focusable="false">

@@ -25,6 +25,10 @@ const DEFAULTS = {
     headline: 'Hi {name}. Meet the homes at {community}.',
     subhead: 'One home at a time, with what it could cost you each month.',
   },
+  ledger: {
+    headline: 'Hi {name}. Here’s where you stand.',
+    subhead: 'Your numbers from each tool, side by side. Tap a tile to open it.',
+  },
   other: { headline: 'Hi {name} — can you buy one of these?', subhead: 'Take a few minutes to find out what works for you and build your own home plan.' },
 };
 

@@ -7,11 +7,11 @@ import { backends, startBackend } from './fixtures/harness.js';
 
 const root = new URL('../../', import.meta.url);
 
-test('there are seven layouts, each with its own name, and the keys stored on communities did not change', () => {
-  assert.deepEqual(LAYOUT_KEYS, ['cornerpost', 'saltgrass', 'foyer', 'marketplace', 'redrock', 'trailhead', 'showcase']);
+test('there are eight layouts, each with its own name, and the keys stored on communities did not change', () => {
+  assert.deepEqual(LAYOUT_KEYS, ['cornerpost', 'saltgrass', 'foyer', 'marketplace', 'redrock', 'trailhead', 'showcase', 'ledger']);
   assert.equal(DEFAULT_LAYOUT, 'cornerpost', 'a community that never chose one keeps the first layout');
   const names = LAYOUTS.map((layout) => layout.name);
-  assert.deepEqual(names, ['Porch', 'Ridgeline', 'Foyer', 'Marketplace', 'Red Rock', 'Trailhead', 'Showcase']);
+  assert.deepEqual(names, ['Porch', 'Ridgeline', 'Foyer', 'Marketplace', 'Red Rock', 'Trailhead', 'Showcase', 'Ledger']);
   assert.equal(new Set(names).size, names.length, 'no two layouts share a name');
   assert.ok(!names.includes('Touradoor Default') && !names.includes('Salt Grass'), 'the old names are gone');
   for (const layout of LAYOUTS) {
