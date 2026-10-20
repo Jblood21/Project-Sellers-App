@@ -8,7 +8,7 @@ By Dillan Lewis, NMLS #1337516 · Summit Home Loans LLC, NMLS #1790749
 
 ![New construction townhome living, dining and kitchen](images/blog-hero-model-home.webp)
 
-Principal and interest is the number people quote. It's usually about two thirds of what actually leaves your account.
+Principal and interest is the number people quote. It's usually only about three quarters of what actually leaves your account.
 
 ## What makes up the monthly payment?
 
@@ -45,4 +45,4 @@ Take the actual price of the actual home. Enter the rate you're actually being q
 This article is general educational information about home financing and does not consider your individual circumstances. It is not an offer of credit, a rate quote, a prequalification, an approval or a commitment to lend. Program rules, limits and availability change. Confirm current guidelines and property information with a licensed loan officer and with the seller or listing brokerage.
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*

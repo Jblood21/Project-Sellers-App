@@ -52,7 +52,8 @@ export async function seedIfEmpty(store) {
 
   const community = await store.createCommunity(DEMO.community);
   await store.updateCommunity(community.id, {
-    settings: { ...DEFAULT_SETTINGS, ratesUpdatedAt: new Date().toISOString() },
+    // The defaults carry the date their rates are from; stamping today would say they were checked today.
+    settings: { ...DEFAULT_SETTINGS },
   });
   for (const home of DEMO.homes) await store.createHome(community.id, home);
   for (const highlight of DEMO.highlights) await store.createHighlight(community.id, highlight);

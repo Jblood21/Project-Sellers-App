@@ -612,27 +612,33 @@ export const DEFAULT_TOOLS_ENABLED = {
 };
 
 export const DEFAULT_SETTINGS = {
-  rateConv: '6.45',
-  rateFha: '6.10',
-  rateVa: '5.90',
-  ratesUpdatedAt: null,
+  // The Mortgage News Daily index at the close on Oct 19, 2026 (30-year fixed: conventional, FHA, VA), and when.
+  // A starting point for a community's own rates, not a quote; the lender's figures belong in Setup.
+  rateConv: '7.40',
+  rateFha: '7.02',
+  rateVa: '7.04',
+  ratesUpdatedAt: '2026-10-19T20:00:00.000Z',
   taxPctYr: '0.55',
   insuranceYr: '1400',
   hoaMo: '45',
-  dpaIncomeLimit: '110000',
+  // Utah's First-Time Homebuyer Assistance Program for new construction, as of Oct 2026: up to $20,000 (a 0%
+  // deferred loan) on a never-occupied home priced up to $450,000, paired with a Utah Housing Corporation first
+  // mortgage. The program has no income cap of its own; the one that applies is that first mortgage's, and the
+  // FHA/VA one ($162,500, 620 minimum score) is the widest. Funded until the money runs out.
+  dpaIncomeLimit: '162500',
   // The help itself. dpaAmount is a flat figure on its own; set dpaPct as well
   // and it becomes the ceiling on a percentage of the loan. dpaPriceCap is the
   // program's purchase-price limit, which is the rule that decides per home
   // rather than per buyer. Blank means the program has no such limit.
-  dpaAmount: '15000',
+  dpaAmount: '20000',
   dpaPct: '',
-  dpaPriceCap: '',
-  dpaMinCredit: '660',
+  dpaPriceCap: '450000',
+  dpaMinCredit: '620',
   // Named and dated so the screen can say whose rules these are and when the
   // builder last checked them. Assistance limits are re-set every year and
   // funded programs run dry mid-year, so an undated figure goes stale silently.
-  dpaProgram: '',
-  dpaAsOf: '',
+  dpaProgram: 'Utah First-Time Homebuyer Assistance Program',
+  dpaAsOf: '2026-10-20',
   creditExcellentMin: '740',
   creditGoodMin: '700',
   creditFairMin: '660',
@@ -872,9 +878,22 @@ export function ratesOf(settings) {
 
 /**
  * Full monthly cost breakdown for one home / program / down-payment combination.
- * MI: FHA always 0.55%/yr of the loan; conventional under 20% down 0.50%/yr; VA and
+ * MI: FHA by HUD's annual MIP schedule (fhaAnnualMip); conventional under 20% down 0.50%/yr; VA and
  * 20%-down conventional none.
  */
+/**
+ * FHA's annual mortgage insurance on a 30-year loan, as a share of the loan a year: HUD Mortgagee Letter 2023-05
+ * (case numbers endorsed from March 20, 2023, and unchanged since). 0.55% with less than 5% down (over 95% loan to
+ * value), 0.50% with 5% or more; a base loan over $726,200 pays 0.75% and 0.70%.
+ */
+export const FHA_MIP_LARGE_LOAN = 726200;
+export function fhaAnnualMip(loan, price) {
+  const ltv = num(price) > 0 ? num(loan) / num(price) : 1;
+  const high = ltv > 0.95;
+  if (num(loan) > FHA_MIP_LARGE_LOAN) return high ? 0.0075 : 0.007;
+  return high ? 0.0055 : 0.005;
+}
+
 export function calcPayment({ price, program, downPct, settings }) {
   const p = num(price);
   const down = (p * num(downPct)) / 100;
@@ -885,7 +904,7 @@ export function calcPayment({ price, program, downPct, settings }) {
   const insurance = num(settings.insuranceYr) / 12;
   const mi =
     program === 'fha'
-      ? (loan * 0.0055) / 12
+      ? (loan * fhaAnnualMip(loan, p)) / 12
       : program === 'conv' && num(downPct) < 20
         ? (loan * 0.005) / 12
         : 0;
@@ -905,8 +924,9 @@ export function creditRateAdjustment(credit) {
 }
 
 /**
- * Debt-to-income limits. 36% is the conservative rule of thumb; 43% is the
- * Qualified Mortgage threshold lenders commonly underwrite to. Showing only the
+ * Debt-to-income limits. 36% is the conservative rule of thumb; 43% is a common
+ * lender benchmark (no longer a federal Qualified Mortgage cap since the 2021
+ * General QM rule, and automated approvals can go higher). Showing only the
  * first told buyers they could afford less than a lender would actually lend
  * them, which reads as "no" when the real answer is "it depends".
  */

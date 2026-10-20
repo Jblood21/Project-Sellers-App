@@ -28,8 +28,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 20 is the floor declared in package.json engines; 22 is what Render runs.
-        node: ['20', '22']
+        # 22 is the floor declared in package.json engines and what Render runs; 24 is the current LTS.
+        node: ['22', '24']
 
     steps:
       - uses: actions/checkout@v4

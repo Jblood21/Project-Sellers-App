@@ -28,7 +28,7 @@ Entitlement, the funding fee and occupancy requirements all apply, and prior use
 
 If you might move in two or three years, transaction costs are the dominant variable. Buying still makes sense for plenty of military households, particularly where rent is high and the home is likely to rent well, but it needs to be a decision rather than a default.
 
-If you would keep the home and rent it out, check the association's rental rules before you buy. Many communities cap the percentage of homes that can be rented, and a cap you hit later is a problem you can't solve.
+If you would keep the home and rent it out, check the association's rental rules before you buy. Many communities cap the percentage of homes that can be rented. Utah law exempts some owners, such as one deployed or relocated by an employer for two years or more, so ask how the cap would apply to a PCS move.
 
 ## How do homes near a base resell?
 
@@ -41,4 +41,4 @@ VA lending in attached-home communities has its own requirements around the asso
 This article is general educational information about home financing and does not consider your individual circumstances. It is not an offer of credit, a rate quote, a prequalification, an approval or a commitment to lend. Program rules, limits and availability change. Confirm current guidelines and property information with a licensed loan officer and with the seller or listing brokerage.
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*

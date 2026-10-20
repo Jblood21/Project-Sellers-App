@@ -39,4 +39,4 @@ No shared walls. A yard you control. No association telling you what color to pa
 This article is general educational information about home financing and does not consider your individual circumstances. It is not an offer of credit, a rate quote, a prequalification, an approval or a commitment to lend. Program rules, limits and availability change. Confirm current guidelines and property information with a licensed loan officer and with the seller or listing brokerage.
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*

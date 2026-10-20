@@ -1,5 +1,5 @@
 import { creditRanges, dpaHomes, money, num, screenDpa } from '@shared/domain.js';
-import { shortDate } from '../../lib/format.js';
+import { fullDate } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { EmptyPrompt, Field, MoneyInput, PillGroup, SaveToPlan, ToolHeader } from './ToolUI.jsx';
 
@@ -179,7 +179,7 @@ export default function Dpa() {
         disabled={!result}
         note={
           settings.dpaAsOf
-            ? `Screening only — the lender confirms actual program eligibility. ${community?.builder || 'The builder'} last checked these rules ${shortDate(settings.dpaAsOf)}; limits reset and funded programs run out.`
+            ? `Screening only — the lender confirms actual program eligibility. ${community?.builder || 'The builder'} last checked these rules ${fullDate(`${settings.dpaAsOf}T00:00:00`)}; limits reset and funded programs run out.`
             : 'Screening only — the lender confirms actual program eligibility.'
         }
       />

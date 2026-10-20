@@ -7,6 +7,7 @@ import {
   communitySlugCandidates, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead, toolOfActivity,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
+import { FIGURES_REFRESH, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
@@ -282,6 +283,41 @@ export function createPostgresStore(connectionString) {
           if (claimed.rowCount) await addMissingDefaults(db, id);
         });
       }
+      await this.applyFiguresRefresh(FIGURES_REFRESH);
+    },
+
+    /**
+     * Brings every community not yet at `refresh.version` up to it (see refresh.js), each in its own transaction:
+     * claimed first, so two servers starting together refresh a community once. Returns the ids refreshed.
+     */
+    async applyFiguresRefresh(refresh) {
+      const { rows } = await q(`SELECT id FROM communities WHERE figures_version <> $1`, [refresh.version]);
+      const done = [];
+      const guides = refresh.guides ? loadDefaultGuides() : [];
+      for (const { id } of rows) {
+        await inTransaction(async (db) => {
+          const claimed = await db.query(
+            `UPDATE communities SET figures_version = $2 WHERE id = $1 AND figures_version <> $2 RETURNING settings`,
+            [id, refresh.version],
+          );
+          if (!claimed.rowCount) return;
+          await db.query(
+            `UPDATE communities SET settings = $2, updated_at = now() WHERE id = $1`,
+            [id, refreshedSettings({ id, settings: claimed.rows[0].settings }, refresh)],
+          );
+          for (const def of guides) {
+            const g = guideRowFromDefault(def, def.slug, 0);
+            await db.query(
+              `UPDATE guides SET title = $3, category = $4, byline = $5, note = $6, summary = $7, body = $8,
+                                 image_alt = $9, updated_at = now()
+               WHERE community_id = $1 AND default_key = $2`,
+              [id, def.defaultKey, g.title, g.category, g.byline, g.note, g.summary, g.body, g.imageAlt],
+            );
+          }
+          done.push(id);
+        });
+      }
+      return done;
     },
 
     async close() {
@@ -399,9 +435,9 @@ export function createPostgresStore(connectionString) {
       // next boot and get a second copy.
       const row = await inTransaction(async (db) => {
         const { rows } = await db.query(
-          `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools, guides_seeded)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true) RETURNING *`,
-          [id, name, location, status, theme, builder, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED],
+          `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools, guides_seeded, figures_version)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,$9) RETURNING *`,
+          [id, name, location, status, theme, builder, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, FIGURES_REFRESH.version],
         );
         await addMissingDefaults(db, id);
         // A clean address from the name, or the next free variation of it. The id stays as it is.

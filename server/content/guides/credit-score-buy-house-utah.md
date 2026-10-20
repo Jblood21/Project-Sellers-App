@@ -12,7 +12,7 @@ There's a minimum to qualify, and then there's the score that decides what you p
 
 ## What credit score do I need to qualify?
 
-Each loan program sets its own floor, and individual lenders can set stricter requirements on top of it. FHA is generally the most accommodating on score, conventional sits higher, and VA has no published minimum although lenders apply their own.
+Each loan program sets its own floor, and individual lenders can set stricter requirements on top of it. FHA is generally the most accommodating on score. Fannie Mae dropped its fixed minimum for automated conventional approvals in late 2025, though lenders can still set one and lower scores cost more, and VA has no published minimum although lenders apply their own.
 
 Program minimums change, so treat any number you read online as a starting point and get your actual file evaluated rather than assuming you don't qualify.
 
@@ -41,4 +41,4 @@ A lender pulls a mortgage-specific score, which is often different from the one 
 This article is general educational information about home financing and does not consider your individual circumstances. It is not an offer of credit, a rate quote, a prequalification, an approval or a commitment to lend. Program rules, limits and availability change. Confirm current guidelines and property information with a licensed loan officer and with the seller or listing brokerage.
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*

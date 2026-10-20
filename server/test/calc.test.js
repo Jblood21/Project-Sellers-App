@@ -5,7 +5,7 @@ import {
   DEFAULT_SETTINGS, DEFAULT_THEME, THEMES, THEME_CHIPS, THEME_COLORS, affordabilityLevers,
   calcAffordability, calcPayment, creditRanges, dpaAmountFor, dpaCap, dpaHomes,
   MAX_VIDEO_BYTES, base64Bytes, daysBetween, leaseOverlap, mapsUrl, megabytes, moveInSchedule,
-  moveInTimeline, normalizeTheme, num, pay30, videoEmbed,
+  fhaAnnualMip, moveInTimeline, normalizeTheme, num, pay30, videoEmbed,
   planProgress, screenDpa, shiftDate, suggestPrograms,
 } from '../../shared/domain.js';
 
@@ -19,15 +19,28 @@ test('pay30 matches the 30-year amortisation formula', () => {
 });
 
 test('payment breaks down into P&I, tax, insurance, MI and HOA', () => {
-  const result = calcPayment({ price: 598000, program: 'fha', downPct: 3.5, settings });
+  // Pinned rates, so this checks the sum and not whatever the defaults are this month.
+  const fixed = { ...settings, rateFha: '6.10' };
+  const result = calcPayment({ price: 598000, program: 'fha', downPct: 3.5, settings: fixed });
   assert.equal(Math.round(result.loan), 577070); // 598,000 less 3.5% down
   assert.equal(Math.round(result.pi), 3497);
   assert.equal(Math.round(result.tax), 274);   // 598,000 × 0.55% / 12
   assert.equal(Math.round(result.insurance), 117); // 1,400 / 12
-  assert.equal(Math.round(result.mi), 264);    // FHA: loan × 0.55% / 12
+  assert.equal(Math.round(result.mi), 264);    // FHA under 5% down: loan × 0.55% / 12
   assert.equal(result.hoa, 45);
   assert.equal(Math.round(result.total), 4197);
   assert.equal(Math.round(result.cashToClose), 35880); // 20,930 down + 2.5%
+});
+
+test('FHA mortgage insurance follows the HUD schedule: 0.55% under 5% down, 0.50% from 5%, more on a large loan', () => {
+  const mi = (price, downPct) => Math.round(calcPayment({ price, program: 'fha', downPct, settings }).mi);
+  assert.equal(mi(400000, 3.5), Math.round((386000 * 0.0055) / 12)); // 177
+  assert.equal(mi(400000, 5), Math.round((380000 * 0.005) / 12)); // 158
+  assert.equal(mi(400000, 20), Math.round((320000 * 0.005) / 12));
+  // Over $726,200 borrowed: 0.75% and 0.70%.
+  assert.equal(mi(800000, 3.5), Math.round((772000 * 0.0075) / 12));
+  assert.equal(mi(800000, 5), Math.round((760000 * 0.007) / 12));
+  assert.equal(fhaAnnualMip(0, 0), 0.0055, 'no price: treated as the full loan, the dearer rate');
 });
 
 test('mortgage insurance follows the program and down payment', () => {
@@ -47,9 +60,9 @@ test('affordability applies the credit rate adjustment', () => {
   const fair = calcAffordability({ income: 85000, debts: 450, credit: 'fair', settings });
 
   assert.equal(Math.round(good.maxPayment), 2100); // 85,000/12 × 0.36 − 450
-  assert.equal(good.rate, 6.45);
-  assert.equal(Number(excellent.rate.toFixed(2)), 6.3);
-  assert.equal(Number(fair.rate.toFixed(2)), 6.8);
+  assert.equal(good.rate, num(settings.rateConv));
+  assert.equal(Number(excellent.rate.toFixed(2)), Number((num(settings.rateConv) - 0.15).toFixed(2)));
+  assert.equal(Number(fair.rate.toFixed(2)), Number((num(settings.rateConv) + 0.35).toFixed(2)));
   assert.ok(excellent.buyingPower > good.buyingPower);
   assert.ok(fair.buyingPower < good.buyingPower);
 });
@@ -61,7 +74,8 @@ test('affordability never goes negative when debts swamp income', () => {
 });
 
 test('DPA screening follows the admin rules', () => {
-  const base = { credit: 'good', firstTime: 'yes', military: 'no', settings };
+  // A program's own limits, pinned, so this checks the rule and not this year's figures.
+  const base = { credit: 'good', firstTime: 'yes', military: 'no', settings: { ...settings, dpaIncomeLimit: '110000', dpaMinCredit: '660' } };
   assert.equal(screenDpa({ ...base, income: 90000 }), 'likely');
   assert.equal(screenDpa({ ...base, income: 90000, firstTime: 'no' }), 'maybe');
   assert.equal(
@@ -125,7 +139,7 @@ test('affordability reports the range a lender actually works in', () => {
   assert.equal(Math.round(r.comfortable.maxPayment), 2100); // 85,000/12 × 0.36 − 450
   assert.equal(Math.round(r.buyingPower), Math.round(r.comfortable.price));
 
-  // 43% DTI is the Qualified Mortgage ceiling
+  // 43% DTI: the app's lender-maximum benchmark
   assert.equal(Math.round(r.lenderMax.maxPayment), 2596); // 85,000/12 × 0.43 − 450
   assert.ok(r.lenderMax.price > r.comfortable.price, 'the top of the range is higher');
 });
@@ -441,11 +455,13 @@ test('homes are split by the price ceiling, and unpriced homes are not guessed a
   assert.equal(open.over.length, 0);
 });
 
-test('assistance settings default to the flat behaviour they had before', () => {
-  // Communities set up before the percentage and ceiling existed must keep
-  // answering exactly as they did.
+test('assistance settings default to the Utah new-construction program: a flat $20,000 up to a $450,000 price', () => {
+  // A flat amount, not a share of the loan, and a ceiling that decides per home.
   assert.equal(DEFAULT_SETTINGS.dpaPct, '');
-  assert.equal(DEFAULT_SETTINGS.dpaPriceCap, '');
-  assert.equal(dpaAmountFor({ price: 429000, settings }), num(settings.dpaAmount));
-  assert.equal(dpaCap(settings), null);
+  assert.equal(DEFAULT_SETTINGS.dpaAmount, '20000');
+  assert.equal(DEFAULT_SETTINGS.dpaPriceCap, '450000');
+  assert.equal(dpaAmountFor({ price: 429000, settings }), 20000);
+  assert.equal(dpaCap(settings), 450000);
+  assert.match(DEFAULT_SETTINGS.dpaProgram, /First-Time Homebuyer Assistance/);
+  assert.match(DEFAULT_SETTINGS.dpaAsOf, /^\d{4}-\d{2}-\d{2}$/, 'dated, so the screen can say when');
 });

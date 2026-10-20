@@ -36,9 +36,9 @@ Then get preapproved so you know the ceiling exists, and shop below it. The appr
 
 ## How much cushion should I leave for the first year?
 
-New construction takes furniture, window coverings, a lawn if you've one, and a hundred small things. Buyers who spend to the top of their approval usually spend the first year uncomfortable. Keeping some of the seller-paid incentive as cash at closing rather than putting all of it into the rate is one way to build that room in.
+New construction takes furniture, window coverings, a lawn if you've one, and a hundred small things. Buyers who spend to the top of their approval usually spend the first year uncomfortable. Using some of the seller-paid incentive for closing costs, so more of your own savings stays in the bank, rather than putting all of it into the rate is one way to build that room in.
 
 This article is general educational information about home financing and does not consider your individual circumstances. It is not an offer of credit, a rate quote, a prequalification, an approval or a commitment to lend. Program rules, limits and availability change. Confirm current guidelines and property information with a licensed loan officer and with the seller or listing brokerage.
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*

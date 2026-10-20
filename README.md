@@ -36,7 +36,7 @@ PDF downloads, tour requests — is tracked to the lead record and visible on th
 | Layer | Choice |
 |---|---|
 | Frontend | React 18 + Vite, React Router, one bundle serving both route trees |
-| Backend | Node 20+ / Express, REST API |
+| Backend | Node 22+ / Express, REST API |
 | Database | Postgres (`DATABASE_URL`), with a JSON-file store for local dev |
 | PDF | Client-side `window.print()` with print CSS |
 | QR | `qrcode-generator`, rendered in the admin |
@@ -72,7 +72,7 @@ TEST_DATABASE_URL=postgres://user:pw@localhost:5432/anydb npm test   # both stor
 
 `TEST_DATABASE_URL` must point at a server where the user may create and drop databases: each
 suite makes its own throwaway database on it and never touches the one named in the URL. CI runs
-both, on Node 20 and 22.
+both, on Node 22 and 24.
 
 ### Production-style run
 
@@ -218,7 +218,7 @@ Point an email-parser Zap at:
 ```
 POST https://<your-domain>/api/communities/<communityId>/rates
 x-webhook-secret: <RATES_WEBHOOK_SECRET>
-{ "conv": "6.45", "fha": "6.10", "va": "5.90" }
+{ "conv": "7.40", "fha": "7.02", "va": "7.04" }
 ```
 
 Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
@@ -507,7 +507,7 @@ community has no entries, so a builder who skips this never ships an empty scree
 Setup is a long page, so the sections that are mostly read and seldom changed are **folded** until you open
 them: the **FAQ**, the **Statements printed in the footer** (inside Lender & compliance), **Live rates**,
 **Monthly cost assumptions** and **Down payment assistance rules**. A folded section still shows its name, a
-one-line summary of what is in it (for example *Conv 6.875% · FHA 6.5% · VA 6.25% · updated Oct 6*), an
+one-line summary of what is in it (for example *Conv 7.40% · FHA 7.02% · VA 7.04% · updated Oct 19, 2026*), an
 **Unsaved changes** mark if you have edited it, and, for Live rates, the **Check rate inbox** button. Opening one
 does not change anything; what you type stays on the form when you fold it, and the page's **Save settings**
 button saves every section whether it is open or not. Choosing an item in *Needs your attention before launch*
@@ -764,14 +764,30 @@ All estimates, and labelled as such in the buyer UI.
 
 - **Monthly P&I** — 30-year amortisation: `L·r / (1 − (1+r)^−360)`, `r = rate/1200`.
 - **Payment** — P&I + property tax (`price × taxPctYr/100/12`) + insurance (`insuranceYr/12`)
-  + mortgage insurance (FHA `loan × 0.0055/12`; conventional under 20% down `loan × 0.005/12`;
+  + mortgage insurance (FHA on HUD's schedule: `loan × 0.0055/12` under 5% down, `0.005/12` from 5%, 0.75% / 0.70% on a loan
+    over $726,200; conventional under 20% down `loan × 0.005/12`;
   VA and 20%-down conventional none) + HOA. Cash to close = down + `price × 2.5%`, minus down
   payment assistance when the screener said "likely" and the buyer applies it.
 - **Affordability** — a range, not a single number: the comfortable end at 36% DTI and the
-  lender-maximum end at 43% (the Qualified Mortgage limit), 82% of either toward housing,
+  lender-maximum end at 43% (a common lender benchmark; there has been no federal QM DTI cap since 2021), 82% of either toward housing,
   conventional rate adjusted by credit range (excellent −0.15, fair +0.35). Enter a down payment
   and it is used as cash toward the price; leave it blank and the tool assumes 5% down.
 - **DPA screening and credit ranges** — driven entirely by the admin's Setup values.
 
-Defaults: Conv 6.45 / FHA 6.10 / VA 5.90; tax 0.55%/yr; insurance $1,400/yr; HOA $45/mo;
-DPA limit $110,000, amount $15,000, min credit 660; credit cutoffs 740 / 700 / 660.
+Defaults: Conv 7.40 / FHA 7.02 / VA 7.04 (the Mortgage News Daily index at the close on Oct 19, 2026, dated so);
+tax 0.55%/yr; insurance $1,400/yr; HOA $45/mo; down payment help: the Utah First-Time Homebuyer Assistance Program
+(new construction), $20,000 up to a $450,000 price, income limit $162,500 (the Utah Housing FHA/VA first mortgage's,
+the widest the program pairs with), min credit 620, checked Oct 20, 2026; credit cutoffs 740 / 700 / 660.
+
+**Bringing live communities up to date.** Every community keeps its own copy of the settings and of the supplied
+guides from the day it was created, so changing a default reaches no community that already exists.
+`server/db/refresh.js` carries a refresh into all of them once: on the first start of a server that has a new
+`FIGURES_REFRESH.version`, each community not yet at that version is claimed (so two servers starting together do it
+once), given the refreshed settings (the rates and their date, and the down payment program, from the current
+defaults; plus any figures researched for that community by id, such as its property tax, insurance and HOA dues),
+has its supplied guides' words rewritten from the files (a guide the builder deleted is not brought back, a hidden
+one stays hidden and in its place), and is stamped with the version. After that the refresh never runs again for
+it, so whatever the builder then changes in Setup or the Learn tab stays. A community created later starts on the
+new defaults and is stamped at creation. The Oct 20, 2026 refresh set every community to the Oct 19 rates and the
+Utah First-Time Homebuyer Assistance Program, gave Willow Creek, Salt Grass TownHomes and Old Mill Village their own
+2026 tax rates (and the two townhome communities their HO-6 insurance and HOA dues), and re-dated the guides.

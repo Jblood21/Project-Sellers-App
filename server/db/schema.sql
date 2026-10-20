@@ -51,6 +51,9 @@ ALTER TABLE communities ADD COLUMN IF NOT EXISTS layout TEXT NOT NULL DEFAULT 'c
 -- never goes back to false; only the explicit restore-defaults action brings
 -- guides back after that.
 ALTER TABLE communities ADD COLUMN IF NOT EXISTS guides_seeded BOOLEAN NOT NULL DEFAULT false;
+-- Which one-time figures refresh (server/db/refresh.js) a community has had: '' for none. A community created after
+-- one is stamped with it at creation, so it starts on the new defaults and is never refreshed over its own choices.
+ALTER TABLE communities ADD COLUMN IF NOT EXISTS figures_version TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS homes (
   id           TEXT PRIMARY KEY,

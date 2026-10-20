@@ -25,7 +25,9 @@
  *     the page, so no individual is named until a community chooses to
  *   · a RESPA Affiliated Business Arrangement disclosure (`aba`, blank; owed if
  *     the builder and lender are affiliated)
- *   · Truth in Lending "trigger term" disclosures beyond the APR line above
+ *   · Truth in Lending "trigger term" disclosures (APR, terms, down payment) the
+ *     payment tools may owe when they show a payment, a down payment or a term:
+ *     for counsel to decide, as the rates line above is not an APR
  *   · state-specific wording for any state other than Utah
  */
 

@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { PROGRAMS, calcPayment, dpaAmountFor, dpaCap, money, num, ratesOf } from '@shared/domain.js';
-import { dateTime } from '../../lib/format.js';
+import { fullDate } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import LoanProcessLink from '../LoanProcessLink.jsx';
 import { BigNumber, Field, PillGroup, ResultCard, ResultRow, SaveToPlan, ToolHeader } from './ToolUI.jsx';
@@ -147,8 +147,9 @@ export default function Payment() {
           bold
         />
         <span style={{ fontSize: 10.5, color: 'var(--t-mut)' }}>
-          {PROGRAMS[state.program]} at {result.rate.toFixed(2)}% · 30-year fixed · rates updated{' '}
-          {settings.ratesUpdatedAt ? dateTime(settings.ratesUpdatedAt) : 'recently'}
+          {PROGRAMS[state.program]} at {result.rate.toFixed(2)}% · 30-year fixed
+          {/* With the year, so last year's rates cannot pass for this year's; nothing at all when there is no date. */}
+          {settings.ratesUpdatedAt ? ` · rates updated ${fullDate(settings.ratesUpdatedAt)}` : ''}
         </span>
       </ResultCard>
 
