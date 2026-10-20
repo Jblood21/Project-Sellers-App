@@ -19,106 +19,138 @@
 }
 
 /* ── the side menu (computer only) ───────────────────────────────────────── */
-.as-side { display: none; }
-.as-brand { display: inline-flex; color: var(--color-accent); text-decoration: none; padding: 2px 8px; }
+/* Alpine Clear draws the menu on the deep teal: white words, sky for the small labels, the
+   marker and the badges, and the ice tint behind the page you are on. Every colour here is
+   checked against #123A40: white 12.3:1, sky 7.3:1, the soft white 7.3:1. The ring is sky,
+   because the page's teal ring would vanish on its own colour. */
+.as-side {
+  --side-ink: #FFFFFF;
+  --side-soft: #B4CBD3;
+  --side-line: rgba(255, 255, 255, 0.16);
+  --side-hover: rgba(255, 255, 255, 0.08);
+  display: none;
+  color: var(--side-ink);
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+.as-brand {
+  display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; margin-bottom: 6px; padding: 0 10px;
+  color: var(--side-ink); text-decoration: none; border-radius: 10px;
+}
 .as-side__nav { display: flex; flex-direction: column; gap: 2px; }
 .as-group { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; }
 .as-eyebrow {
-  font-family: var(--font-heading); font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
-  text-transform: uppercase; color: var(--color-neutral-600); padding: 0 12px 4px;
+  font-family: var(--font-body); font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--color-sky); padding: 0 12px 4px;
 }
 .as-group .as-eyebrow { padding-top: 2px; }
 
 .as-link {
-  position: relative; display: flex; align-items: center; gap: 11px; width: 100%; min-height: 42px;
-  padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--color-text);
-  font-family: var(--font-heading); font-size: 14px; font-weight: 600; text-align: left; text-decoration: none;
+  position: relative; display: flex; align-items: center; gap: 11px; width: 100%; min-height: 44px;
+  padding: 0 12px; border: 0; border-radius: 12px; background: transparent; color: var(--side-ink);
+  font-family: var(--font-body); font-size: 15px; font-weight: 500; text-align: left; text-decoration: none;
   cursor: pointer;
 }
-.as-link:hover { background: var(--color-neutral-200); }
-.as-link.active { background: var(--color-accent-100); color: var(--color-accent-700); }
+.as-link:hover { background: var(--side-hover); }
+.as-link.active { background: var(--color-accent-100); color: var(--color-accent-700); font-weight: 600; }
 .as-link.active::before {
   content: ''; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 4px; border-radius: 0 4px 4px 0;
-  background: var(--color-accent);
+  background: var(--color-sky);
 }
-.as-link:focus-visible, .as-tab:focus-visible, .as-switch:focus-visible, .as-sheet__row:focus-visible,
-.as-top__icon:focus-visible, .as-top__name:focus-visible, .as-lead__main:focus-visible, .as-part:focus-visible {
+/* On the page and in the phone's bars the ring is the teal; in the side menu it is the sky (below). */
+.as-tab:focus-visible, .as-sheet__row:focus-visible,
+.as-top__icon:focus-visible, .as-top__text:focus-visible, .as-top__name:focus-visible, .as-lead__main:focus-visible,
+.as-part:focus-visible, .as-callbanner:focus-visible {
   outline: 2px solid var(--color-accent); outline-offset: 2px;
 }
+.as-side a:focus-visible, .as-side button:focus-visible { outline: 2px solid var(--color-sky); outline-offset: 2px; }
 .as-link__label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.as-link__hint { font-size: 11.5px; font-weight: 500; color: var(--color-neutral-600); }
-.as-link--add { color: var(--color-accent-700); }
-.as-link--quiet { color: var(--color-neutral-700); font-weight: 500; }
+.as-link__hint { font-size: 12px; font-weight: 500; color: var(--side-soft); }
+.as-link.active .as-link__hint { color: var(--color-neutral-600); }
+/* "New community" is the board's outline button on the dark ground: a sky line, white words. */
+.as-link--add { margin-top: 8px; border: 1.5px solid var(--color-sky); color: var(--side-ink); font-weight: 600; }
+.as-link--quiet { color: var(--side-soft); font-weight: 500; }
+.as-link--quiet:hover { color: var(--side-ink); }
 
+/* Teal with white on a light ground; in the side menu sky with teal, as the board draws it. */
 .as-badge {
   flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--color-accent); color: #fff; font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: var(--color-accent); color: #fff; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
 }
+.as-side .as-badge { background: var(--color-sky); color: var(--color-accent); }
+.as-side .as-link.active .as-badge { background: var(--color-accent); color: #fff; }
 
+/* A button on the dark ground: its sky edge at 65% is 4.0:1 against the teal around it and 3.5:1
+   against its own fill, so it reads as something to press among the plain links. */
 .as-switch {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: 12px;
-  padding: 10px 12px; border: 1px solid var(--color-divider); border-radius: 12px; cursor: pointer;
-  background: var(--color-bg); color: var(--color-text); text-align: left; font-family: var(--font-heading);
+  padding: 10px 12px; border: 1px solid rgba(143, 208, 236, 0.65); border-radius: 14px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.05); color: var(--side-ink); text-align: left; font-family: var(--font-body);
 }
-.as-switch:hover { border-color: var(--color-accent); }
+.as-switch:hover { border-color: var(--color-sky); background: var(--side-hover); }
 .as-switch__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .as-switch__text .as-eyebrow { padding: 0 0 2px; }
-.as-switch__text strong { font-size: 15px; overflow-wrap: anywhere; }
-.as-switch__loc { font-size: 12px; color: var(--color-neutral-600); font-weight: 500; overflow-wrap: anywhere; }
+.as-switch__text strong { font-family: var(--font-heading); font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.as-switch__loc { font-size: 12.5px; color: var(--side-soft); font-weight: 400; overflow-wrap: anywhere; }
 
 .as-side__foot {
-  margin-top: auto; padding-top: 12px; border-top: 1px solid var(--color-divider);
+  margin-top: auto; padding-top: 12px; border-top: 1px solid var(--side-line);
   display: flex; flex-direction: column; gap: 2px;
 }
-.as-side__who { font-size: 12px; color: var(--color-neutral-600); padding: 0 12px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-side__who { font-size: 12.5px; color: var(--side-soft); padding: 0 12px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── the phone's top bar and bottom bar ──────────────────────────────────── */
+/* Both stay white with teal in them: a dark band at the top and the bottom of a small screen
+   would squeeze the page between them. */
 .as-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .as-app.has-bottom .as-main { padding-bottom: calc(var(--as-bottom-h) + env(safe-area-inset-bottom)); }
 
 .as-top {
   position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 8px;
-  padding: 8px var(--as-pad); background: var(--color-bg); border-bottom: 1px solid var(--color-divider);
+  padding: 8px var(--as-pad); background: var(--color-neutral-100); border-bottom: 1px solid var(--color-divider);
 }
 .as-top__icon, .as-top__text {
   flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
   border: 1px solid var(--color-divider); border-radius: 50%; background: var(--color-neutral-100);
-  color: var(--color-text); cursor: pointer; text-decoration: none; padding: 0;
+  color: var(--color-accent); cursor: pointer; text-decoration: none; padding: 0;
 }
-.as-top__text { width: auto; padding: 0 16px; border-radius: 999px; font-family: var(--font-heading); font-size: 13.5px; font-weight: 600; }
+.as-top__icon:hover, .as-top__text:hover { background: var(--color-accent-100); }
+.as-top__text { width: auto; padding: 0 16px; border-radius: 12px; font-family: var(--font-body); font-size: 14px; font-weight: 600; }
 .as-top__brand { flex: 1; color: var(--color-accent); }
 .as-top__name {
   flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-height: 44px;
-  padding: 0 4px; border: 0; background: none; color: var(--color-text); text-align: left; cursor: pointer;
-  font-family: var(--font-heading);
+  padding: 0 4px; border: 0; border-radius: 10px; background: none; color: var(--color-accent-700); text-align: left; cursor: pointer;
+  font-family: var(--font-body);
 }
-.as-top__name strong { max-width: 100%; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.as-top__name span { max-width: 100%; font-size: 12px; color: var(--color-neutral-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-top__name strong { max-width: 100%; font-family: var(--font-heading); font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-top__name span { max-width: 100%; font-size: 12.5px; color: var(--color-neutral-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .as-bottom {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(5, 1fr);
   height: calc(var(--as-bottom-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
   background: var(--color-neutral-100); border-top: 1px solid var(--color-divider);
+  box-shadow: 0 -4px 12px rgba(18, 58, 64, 0.05);
 }
 .as-tab {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   min-width: 0; border: 0; background: transparent; color: var(--color-neutral-600); cursor: pointer; text-decoration: none;
-  font-family: var(--font-heading); font-size: 11.5px; font-weight: 600;
+  font-family: var(--font-body); font-size: 12px; font-weight: 600;
 }
 .as-tab .as-link__label { flex: none; }
 .as-tab.active, .as-tab.is-active { color: var(--color-accent-700); }
 .as-tab.active::before, .as-tab.is-active::before {
   content: ''; position: absolute; top: 0; left: 28%; right: 28%; height: 3px; border-radius: 0 0 3px 3px; background: var(--color-accent);
 }
-.as-tab .as-badge { position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; font-size: 10.5px; }
+/* The outside of the ring would be cut off by the bar's edge, so it is drawn inside the tab. */
+.as-tab:focus-visible { outline-offset: -3px; }
+.as-tab .as-badge { position: absolute; top: 5px; left: calc(50% + 6px); min-width: 18px; height: 18px; font-size: 11px; }
 
 /* The More and Switch pop-ups: one tall row per place to go. */
 .as-sheet { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
 .as-sheet__row {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; padding: 0 10px; border: 0;
-  border-radius: 10px; background: transparent; color: var(--color-text); text-align: left; text-decoration: none; cursor: pointer;
-  font-family: var(--font-heading); font-size: 15px; font-weight: 600;
+  border-radius: 12px; background: transparent; color: var(--color-text); text-align: left; text-decoration: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 15px; font-weight: 600;
 }
 .as-sheet__row:hover { background: var(--color-neutral-200); }
 .as-sheet__row.active, .as-sheet__row[aria-current='true'] { background: var(--color-accent-100); color: var(--color-accent-700); }
@@ -130,13 +162,12 @@
 .as-page--narrow { max-width: 780px; }
 .as-page--wide { max-width: 1280px; }
 
-.as-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.as-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .as-head__text { min-width: 0; }
-.as-h1 { margin: 0; font-size: 24px; line-height: 1.15; letter-spacing: -0.01em; }
-.as-sub { display: none; margin: 6px 0 0; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; color: var(--color-neutral-600); }
-.as-blurb { display: none; margin: 4px 0 0; font-size: 13.5px; color: var(--color-neutral-700); }
+.as-h1 { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 26px; line-height: 1.15; letter-spacing: -0.01em; color: var(--color-accent-700); }
+.as-sub { display: none; margin: 6px 0 0; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--color-neutral-600); }
+.as-blurb { display: none; margin: 4px 0 0; font-size: 14px; color: var(--color-neutral-700); }
 .as-head__actions { display: none; gap: 8px; flex-wrap: wrap; }
-.as-head__actions .btn { min-height: 40px; }
 .as-narrow-only { display: inline-flex; }
 
 /* The Today page's blurb is its only line under the title, so it shows on a phone too. */
@@ -145,13 +176,14 @@
 @media (min-width: 980px) {
   .as-side {
     display: flex; flex-direction: column; flex: none; width: var(--as-side-w); position: sticky; top: 0; height: 100vh;
-    padding: 20px 14px; gap: 10px; overflow-y: auto; background: var(--color-neutral-100); border-right: 1px solid var(--color-divider);
+    padding: 24px 14px 20px; gap: 10px; overflow-y: auto; background: var(--color-accent);
   }
   .as-top, .as-bottom { display: none; }
   .as-app.has-bottom .as-main { padding-bottom: 0; }
   .as-page { padding-top: 32px; }
-  .as-h1 { font-size: 30px; }
+  .as-h1 { font-size: 32px; }
   .as-sub, .as-blurb { display: flex; }
+  .as-sub { font-size: 16px; }
   .as-blurb { display: block; }
   .as-head__actions { display: flex; }
 }
@@ -166,9 +198,9 @@
 .as-part {
   flex: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; margin-bottom: -1px;
   border-bottom: 3px solid transparent; color: var(--color-neutral-700); text-decoration: none; white-space: nowrap;
-  font-family: var(--font-heading); font-size: 13.5px; font-weight: 600;
+  font-family: var(--font-body); font-size: 14px; font-weight: 600;
 }
-.as-part:hover { color: var(--color-text); }
+.as-part:hover { color: var(--color-accent-700); }
 /* Inside the row's own box: the row scrolls, and a ring drawn outside it would be clipped. */
 .as-part:focus-visible { outline-offset: -3px; }
 /* Four parts do not fit a phone in one line; wrap them rather than hide the last one off the edge. */
@@ -186,68 +218,87 @@
 }
 
 /* ── Today ──────────────────────────────────────────────────────────────── */
-.as-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.as-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 24px; }
 .as-tile {
-  display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 14px;
+  display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 18px;
   background: var(--color-neutral-100); border: 1px solid var(--color-divider);
 }
-.as-tile strong { font-family: var(--font-heading); font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.as-tile span { font-size: 12.5px; color: var(--color-neutral-600); }
-.as-tile--alert { border-color: var(--color-accent); background: var(--color-accent-100); }
-.as-tile--alert strong { color: var(--color-accent-700); }
-.as-tile--warn { border-color: rgba(168, 51, 43, 0.45); background: #fdecea; }
+.as-tile strong { font-family: var(--font-heading); font-weight: 700; font-size: 34px; line-height: 1.05; color: var(--color-accent-700); font-variant-numeric: tabular-nums; }
+.as-tile span { font-size: 14px; line-height: 1.35; color: var(--color-neutral-600); }
+/* Calls waiting: the one tile on the deep teal, a sky number over white words, as the board draws it. */
+.as-tile--alert { border-color: var(--color-accent); background: var(--color-accent); }
+.as-tile--alert strong { color: var(--color-sky); }
+.as-tile--alert span { color: #fff; }
+/* Past their day keeps the red family, built the same way as the teal tile so the two read as a pair:
+   a pale red ground, a red line, a dark red number (8.4:1) and dark red-brown words (9.4:1). */
+.as-tile--warn { border-color: rgba(168, 51, 43, 0.4); background: #FDF1EF; }
 .as-tile--warn strong { color: #8a1c11; }
+.as-tile--warn span { color: #6E2A22; }
 
-.as-section-title { margin: 22px 0 10px; font-size: 17px; }
-.as-calls { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.as-call {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px;
-  background: var(--color-neutral-100); border: 1px solid var(--color-divider);
+.as-section-title { margin: 24px 0 10px; font-family: var(--font-heading); font-weight: 600; font-size: 20px; color: var(--color-accent-700); }
+@media (min-width: 980px) { .as-section-title { font-size: 22px; } }
+/* The calls sit in one white box, a row each, with a bar at the left edge: grey for a call still to come, red
+   with "Past their day" written beside it for one that is late, so colour is never the only sign. */
+.as-calls {
+  display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none;
+  background: var(--color-neutral-100); border: 1px solid var(--color-divider); border-radius: 18px; overflow: hidden;
 }
-.as-call--late { border-color: rgba(168, 51, 43, 0.45); }
+.as-call {
+  position: relative; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px 14px 26px;
+  border-top: 1px solid var(--color-divider);
+}
+.as-call:first-child { border-top: 0; }
+.as-call::before {
+  content: ''; position: absolute; left: 12px; top: 14px; bottom: 14px; width: 4px; border-radius: 999px;
+  background: var(--color-neutral-300);
+}
+.as-call--late::before { background: #a8332b; }
 .as-call__main { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.as-call__name { font-family: var(--font-heading); font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
-.as-call__when { font-size: 13px; color: var(--color-neutral-700); overflow-wrap: anywhere; }
-.as-call__where { font-size: 12.5px; color: var(--color-neutral-600); }
+.as-call__name { font-family: var(--font-body); font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.as-call__when { font-size: 14px; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.as-call__where { font-size: 13px; color: var(--color-neutral-600); }
 .as-call__late { color: #8a1c11; font-weight: 700; }
 .as-call__actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.as-call__actions .btn { min-height: 40px; }
 
-.as-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.as-community { gap: 8px; }
+.as-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.as-community { gap: 8px; padding: 18px; }
 .as-community__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.as-community__name { font-size: 19px; overflow-wrap: anywhere; }
-.as-community__stats { display: flex; gap: 8px; flex-wrap: wrap; }
+/* The name is a link; the padding gives it a 44px target and the equal negative margin keeps the card's lines where they were. */
+.as-community__name { font-size: 19px; overflow-wrap: anywhere; padding: 10px 0; margin: -10px 0; border-radius: 8px; }
+.as-community__name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.as-community__stats { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .as-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
-  padding: 36px 20px; border: 1px dashed var(--color-neutral-400); border-radius: 14px; color: var(--color-neutral-600); font-size: 14px;
+  padding: 36px 20px; border: 1px dashed var(--color-neutral-400); border-radius: 18px; color: var(--color-neutral-600); font-size: 14px;
+  background: var(--color-neutral-100);
 }
-.as-empty strong { font-family: var(--font-heading); color: var(--color-text); font-size: 16px; }
+.as-empty strong { font-family: var(--font-heading); font-weight: 600; color: var(--color-accent-700); font-size: 17px; }
 
 /* People who agreed to calls but booked none: a list that scrolls in its own box, so a long one does not push the
    communities off the page. */
 .as-ready-wrap .as-bar { margin-bottom: 10px; }
 .as-ready {
   max-height: min(460px, 62vh); overflow-y: auto;
-  border: 1px solid var(--color-divider); border-radius: 14px; background: var(--color-neutral-100);
+  border: 1px solid var(--color-divider); border-radius: 18px; background: var(--color-neutral-100);
 }
 .as-ready__list { margin: 0; padding: 0; list-style: none; }
-.as-ready__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--color-divider); }
+.as-ready__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--color-divider); }
 .as-ready__row:first-child { border-top: 0; }
-.as-ready__row:hover { background: #fff; }
+/* The box is white, so the row under the pointer takes the page's own colour to stand out from it. */
+.as-ready__row:hover { background: var(--color-bg); }
 .as-ready__main {
   flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; min-height: 44px; justify-content: center;
   color: inherit; text-decoration: none; border-radius: 8px;
 }
 .as-ready__main:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .as-ready__top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.as-ready__name { font-family: var(--font-heading); font-weight: 700; font-size: 15.5px; overflow-wrap: anywhere; }
-.as-ready__line { font-size: 13px; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.as-ready__name { font-family: var(--font-body); font-weight: 600; font-size: 15.5px; overflow-wrap: anywhere; }
+.as-ready__line { font-size: 13.5px; color: var(--color-neutral-700); overflow-wrap: anywhere; }
 .as-ready__phone { font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; }
-.as-ready__meta { font-size: 12px; color: var(--color-neutral-600); }
+.as-ready__meta { font-size: 12.5px; color: var(--color-neutral-600); }
 .as-ready__actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.as-ready__actions .btn { min-height: 40px; padding: 0 14px; font-size: 13px; }
+.as-ready__actions .btn { padding: 0 14px; font-size: 13.5px; }
 
 /* ── Leads: a list, and the person you picked beside it ─────────────────── */
 .as-leads { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -257,7 +308,12 @@
 @media (min-width: 1180px) {
   .as-leads { grid-template-columns: minmax(340px, 400px) minmax(0, 1fr); gap: 24px; align-items: start; }
   .as-leads.has-detail .as-leads__list { display: block; }
-  .as-leads__list { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; padding-right: 4px; }
+  /* The list scrolls in its own box, which would cut off the focus rings at its edges; 4px of room
+     inside, given back as margin, keeps them whole without moving the list. */
+  .as-leads__list {
+    position: sticky; top: 24px; max-height: calc(100vh - 40px); overflow-y: auto;
+    padding: 4px 8px 4px 4px; margin: -4px -4px -4px -4px;
+  }
   .as-leads__empty { display: flex; }
   .as-narrow-only { display: none; }
 }
@@ -267,55 +323,59 @@
 .as-bar__row .input { flex: 1 1 180px; min-width: 0; }
 .as-bar__row .btn { min-height: 44px; }
 .as-bar__label {
-  flex: none; min-width: 52px; font-family: var(--font-heading); font-size: 11.5px; font-weight: 700;
-  letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-neutral-600);
+  flex: none; min-width: 52px; font-family: var(--font-body); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-600);
 }
 .as-bar__row [role='group'] { flex: 1 1 auto; min-width: 0; }
 .as-bar select.input { flex: 0 1 auto; width: auto; }
-.as-count { margin-left: auto; font-size: 12.5px; color: var(--color-neutral-600); }
+.as-count { margin-left: auto; font-size: 13px; color: var(--color-neutral-600); }
 
 .as-callbanner {
-  display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 12px; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 14px; text-align: left; cursor: pointer;
   background: var(--color-accent-100); border: 1px solid var(--color-accent); color: var(--color-accent-700);
-  font-family: var(--font-heading); font-weight: 700; font-size: 13.5px;
+  font-family: var(--font-body); font-weight: 600; font-size: 14px;
 }
 
 .as-people { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.as-lead { display: flex; flex-direction: column; border-radius: 14px; background: var(--color-neutral-100); border: 1px solid var(--color-divider); }
+.as-lead { display: flex; flex-direction: column; border-radius: 18px; background: var(--color-neutral-100); border: 1px solid var(--color-divider); }
 .as-lead:hover { border-color: var(--color-neutral-400); }
-.as-lead.is-selected { background: #fff; border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
+/* The person open beside the list sits on the ice tint inside a teal line, as the side menu marks the page you are on. */
+.as-lead.is-selected { background: var(--color-accent-100); border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
+.as-lead.is-selected .as-chip--soft, .as-lead.is-selected .as-chip:not([class*='as-chip--']) { background: #fff; }
 .as-lead__main {
-  display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; min-height: 44px; border-radius: 14px;
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; min-height: 44px; border-radius: 18px;
   color: inherit; text-decoration: none;
 }
 .as-lead__top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.as-lead__name { flex: 1 1 140px; min-width: 0; font-family: var(--font-heading); font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+.as-lead__name { flex: 1 1 140px; min-width: 0; font-family: var(--font-body); font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
 .as-lead__dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--color-accent); }
-.as-lead__line { font-size: 12.5px; color: var(--color-neutral-600); overflow-wrap: anywhere; }
-.as-lead__meta { font-size: 12px; color: var(--color-neutral-600); font-variant-numeric: tabular-nums; }
+.as-lead__line { font-size: 13px; color: var(--color-neutral-600); overflow-wrap: anywhere; }
+.as-lead__meta { font-size: 12.5px; color: var(--color-neutral-600); font-variant-numeric: tabular-nums; }
 .as-lead__chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .as-chip {
-  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
-  font-family: var(--font-heading); background: var(--color-neutral-200); color: var(--color-neutral-700); overflow-wrap: anywhere;
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  font-family: var(--font-body); background: var(--color-bg); border: 1px solid var(--color-divider); color: var(--color-neutral-600);
+  overflow-wrap: anywhere;
 }
-.as-chip--call { background: var(--color-accent); color: #fff; }
-.as-chip--late { background: #8a1c11; color: #fff; }
-.as-chip--stop { background: #fdecea; color: #8a1c11; }
-.as-chip--soft { background: var(--color-accent-100); color: var(--color-accent-700); }
-.as-lead__actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 14px 12px; }
-.as-lead__actions .btn { min-height: 40px; padding: 0 14px; font-size: 13px; }
+.as-chip--call { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.as-chip--late { background: #8a1c11; border-color: #8a1c11; color: #fff; }
+.as-chip--stop { background: #fdecea; border-color: transparent; color: #8a1c11; }
+.as-chip--soft { background: var(--color-accent-100); border-color: transparent; color: var(--color-accent-700); }
+.as-lead__actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 16px 12px; }
+.as-lead__actions .btn { padding: 0 14px; font-size: 13.5px; }
 
 .as-leads__empty {
   min-height: 320px; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 32px;
-  border: 1px dashed var(--color-neutral-400); border-radius: 16px; color: var(--color-neutral-600); flex-direction: column;
+  border: 1px dashed var(--color-neutral-400); border-radius: 18px; color: var(--color-neutral-600); flex-direction: column;
+  background: var(--color-neutral-100);
 }
-.as-leads__empty strong { font-family: var(--font-heading); color: var(--color-text); font-size: 17px; }
+.as-leads__empty strong { font-family: var(--font-heading); font-weight: 600; color: var(--color-accent-700); font-size: 18px; }
 
 /* A person's details, in the panel beside the list. */
 .as-detail { display: flex; flex-direction: column; gap: 12px; }
 .as-detail > .card { margin: 0 !important; }
 .as-detail__head { display: flex; align-items: center; gap: 10px; }
-.as-detail__head h3 { margin: 0; font-size: 22px; overflow-wrap: anywhere; }
+.as-detail__head h3 { margin: 0; font-size: 22px; overflow-wrap: anywhere; color: var(--color-accent-700); }
 
 @media print {
   .as-side, .as-top, .as-bottom, .as-head__actions { display: none !important; }

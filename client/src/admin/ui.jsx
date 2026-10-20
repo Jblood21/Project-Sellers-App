@@ -188,11 +188,11 @@ export function PillRow({ options, value, onChange, label }) {
             onClick={() => onChange(option.value)}
             aria-pressed={active}
             style={{
-              flex: '1 1 auto', minHeight: 38, whiteSpace: 'nowrap', borderRadius: 999,
-              border: '1px solid var(--color-divider)', cursor: 'pointer', padding: '0 12px',
-              background: active ? 'var(--color-accent)' : 'transparent',
-              color: active ? '#fff' : 'var(--color-text)',
-              fontFamily: 'var(--font-heading)', fontSize: 12.5, fontWeight: 600,
+              flex: '1 1 auto', minHeight: 44, whiteSpace: 'nowrap', borderRadius: 12,
+              border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-divider)'}`, cursor: 'pointer', padding: '0 12px',
+              background: active ? 'var(--color-accent)' : '#fff',
+              color: active ? '#fff' : 'var(--color-accent-700)',
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600,
             }}
           >
             {option.label}
@@ -215,7 +215,7 @@ export function Toggle({ on, onChange, label }) {
       style={{
         width: 46, height: 27, flex: 'none', borderRadius: 999, border: 'none', cursor: 'pointer',
         position: 'relative', padding: 0,
-        background: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+        background: on ? 'var(--color-accent)' : 'var(--color-neutral-500)',
         transition: 'background .18s',
       }}
     >
@@ -223,7 +223,7 @@ export function Toggle({ on, onChange, label }) {
         style={{
           position: 'absolute', top: 3.5, left: on ? 22 : 3.5, width: 20, height: 20,
           borderRadius: '50%', background: '#fff', transition: 'left .18s',
-          boxShadow: '0 1px 3px rgba(0,0,0,.25)',
+          boxShadow: '0 1px 3px rgba(14,34,40,.3)',
         }}
       />
     </button>

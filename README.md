@@ -298,6 +298,11 @@ Stats, and **More** opens Area, Learn, Tools, Setup, the buyer app, the QR code 
 Switch community, Today and Sign out. The Leads badge counts people who are unread or waiting for a call. Older
 links of the form `/admin/communities/<id>?tab=setup` still land on the right section.
 
+The admin has one look for every community, **Alpine Clear** (the `:root` palette at the top of
+`client/src/styles/base.css`): Outfit for headings and figures, Figtree for the rest, a deep teal side menu, deep teal
+for what you press, lake blue for outline buttons and links, and sky only as a highlight on the teal. Buttons are
+rounded rectangles; tags, chips and badges stay pills. The buyer app keeps each community's own theme.
+
 **Leads** is a list with the person you picked beside it (on a phone the list and the person are two pages, with a
 back button). *Show* (Active, Unread, calls waiting, Agreed with no call, Closed) and *Sort* (Recent, Most ★) are separate controls, and
 the **Reports** button opens the emailed report and the PDF, the PDF being made in the order chosen here. A row shows
@@ -516,8 +521,8 @@ opens the section it is in. Sections start folded each time the page is opened.
 ## Layouts
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
-four, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
-is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`.)
+five, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
+is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`, `redrock`.)
 
 - **Porch** (key `cornerpost`; what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Book a tour* button in the header of every page, and **Talk about financing**
@@ -546,6 +551,22 @@ is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`.)
   in a square beside it (when it has five or more), with the financing, payment and save actions in a panel that
   stays beside the details as the page scrolls. The filters only narrow what is on the screen; nothing is saved
   or reported. Light ground.
+- **Red Rock** (key `redrock`) — warm and solid: Fraunces for every heading, price and payment, Figtree for the
+  rest, 14px cards whose photo rounds its top-left corner more than the others, 12px buttons and pill chips. A dark
+  header with the development's name (or its logo) and place, **Homes I Like** as a heart with its count, and the
+  menu. The home screen opens with a big serif greeting ("Hi Dana. Could one of these be yours?"), a slim strip
+  saying how many of the community's tools are in the buyer's plan ("2 of 7 steps in your plan"), the incentive,
+  then a dark panel with the buyer's estimated payment set large: the Payment tool's own sum for the home they last
+  picked there (or the lowest-priced home for sale) at the loan and down payment they last chose, with a line saying
+  what it assumes, "An estimate, not a loan offer", and links to **Change my numbers** and **What can I afford?**. It
+  is there only while the Payment tool is on and a priced home is for sale. Then up to three homes as cards (homes
+  for sale first, with **See all** when there are more), each with a heart, the price large and the monthly estimate
+  beside it (again only while Payment is on), and the tools as two-across tiles, followed by the lender, the area, the
+  agents, the guides, the FAQ and the builder's own videos. On a phone a bar at the foot of the screen carries **Book
+  a tour**, **Talk about financing** and **My Home Plan**, on the same conditions as Ridgeline's; from 900px the
+  header carries them and the home widens to about 1080px with the payment beside the greeting and the homes three
+  across. Tool answers sit on the same dark panel as the payment. Dark header and footer; reads best on Rust & Desert
+  Plum, the theme it was drawn with.
 
 Keystone, the compact figure-led layout that was the fourth choice, has been taken away. A community still storing
 `keystone` is shown Marketplace (the layout nearest in spirit, not the default), to buyers and in Setup, and
@@ -554,12 +575,14 @@ nothing is rewritten in its record; Setup no longer offers it.
 A layout changes the typeface, shape, spacing and where things sit. It never changes what a tool
 does or what it calculates, and every screen reachable in one layout is reachable in the others.
 
-A layout is **independent of the theme**. The ten themes are palettes and a layout takes its colours
+A layout is **independent of the theme**. The eleven themes are palettes and a layout takes its colours
 from whichever theme is chosen, so any layout works with any theme. One consequence to know about:
 Porch is Manrope only, so a community whose theme brought its own serif face loses that
 face under it. Each layout also has themes it reads best on: Ridgeline on Navy & Gold, Ice Blue & Dark Navy and Slate Blue &
 Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Marketplace on Modern Blue &
-White, Teal & Navy and Navy & Gold.
+White, Teal & Navy and Navy & Gold; Red Rock on Rust & Desert Plum. That theme, the eleventh, is rust and desert plum
+on warm sand (the one theme whose cards are sand rather than white), set in Fraunces and Figtree, and it works
+under any layout like the others.
 
 ## Development logo
 
@@ -616,9 +639,10 @@ Under **Setup → Home screen**:
 - **Home screen heading.** The heading at the top of the buyer's home screen ("Hi Dana — can you buy one of these?")
   and the line under it, in the builder's words (`settings.homeHeadline`, up to 120 characters, and
   `settings.homeSubhead`, up to 280). `{name}` is the buyer's first name ("there" when there is none) and `{community}`
-  the development's name. A box left empty keeps the layout's own wording, which the field shows in grey; all four
-  layouts read the same two settings (`homeGreeting` in `shared/domain.js`), and a preview shows how it reads. It goes
-  live with Save settings.
+  the development's name. A box left empty keeps the layout's own wording, which the field shows in grey for the
+  layout the community is on (Marketplace's is "Homes at Willow Creek", Red Rock's "Hi Dana. Could one of these be
+  yours?"). All five layouts read the same two settings
+  (`homeGreeting` in `shared/domain.js`), and a preview shows how it reads. It goes live with Save settings.
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
   shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state, and
   they are typed in Setup, so write dollar amounts in full with the dollar sign (`$20,000`).
@@ -747,7 +771,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Porch, Ridgeline, Foyer and Marketplace: header and home screen per layout
+  buyer/layouts/     Porch, Ridgeline, Foyer, Marketplace and Red Rock: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: the Today page and, per community, 8 sections (Leads, Stats, Homes, Area,
                      Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and

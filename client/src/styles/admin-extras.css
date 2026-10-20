@@ -22,33 +22,35 @@
 @media (min-width: 560px) { .ax-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ax-choice {
   display: flex; flex-direction: column; align-items: stretch; gap: 8px; text-align: left;
-  padding: 12px; border-radius: 12px; cursor: pointer; min-height: 44px;
-  background: transparent; color: var(--color-text);
+  padding: 12px; border-radius: 14px; cursor: pointer; min-height: 44px;
+  background: var(--color-neutral-100); color: var(--color-text);
   border: 2px solid var(--color-divider);
 }
+@media (hover: hover) { .ax-choice:not(:disabled):hover { border-color: var(--color-neutral-400); } }
 .ax-choice[aria-pressed='true'] { border-color: var(--color-accent); background: var(--color-accent-100); }
 .ax-choice:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .ax-choice-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.ax-choice-name { font-family: var(--font-heading); font-weight: 700; font-size: 14.5px; }
+.ax-choice-name { font-family: var(--font-heading); font-weight: 600; font-size: 16px; color: var(--color-accent-700); }
 .ax-choice-note { font-size: 12px; line-height: 1.45; color: var(--color-neutral-700); }
 .ax-wire { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--color-divider); }
 
 /* ── one image slot: preview plate on the left, actions on the right ───────── */
 .ax-slot {
   display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap;
-  padding: 10px; border-radius: 12px; border: 1px solid var(--color-divider); background: #fff;
+  padding: 10px; border-radius: 14px; border: 1px solid var(--color-divider); background: #fff;
 }
 .ax-plate {
   flex: none; width: 148px; height: 84px; border-radius: 8px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--color-divider); background: #fff;
 }
-.ax-plate--dark { background: #1b2230; border-color: #1b2230; }
+/* The dark plate shows a logo made for a dark ground; the admin's own ink keeps it in the family. */
+.ax-plate--dark { background: #0E2228; border-color: #0E2228; }
 .ax-plate--square { width: 84px; }
 .ax-plate img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
 .ax-plate--cover img { width: 100%; height: 100%; object-fit: cover; }
 .ax-plate-empty { font-size: 11.5px; color: var(--color-neutral-600); text-align: center; padding: 6px; line-height: 1.35; }
-.ax-plate--dark .ax-plate-empty { color: #b9c2d3; }
+.ax-plate--dark .ax-plate-empty { color: #B4C7CF; }
 .ax-slot-body { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
 .ax-slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .ax-slot-actions .btn { min-height: 44px; }
@@ -56,11 +58,11 @@
 
 /* ── the pre-launch checklist and other call-outs ────────────────────────── */
 .ax-callout {
-  display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px;
+  display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px;
   background: #fff7e0; border: 1px solid #e3c36b; color: #4d3500;
 }
-.ax-callout--ok { background: var(--color-accent-100); border-color: rgba(78, 119, 88, 0.35); color: var(--color-accent-700); }
-.ax-callout h5 { margin: 0; font-family: var(--font-heading); font-size: 14px; }
+.ax-callout--ok { background: var(--color-accent-100); border-color: rgba(18, 58, 64, 0.22); color: var(--color-accent-700); }
+.ax-callout h5 { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 15px; }
 .ax-callout ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
 .ax-callout li button {
   background: none; border: 0; padding: 0 0 0 0; min-height: 44px; color: inherit; cursor: pointer;
@@ -81,7 +83,7 @@
 }
 .ax-fold__toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .ax-fold__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ax-fold__gtitle { font-family: var(--font-heading); font-size: 14px; font-weight: 700; }
+.ax-fold__gtitle { font-family: var(--font-heading); font-size: 15px; font-weight: 600; color: var(--color-accent-700); }
 .ax-fold__summary { font-size: 13px; line-height: 1.4; color: var(--color-neutral-700); overflow-wrap: anywhere; }
 .ax-fold__chev {
   flex: none; width: 8px; height: 8px; margin: 0 6px 0 4px;
@@ -94,9 +96,9 @@
 @media (prefers-reduced-motion: reduce) { .ax-fold__chev { transition: none; } }
 
 .ax-group-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-.ax-group-head h5 { margin: 0; font-family: var(--font-heading); font-size: 14px; }
+.ax-group-head h5 { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 15px; color: var(--color-accent-700); }
 .ax-preview {
-  margin: 0; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid var(--color-divider);
+  margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--color-bg); border: 1px solid var(--color-divider);
   font-size: 12px; line-height: 1.55; color: var(--color-neutral-700);
   display: flex; flex-direction: column; gap: 8px;
 }
@@ -106,7 +108,8 @@
    because the compliance fields it saves sit in the middle of a long page. */
 .ax-savebar {
   position: sticky; bottom: 0; z-index: 5; margin: 0 -20px; padding: 10px 20px calc(10px + env(safe-area-inset-bottom));
-  background: linear-gradient(to bottom, rgba(242, 241, 235, 0), var(--color-bg) 28%);
+  /* Fades in from the page's own colour (#F4F8FA at no strength), so the bar has no edge of its own. */
+  background: linear-gradient(to bottom, rgba(244, 248, 250, 0), var(--color-bg) 28%);
   display: flex; flex-direction: column; gap: 4px;
 }
 
@@ -124,7 +127,7 @@
 .ax-agent-thumb {
   flex: none; width: 48px; height: 48px; border-radius: 50%; overflow: hidden;
   background: var(--color-neutral-300); display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-heading); font-weight: 800; color: var(--color-neutral-700);
+  font-family: var(--font-heading); font-weight: 600; color: var(--color-neutral-700);
 }
 .ax-agent-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ax-agent-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -147,7 +150,7 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 @media (min-width: 900px) { textarea.ax-body { font-size: 14px; min-height: 420px; } }
 /* The preview wears the buyer app's theme and layout classes, so what scrolls
    here is what a buyer will read. min-height is reset because .b-app fills the screen. */
-.ax-preview-frame { border-radius: 12px; border: 1px solid var(--color-divider); overflow: auto; max-height: 72vh; }
+.ax-preview-frame { border-radius: 14px; border: 1px solid var(--color-divider); overflow: auto; max-height: 72vh; }
 .ax-preview-frame .b-app { min-height: 0; padding: 18px 18px 10px; }
 .ax-preview-hero { width: 100%; height: auto; max-height: 220px; object-fit: cover; display: block; border-radius: var(--t-radlg, 12px); margin: 0 0 14px; }
 .ax-preview-kicker { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--t-accT, var(--t-mut)); font-weight: 700; margin: 0 0 6px; }
@@ -168,6 +171,8 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
    thumb. This grows the tappable area to 44px without changing how it looks. */
 .ax-toggle::after { content: ''; position: absolute; inset: -9px -4px; }
 .ax-toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+/* The slide of the track and the knob is set inline (ui.jsx Toggle), so only !important can switch it off. */
+@media (prefers-reduced-motion: reduce) { .ax-toggle, .ax-toggle > span { transition: none !important; } }
 
 /* A long dialog (the guide editor) keeps Save and Cancel in view; otherwise the
    buttons are a full screen of scrolling away from the field being typed in. */

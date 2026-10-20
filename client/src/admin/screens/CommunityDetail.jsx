@@ -173,7 +173,7 @@ function BuyerLinkField({ community, value, onChange }) {
         {!community.slug && suggestion ? (
           <>
             This community is still on its original link ({community.id}).{' '}
-            <button type="button" className="btn btn-secondary" style={{ minHeight: 30, padding: '0 10px' }} onClick={() => onChange(suggestion)}>
+            <button type="button" className="btn btn-secondary" style={{ minHeight: 44, padding: '0 10px' }} onClick={() => onChange(suggestion)}>
               Use {suggestion}
             </button>{' '}
           </>

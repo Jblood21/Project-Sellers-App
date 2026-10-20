@@ -159,7 +159,8 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
               title={theme.note}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 6px',
-                borderRadius: 12, cursor: 'pointer', background: 'transparent',
+                borderRadius: 14, cursor: 'pointer',
+                background: community.theme === key ? 'var(--color-accent-100)' : 'transparent',
                 border: `2px solid ${community.theme === key ? 'var(--color-accent)' : 'var(--color-divider)'}`,
               }}
             >
@@ -246,7 +247,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
         summary={`Conv ${orDash(settings.rateConv)}% · FHA ${orDash(settings.rateFha)}% · VA ${orDash(settings.rateVa)}% · updated ${settings.ratesUpdatedAt ? fullDate(settings.ratesUpdatedAt) : 'never'}`}
         tag={unsavedTag(['rateConv', 'rateFha', 'rateVa'])}
         actions={(
-          <button type="button" className="btn btn-ghost" onClick={checkRates} style={{ minHeight: 34, fontSize: 12.5 }}>
+          <button type="button" className="btn btn-ghost" onClick={checkRates} style={{ minHeight: 44, fontSize: 12.5 }}>
             Check rate inbox
           </button>
         )}

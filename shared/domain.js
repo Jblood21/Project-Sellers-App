@@ -74,6 +74,11 @@ export const THEMES = {
     primary: '#3F3A34', secondary: '#6B6258', accent: '#C48A5A',
     background: '#F4EFE8', text: '#292621',
   },
+  redrock: {
+    name: 'Rust & Desert Plum', note: 'Warm, grounded, Southern Utah sandstone',
+    primary: '#4A2338', secondary: '#4F5A2A', accent: '#A3432A',
+    background: '#F4EADB', text: '#2B1A20',
+  },
 };
 
 export const DEFAULT_THEME = 'navy';
@@ -467,6 +472,11 @@ export const LAYOUTS = [
     k: 'marketplace',
     name: 'Marketplace',
     note: 'Laid out like a home-search site: a white bar, filters, and every home as a photo card with its price and an estimated monthly payment. Reads best with the Modern Blue & White, Teal & Navy or Navy & Gold themes.',
+  },
+  {
+    k: 'redrock',
+    name: 'Red Rock',
+    note: 'Warm and solid: a dark header, big serif prices and payments, the buyer\'s monthly payment up top, then homes as cards. Reads best with the Rust & Desert Plum theme.',
   },
 ];
 export const LAYOUT_KEYS = LAYOUTS.map((l) => l.k);
