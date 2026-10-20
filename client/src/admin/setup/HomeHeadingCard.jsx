@@ -16,6 +16,15 @@ const DEFAULTS = {
     headline: 'Hi {name}. Could one of these be yours?',
     subhead: 'Tap any home to see your real monthly payment, with taxes, insurance and HOA in it.',
   },
+  // The count is the buyer's own place on the trail; this is how it reads before the first stop.
+  trailhead: {
+    headline: 'Hi {name}.',
+    subhead: 'Stop 1 of 8 on your way home',
+  },
+  showcase: {
+    headline: 'Hi {name}. Meet the homes at {community}.',
+    subhead: 'One home at a time, with what it could cost you each month.',
+  },
   other: { headline: 'Hi {name} — can you buy one of these?', subhead: 'Take a few minutes to find out what works for you and build your own home plan.' },
 };
 

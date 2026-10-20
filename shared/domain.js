@@ -478,6 +478,16 @@ export const LAYOUTS = [
     name: 'Red Rock',
     note: 'Warm and solid: a dark header, big serif prices and payments, the buyer\'s monthly payment up top, then homes as cards. Reads best with the Rust & Desert Plum theme.',
   },
+  {
+    k: 'trailhead',
+    name: 'Trailhead',
+    note: 'A guided trail: the tools as numbered stops on one winding path, the next stop opened with a big Start button, and the homes at an overlook along the way. Reads best with the Forest Green & Cream or Slate Blue & Soft Green themes.',
+  },
+  {
+    k: 'showcase',
+    name: 'Showcase',
+    note: 'Photo first, like phone stories: each home fills the screen with its price and monthly estimate over the picture, a swipe to the next, and the tools in a sheet that slides up. Reads best with Black, White & Orange or Charcoal & Bronze.',
+  },
 ];
 export const LAYOUT_KEYS = LAYOUTS.map((l) => l.k);
 export const DEFAULT_LAYOUT = 'cornerpost';

@@ -521,8 +521,9 @@ opens the section it is in. Sections start folded each time the page is opened.
 ## Layouts
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
-five, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
-is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`, `redrock`.)
+seven, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
+is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`, `redrock`, `trailhead`,
+`showcase`.)
 
 - **Porch** (key `cornerpost`; what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Book a tour* button in the header of every page, and **Talk about financing**
@@ -567,6 +568,55 @@ is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`, 
   header carries them and the home widens to about 1080px with the payment beside the greeting and the homes three
   across. Tool answers sit on the same dark panel as the payment. Dark header and footer; reads best on Rust & Desert
   Plum, the theme it was drawn with.
+- **Trailhead** (key `trailhead`) — the buyer's way home drawn as a trail: Bricolage Grotesque for headings, stop
+  names and figures, DM Sans for the rest, 16px cards, 10px buttons and round stop markers. A slim dark header
+  with a soft wave along its foot, the development's mark (or a small trail glyph and its name) and place, **Homes
+  I Like** as a heart with its count, and the menu. The home screen greets the buyer ("Hi Dana.") with where they
+  are on the trail ("Stop 3 of 8 on your way home") over a slim progress line, then the incentive, then one
+  winding line down the screen with the community's tools as numbered stops on it, in the order the other layouts
+  list them. A stop is ticked, with "In your plan" in words, once its answer is in the buyer's plan; the first
+  one that is not (the current stop) opens into a card on the trail with its question and a big **Start**; the
+  rest are quiet outlines, still tappable. **Pick your home** is an overlook just before My Move-In Plan (last
+  when that tool is off, left out when there are no homes): the homes as a row of small photos, each with its
+  price, a heart to save it and, while the Payment tool is on, a monthly estimate (the Payment tool's own sum,
+  with the loan, down payment, rate and what is in the sum said under the row, and "An estimate, not a loan
+  offer"); it counts as done once the buyer has saved a home. The trail ends at **Keys in hand**, and once every
+  stop is done it says so and points to **My Home Plan** and **Book a tour**. The lender, the area, the agents,
+  the guides, the FAQ and the builder's own videos follow, on the same conditions as Marketplace's. On a tool's
+  page a strip under the header shows where it sits ("Stop 2 of 8", the stop before and the next), and the foot
+  of the page offers **Next stop** and **Back to the trail**. On a phone a bar at the foot of the screen carries
+  **Continue:** and the current stop's name on the home screen, with **Book a tour** beside it, and **Book a
+  tour**, **Talk about financing** and **My Home Plan** elsewhere, on the same conditions as Ridgeline's; from
+  900px the header carries them and the home becomes two panes, the whole trail in a narrow column that stays in
+  view and the current stop opened large beside it. Turning a tool off takes its stop off the trail and the
+  rest renumber. A builder's own subhead (Setup → Home screen heading) replaces "Stop 3 of 8 on your way home",
+  and the count then appears beside the progress line instead. Dark header, light footer; reads best on Forest
+  Green & Cream, the theme it was drawn with, or Slate Blue & Soft Green.
+- **Showcase** (key `showcase`) — photo first, like phone stories: Instrument Serif (regular and italic, set very
+  large) for home names, headings and big figures, Inter for everything else, pill buttons and 24px sheet corners. A
+  slim dark header with the development's mark (or its name) and place, **Homes I Like** as a heart with its count,
+  the menu and **Book a tour**. The home screen is dark from top to bottom, and the homes come first, as a
+  carousel one home wide that fills the screen under the header: the home's first photo behind the whole slide,
+  thin ticks and the builder's heading ("Hi Dana. Meet the homes at Willow Creek.") over its top, and over its
+  foot its status, its name very large, the price, the estimated monthly payment with its terms in a line and "An
+  estimate, not a loan offer." (the Payment tool's own sum, only while that tool is on and the home is priced and
+  for sale), beds, baths and floor area, a heart to save it and **See inside**. Swipe, the arrows over the photo or
+  the arrow keys move between homes; homes for sale come before sold ones, and a home with no photo shows a drawn
+  house in the theme's colours. Keep the heading short: it sits over the photo, and on the smallest phones the
+  line under it is left out so the photo keeps its room. With the phone on its side the photo and the words sit
+  side by side. With no homes listed there is one welcome slide instead: the
+  community's picture behind its name and "Homes are coming soon". Under the homes come the incentive, the tools
+  with what is in the buyer's plan, the lender, the area, the agents, the guides, the FAQ and the builder's own
+  videos. On a phone a pill-shaped tab bar floats at the foot of every screen: **Homes**, **My numbers**, **My
+  plan** and **Learn** (when the guides are on). **My numbers** slides a sheet up over any screen: "Can you buy The
+  Aspen?" for the home on screen (or the home the buyer last priced), the monthly payment set large with a bar of
+  its five parts each labelled with its amount, the tools as rows, and **Talk about financing** with the lender's
+  name (when the lender's sheet has something to do). From 900px the tab bar becomes a text nav in the header, the
+  photo runs the width of the screen with the home's words over its lower left and a small My Home Plan panel
+  over its lower right, and a film strip of every home under it jumps straight to one. The other screens are light
+  with Instrument Serif titles; a tool's answer and the footer sit on the dark ground. Each home's first photo is
+  what a buyer sees first, so a wide, bright exterior shot reads best. Reads best on Black, White & Orange or
+  Charcoal & Bronze.
 
 Keystone, the compact figure-led layout that was the fourth choice, has been taken away. A community still storing
 `keystone` is shown Marketplace (the layout nearest in spirit, not the default), to buyers and in Setup, and
@@ -580,7 +630,8 @@ from whichever theme is chosen, so any layout works with any theme. One conseque
 Porch is Manrope only, so a community whose theme brought its own serif face loses that
 face under it. Each layout also has themes it reads best on: Ridgeline on Navy & Gold, Ice Blue & Dark Navy and Slate Blue &
 Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Marketplace on Modern Blue &
-White, Teal & Navy and Navy & Gold; Red Rock on Rust & Desert Plum. That theme, the eleventh, is rust and desert plum
+White, Teal & Navy and Navy & Gold; Red Rock on Rust & Desert Plum; Trailhead on Forest Green & Cream and Slate Blue &
+Soft Green; Showcase on Black, White & Orange and Charcoal & Bronze. That theme, the eleventh, is rust and desert plum
 on warm sand (the one theme whose cards are sand rather than white), set in Fraunces and Figtree, and it works
 under any layout like the others.
 
@@ -641,7 +692,7 @@ Under **Setup → Home screen**:
   `settings.homeSubhead`, up to 280). `{name}` is the buyer's first name ("there" when there is none) and `{community}`
   the development's name. A box left empty keeps the layout's own wording, which the field shows in grey for the
   layout the community is on (Marketplace's is "Homes at Willow Creek", Red Rock's "Hi Dana. Could one of these be
-  yours?"). All five layouts read the same two settings
+  yours?"). All seven layouts read the same two settings
   (`homeGreeting` in `shared/domain.js`), and a preview shows how it reads. It goes live with Save settings.
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
   shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state, and
@@ -771,7 +822,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Porch, Ridgeline, Foyer, Marketplace and Red Rock: header and home screen per layout
+  buyer/layouts/     Porch, Ridgeline, Foyer, Marketplace, Red Rock, Trailhead and Showcase: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: the Today page and, per community, 8 sections (Leads, Stats, Homes, Area,
                      Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
