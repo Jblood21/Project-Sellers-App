@@ -146,13 +146,13 @@ export default function LearnTab({ community, reload }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
         <button
           type="button" className="btn btn-ghost" onClick={() => openEdit(resource)}
-          style={{ minHeight: 34, padding: '0 14px', fontSize: 12.5 }}
+          style={{ minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
         >
           Edit
         </button>
         <button
           type="button" className="btn btn-danger" aria-label={`Delete ${resource.title}`}
-          onClick={() => remove(resource)} style={{ minHeight: 34, padding: '0 12px' }}
+          onClick={() => remove(resource)} style={{ minHeight: 44, minWidth: 44, padding: '0 12px' }}
         >
           <Trash />
         </button>
@@ -189,7 +189,7 @@ export default function LearnTab({ community, reload }) {
           </span>
           <button
             type="button" className="btn btn-secondary" onClick={show}
-            style={{ flex: 'none', minHeight: 34, padding: '0 14px', fontSize: 12.5 }}
+            style={{ flex: 'none', minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
           >
             Show it
           </button>

@@ -67,7 +67,7 @@ export default function PhotoPicker({
             <span
               style={{
                 position: 'absolute', right: 8, bottom: 8, padding: '5px 12px', borderRadius: 999,
-                background: 'rgba(20,22,19,.72)', color: '#fff', fontSize: 12, fontWeight: 600,
+                background: 'rgba(14,34,40,.72)', color: '#fff', fontSize: 12, fontWeight: 600,
               }}
             >
               {busy ? 'Reading…' : 'Replace'}

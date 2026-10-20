@@ -1,27 +1,34 @@
 /* ───────────────────────────────────────────────────────────────────────────
    Admin palette. Fixed — the admin app looks the same for every community.
+
+   Alpine Clear: deep teal for what you press and where you are, lake blue for
+   outline buttons and links, sky only as a highlight on the dark teal (it is
+   1.6:1 on the page, so never text on a light ground), cool white space.
    ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  --color-bg: #f2f1eb;
-  --color-surface: #e7e5da;
-  --color-text: #1f221d;
-  --color-accent: #4e7758;
-  --color-accent-2: #51748c;
-  --color-divider: rgba(31, 34, 29, 0.16);
-  --color-neutral-100: #f6f5f0;
-  --color-neutral-200: #eae8e0;
-  --color-neutral-300: #d7d4c9;
-  --color-neutral-400: #bab7ab;
-  --color-neutral-500: #9b988c;
-  --color-neutral-600: #6b685e; /* 5.1:1 on the page ground; the old #7c796e was 4.0:1 and every hint and counter used it */
-  --color-neutral-700: #5f5c53;
-  --color-accent-100: #edf4ee;
-  --color-accent-600: #436b4c;
-  --color-accent-700: #395c42;
-  --color-accent-2-100: #ecf3f8;
-  --color-accent-2-500: #6c90a9;
-  --font-heading: 'Manrope', system-ui, sans-serif;
-  --font-body: 'Manrope', system-ui, sans-serif;
+  --color-bg: #F4F8FA;
+  --color-surface: #FFFFFF;
+  --color-text: #0E2228;
+  --color-accent: #123A40; /* the primary fill, white on it is 12.3:1; also the active marker and the badge */
+  --color-accent-2: #1D6890; /* outline buttons and links: 6.1:1 on a card, 5.7:1 on the page */
+  --color-sky: #8FD0EC; /* highlight on the dark teal only: 7.3:1 there */
+  --color-divider: #D3E0E6;
+  --color-neutral-100: #FFFFFF; /* cards */
+  --color-neutral-200: #EAF1F4;
+  --color-neutral-300: #D3E0E6;
+  --color-neutral-400: #A9BCC4;
+  --color-neutral-500: #788D96; /* a field's edge and a switch's track: 3.5:1 on a card, 3.3:1 on the page, 3.0:1 on the ice tint */
+  --color-neutral-600: #4E646D; /* muted text: 5.8:1 on the page, 6.2:1 on a card, 5.5:1 on the ice tint */
+  --color-neutral-700: #3D5159;
+  --color-accent-100: #E3F3FA; /* the ice tint: active rows, soft chips */
+  --color-accent-600: #164A52;
+  --color-accent-700: #123A40; /* text on the ice tint, 10.8:1 */
+  --color-accent-2-100: #E6F0F6;
+  --color-accent-2-500: #5B93B3;
+  /* A shadow with the teal in it, so a card lifts off the page without a grey smudge. */
+  --shadow-card: 0 1px 2px rgba(18, 58, 64, 0.06), 0 4px 12px rgba(18, 58, 64, 0.06);
+  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Figtree', system-ui, sans-serif;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -139,6 +146,18 @@
   --t-rad: 10px; --t-radlg: 16px; --t-radbtn: 8px;
   --t-head: 'Lora', Georgia, serif; --t-font: 'Jost', system-ui, sans-serif;
   --t-headwt: 600; --t-track: 0.02em; --t-up: none;
+}
+/* Rust & Desert Plum — Warm, grounded, Southern Utah sandstone. The one theme
+   whose card is not white: warm sand on a sand page, as the Red Rock layout was
+   drawn. The accent fill is a dark rust, so the text on it is light. */
+.t-redrock {
+  --t-bg: #F4EADB; --t-sur: #FBF6EE; --t-ink: #2B1A20; --t-mut: #6B5449;
+  --t-acc: #A3432A; --t-accT: #9A3E26; --t-acc2: #4A2338;
+  --t-onacc: #FFF8F0; --t-onacc2: #FBF6EE;
+  --t-line: rgba(43, 26, 32, 0.14); --t-tint: #F6E3D3; --t-tint2: #EEEFE6;
+  --t-rad: 10px; --t-radlg: 14px; --t-radbtn: 12px;
+  --t-head: 'Fraunces', Georgia, serif; --t-font: 'Figtree', system-ui, sans-serif;
+  --t-headwt: 600; --t-track: 0; --t-up: none;
 }
 
 * { box-sizing: border-box; }
@@ -556,31 +575,40 @@ textarea.b-contactform__msg { min-height: 96px; resize: vertical; line-height: 1
 
 /* ── admin atoms ────────────────────────────────────────────────────────── */
 .a-shell { max-width: 900px; margin: 0 auto; padding: 24px 20px 80px; }
+/* Headings anywhere in the admin wear the heading face: the shell, the pages drawn outside it
+   (.a-shell, such as the QR sign), cards and dialogs. :where keeps this at no specificity, so a
+   class (and the buyer preview's own .b-head) still wins, and the guide editor's preview, which
+   is a piece of the buyer app, is left out entirely. */
+:where(.as-app, .a-shell, .card, .dialog) :where(h1, h2, h3, h4, h5, h6):not(:where(.b-app *)) {
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
 .card {
   background: var(--color-neutral-100);
   border: 1px solid var(--color-divider);
-  border-radius: 14px;
+  border-radius: 18px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.elev-sm { box-shadow: 0 1px 2px rgba(31, 34, 29, 0.06); }
+.elev-sm { box-shadow: var(--shadow-card); }
 .card-kicker {
-  font-size: 11px;
+  font-size: 11.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-neutral-600);
-  font-weight: 700;
+  font-weight: 600;
 }
-.card-title { font-family: var(--font-heading); font-weight: 700; }
+.card-title { font-family: var(--font-heading); font-weight: 600; }
 .card-meta { font-size: 12px; color: var(--color-neutral-600); }
 .card-body { font-size: 13px; line-height: 1.5; color: var(--color-neutral-700); }
 .text-muted { color: var(--color-neutral-600); }
+/* Tags, chips and badges stay pills; buttons are rounded rectangles, so the two never read as one another. */
 .tag {
   display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
   padding: 3px 10px;
   border-radius: 999px;
   white-space: nowrap;
@@ -588,50 +616,69 @@ textarea.b-contactform__msg { min-height: 96px; resize: vertical; line-height: 1
 .tag-accent { background: var(--color-accent-100); color: var(--color-accent-700); }
 .tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2); }
 .tag-neutral { background: var(--color-neutral-200); color: var(--color-neutral-700); }
+/* 44px tall, the smallest target a thumb hits reliably; the board draws its card buttons at 40. */
 .btn {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 1px solid transparent;
-  font-family: var(--font-heading);
-  font-size: 13.5px;
+  font-family: var(--font-body);
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .btn:disabled { opacity: 0.55; cursor: default; }
 a.btn { text-decoration: none; }
+/* The ring is the deep teal with a white gap, so it shows on the teal button itself as well as on a card. */
+.btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* Primary: the one thing to do. Secondary: a light teal-grey with teal ink, for the many everyday
+   actions. Ghost: the board's outline button, white with a lake-blue line, for the quieter ones.
+   Link: lake-blue words with no box, the quietest, for "Setup" and "Open" beside the other two;
+   it keeps the 44px height so it is as easy to hit as its neighbours. */
 .btn-primary { background: var(--color-accent); color: #fff; }
-.btn-secondary { background: var(--color-neutral-200); color: var(--color-text); border-color: var(--color-divider); }
-.btn-ghost { background: transparent; color: var(--color-text); border-color: var(--color-divider); }
-.btn-danger { background: transparent; color: #a8332b; border-color: rgba(168, 51, 43, 0.4); }
+.btn-secondary { background: var(--color-neutral-200); color: var(--color-accent-700); border-color: var(--color-divider); }
+.btn-ghost { background: #fff; color: var(--color-accent-2); border: 1.5px solid var(--color-accent-2); }
+.btn-danger { background: #fff; color: #a8332b; border-color: rgba(168, 51, 43, 0.4); }
+.btn-link { background: transparent; color: var(--color-accent-2); padding: 0 12px; }
+@media (hover: hover) {
+  .btn-primary:not(:disabled):hover { background: var(--color-accent-600); }
+  .btn-secondary:not(:disabled):hover { background: var(--color-accent-100); border-color: var(--color-neutral-400); }
+  .btn-ghost:not(:disabled):hover { background: var(--color-accent-2-100); }
+  .btn-danger:not(:disabled):hover { background: #fdecea; }
+  .btn-link:not(:disabled):hover { text-decoration: underline; text-underline-offset: 3px; }
+}
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 .btn-block { width: 100%; }
-.btn-icon { width: 40px; height: 40px; padding: 0; flex: none; }
+.btn-icon { width: 44px; height: 44px; padding: 0; flex: none; }
+/* A field's edge is how it is found on the page, so it gets the 3:1 grey rather than the hairline cards use. */
 .input {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   padding: 9px 13px;
-  border: 1px solid var(--color-divider);
-  border-radius: 10px;
+  border: 1px solid var(--color-neutral-500);
+  border-radius: 12px;
   background: #fff;
   color: var(--color-text);
   font-family: var(--font-body);
   font-size: 16px;
   outline: none;
 }
-.input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.input:focus-visible { outline: 2px solid var(--color-accent-2); outline-offset: 1px; border-color: var(--color-accent-2); }
+.input::placeholder { color: var(--color-neutral-600); opacity: 1; }
 textarea.input { min-height: auto; resize: vertical; }
 .field { display: flex; flex-direction: column; gap: 4px; }
-.field > label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-neutral-600); }
+.field > label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-neutral-600); }
 .field-hint { font-size: 11.5px; line-height: 1.45; color: var(--color-neutral-600); text-transform: none; letter-spacing: 0; font-weight: 400; }
 .dialog-backdrop {
   position: fixed;
   inset: 0;
   z-index: 70;
-  background: rgba(20, 22, 19, 0.45);
+  background: rgba(14, 34, 40, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -643,15 +690,25 @@ textarea.input { min-height: auto; resize: vertical; }
   max-height: 88vh;
   overflow-y: auto;
   background: var(--color-neutral-100);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 24px 60px rgba(18, 58, 64, 0.18);
 }
-.dialog-title { font-family: var(--font-heading); font-weight: 800; font-size: 18px; }
+.dialog-title { font-family: var(--font-heading); font-weight: 600; font-size: 20px; color: var(--color-accent-700); }
 .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* minmax(0, 1fr) lets a column be narrower than the field inside it, so three fields never push
+   the card wider. A date needs about 130px to show in full, more than a third of a phone, so on a
+   phone a row with a date goes two across and the date takes a line of its own; under 360px every
+   row goes two across, which still leaves room for a figure. */
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 479px) {
+  .grid-3:has(input[type='date']) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 > :has(input[type='date']) { grid-column: 1 / -1; }
+}
+@media (max-width: 359px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
 /* The landing page: the community's picture, "Welcome to <name>", and the way in. The picture is the

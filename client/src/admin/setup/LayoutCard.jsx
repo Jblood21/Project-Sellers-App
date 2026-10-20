@@ -51,6 +51,41 @@ function Wire({ layoutKey }) {
       </svg>
     );
   }
+  if (layoutKey === 'redrock') {
+    // A plum bar, a big serif greeting over the plan strip, the dark payment panel with its figure in
+    // sandstone, and two warm home cards whose photos round their top-left corner more than the rest.
+    return (
+      <svg className="ax-wire" viewBox="0 0 160 72" aria-hidden="true" focusable="false">
+        <rect width="160" height="72" fill="#f4eadb" />
+        <rect width="160" height="12" fill="#4a2338" />
+        <rect x="8" y="3" width="30" height="3.5" fill="#f4eadb" />
+        <rect x="8" y="8" width="16" height="1.5" fill="#e8a882" />
+        <rect x="136" y="4" width="6" height="4" rx="2" fill="#f4eadb" />
+        <g fill="#f4eadb"><rect x="146" y="4" width="7" height="1" /><rect x="146" y="6" width="7" height="1" /><rect x="146" y="8" width="7" height="1" /></g>
+        <rect x="8" y="16" width="58" height="5" fill="#2b1a20" />
+        <rect x="8" y="23" width="40" height="5" fill="#2b1a20" />
+        <rect x="8" y="31" width="15" height="1.5" fill="#a3432a" />
+        <rect x="24" y="31" width="9" height="1.5" fill="#e8a882" />
+        <rect x="34" y="31" width="32" height="1.5" fill="#e2d2bc" />
+        <rect x="8" y="36" width="58" height="29" rx="3" fill="#4a2338" />
+        <rect x="12" y="40" width="18" height="1.5" fill="#e8a882" />
+        <rect x="12" y="44" width="34" height="9" fill="#e8a882" />
+        <rect x="12" y="57" width="44" height="1.5" fill="#f0d9bc" />
+        <rect x="12" y="60.5" width="30" height="1.5" fill="#f0d9bc" />
+        <g stroke="#e2d2bc" strokeWidth="0.75">
+          <path d="M78 16H107Q110 16 110 19V62Q110 65 107 65H75Q72 65 72 62V22Q72 16 78 16Z" fill="#fbf6ee" />
+          <path d="M120 16H149Q152 16 152 19V62Q152 65 149 65H117Q114 65 114 62V22Q114 16 120 16Z" fill="#fbf6ee" />
+        </g>
+        <path d="M78 16H107Q110 16 110 19V36H72V22Q72 16 78 16Z" fill="#e8c4a4" />
+        <path d="M120 16H149Q152 16 152 19V36H114V22Q114 16 120 16Z" fill="#e8c4a4" />
+        <g fill="#b8613f"><rect x="72" y="29" width="38" height="7" /><rect x="114" y="29" width="38" height="7" /></g>
+        <g fill="#2b1a20"><rect x="76" y="40" width="17" height="4" /><rect x="118" y="40" width="17" height="4" /></g>
+        <g fill="#9a3e26"><rect x="95" y="41" width="10" height="2.5" /><rect x="137" y="41" width="10" height="2.5" /></g>
+        <g fill="#6b5449"><rect x="76" y="48" width="26" height="1.5" /><rect x="118" y="48" width="26" height="1.5" /></g>
+        <g fill="#f0d9bc"><rect x="76" y="53" width="13" height="4" rx="2" /><rect x="118" y="53" width="13" height="4" rx="2" /></g>
+      </svg>
+    );
+  }
   if (layoutKey === 'saltgrass') {
     return (
       <svg className="ax-wire" viewBox="0 0 160 72" aria-hidden="true" focusable="false">

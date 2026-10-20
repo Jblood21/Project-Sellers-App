@@ -24,7 +24,7 @@ export default function Wordmark({ size = 20, showName = true }) {
         <span
           style={{
             fontFamily: 'var(--font-heading)',
-            fontWeight: 800,
+            fontWeight: 700,
             fontSize: size * 0.82,
             letterSpacing: '-0.01em',
           }}

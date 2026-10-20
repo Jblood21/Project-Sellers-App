@@ -105,12 +105,12 @@ export default function HomesTab({ community, reload }) {
               </span>
             ) : null}
             <span style={{ display: 'flex', gap: 6 }}>
-              <button type="button" className="btn btn-ghost" onClick={() => openEdit(home)} style={{ minHeight: 34, padding: '0 14px', fontSize: 12.5 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => openEdit(home)} style={{ minHeight: 44, padding: '0 14px', fontSize: 12.5 }}>
                 Edit
               </button>
               <button
                 type="button" className="btn btn-danger" aria-label={`Delete ${home.name}`}
-                onClick={() => removeHome(home)} style={{ minHeight: 34, padding: '0 12px' }}
+                onClick={() => removeHome(home)} style={{ minHeight: 44, minWidth: 44, padding: '0 12px' }}
               >
                 <Trash />
               </button>
@@ -237,7 +237,7 @@ function FloorPlanStrip({ home, reload }) {
               onClick={async () => { await adminApi.deletePhoto(token, plan.id); await reload(); }}
               style={{
                 position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%',
-                border: 'none', background: 'rgba(20,22,19,.65)', color: '#fff', cursor: 'pointer',
+                border: 'none', background: 'rgba(14,34,40,.65)', color: '#fff', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
               }}
             >
@@ -368,13 +368,13 @@ function WalkthroughRow({ home, reload }) {
             </span>
             <button
               type="button" className="btn btn-ghost" onClick={() => inputRef.current?.click()}
-              disabled={busy} style={{ minHeight: 30, padding: '0 10px', fontSize: 12 }}
+              disabled={busy} style={{ minHeight: 44, padding: '0 10px', fontSize: 12 }}
             >
               {busy ? 'Uploading…' : 'Replace'}
             </button>
             <button
               type="button" className="btn btn-ghost" onClick={remove}
-              style={{ minHeight: 30, padding: '0 10px', fontSize: 12 }}
+              style={{ minHeight: 44, padding: '0 10px', fontSize: 12 }}
             >
               Remove
             </button>
@@ -383,7 +383,7 @@ function WalkthroughRow({ home, reload }) {
           <button
             type="button" onClick={() => inputRef.current?.click()} disabled={busy}
             style={{
-              minHeight: 30, padding: '0 12px', borderRadius: 8, cursor: 'pointer',
+              minHeight: 44, padding: '0 12px', borderRadius: 8, cursor: 'pointer',
               border: '1.5px dashed var(--color-neutral-400)', background: 'transparent',
               color: 'var(--color-neutral-700)', fontSize: 12,
             }}
@@ -400,12 +400,12 @@ function WalkthroughRow({ home, reload }) {
         <input
           className="input" value={link} onChange={(event) => setLink(event.target.value)}
           placeholder="https://youtu.be/…" aria-label={`Video tour link for ${home.name}`}
-          style={{ flex: '1 1 220px', minHeight: 34, fontSize: 13 }}
+          style={{ flex: '1 1 220px', minHeight: 44, fontSize: 13 }}
         />
         {linkChanged ? (
           <button
             type="button" className="btn btn-primary" onClick={saveLink}
-            disabled={busy || (link.trim() !== '' && !linkEmbed)} style={{ minHeight: 34, padding: '0 12px', fontSize: 13 }}
+            disabled={busy || (link.trim() !== '' && !linkEmbed)} style={{ minHeight: 44, padding: '0 12px', fontSize: 13 }}
           >
             {link.trim() ? 'Save link' : 'Remove link'}
           </button>
@@ -506,7 +506,7 @@ function SiteMapCard({ community, reload }) {
             <span
               style={{
                 position: 'absolute', right: 8, bottom: 8, padding: '5px 12px', borderRadius: 999,
-                background: 'rgba(20,22,19,.72)', color: '#fff', fontSize: 12, fontWeight: 600,
+                background: 'rgba(14,34,40,.72)', color: '#fff', fontSize: 12, fontWeight: 600,
               }}
             >
               {busy ? 'Uploading…' : 'Replace'}
@@ -550,7 +550,7 @@ function SiteMapCard({ community, reload }) {
           </span>
           <button
             type="button" className="btn btn-secondary" onClick={show}
-            style={{ flex: 'none', minHeight: 34, padding: '0 14px', fontSize: 12.5 }}
+            style={{ flex: 'none', minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
           >
             Show it
           </button>
@@ -561,7 +561,7 @@ function SiteMapCard({ community, reload }) {
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             type="button" className="btn btn-ghost" onClick={remove}
-            style={{ minHeight: 34, padding: '0 14px', fontSize: 12.5 }}
+            style={{ minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
           >
             Remove
           </button>
@@ -574,7 +574,7 @@ function SiteMapCard({ community, reload }) {
 }
 
 const moveButton = {
-  minWidth: 40, minHeight: 40, borderRadius: 999, border: 'none', background: 'rgba(20,22,19,.7)', color: '#fff',
+  minWidth: 40, minHeight: 40, borderRadius: 999, border: 'none', background: 'rgba(14,34,40,.7)', color: '#fff',
   fontSize: 16, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
@@ -637,7 +637,7 @@ function PhotoStrip({ home, reload }) {
               <span
                 style={{
                   position: 'absolute', left: 6, top: 6, padding: '3px 8px', borderRadius: 999, fontSize: 11,
-                  fontWeight: 700, background: 'rgba(20,22,19,.85)', color: '#fff',
+                  fontWeight: 700, background: 'rgba(14,34,40,.85)', color: '#fff',
                 }}
               >
                 ★ Hero
@@ -668,7 +668,7 @@ function PhotoStrip({ home, reload }) {
               onClick={() => removePhoto(photo.id)}
               style={{
                 position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: '50%',
-                border: 'none', background: 'rgba(20,22,19,.65)', color: '#fff', cursor: 'pointer',
+                border: 'none', background: 'rgba(14,34,40,.65)', color: '#fff', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >

@@ -182,7 +182,7 @@ export default function AvailabilityTab({ community, reload }) {
                 key={slot.id}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5,
-                  padding: '5px 8px 5px 12px', borderRadius: 999,
+                  padding: '0 0 0 14px', borderRadius: 999,
                   border: '1px solid var(--color-divider)',
                   background: slot.leadId ? 'var(--color-accent)' : 'transparent',
                   color: slot.leadId ? '#fff' : 'var(--color-text)',
@@ -195,8 +195,8 @@ export default function AvailabilityTab({ community, reload }) {
                   aria-label={`Remove ${formatSlotDate(date)} at ${formatSlotTime(slot.time)}`}
                   onClick={() => remove(slot)}
                   style={{
-                    border: 'none', background: 'transparent', cursor: 'pointer', padding: 2,
-                    color: slot.leadId ? '#fff' : 'var(--color-neutral-700)', display: 'flex',
+                    width: 44, height: 44, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
+                    color: slot.leadId ? '#fff' : 'var(--color-neutral-700)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
                   <Trash size={11} />
@@ -329,7 +329,7 @@ function AddSlots({ community, onClose, onSaved }) {
               aria-pressed={on}
               onClick={() => toggle(times, time, setTimes)}
               style={{
-                padding: '6px 10px', borderRadius: 999, cursor: 'pointer', fontSize: 12,
+                minHeight: 44, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', fontSize: 12,
                 border: `1px solid ${on ? 'transparent' : 'var(--color-divider)'}`,
                 background: on ? 'var(--color-accent)' : 'transparent',
                 color: on ? '#fff' : 'var(--color-text)',

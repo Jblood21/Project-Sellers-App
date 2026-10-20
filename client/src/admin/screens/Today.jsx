@@ -95,9 +95,9 @@ export default function Today() {
                     {plural(community.homesCount, 'home')} · {plural(community.people, 'person', 'people')} · {THEMES[community.theme]?.name} theme
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                    <Link className="btn btn-secondary" to={`/admin/communities/${community.id}/leads`}>Leads</Link>
+                    <Link className="btn btn-primary" to={`/admin/communities/${community.id}/leads`}>Leads</Link>
                     <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/homes`}>Homes</Link>
-                    <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/setup`}>Setup</Link>
+                    <Link className="btn btn-link" to={`/admin/communities/${community.id}/setup`}>Setup</Link>
                   </div>
                 </article>
               ))}
@@ -128,8 +128,8 @@ export default function Today() {
                     </div>
                     <div className="as-call__actions">
                       {tel ? <a className="btn btn-primary" href={tel}><NavIcon name="phone" size={16} /> Call</a> : null}
-                      {mail ? <a className="btn btn-secondary" href={mail}><NavIcon name="mail" size={16} /> Email</a> : null}
-                      <Link className="btn btn-ghost" to={`/admin/communities/${call.communityId}/leads/${call.leadId}?show=tour`}>Open</Link>
+                      {mail ? <a className="btn btn-ghost" href={mail}><NavIcon name="mail" size={16} /> Email</a> : null}
+                      <Link className="btn btn-link" to={`/admin/communities/${call.communityId}/leads/${call.leadId}?show=tour`}>Open</Link>
                     </div>
                   </li>
                 );

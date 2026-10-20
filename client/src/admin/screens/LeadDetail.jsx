@@ -325,7 +325,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
           type="button"
           className="btn btn-ghost btn-block"
           onClick={toggleArchived}
-          style={{ marginTop: 4, color: 'var(--color-neutral-700)' }}
+          style={{ marginTop: 4, color: 'var(--color-neutral-700)', borderColor: 'var(--color-neutral-400)' }}
         >
           Archive this lead
         </button>
@@ -406,7 +406,7 @@ function ConsentNote({ consent, hasPhone = true }) {
   // No number, so no calls or texts to agree to. Not the same as a "no": nobody was asked.
   if (!hasPhone && !consent) {
     return (
-      <div style={{ padding: '9px 11px', borderRadius: 8, background: '#f1f0ea', color: '#4a4a42', fontSize: 12.5, lineHeight: 1.45 }}>
+      <div style={{ padding: '9px 11px', borderRadius: 8, background: 'var(--color-neutral-200)', color: 'var(--color-neutral-700)', fontSize: 12.5, lineHeight: 1.45 }}>
         Nobody has asked about calls and texts yet, because there is no number. They are asked when they give one to book a time.
       </div>
     );

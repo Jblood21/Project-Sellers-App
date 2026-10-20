@@ -2,6 +2,7 @@ import { normalizeLayout } from '@shared/domain.js';
 import cornerpost from './cornerpost/index.js';
 import foyer from './foyer/index.js';
 import marketplace from './marketplace/index.js';
+import redrock from './redrock/index.js';
 import saltgrass from './saltgrass/index.js';
 
 /**
@@ -21,7 +22,7 @@ import saltgrass from './saltgrass/index.js';
  * What a layout may not do is change what a tool does. It decides where the
  * buttons go and what they look like, and nothing else.
  */
-const LAYOUTS = { cornerpost, saltgrass, foyer, marketplace };
+const LAYOUTS = { cornerpost, saltgrass, foyer, marketplace, redrock };
 
 export function layoutFor(key) {
   return LAYOUTS[normalizeLayout(key)];

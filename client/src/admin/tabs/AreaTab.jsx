@@ -117,13 +117,13 @@ export default function AreaTab({ community, reload }) {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                 <button
                   type="button" className="btn btn-ghost" onClick={() => openEdit(highlight)}
-                  style={{ minHeight: 34, padding: '0 14px', fontSize: 12.5 }}
+                  style={{ minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
                 >
                   Edit
                 </button>
                 <button
                   type="button" className="btn btn-danger" aria-label={`Delete ${highlight.name}`}
-                  onClick={() => remove(highlight)} style={{ minHeight: 34, padding: '0 12px' }}
+                  onClick={() => remove(highlight)} style={{ minHeight: 44, minWidth: 44, padding: '0 12px' }}
                 >
                   <Trash />
                 </button>

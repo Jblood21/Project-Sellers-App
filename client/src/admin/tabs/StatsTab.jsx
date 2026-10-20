@@ -33,7 +33,7 @@ export default function StatsTab({ community, leads: everyone }) {
       <div className="grid-2">
         {cards.map((card) => (
           <div key={card.label} className="card elev-sm" style={{ gap: 2 }}>
-            <span style={{ fontFamily: 'var(--font-heading)', fontSize: 28, fontWeight: 800 }}>{card.value}</span>
+            <span style={{ fontFamily: 'var(--font-heading)', fontSize: 30, fontWeight: 700, color: 'var(--color-accent-700)' }}>{card.value}</span>
             <span className="text-muted" style={{ fontSize: 12.5 }}>{card.label}</span>
           </div>
         ))}

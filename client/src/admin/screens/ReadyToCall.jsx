@@ -104,7 +104,7 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
                   </Link>
                   <span className="as-ready__actions">
                     {tel ? <a className="btn btn-primary" href={tel} aria-label={`Call ${person.name}`}><NavIcon name="phone" size={15} /> Call</a> : null}
-                    {sms ? <a className="btn btn-secondary" href={sms} aria-label={`Text ${person.name}`}><NavIcon name="chat" size={15} /> Text</a> : null}
+                    {sms ? <a className="btn btn-ghost" href={sms} aria-label={`Text ${person.name}`}><NavIcon name="chat" size={15} /> Text</a> : null}
                   </span>
                 </li>
               );

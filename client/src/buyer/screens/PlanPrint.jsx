@@ -48,10 +48,16 @@ export default function PlanPrint() {
         className="no-print"
         style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 18, flexWrap: 'wrap' }}
       >
-        <button type="button" className="btn btn-secondary" style={{ minHeight: 44 }} onClick={() => navigate(`/c/${communityId}/plan`)}>
+        {/* The buyer's own buttons in the community's theme, not the admin's: this page is part of the buyer app. */}
+        <button
+          type="button"
+          className="b-btn b-btn-outline"
+          style={{ width: 'auto', padding: '0 20px' }}
+          onClick={() => navigate(`/c/${communityId}/plan`)}
+        >
           Close
         </button>
-        <button type="button" className="btn btn-primary" style={{ minHeight: 44 }} onClick={() => window.print()}>
+        <button type="button" className="b-btn" style={{ width: 'auto', padding: '0 20px' }} onClick={() => window.print()}>
           Print / Save as PDF
         </button>
       </div>
