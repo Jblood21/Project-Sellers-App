@@ -476,8 +476,10 @@ Three messages — the app is deliberately quiet.
   report opens with the same "Prepared by" line and ends with how to reach them. The logo is the one uploaded
   under **Setup → Lender logo**. Without an upload, the supplied Summit Home Loans logo is used only while the
   lender is still Summit Home Loans; for any other lender the report shows their name and no logo, so a report
-  never carries another company's mark. A PNG or JPEG upload is drawn (transparent backgrounds kept); a WebP or
-  GIF upload gives the lender's name instead, never the supplied logo. With no lender name in Setup the reports
+  never carries another company's mark. A PNG or JPEG upload is drawn (transparent backgrounds kept; a large PNG is
+  scaled down to 1,600 pixels on its longer side and an interlaced one is read too); a WebP or GIF upload gives the
+  lender's name instead, never the supplied logo. A long lender name is shortened before its NMLS ID is, and a named
+  loan officer is printed with their NMLS ID or not at all. With no lender name in Setup the reports
   say nothing about a lender. `server/lib/lenderBrand.js` picks the logo and words; `server/lib/pdfImage.js`
   reads a JPEG or PNG for the PDF writer with no dependency.
 
@@ -515,7 +517,7 @@ opens the section it is in. Sections start folded each time the page is opened.
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
 four, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
-is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `keystone`.)
+is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`.)
 
 - **Porch** (key `cornerpost`; what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Book a tour* button in the header of every page, and **Talk about financing**
@@ -529,9 +531,25 @@ is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `keystone`.)
 - **Foyer** (key `foyer`) — a magazine-like look: Cormorant Garamond headlines, Jost text, thin rules, square corners, the
   tools as a numbered index and the guides as "From the journal". A centred title over a slim bar, with *Book a tour*,
   *Talk about financing* and *My Home Plan* as text links under it. Light ground.
-- **Keystone** (key `keystone`) — compact and precise: Space Grotesk with tabular figures, sharp corners, a status row of
-  figures at the top of the home screen, and a tab strip under the header (Tools, Explore, Saved, Plan, Financing).
-  Light ground.
+- **Marketplace** (key `marketplace`) — laid out like a big home-search site, in the community's own colours, Public
+  Sans throughout. A white bar with the development's mark, a text nav from 900px (Homes, Map when the site map is
+  on, Financing, Learn when the guides are on), **Saved** with its count, **Book a tour** and the menu. The home
+  screen leads with the homes: the builder's heading, the incentive, a filter bar (price from and to, fewest
+  bedrooms, Newest / Price low to high / high to low, with how many homes are showing and a reset), then every home
+  as a photo card: its status (Sold, Move-in ready, Under construction...), a heart to save it, the price large,
+  an estimated monthly payment (the Payment tool's own sum at the loan and down payment the buyer last chose there,
+  with the community's rates, taxes, insurance and HOA, shown only while that tool is on and labelled an
+  estimate), beds, baths and floor area, and the plan name and lot (when lot numbers are on). One card across on a
+  phone, two on a tablet, three from 1000px. The tools follow as "Can you buy one of these?" beside the lender
+  card, then the area, the agents, the guides as article cards, the FAQ and the builder's own videos. Explore
+  Homes becomes the same grid, and a home's page opens, from 900px, with its first photo large and the next four
+  in a square beside it (when it has five or more), with the financing, payment and save actions in a panel that
+  stays beside the details as the page scrolls. The filters only narrow what is on the screen; nothing is saved
+  or reported. Light ground.
+
+Keystone, the compact figure-led layout that was the fourth choice, has been taken away. A community still storing
+`keystone` is shown Marketplace (the layout nearest in spirit, not the default), to buyers and in Setup, and
+nothing is rewritten in its record; Setup no longer offers it.
 
 A layout changes the typeface, shape, spacing and where things sit. It never changes what a tool
 does or what it calculates, and every screen reachable in one layout is reachable in the others.
@@ -540,8 +558,8 @@ A layout is **independent of the theme**. The ten themes are palettes and a layo
 from whichever theme is chosen, so any layout works with any theme. One consequence to know about:
 Porch is Manrope only, so a community whose theme brought its own serif face loses that
 face under it. Each layout also has themes it reads best on: Ridgeline on Navy & Gold, Ice Blue & Dark Navy and Slate Blue &
-Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Keystone on Ice Blue & Dark Navy,
-Modern Blue & White and Black, White & Orange.
+Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Marketplace on Modern Blue &
+White, Teal & Navy and Navy & Gold.
 
 ## Development logo
 
@@ -729,7 +747,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Porch, Ridgeline, Foyer and Keystone: header and home screen per layout
+  buyer/layouts/     Porch, Ridgeline, Foyer and Marketplace: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: the Today page and, per community, 8 sections (Leads, Stats, Homes, Area,
                      Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and

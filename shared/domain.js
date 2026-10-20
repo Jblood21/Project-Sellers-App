@@ -363,6 +363,72 @@ export function unitsLabel(home) {
 export function isSold(home) {
   return home?.unitsAvailable === 0;
 }
+
+// ── a list of homes, narrowed and ordered the way a buyer asks ─────────────
+
+/**
+ * The orders a buyer can put a community's homes in. The first is what a list starts with: the homes
+ * added most recently first, which is what "new listings" means to anyone who has used a home-search site.
+ */
+export const HOME_SORTS = [
+  { k: 'newest', name: 'Newest' },
+  { k: 'price-asc', name: 'Price (low to high)' },
+  { k: 'price-desc', name: 'Price (high to low)' },
+];
+export const HOME_SORT_KEYS = HOME_SORTS.map((s) => s.k);
+
+/**
+ * The homes that match a buyer's filters, in the order they asked for. Never changes the list it is given.
+ *
+ *   minPrice, maxPrice  whole dollars, or null for no limit
+ *   minBeds             the fewest bedrooms, or 0 for any
+ *   sort                one of HOME_SORT_KEYS; anything else is the first
+ *
+ * A home with no price yet (0) cannot be said to be over or under a figure, so any price limit leaves it
+ * out, and a price order puts it last whichever way it runs rather than first as "the cheapest".
+ * Equal homes keep the builder's own order, so the list never shuffles between two looks at it.
+ */
+export function listHomes(homes = [], { minPrice = null, maxPrice = null, minBeds = 0, sort = HOME_SORTS[0].k } = {}) {
+  const min = num(minPrice);
+  const max = num(maxPrice);
+  const beds = num(minBeds);
+  const kept = homes
+    .map((home, index) => ({ home, index, price: num(home.price) }))
+    .filter(({ home, price }) => {
+      if ((min || max) && !price) return false;
+      if (min && price < min) return false;
+      if (max && price > max) return false;
+      return !(beds && num(home.beds) < beds);
+    });
+  const byOrder = (a, b) => a.index - b.index;
+  const unpricedLast = (a, b) => (a.price ? 0 : 1) - (b.price ? 0 : 1);
+  const compare = {
+    'price-asc': (a, b) => unpricedLast(a, b) || a.price - b.price || byOrder(a, b),
+    'price-desc': (a, b) => unpricedLast(a, b) || b.price - a.price || byOrder(a, b),
+    // An older payload has no date on a home: the builder's order is then the only order there is.
+    newest: (a, b) => String(b.home.createdAt ?? '').localeCompare(String(a.home.createdAt ?? '')) || byOrder(a, b),
+  }[HOME_SORT_KEYS.includes(sort) ? sort : HOME_SORTS[0].k];
+  return kept.sort(compare).map(({ home }) => home);
+}
+
+/**
+ * The round figures a price filter offers for these homes: from just under the cheapest to just over the
+ * dearest, on a step that gives about `count` of them ($10,000, $25,000, $50,000 ...). Built from the
+ * homes rather than fixed, so a community of $350,000 townhomes is not offered "$1M+" and nothing else.
+ * Empty when no home has a price.
+ */
+export function priceSteps(homes = [], count = 8) {
+  const prices = homes.map((home) => num(home.price)).filter((price) => price > 0);
+  if (!prices.length) return [];
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  const step = [10000, 25000, 50000, 100000, 250000, 500000].find((size) => (high - low) / size <= count) ?? 1000000;
+  const steps = [];
+  for (let price = Math.floor(low / step) * step; price <= Math.ceil(high / step) * step; price += step) {
+    steps.push(price);
+  }
+  return steps;
+}
 // ── layouts ────────────────────────────────────────────────────────────────
 
 /**
@@ -398,16 +464,28 @@ export const LAYOUTS = [
     note: 'Serif headlines, thin rules and numbered lists, laid out like a magazine. Reads best with the Charcoal & Bronze, Forest Green & Cream or Warm Modern Real Estate themes.',
   },
   {
-    k: 'keystone',
-    name: 'Keystone',
-    note: 'Compact and precise: a tab strip under the header, sharp corners and a row of figures at the top. Reads best with the Ice Blue & Dark Navy, Modern Blue & White or Black, White & Orange themes.',
+    k: 'marketplace',
+    name: 'Marketplace',
+    note: 'Laid out like a home-search site: a white bar, filters, and every home as a photo card with its price and an estimated monthly payment. Reads best with the Modern Blue & White, Teal & Navy or Navy & Gold themes.',
   },
 ];
 export const LAYOUT_KEYS = LAYOUTS.map((l) => l.k);
 export const DEFAULT_LAYOUT = 'cornerpost';
 
+/**
+ * Layouts that were offered once and have been taken away, each mapped to the one a community still
+ * storing it is shown instead. The stored key is left alone (nothing is rewritten), so it is read
+ * through here every time, the way RETIRED_THEMES works for themes. The successor is chosen for being
+ * the nearest in spirit, not the default: Keystone's builders chose a layout that leads with figures and
+ * the homes, and Marketplace is the one that does.
+ */
+const RETIRED_LAYOUTS = {
+  keystone: 'marketplace', // compact, figure-led, a tab strip under the header
+};
+
 /** An unknown or missing key falls back rather than rendering a layout that is not there. */
 export function normalizeLayout(key) {
+  if (Object.prototype.hasOwnProperty.call(RETIRED_LAYOUTS, key)) return RETIRED_LAYOUTS[key];
   return LAYOUT_KEYS.includes(key) ? key : DEFAULT_LAYOUT;
 }
 
