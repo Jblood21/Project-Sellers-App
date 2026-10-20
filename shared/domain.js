@@ -488,6 +488,11 @@ export const LAYOUTS = [
     name: 'Showcase',
     note: 'Photo first, like phone stories: each home fills the screen with its price and monthly estimate over the picture, a swipe to the next, and the tools in a sheet that slides up. Reads best with Black, White & Orange or Charcoal & Bronze.',
   },
+  {
+    k: 'ledger',
+    name: 'Ledger',
+    note: 'The buyer\'s own dashboard: tiles for buying power, the monthly payment, the down payment saved, the plan, today\'s rates and the homes in budget, figures first. Reads best with Ice Blue & Dark Navy, Modern Blue & White or Teal & Navy.',
+  },
 ];
 export const LAYOUT_KEYS = LAYOUTS.map((l) => l.k);
 export const DEFAULT_LAYOUT = 'cornerpost';

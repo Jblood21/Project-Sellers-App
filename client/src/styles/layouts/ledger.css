@@ -1,0 +1,1466 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Ledger: the buyer's own homebuying dashboard.
+
+   A slim dark header with whose dashboard this is, then a bento of tiles of
+   different sizes with the figures first: buying power on the one dark tile
+   with a half-circle gauge against the homes, the monthly payment as a thin
+   five-part bar with its key, the down payment saved as a ring, the plan as a
+   row of dots, today's rates, the homes against the buyer's reach, the next
+   step and the community's down payment help. Two columns on a phone; on a
+   wide screen a narrow dark rail down the left and four columns across the
+   full width. IBM Plex Sans 600 for headings and 400 for everything a buyer
+   reads; IBM Plex Mono 500 for every figure, with tabular digits so they line
+   up. Tiles 12px, buttons 8px, thin 1px rules.
+
+   Colour comes only from the --t-* theme tokens, so the layout holds on all
+   eleven themes and looks exactly like its board under Ice Blue & Dark Navy:
+     --t-bg page, --t-sur tile, --t-ink text, --t-mut muted text,
+     --t-acc / --t-onacc the accent button and the figures' fills,
+     --t-accT the accent as TEXT, --t-acc2 / --t-onacc2 the dark grounds
+     (header, rail, buying power, the bar on a phone), --t-tint the "In budget"
+     wash, --t-line a hairline.
+   The few colours mixed from them are checked under every theme where they
+   are set: the muted text on the dark ground clears 5.3:1 (Slate Blue & Soft
+   Green is the lowest), a control's edge clears 3:1 on the page and the tile.
+
+   Every rule is scoped under .b-app.l-ledger. Tool screens are drawn with
+   inline styles that read var(--t-*), so where a ground is dark the ground
+   REDEFINES those tokens for its subtree rather than fighting each inline
+   colour. !important appears only where an inline style has to be beaten:
+   mostly a size, padding or font, and a few colours a screen sets inline (the
+   toast, the Explore save star, a done Move-in step, a menu row's hover). Each
+   use says which.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── tokens: type, shape, and the few derived colours ─────────────────── */
+.b-app.l-ledger {
+  /* IBM Plex Sans is loaded at 400 to 700 and IBM Plex Mono at 400 to 600. */
+  --t-head: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --t-font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --t-headwt: 600;
+  --t-track: 0;
+  --t-up: none;
+  --t-rad: 8px;
+  --t-radlg: 12px;
+  --t-radbtn: 8px;
+  --lg-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* The originals, kept under their own names: a dark ground redefines --t-ink and friends inside it. */
+  --lg-ink: var(--t-ink);
+  --lg-mut: var(--t-mut);
+  /* The quieter text on the dark ground (the community's name, a tile's label, a line under a figure):
+     the light text pulled toward the ground, 5.3:1 or better on --t-acc2 under every theme. */
+  --lg-soft: color-mix(in srgb, var(--t-onacc2) 78%, var(--t-acc2));
+  /* A hairline on the dark ground, and the edge of a control on it that is meant to be seen (3:1 or better). */
+  --lg-dline: color-mix(in srgb, var(--t-onacc2) 20%, var(--t-acc2));
+  --lg-dctl: color-mix(in srgb, var(--t-onacc2) 62%, var(--t-acc2));
+  /* The edge of a control on the light ground (a field, an outline button, the empty plan dots): ink pulled
+     toward the tile until it is a little over 3:1 against the tile and the page alike. */
+  --lg-ctl: color-mix(in srgb, var(--t-ink) 56%, var(--t-sur));
+  /* The board's cyan on the dark tile: the gauge's fill, the chosen home, the tour button on the dark bars.
+     Where a theme's accent is too close to its dark colour to be told apart (see the overrides below) the
+     light text is used in its place, with the dark colour on it. */
+  --lg-hi: var(--t-acc);
+  --lg-onhi: var(--t-onacc);
+  /* The empty part of a ring or a track on a light tile. The filled part is drawn in the text-safe accent,
+     which clears 3.9:1 against it and 4.5:1 against the tile under every theme. */
+  --lg-track: color-mix(in srgb, var(--t-ink) 11%, var(--t-sur));
+  --lg-shadow: 0 1px 2px color-mix(in srgb, var(--t-acc2) 8%, transparent);
+
+  --lg-gutter: 12px;
+  --lg-gap: 10px;
+  --lg-bar-h: 64px;
+  --lg-rail: 88px;
+
+  font-family: var(--t-font);
+  font-size: 16px;
+  line-height: 1.5;
+  /* Lining, tabular figures, so prices and payments line up from tile to tile. */
+  font-variant-numeric: lining-nums tabular-nums;
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .b-app.l-ledger { --lg-gutter: 20px; --lg-gap: 12px; }
+}
+@media (min-width: 1280px) {
+  .b-app.l-ledger { --lg-gutter: 28px; }
+}
+
+/* The themes whose accent sits too close to their dark colour to show on it (under 3:1): Modern Blue & White,
+   Deep Purple & Lavender, Teal & Navy, Slate Blue & Soft Green, Rust & Desert Plum. Three more clear 3:1 on
+   the dark ground but not against the gauge's track, the light text at 20% over it (Forest Green & Warm Gold
+   2.8:1, Charcoal & Bronze 2.7:1, Warm Modern Real Estate 2.1:1). On the dark grounds their highlight is the
+   light text instead, which clears 4.5:1 against that track on all eight. */
+.b-app.l-ledger.t-azure,
+.b-app.l-ledger.t-violet,
+.b-app.l-ledger.t-teal,
+.b-app.l-ledger.t-sage,
+.b-app.l-ledger.t-redrock,
+.b-app.l-ledger.t-forest,
+.b-app.l-ledger.t-bronze,
+.b-app.l-ledger.t-clay {
+  --lg-hi: var(--t-onacc2);
+  --lg-onhi: var(--t-acc2);
+}
+
+/* Every dark ground redefines the tokens its contents read, so inline colours such as var(--t-mut) land on a
+   legible value without any !important, and the focus ring (drawn in --t-accT) turns light where the ground
+   is dark. */
+.b-app.l-ledger .lg-rail,
+.b-app.l-ledger .lg-stick,
+.b-app.l-ledger .lg-tile--dark {
+  --t-ink: var(--t-onacc2);
+  --t-mut: var(--lg-soft);
+  --t-accT: var(--t-onacc2);
+  --t-line: var(--lg-dline);
+  color: var(--t-onacc2);
+}
+/* The header is dark until the rail takes over from 1024px; then the bar beside the rail is on the page's
+   own light ground and keeps the page's tokens. A visitor with no rail keeps the dark bar at every width. */
+@media (max-width: 1023px) {
+  .b-app.l-ledger .lg-head {
+    --t-ink: var(--t-onacc2);
+    --t-mut: var(--lg-soft);
+    --t-accT: var(--t-onacc2);
+    --t-line: var(--lg-dline);
+    color: var(--t-onacc2);
+  }
+}
+@media (min-width: 1024px) {
+  .b-app.l-ledger .lg-head:not(.lg-head--rail) {
+    --t-ink: var(--t-onacc2);
+    --t-mut: var(--lg-soft);
+    --t-accT: var(--t-onacc2);
+    --t-line: var(--lg-dline);
+    color: var(--t-onacc2);
+  }
+}
+
+/* Muted text the screens draw inline on a tint wash. Muted ink on the washes misses 4.5:1 on a few themes
+   (Modern Blue & White's is 4.3:1), so inside a wash the muted token is the full ink. The token is redefined
+   on the element, so the inline declaration is not fought with !important. */
+.b-app.l-ledger [style*='background: var(--t-tint2)'],
+.b-app.l-ledger [style*='background: var(--t-tint)'] { --t-mut: var(--lg-ink); }
+
+/* ── focus, motion ────────────────────────────────────────────────────── */
+/* The text-safe accent clears 3:1 as a ring on every light ground here; on the dark grounds the
+   redefinition above turns it light. */
+.b-app.l-ledger a:focus-visible,
+.b-app.l-ledger button:focus-visible,
+.b-app.l-ledger [role='button']:focus-visible,
+.b-app.l-ledger summary:focus-visible,
+.b-app.l-ledger input:focus-visible,
+.b-app.l-ledger select:focus-visible,
+.b-app.l-ledger textarea:focus-visible,
+.b-app.l-ledger h2[tabindex='-1']:focus-visible {
+  outline: 2px solid var(--t-accT);
+  outline-offset: 2px;
+}
+.b-app.l-ledger h2[tabindex='-1']:focus:not(:focus-visible) { outline: none; }
+.b-app.l-ledger iframe:focus-visible { outline: 2px solid var(--t-accT); outline-offset: -3px; }
+/* The skip link is the first stop on every screen and lands on the dark header, whose colour its usual fill
+   shares. A light pill with a light ring, and a dark halo beyond the ring, reads over the header and over a
+   light page alike. */
+.b-app.l-ledger .b-skip { border-radius: var(--t-radbtn); }
+.b-app.l-ledger .b-skip:focus-visible {
+  background: var(--t-sur);
+  color: var(--lg-ink);
+  outline: 2px solid var(--t-onacc2);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--t-acc2);
+}
+
+/* The page keeps its place under the sticky header when a control is focused from the keyboard (WCAG 2.2
+   Focus Not Obscured), and the rail's Tools item lands the tools tile clear of it too. */
+:root:has(.b-app.l-ledger) { scroll-padding-top: calc(var(--lg-bar-h, 64px) + 16px + env(safe-area-inset-top)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .b-app.l-ledger *,
+  .b-app.l-ledger *::before,
+  .b-app.l-ledger *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── type ─────────────────────────────────────────────────────────────── */
+.b-app.l-ledger .b-head {
+  font-family: var(--t-head);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-transform: none;
+  line-height: 1.2;
+}
+.b-app.l-ledger .b-lbl {
+  font: 600 12px/1.4 var(--t-font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--t-mut);
+}
+.b-app.l-ledger .lg-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* Every figure in IBM Plex Mono, with its digits the same width. */
+.b-app.l-ledger .lg-fig,
+.b-app.l-ledger .lg-num {
+  font-family: var(--lg-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Every screen's title. The sizes are inline (22 to 25px), hence !important; the landing page, a guide
+   and a home set theirs below. */
+.b-app.l-ledger .b-main .b-shell > h1.b-head:not(.b-landing__welcome):not(.b-article__title) {
+  margin: 0 0 4px !important;
+  font-size: clamp(24px, 6.6vw, 30px) !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.b-app.l-ledger .b-main .b-shell > h1.b-head:not(.b-landing__welcome):not(.b-article__title) + p {
+  margin: 0 0 16px !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+  color: var(--t-mut) !important;
+}
+
+/* The shared screens size their text inline on a scale made for a phone-width column of 10 to 14px. Nothing
+   here is set under 12px, so the smallest inline sizes are brought up to it. Inline, hence !important. */
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 10px'],
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 10.5px'],
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 11px'],
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 11.5px'],
+.b-app.l-ledger .b-sheet [style*='font-size: 10.5px'],
+.b-app.l-ledger .b-sheet [style*='font-size: 11px'],
+.b-app.l-ledger .b-sheet [style*='font-size: 11.5px'] { font-size: 12.5px !important; line-height: 1.5 !important; }
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 12px'],
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 12.5px'],
+.b-app.l-ledger .b-sheet [style*='font-size: 12px'],
+.b-app.l-ledger .b-sheet [style*='font-size: 12.5px'] { font-size: 13.5px !important; }
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 13px'],
+.b-app.l-ledger .b-main .b-shell [style*='font-size: 13.5px'],
+.b-app.l-ledger .b-sheet [style*='font-size: 13px'],
+.b-app.l-ledger .b-sheet [style*='font-size: 13.5px'] { font-size: 14.5px !important; }
+
+/* ── the page column ──────────────────────────────────────────────────── */
+/* Tool and form screens are one comfortable column; the dashboard, Explore Homes and a home's page widen. */
+.b-app.l-ledger .b-shell {
+  max-width: 600px;
+  padding-left: var(--lg-gutter);
+  padding-right: var(--lg-gutter);
+  box-sizing: border-box;
+}
+.b-app.l-ledger .b-main > .b-shell { padding-top: 20px !important; } /* beats the inline 16 to 20px */
+.b-app.l-ledger .b-main > .b-shell.b-landing { padding-top: calc(20px + env(safe-area-inset-top)) !important; }
+
+/* ── buttons, chips, fields ───────────────────────────────────────────── */
+/* The accent button is the theme's accent fill with its own text colour, which clears 5:1 on every theme;
+   the outline one is the dark colour. 8px corners, 48px tall. */
+.b-app.l-ledger .b-btn {
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--t-radbtn);
+  font: 600 15px/1.25 var(--t-font);
+  letter-spacing: 0;
+  transition: filter 0.15s ease, background-color 0.15s ease;
+}
+.b-app.l-ledger .b-btn:not(:disabled):hover { filter: brightness(0.94); }
+.b-app.l-ledger .b-btn-outline {
+  background: transparent;
+  color: var(--t-acc2);
+  border-color: var(--t-acc2);
+}
+.b-app.l-ledger .b-btn-outline:not(:disabled):hover { filter: none; background: var(--t-tint); }
+/* "Saved to My Home Plan" paints the accent fill inline; its edge follows the fill. */
+.b-app.l-ledger .b-btn-outline[style*='background: var(--t-acc)'] { border-color: var(--t-acc); }
+.b-app.l-ledger .b-main .b-btn + .b-btn,
+.b-app.l-ledger .b-main .b-btn + a.b-btn { margin-top: 10px; }
+
+/* Choice chips: 8px corners, the chosen one filled in the dark colour. */
+.b-app.l-ledger .b-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--lg-ctl);
+  border-radius: var(--t-radbtn);
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font: 500 14px/1.25 var(--t-font);
+  /* Three loan types in a row do not all fit on one line at 320px. */
+  white-space: normal;
+  min-width: 0;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+@media (max-width: 400px) {
+  .b-app.l-ledger .b-pill { padding: 6px 8px; font-size: 13.5px; }
+}
+.b-app.l-ledger .b-pill:hover { border-color: var(--t-acc2); }
+.b-app.l-ledger .b-pill[data-on='true'] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); font-weight: 600; }
+/* The price beside a home's name is faded to 75% inline, which takes the chip's text under 4.5:1. It is a
+   figure, so it is set in the mono as well. */
+.b-app.l-ledger .b-pill > span[style*='opacity'] { opacity: 1 !important; font-family: var(--lg-mono); font-weight: 500; }
+
+.b-app.l-ledger .b-field { gap: 6px; }
+.b-app.l-ledger .b-in {
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid var(--lg-ctl);
+  border-radius: var(--t-radbtn);
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font: 400 16px/1.4 var(--t-font);
+  font-variant-numeric: tabular-nums;
+}
+/* A money field holds a figure, so it is typed in the mono. */
+.b-app.l-ledger .b-in[inputmode='numeric'] { font-family: var(--lg-mono); font-weight: 500; }
+.b-app.l-ledger .b-in:focus-visible { border-color: var(--t-acc2); outline: 2px solid var(--t-accT); outline-offset: 2px; }
+.b-app.l-ledger .b-in::placeholder { color: var(--t-mut); opacity: 1; }
+
+/* A tick box is a tap target too, and the browser's own is 13 to 20px. The box is drawn at 22px inside a
+   44px hit area; the negative margin gives the room back, so a row keeps the height it had. The size is
+   inline, hence !important. */
+.b-app.l-ledger input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px !important;
+  height: 44px !important;
+  margin: -12px;
+  background: transparent;
+  cursor: pointer;
+}
+.b-app.l-ledger input[type='checkbox']::before,
+.b-app.l-ledger input[type='checkbox']::after { content: ''; grid-area: 1 / 1; }
+.b-app.l-ledger input[type='checkbox']::before {
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--lg-ctl);
+  border-radius: 5px;
+  background: var(--t-sur);
+}
+.b-app.l-ledger input[type='checkbox']:checked::before { background: var(--t-acc2); border-color: var(--t-acc2); }
+.b-app.l-ledger input[type='checkbox']:checked::after {
+  width: 6px;
+  height: 11px;
+  margin-top: -2px;
+  border: solid var(--t-onacc2);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.b-app.l-ledger input[type='checkbox']:focus-visible { outline-offset: -6px; }
+
+/* ── surfaces ─────────────────────────────────────────────────────────── */
+.b-app.l-ledger .b-card {
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  box-shadow: var(--lg-shadow);
+}
+.b-app.l-ledger .b-strip {
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  background: var(--t-tint);
+  color: var(--t-ink);
+  font-size: 14.5px;
+}
+/* A thin rule opens a section, not a fading gradient. */
+.b-app.l-ledger .b-rule { height: 1px; border-radius: 0; background: var(--t-line); }
+.b-app.l-ledger .b-bar { height: 8px; border-radius: 3px; background: var(--lg-track); }
+.b-app.l-ledger .b-bar > span { border-radius: 3px; background: var(--t-accT); }
+/* A picture still to come is a flat panel, not a striped one. */
+.b-app.l-ledger .photo-empty { background: var(--t-tint2); color: var(--t-ink); font-size: 12.5px; }
+
+/* Rows that are cards (Homes I Like, the plan's answers): the price on the right in the mono. */
+.b-app.l-ledger .b-main button.b-card { padding: 14px 16px !important; } /* beats the inline 14px 16px on a 12px base */
+.b-app.l-ledger .b-main button.b-card:hover { border-color: var(--lg-ctl); }
+.b-app.l-ledger .b-main button.b-card .b-head[style*='font-size: 16px'] { font-size: 17px !important; }
+/* A saved home's row may wrap: where the name and the price do not fit side by side (a 320px phone), the
+   price drops under the name. */
+.b-app.l-ledger .b-main button.b-card[style*='justify-content: space-between'] { flex-wrap: wrap; row-gap: 4px; }
+.b-app.l-ledger .b-main button.b-card[style*='justify-content: space-between'] > span:last-child {
+  font: 500 17px/1.2 var(--lg-mono) !important;
+  white-space: nowrap;
+}
+/* The plan's list of saved homes: the price is a figure. */
+.b-app.l-ledger .b-main .b-card > div[style*='space-between'] > span:last-child { font-family: var(--lg-mono); font-weight: 500; }
+
+/* ── the answer on a tool screen: a figure tile ───────────────────────── */
+/* The one big number on a tool screen is drawn the way the dashboard draws its figures: a white tile, the
+   label small, the figure large in the mono. */
+.b-app.l-ledger .b-result {
+  padding: 16px 16px 18px !important; /* beats the inline 18px */
+  border-radius: var(--t-radlg);
+}
+.b-app.l-ledger .b-result .b-lbl { font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--t-mut) !important; } /* Afford paints its label in the accent inline */
+.b-app.l-ledger .b-result .b-bignum {
+  font: 500 clamp(40px, 12vw, 52px)/1.05 var(--lg-mono) !important; /* beats the inline 34px */
+  letter-spacing: -0.02em;
+  color: var(--t-ink);
+}
+.b-app.l-ledger .b-result .b-bignum > span {
+  margin-left: 4px;
+  font: 400 15px/1 var(--t-font) !important;
+  color: var(--t-mut) !important;
+  letter-spacing: 0;
+}
+/* Afford's range is two figures with "to" between them: large, not payment-sized. */
+.b-app.l-ledger .b-result > .b-head:not(.b-bignum) {
+  font: 500 clamp(24px, 7vw, 30px)/1.15 var(--lg-mono) !important;
+  letter-spacing: -0.01em;
+}
+.b-app.l-ledger .b-result > .b-head:not(.b-bignum) > span { font-family: var(--t-font); font-size: 0.7em; }
+.b-app.l-ledger .b-result .b-resultrow { font-size: 14.5px !important; padding-top: 9px !important; }
+.b-app.l-ledger .b-result .b-resultrow > span:last-child { font-family: var(--lg-mono); font-weight: 500 !important; }
+.b-app.l-ledger .b-result .b-resultrow > span:first-child { color: var(--t-mut); }
+/* The figures elsewhere on a tool screen: Afford's levers, Compare's table. */
+.b-app.l-ledger .b-main .b-card span[style*='flex: none'][style*='font-weight: 700'],
+.b-app.l-ledger .b-main .b-card td[style*='text-align: right'] { font-family: var(--lg-mono); font-weight: 500 !important; }
+
+/* ── header ───────────────────────────────────────────────────────────── */
+.b-app.l-ledger .lg-head {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding-top: env(safe-area-inset-top);
+  background: var(--t-acc2);
+}
+.b-app.l-ledger .lg-head__in {
+  min-height: var(--lg-bar-h);
+  margin: 0 auto;
+  padding: 0 8px 0 var(--lg-gutter);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+}
+.b-app.l-ledger .lg-head__in:has(> .lg-head__back) { padding-left: 6px; }
+.b-app.l-ledger .lg-head__icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--t-radbtn);
+  background: transparent;
+  color: var(--t-ink);
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-head__icon:hover,
+.b-app.l-ledger .lg-head__saved:hover { background: color-mix(in srgb, var(--t-ink) 12%, transparent); }
+/* The names are what give way when the header is crowded. They have to be allowed to shrink, or a long name
+   runs under the buttons and scrolls the page sideways: the community's name and place run to an ellipsis,
+   and whose dashboard it is wraps onto a second line (only a name too long for two lines is cut short). */
+.b-app.l-ledger .lg-head__id {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  overflow: hidden;
+}
+.b-app.l-ledger .lg-head__kicker {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 16px;
+  color: var(--t-mut);
+  white-space: nowrap;
+}
+.b-app.l-ledger .lg-head__name,
+.b-app.l-ledger .lg-head__loc { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.b-app.l-ledger .lg-head__name { flex: 0 1 auto; }
+.b-app.l-ledger .lg-head__loc { flex: 0 10 auto; white-space: pre; }
+.b-app.l-ledger .lg-head__mark { flex: 0 1 auto; min-width: 0; }
+.b-app.l-ledger .lg-head__mark .b-mark__img { max-height: 22px; }
+.b-app.l-ledger .lg-head__mark--light { display: none; }
+.b-app.l-ledger .lg-head__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  font: 600 18px/22px var(--t-head);
+  color: var(--t-ink);
+}
+.b-app.l-ledger .lg-head__sp { flex: 1 1 0; min-width: 0; }
+.b-app.l-ledger .lg-head__saved {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--t-radbtn);
+  color: var(--t-ink);
+  font: 500 15px/1 var(--lg-mono);
+  text-decoration: none;
+}
+.b-app.l-ledger .lg-head__saved[aria-current] { background: color-mix(in srgb, var(--t-ink) 16%, transparent); }
+/* On a phone a screen with a back button has four things in the bar, and under 360px the name had about
+   140px. The heart gives back some padding and, under 360px, the name steps down a size, so a first name of
+   eight letters or so sits on one line from 360px and a short one at 320px; a longer one wraps (see above). */
+@media (max-width: 899px) {
+  .b-app.l-ledger .lg-head__saved { padding: 0 6px; gap: 4px; }
+}
+@media (max-width: 359px) {
+  .b-app.l-ledger .lg-head__title { font-size: 16px; line-height: 20px; }
+}
+/* The sticky bar carries these on phones; from 900px it goes and the header takes over. On the dark bar the
+   tour is the one filled button, financing and the plan are outlines. */
+.b-app.l-ledger .lg-head__btn {
+  display: none;
+  flex: none;
+  align-items: center;
+  min-height: 44px;
+  margin-left: 6px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--t-radbtn);
+  font: 600 14px/1 var(--t-font);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-head__btn--tour { background: var(--lg-hi); color: var(--lg-onhi); }
+.b-app.l-ledger .lg-head__btn--finance,
+.b-app.l-ledger .lg-head__btn--plan { background: transparent; color: var(--t-ink); border-color: var(--lg-dctl); }
+.b-app.l-ledger .lg-head__btn--tour:hover { filter: brightness(0.94); }
+.b-app.l-ledger .lg-head__btn--finance:hover,
+.b-app.l-ledger .lg-head__btn--plan:hover { background: color-mix(in srgb, var(--t-ink) 12%, transparent); }
+.b-app.l-ledger .lg-head__menu { margin-left: 2px; }
+/* A visitor reading the public guides gets the way in at every width. */
+.b-app.l-ledger .lg-head__signin { display: inline-flex; margin-right: 4px; }
+@media (min-width: 900px) {
+  .b-app.l-ledger .lg-head__btn { display: inline-flex; }
+}
+
+/* The rail: hidden until there is room for it. */
+.b-app.l-ledger .lg-rail { display: none; }
+
+/* From 1024px: the board's computer view. A dark rail down the left, the bar beside it light, the page and
+   the footer moved over to make room. The rail is inside the header, which is sticky, not transformed, so
+   the rail can be fixed to the screen from inside it. */
+@media (min-width: 1024px) {
+  .b-app.l-ledger { --lg-bar-h: 72px; }
+  .b-app.l-ledger .lg-head--rail { padding-left: var(--lg-rail); background: var(--t-bg); border-bottom: 1px solid var(--t-line); }
+  .b-app.l-ledger .lg-head--rail ~ .b-main,
+  .b-app.l-ledger .lg-head--rail ~ .b-footer { margin-left: var(--lg-rail); }
+  .b-app.l-ledger .lg-head--rail .lg-head__in { padding: 0 var(--lg-gutter); gap: 4px; }
+  .b-app.l-ledger .lg-head--rail .lg-head__in:has(> .lg-head__back) { padding-left: calc(var(--lg-gutter) - 10px); }
+  .b-app.l-ledger .lg-head--rail .lg-head__mark--dark { display: none; }
+  .b-app.l-ledger .lg-head--rail .lg-head__mark--light { display: inline-flex; }
+  .b-app.l-ledger .lg-head--rail .lg-head__title { font-size: 20px; line-height: 26px; }
+  .b-app.l-ledger .lg-head--rail .lg-head__saved {
+    border-color: var(--lg-ctl);
+    background: var(--t-sur);
+  }
+  .b-app.l-ledger .lg-head--rail .lg-head__saved:hover { background: var(--t-tint); }
+  .b-app.l-ledger .lg-head--rail .lg-head__saved[aria-current] { background: var(--t-tint); border-color: var(--t-acc2); }
+  .b-app.l-ledger .lg-head--rail .lg-head__btn--tour { background: var(--t-acc); color: var(--t-onacc); }
+  .b-app.l-ledger .lg-head--rail .lg-head__btn--finance { color: var(--t-acc2); border-color: var(--t-acc2); }
+  .b-app.l-ledger .lg-head--rail .lg-head__btn--finance:hover { background: var(--t-tint); }
+  /* The plan and the menu are in the rail now. */
+  .b-app.l-ledger .lg-head--rail .lg-head__btn--plan,
+  .b-app.l-ledger .lg-head--rail .lg-head__menu { display: none; }
+  .b-app.l-ledger .lg-head--rail .lg-head__icon:hover { background: color-mix(in srgb, var(--t-ink) 8%, transparent); }
+
+  .b-app.l-ledger .lg-rail {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 41;
+    width: var(--lg-rail);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: calc(12px + env(safe-area-inset-top)) 8px calc(12px + env(safe-area-inset-bottom));
+    background: var(--t-acc2);
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+  .b-app.l-ledger .lg-rail__list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .b-app.l-ledger .lg-rail__item {
+    width: 100%;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 2px;
+    border: 0;
+    border-radius: var(--t-radbtn);
+    background: transparent;
+    color: var(--t-mut);
+    font: 500 12px/1.2 var(--t-font);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .b-app.l-ledger .lg-rail__item:hover { background: color-mix(in srgb, var(--t-onacc2) 12%, transparent); color: var(--t-onacc2); }
+  .b-app.l-ledger .lg-rail__item[aria-current='page'] { background: var(--lg-hi); color: var(--lg-onhi); font-weight: 600; }
+  .b-app.l-ledger .lg-rail__menu { margin-top: auto; }
+  .b-app.l-ledger .lg-rail__word { overflow-wrap: anywhere; }
+}
+
+/* ── sticky bar (phones) ──────────────────────────────────────────────── */
+.b-app.l-ledger .lg-stick {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 45;
+  /* One column per button, all the same width: two or three, or one on the plan. */
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  background: var(--t-acc2);
+  box-shadow: 0 -6px 16px -10px rgba(0, 0, 0, 0.35);
+}
+.b-app.l-ledger .lg-stick__btn {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--t-radbtn);
+  font: 600 15px/1.15 var(--t-font);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-stick__btn--tour { background: var(--lg-hi); color: var(--lg-onhi); }
+.b-app.l-ledger .lg-stick__btn--finance,
+.b-app.l-ledger .lg-stick__btn--plan { background: transparent; color: var(--t-onacc2); border-color: var(--lg-dctl); }
+/* Three buttons on a 320px phone: a little smaller, and they wrap to two lines rather than clip. */
+.b-app.l-ledger .lg-stick:has(.lg-stick__btn--finance) > * { font-size: 14px; padding-inline: 4px; }
+@media (min-width: 900px) {
+  .b-app.l-ledger .lg-stick { display: none; }
+}
+/* A phone on its side has about 390px of height: the header scrolls away and the bar slims down. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .b-app.l-ledger .lg-head { position: relative; }
+  .b-app.l-ledger .lg-stick__btn { min-height: 44px; }
+}
+@media print {
+  .b-app.l-ledger .lg-head,
+  .b-app.l-ledger .lg-rail,
+  .b-app.l-ledger .lg-stick { display: none !important; }
+  .b-app.l-ledger .b-main,
+  .b-app.l-ledger .b-footer { margin-left: 0 !important; }
+}
+
+/* ── footer: the light ground ─────────────────────────────────────────── */
+/* The printed plan's footer (.b-footer--print) keeps the shared print look. */
+.b-app.l-ledger .b-footer:not(.b-footer--print) {
+  margin-top: 24px;
+  padding: 28px var(--lg-gutter) calc(32px + env(safe-area-inset-bottom));
+  background: var(--t-sur);
+  border-top: 1px solid var(--t-line);
+  font-size: 14px;
+}
+.b-app.l-ledger .b-footer--light .b-footer__brand { gap: 16px; margin-bottom: 14px; }
+.b-app.l-ledger .b-footer--light .b-footer__id { font-size: 14px; color: var(--t-ink); }
+.b-app.l-ledger .b-footer--light .b-footer__fine { font-size: 12.5px; line-height: 1.65; max-width: 96ch; }
+.b-app.l-ledger .b-footer--light .b-footer__links {
+  margin: 12px 0 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--t-line);
+}
+.b-app.l-ledger .b-footer--light .b-footer__links a { font-size: 14px; }
+
+/* Room for the bar. The footer is the last thing on every screen that has the bar, so its bottom padding
+   keeps the disclosures and the last link clear of it; the toast (fixed to the foot of the screen, inline)
+   rises above it too. The room is kept on every screen first and only taken back where :has() can see the
+   bar is not drawn: a browser without :has() keeps a little space on the few screens with no bar, rather
+   than a bar over the footer's last lines on all the others. */
+@media (max-width: 899px) {
+  .b-app.l-ledger .b-footer:not(.b-footer--print) { padding-bottom: calc(32px + 72px + env(safe-area-inset-bottom)); }
+  .b-app.l-ledger > [role='status'] { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+}
+@supports selector(:has(*)) {
+  @media (max-width: 899px) {
+    .b-app.l-ledger:not(:has(.lg-stick)) .b-footer:not(.b-footer--print) { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+    .b-app.l-ledger:not(:has(.lg-stick)) > [role='status'] { bottom: calc(24px + env(safe-area-inset-bottom)) !important; }
+    /* A control focused from the keyboard is scrolled clear of the bar (WCAG 2.2 Focus Not Obscured). */
+    :root:has(.b-app.l-ledger .lg-stick) { scroll-padding-bottom: 88px; }
+  }
+}
+
+/* ── the dashboard ────────────────────────────────────────────────────── */
+/* As wide as the screen allows, minus the rail: the bento uses the full width, up to where a tile would
+   stop reading as a tile. */
+.b-app.l-ledger .b-shell.lg-home {
+  max-width: 1680px;
+  padding-bottom: 32px;
+}
+.b-app.l-ledger .lg-intro { margin: 0 2px 14px; }
+.b-app.l-ledger .lg-h1 {
+  margin: 0;
+  font: 600 22px/1.25 var(--t-head);
+  letter-spacing: -0.01em;
+  color: var(--t-ink);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.b-app.l-ledger .lg-lede { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--t-mut); max-width: 64ch; }
+.b-app.l-ledger .lg-meta { margin: 8px 0 0; font-size: 13px; line-height: 1.4; color: var(--t-mut); }
+
+/* The bento: two columns on a phone, four from 768px. Each tile carries its width at both (see pack in
+   Home.jsx), so no row has a hole whichever tiles a community draws. Under 360px every tile takes the
+   whole row. */
+.b-app.l-ledger .lg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lg-gap);
+  align-items: stretch;
+}
+.b-app.l-ledger .lg-s2-1 { grid-column: span 1; }
+.b-app.l-ledger .lg-s2-2 { grid-column: span 2; }
+@media (max-width: 359px) {
+  .b-app.l-ledger .lg-grid { grid-template-columns: minmax(0, 1fr); }
+  .b-app.l-ledger .lg-grid > * { grid-column: 1 / -1; }
+}
+@media (min-width: 768px) {
+  .b-app.l-ledger .lg-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .b-app.l-ledger .lg-s4-1 { grid-column: span 1; }
+  .b-app.l-ledger .lg-s4-2 { grid-column: span 2; }
+  .b-app.l-ledger .lg-s4-3 { grid-column: span 3; }
+  .b-app.l-ledger .lg-s4-4 { grid-column: span 4; }
+}
+
+/* A tile: white, a thin rule round it, 12px corners. Its way in sits along its foot. */
+.b-app.l-ledger .lg-tile {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 0;
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  background: var(--t-sur);
+  color: var(--t-ink);
+  box-shadow: var(--lg-shadow);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+/* A tile with nothing along its foot keeps its padding there. */
+.b-app.l-ledger .lg-tile:not(:has(> .lg-go)) { padding-bottom: 14px; }
+.b-app.l-ledger .lg-tile:has(.lg-go--stretch:hover) { border-color: var(--lg-ctl); }
+.b-app.l-ledger .lg-tile__head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.b-app.l-ledger .lg-tile__title {
+  margin: 0;
+  min-width: 0;
+  font: 600 14px/1.3 var(--t-head);
+  color: var(--t-ink);
+  overflow-wrap: anywhere;
+}
+.b-app.l-ledger .lg-tile__head > .lg-tile__title { flex: 0 1 auto; }
+.b-app.l-ledger .lg-tile__kicker { margin: 0; font: 600 13px/1.3 var(--t-head); color: var(--t-mut); }
+/* The "est." tag: a small boxed word in the mono, as the board draws it. */
+.b-app.l-ledger .lg-est {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--lg-ctl);
+  border-radius: 4px;
+  font: 500 12px/18px var(--lg-mono);
+  color: var(--t-mut);
+}
+.b-app.l-ledger .lg-tile__head > .lg-est:last-child { margin-left: auto; }
+.b-app.l-ledger .lg-est--dark { border-color: var(--lg-dctl); }
+.b-app.l-ledger .lg-small { margin: 0; font-size: 13px; line-height: 1.45; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-app.l-ledger .lg-terms { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-app.l-ledger .lg-per { margin-left: 3px; font: 400 14px/1 var(--t-font); color: var(--t-mut); }
+.b-app.l-ledger .lg-inplan {
+  align-self: flex-start;
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: var(--t-tint);
+  color: var(--t-accT);
+  font: 600 12px/20px var(--t-font);
+  white-space: nowrap;
+}
+
+/* A tile's way in: a line along its foot with a hairline over it, 44px tall. A stretched one lays a
+   transparent cover over the whole tile, so a tap anywhere opens it; its focus ring goes round the tile. */
+.b-app.l-ledger .lg-go {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: auto;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--t-line);
+  background: none;
+  color: var(--t-accT);
+  font: 600 14px/1.25 var(--t-font);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-go > svg { flex: none; }
+.b-app.l-ledger .lg-go:hover > span { text-decoration: underline; text-underline-offset: 3px; }
+.b-app.l-ledger .lg-go--stretch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--t-radlg);
+}
+.b-app.l-ledger .lg-go--stretch:focus-visible { outline: none; }
+.b-app.l-ledger .lg-go--stretch:focus-visible::after { outline: 2px solid var(--t-accT); outline-offset: 2px; }
+.b-app.l-ledger .lg-go--dark { color: var(--t-onacc2); }
+
+.b-app.l-ledger .lg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: var(--t-radbtn);
+  font: 600 14.5px/1.2 var(--t-font);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.15s ease, background-color 0.15s ease;
+}
+.b-app.l-ledger .lg-btn--acc { background: var(--t-acc); color: var(--t-onacc); }
+.b-app.l-ledger .lg-btn--hi { background: var(--lg-hi); color: var(--lg-onhi); }
+.b-app.l-ledger .lg-btn--dark { background: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-ledger .lg-btn--line { background: transparent; color: var(--t-acc2); border-color: var(--t-acc2); }
+.b-app.l-ledger .lg-btn--acc:hover,
+.b-app.l-ledger .lg-btn--hi:hover { filter: brightness(0.94); }
+.b-app.l-ledger .lg-btn--dark:hover { filter: brightness(1.15); }
+.b-app.l-ledger .lg-btn--line:hover { background: var(--t-tint); }
+.b-app.l-ledger .lg-pair { display: flex; flex-wrap: wrap; gap: 8px; }
+.b-app.l-ledger .lg-pair > * { flex: 1 1 180px; }
+
+/* Buying power: the one dark tile. */
+.b-app.l-ledger .lg-tile--dark {
+  border-color: var(--t-acc2);
+  background: var(--t-acc2);
+}
+.b-app.l-ledger .lg-tile--dark .lg-tile__title { color: var(--lg-soft); }
+.b-app.l-ledger .lg-power__main { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.b-app.l-ledger .lg-power__text { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-bottom: 6px; }
+.b-app.l-ledger .lg-power__fig {
+  margin: 0;
+  font: 500 32px/1.1 var(--lg-mono);
+  letter-spacing: -0.01em;
+  color: var(--t-onacc2);
+  white-space: nowrap;
+}
+.b-app.l-ledger .lg-power__line { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--lg-soft); max-width: 30ch; }
+.b-app.l-ledger .lg-power__none { margin: 4px 0 0; font: 500 22px/1.2 var(--t-head); color: var(--t-onacc2); }
+.b-app.l-ledger .lg-power__start { align-self: flex-start; margin: 6px 0 2px; }
+.b-app.l-ledger .lg-gauge { display: block; flex: none; width: 150px; height: auto; overflow: visible; }
+.b-app.l-ledger .lg-gauge__track { fill: none; stroke: color-mix(in srgb, var(--t-onacc2) 20%, transparent); stroke-width: 12; }
+.b-app.l-ledger .lg-gauge__fill { fill: none; stroke: var(--lg-hi); stroke-width: 12; }
+.b-app.l-ledger .lg-gauge__tick { stroke: var(--t-onacc2); stroke-width: 2; stroke-linecap: round; }
+.b-app.l-ledger .lg-gauge__dot { fill: var(--t-onacc2); stroke: var(--t-acc2); stroke-width: 2; }
+.b-app.l-ledger .lg-gauge__letter { fill: var(--t-onacc2); font: 500 12px var(--lg-mono); }
+/* The homes on the gauge, as buttons: three to a row, or two where the tile is under 400px inside (a phone, and
+   the four-column grid up to about 1100px), so a name has room. The ones it reaches are filled. */
+.b-app.l-ledger .lg-power { container: lg-power / inline-size; }
+.b-app.l-ledger .lg-chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.b-app.l-ledger .lg-chips > li { display: flex; min-width: 0; }
+.b-app.l-ledger .lg-chip {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px 8px;
+  border: 1px solid var(--lg-dctl);
+  border-radius: var(--t-radbtn);
+  background: transparent;
+  color: var(--t-onacc2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-chip:hover { background: color-mix(in srgb, var(--t-onacc2) 10%, transparent); }
+.b-app.l-ledger .lg-chip--in { border-color: var(--lg-hi); background: var(--lg-hi); color: var(--lg-onhi); }
+.b-app.l-ledger .lg-chip--in:hover { background: var(--lg-hi); filter: brightness(0.94); }
+.b-app.l-ledger .lg-chip__name { display: flex; align-items: flex-start; gap: 4px; min-width: 0; font: 600 12.5px/16px var(--t-font); }
+.b-app.l-ledger .lg-chip__letter { flex: none; font: 500 12.5px/16px var(--lg-mono); }
+/* A long name wraps onto more lines rather than being cut short. */
+.b-app.l-ledger .lg-chip__words { min-width: 0; overflow-wrap: break-word; }
+/* The price, and for a home the figure reaches the words "In budget" with a tick, beside it or under it. */
+.b-app.l-ledger .lg-chip__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-width: 0; }
+.b-app.l-ledger .lg-chip__price { font: 500 12.5px/16px var(--lg-mono); color: var(--lg-soft); }
+.b-app.l-ledger .lg-chip__fit { display: inline-flex; align-items: center; gap: 3px; font: 600 12.5px/16px var(--t-font); white-space: nowrap; }
+.b-app.l-ledger .lg-chip__fit > svg { flex: none; }
+.b-app.l-ledger .lg-chip--in .lg-chip__price { color: inherit; }
+.b-app.l-ledger .lg-power > .lg-go { margin-top: 6px; }
+@container lg-power (max-width: 399px) {
+  .b-app.l-ledger .lg-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 389px) {
+  .b-app.l-ledger .lg-power__main { flex-direction: column; align-items: flex-start; }
+  .b-app.l-ledger .lg-gauge { align-self: center; width: 170px; }
+}
+
+/* Monthly payment: the figure, a thin stacked bar of its five parts, and the key under it. */
+.b-app.l-ledger .lg-pay__fig { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; margin: 2px 0 0; }
+.b-app.l-ledger .lg-pay__fig > .lg-fig { font-size: 30px; line-height: 1.15; letter-spacing: -0.01em; }
+.b-app.l-ledger .lg-pay__fig > .lg-per { margin-left: -8px; }
+.b-app.l-ledger .lg-pay__for { flex-basis: 100%; font-size: 13.5px; line-height: 1.4; color: var(--t-mut); }
+.b-app.l-ledger .lg-stack { display: flex; gap: 2px; height: 10px; margin-top: 4px; }
+.b-app.l-ledger .lg-stack__part { flex-basis: 0; min-width: 3px; }
+.b-app.l-ledger .lg-stack__part:first-child { border-radius: 3px 0 0 3px; }
+.b-app.l-ledger .lg-stack__part:last-child { border-radius: 0 3px 3px 0; }
+/* The five parts' colours: the accent, the dark colour, a half wash of the accent, the muted ink and a pale
+   neutral, the two light ones with an edge so they hold on the white tile. Each differs from the other four
+   in lightness or in hue under every theme. (The text-safe accent is not one of them: on Modern Blue & White,
+   Deep Purple & Lavender and Teal & Navy it is the accent itself, so two parts would match.) The key says
+   each part in words and figures, so the bar is never the only way to read it. */
+.b-app.l-ledger .lg-part--pi { background: var(--t-acc); }
+.b-app.l-ledger .lg-part--tax { background: var(--t-acc2); }
+.b-app.l-ledger .lg-part--ins { background: color-mix(in srgb, var(--t-acc) 50%, var(--t-sur)); box-shadow: inset 0 0 0 1px var(--lg-ctl); }
+.b-app.l-ledger .lg-part--mi { background: var(--t-mut); }
+.b-app.l-ledger .lg-part--hoa { background: var(--t-tint2); box-shadow: inset 0 0 0 1px var(--lg-ctl); }
+.b-app.l-ledger .lg-key { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px 16px; margin: 4px 0 0; padding: 0; list-style: none; }
+.b-app.l-ledger .lg-key__row { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; line-height: 1.35; }
+.b-app.l-ledger .lg-key__swatch { flex: none; width: 10px; height: 10px; border-radius: 2px; }
+.b-app.l-ledger .lg-key__name { min-width: 0; }
+.b-app.l-ledger .lg-key__value { margin-left: auto; font: 500 13px/1.35 var(--lg-mono); white-space: nowrap; }
+@media (min-width: 420px) {
+  .b-app.l-ledger .lg-pay.lg-s2-2 .lg-key { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.b-app.l-ledger .lg-pay > .lg-terms { margin-top: 2px; }
+
+/* Down payment: a ring with the share saved in it, the two figures beside it. */
+.b-app.l-ledger .lg-down__main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.b-app.l-ledger .lg-ring { position: relative; flex: none; width: 64px; height: 64px; }
+.b-app.l-ledger .lg-ring > svg { display: block; width: 64px; height: 64px; }
+.b-app.l-ledger .lg-ring__track { fill: none; stroke: var(--lg-track); stroke-width: 8; }
+.b-app.l-ledger .lg-ring__fill { fill: none; stroke: var(--t-accT); stroke-width: 8; }
+.b-app.l-ledger .lg-ring__pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 500 14px/1 var(--lg-mono);
+}
+.b-app.l-ledger .lg-down__figs { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.b-app.l-ledger .lg-down__have { font: 500 17px/1.2 var(--lg-mono); }
+.b-app.l-ledger .lg-down__of { font-size: 13px; line-height: 1.35; color: var(--t-mut); }
+.b-app.l-ledger .lg-down__none { margin-top: 2px; }
+
+/* Plan: the count large, one dot for each tool, filled for the ones in the plan. */
+.b-app.l-ledger .lg-plan__fig { margin: 2px 0 0; }
+.b-app.l-ledger .lg-plan__fig > .lg-fig { font-size: 26px; line-height: 1.15; }
+.b-app.l-ledger .lg-plan__words { font-size: 13.5px; color: var(--t-mut); white-space: nowrap; }
+.b-app.l-ledger .lg-dots { display: flex; flex-wrap: wrap; gap: 6px; }
+.b-app.l-ledger .lg-dot { width: 14px; height: 14px; box-sizing: border-box; border: 2px solid var(--lg-ctl); border-radius: 999px; }
+.b-app.l-ledger .lg-dot--done { border-color: var(--t-accT); background: var(--t-accT); }
+
+/* Rates today: three figures in a row, a rule between each. */
+.b-app.l-ledger .lg-rates__date { margin-left: auto; font: 500 12.5px/1.3 var(--lg-mono); color: var(--t-mut); white-space: nowrap; }
+.b-app.l-ledger .lg-rates__list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 2px 0 0; }
+.b-app.l-ledger .lg-rates__item { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 0 10px; border-left: 1px solid var(--t-line); }
+.b-app.l-ledger .lg-rates__item:first-child { padding-left: 0; border-left: 0; }
+.b-app.l-ledger .lg-rates__item > dt { font-size: 13px; line-height: 1.35; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-app.l-ledger .lg-rates__item > dd { margin: 0; font-size: clamp(19px, 5.4vw, 22px); line-height: 1.25; }
+
+/* The homes: a row each, the picture small at the left, the figures at the right. */
+.b-app.l-ledger .lg-rows { margin: 0; padding: 0; list-style: none; }
+.b-app.l-ledger .lg-rows > li + li { border-top: 1px solid var(--t-line); }
+/* A row and its heart side by side. Where the tile is under 300px inside (a 320px phone) the small picture
+   gives way, so the name keeps room beside the figures and the heart. */
+.b-app.l-ledger .lg-homes { container: lg-homes / inline-size; }
+.b-app.l-ledger .lg-rows__item { display: flex; align-items: center; gap: 4px; }
+.b-app.l-ledger .lg-rows__item > .lg-row { flex: 1 1 auto; min-width: 0; }
+.b-app.l-ledger .lg-row__save {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--t-radbtn);
+  background: transparent;
+  color: var(--t-accT);
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-row__save:hover { background: var(--t-tint); }
+.b-app.l-ledger .lg-row {
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--t-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-row:hover .lg-row__title { text-decoration: underline; text-underline-offset: 3px; }
+.b-app.l-ledger .lg-row__photo {
+  flex: none;
+  width: 56px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--t-tint2);
+  color: var(--t-mut);
+}
+.b-app.l-ledger .lg-row__photo > div,
+.b-app.l-ledger .lg-row__photo img { width: 100%; height: 100%; object-fit: cover; }
+/* The small picture gives way where the tile is under 300px inside (see the row and its heart above). */
+@container lg-homes (max-width: 299px) {
+  .b-app.l-ledger .lg-row__photo { display: none; }
+}
+.b-app.l-ledger .lg-row__name { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.b-app.l-ledger .lg-row__title { font: 600 14.5px/1.3 var(--t-font); overflow-wrap: anywhere; }
+.b-app.l-ledger .lg-row__price { font: 500 13px/1.35 var(--lg-mono); color: var(--t-mut); }
+.b-app.l-ledger .lg-row__end { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; text-align: right; }
+.b-app.l-ledger .lg-row__mo { font: 500 13.5px/1.3 var(--lg-mono); }
+.b-app.l-ledger .lg-row__fit { font-size: 12.5px; line-height: 18px; color: var(--t-mut); white-space: nowrap; }
+.b-app.l-ledger .lg-row__fit--in { padding: 0 6px; border-radius: 4px; background: var(--t-tint); color: var(--t-accT); font-weight: 600; }
+.b-app.l-ledger .lg-homes > .lg-terms { padding-top: 2px; }
+.b-app.l-ledger .lg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 12px;
+  border: 1px dashed var(--lg-ctl);
+  border-radius: var(--t-radbtn);
+  color: var(--t-mut);
+  text-align: center;
+}
+.b-app.l-ledger .lg-empty__title { margin: 2px 0 0; font: 600 16px/1.3 var(--t-head); color: var(--t-ink); }
+
+/* Next step: the tool's name large, its question under it, and Start. */
+.b-app.l-ledger .lg-next__name { margin: 0; font: 600 17px/1.25 var(--t-head); overflow-wrap: anywhere; }
+.b-app.l-ledger .lg-next__go { margin: auto 0 14px; width: 100%; }
+.b-app.l-ledger .lg-next .lg-small { margin-bottom: 4px; }
+
+/* Down Payment Help: what the program is worth, and the price it stops at. */
+.b-app.l-ledger .lg-dpa__fig { margin: 0; line-height: 1.3; }
+.b-app.l-ledger .lg-dpa__fig > .lg-fig { font-size: 22px; }
+.b-app.l-ledger .lg-dpa__unit { font-size: 13.5px; color: var(--t-mut); }
+
+/* Tools: a checklist, two across where the tile is wide. */
+.b-app.l-ledger .lg-tools__count { margin-left: auto; font-size: 13px; color: var(--t-mut); white-space: nowrap; }
+.b-app.l-ledger .lg-checks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 16px; margin: 0; padding: 0; list-style: none; }
+.b-app.l-ledger .lg-checks > li { min-width: 0; border-top: 1px solid var(--t-line); }
+.b-app.l-ledger .lg-check {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--t-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.b-app.l-ledger .lg-check:hover .lg-check__name { text-decoration: underline; text-underline-offset: 3px; }
+.b-app.l-ledger .lg-check__icon { flex: none; display: inline-flex; color: var(--lg-ctl); }
+.b-app.l-ledger .lg-check--done .lg-check__icon { color: var(--t-accT); }
+.b-app.l-ledger .lg-check__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.b-app.l-ledger .lg-check__name { font: 600 14.5px/1.3 var(--t-font); overflow-wrap: anywhere; }
+.b-app.l-ledger .lg-check__q { font-size: 13px; line-height: 1.35; color: var(--t-mut); }
+.b-app.l-ledger .lg-check > .lg-inplan { align-self: center; }
+@media (min-width: 1024px) {
+  .b-app.l-ledger .lg-tools:is(.lg-s4-2, .lg-s4-3, .lg-s4-4) .lg-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.b-app.l-ledger .lg-tools:not(:has(> .lg-go)) { padding-bottom: 4px; }
+
+/* The builder incentive, as a tile on the accent's light wash. */
+.b-app.l-ledger .lg-incentive.b-incentive {
+  gap: 8px;
+  padding: 14px;
+  border-color: var(--t-line);
+  border-radius: var(--t-radlg);
+  background: var(--t-tint);
+}
+.b-app.l-ledger .b-incentive__kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
+.b-app.l-ledger .b-incentive__title { font: 600 19px/1.25 var(--t-head); }
+.b-app.l-ledger .b-incentive__body { font-size: 14.5px; }
+.b-app.l-ledger .b-incentive__fine { font-size: 12.5px; color: var(--lg-ink); }
+.b-app.l-ledger .lg-incentive .b-btn { margin-top: auto; min-height: 44px; }
+
+/* The lender. */
+.b-app.l-ledger .lg-lender__logo { align-self: flex-start; }
+.b-app.l-ledger .lg-lender__line { margin: 0; font-size: 14px; line-height: 1.5; color: var(--t-ink); }
+.b-app.l-ledger .lg-lender__legal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--t-line);
+}
+.b-app.l-ledger .lg-lender__id { display: flex; flex-direction: column; gap: 0; font-size: 13px; line-height: 1.45; color: var(--t-mut); }
+.b-app.l-ledger .lg-lender__tel { display: inline-flex; align-items: center; min-height: 44px; color: var(--t-accT); font: 500 13.5px/1.2 var(--lg-mono); }
+
+/* A place near the community. */
+.b-app.l-ledger .lg-place__icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--t-radbtn);
+  background: var(--t-tint);
+  color: var(--t-accT);
+}
+
+/* The agents: two cards across once the tile is wide. */
+.b-app.l-ledger .lg-agents .b-tour { gap: 10px; }
+.b-app.l-ledger .lg-agents .b-tour__meet { font: 600 17px/1.3 var(--t-head); }
+@media (min-width: 768px) {
+  .b-app.l-ledger .lg-agents.lg-s4-4 .b-tour { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .b-app.l-ledger .lg-agents.lg-s4-4 .b-tour__meet { grid-column: 1 / -1; }
+}
+
+/* The guides, three across once the tile is wide. */
+.b-app.l-ledger .lg-guides__list { gap: 10px; }
+@media (min-width: 768px) {
+  .b-app.l-ledger .lg-guides.lg-s4-4 .lg-guides__list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.b-app.l-ledger .lg-faq .b-faq { gap: 6px; }
+
+/* Worth knowing. */
+.b-app.l-ledger .lg-res__list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 768px) {
+  .b-app.l-ledger .lg-res.lg-s4-4 .lg-res__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.b-app.l-ledger .lg-res__title { margin: 0 0 8px; font: 600 15.5px/1.3 var(--t-head); }
+.b-app.l-ledger .lg-res__box { overflow: hidden; border: 1px solid var(--t-line); border-radius: var(--t-radbtn); background: var(--t-sur); }
+.b-app.l-ledger .lg-res__video { display: block; width: 100%; background: #000; }
+.b-app.l-ledger .lg-res__frame { position: relative; aspect-ratio: 16 / 9; }
+.b-app.l-ledger .lg-res__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* Focus inside an embedded video is the frame's own to draw; this ring on the box round it says where the keyboard is. */
+.b-app.l-ledger .lg-res__frame:focus-within { outline: 2px solid var(--t-accT); outline-offset: 2px; }
+.b-app.l-ledger .lg-res__body { margin: 0; padding: 12px 14px; font-size: 14.5px; line-height: 1.6; white-space: pre-line; }
+
+@media (min-width: 768px) {
+  .b-app.l-ledger .lg-h1 { font-size: 26px; }
+  .b-app.l-ledger .lg-intro { margin-bottom: 16px; }
+}
+@media (min-width: 1024px) {
+  .b-app.l-ledger .b-shell.lg-home { padding-top: 24px !important; }
+  .b-app.l-ledger .lg-tile { padding: 16px 16px 0; }
+  .b-app.l-ledger .lg-tile:not(:has(> .lg-go)) { padding-bottom: 16px; }
+  .b-app.l-ledger .lg-power__fig { font-size: 36px; }
+  .b-app.l-ledger .lg-pay__fig > .lg-fig { font-size: 32px; }
+  .b-app.l-ledger .lg-gauge { width: 170px; }
+}
+
+/* ── shared screens: guides, a guide, agents, the FAQ ─────────────────── */
+.b-app.l-ledger .b-gfilter .b-pill { flex: none; padding: 0 14px; }
+.b-app.l-ledger .b-glist { gap: 10px; }
+.b-app.l-ledger .b-gcard {
+  border-radius: var(--t-radlg);
+  background: var(--t-sur);
+  box-shadow: var(--lg-shadow);
+  transition: border-color 0.15s ease;
+}
+.b-app.l-ledger .b-gcard:hover { border-color: var(--lg-ctl); }
+.b-app.l-ledger .b-gcard__body { padding: 14px 16px 16px; gap: 6px; }
+.b-app.l-ledger .b-gcard__kicker { font-size: 12px; letter-spacing: 0.04em; }
+.b-app.l-ledger .b-gcard__title { font-size: 17px; line-height: 1.3; }
+.b-app.l-ledger .b-gcard__link { display: block; padding: 2px 0; }
+.b-app.l-ledger .b-gcard__link::after { border-radius: var(--t-radlg); }
+.b-app.l-ledger .b-gcard__sum { font-size: 14px; line-height: 1.5; }
+.b-app.l-ledger .b-main > .b-shell > .b-glist { margin-top: 4px; }
+@media (min-width: 768px) {
+  .b-app.l-ledger .b-main > .b-shell:has(> .b-glist) { max-width: 960px; }
+  .b-app.l-ledger .b-main > .b-shell > .b-glist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.b-app.l-ledger .b-article { max-width: 720px; }
+.b-app.l-ledger .b-article__kicker { font-size: 12px; letter-spacing: 0.04em; }
+.b-app.l-ledger .b-article__title {
+  margin: 8px 0 12px;
+  font-size: clamp(28px, 7.4vw, 40px);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.b-app.l-ledger .b-article__byline { font-size: 14px; }
+.b-app.l-ledger .b-article__note { font-size: 13.5px; }
+.b-app.l-ledger .b-article__cta { padding: 18px; border-radius: var(--t-radlg); }
+.b-app.l-ledger .b-article__cta > .b-head { font-size: 21px !important; line-height: 1.25 !important; } /* beats the inline 19px */
+.b-app.l-ledger .md { font-size: 16.5px; line-height: 1.7; }
+.b-app.l-ledger .md-h2,
+.b-app.l-ledger .md-h3 { font-family: var(--t-head); font-weight: 600; letter-spacing: -0.005em; line-height: 1.25; }
+.b-app.l-ledger .md-h2 { font-size: 24px; margin-top: 1.7em; }
+.b-app.l-ledger .md-h3 { font-size: 19px; }
+.b-app.l-ledger .md > .md-h2:first-child,
+.b-app.l-ledger .md > .md-h3:first-child { margin-top: 0; }
+.b-app.l-ledger .md-callout {
+  border: 1px solid var(--t-line);
+  border-left: 3px solid var(--t-accT);
+  border-radius: var(--t-radbtn);
+  background: var(--t-tint);
+  color: var(--t-ink);
+}
+.b-app.l-ledger .md-callout__title { font-family: var(--t-head); font-weight: 600; font-size: 18px; line-height: 1.25; }
+.b-app.l-ledger .md-link { color: var(--t-accT); text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+.b-app.l-ledger .md-img { border-radius: var(--t-radlg); }
+
+/* Local Spots and the site map: tiles of the family. */
+/* The address link under a spot is 40px tall inline; a thumb wants 44. */
+.b-app.l-ledger .b-main a[style*='min-height: 40px'] { min-height: 44px !important; }
+
+.b-app.l-ledger .b-tour__meet { font-size: 19px; line-height: 1.3; }
+.b-app.l-ledger .b-agent {
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  background: var(--t-sur);
+  box-shadow: var(--lg-shadow);
+}
+.b-app.l-ledger .b-agent__photo { border-radius: var(--t-radbtn); }
+.b-app.l-ledger .b-agent__name { font-size: 18px; line-height: 1.25; }
+/* Call, Text and Email: outlined in the dark colour, which shows on every theme (the shared accent edge is
+   too pale on the gold, cyan and green ones). */
+.b-app.l-ledger .b-agent__act {
+  min-height: 44px;
+  border: 1px solid var(--t-acc2);
+  border-radius: var(--t-radbtn);
+  color: var(--t-acc2);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.b-app.l-ledger .b-agent__act:hover { background: var(--t-tint); }
+.b-app.l-ledger .b-reach { border-radius: var(--t-radbtn); }
+@media (min-width: 768px) {
+  .b-app.l-ledger .b-main > .b-shell:has(> .b-stack > .b-agent) { max-width: 960px; }
+  .b-app.l-ledger .b-main > .b-shell > .b-stack:has(> .b-agent) { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+
+.b-app.l-ledger .b-faq__item { border-radius: var(--t-radbtn); }
+.b-app.l-ledger .b-faq__q { min-height: 48px; padding: 10px 14px; font-size: 15px; font-weight: 600; }
+.b-app.l-ledger .b-faq__a { padding: 0 14px 14px; font-size: 14.5px; line-height: 1.6; }
+
+/* ── Explore Homes, as listing tiles ──────────────────────────────────── */
+.b-app.l-ledger .b-shell.b-explore { max-width: 1280px; }
+.b-app.l-ledger .b-explore__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--lg-gap) !important; /* beats the list's inline gap of 14px */
+}
+@media (min-width: 600px) {
+  .b-app.l-ledger .b-explore__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .b-app.l-ledger .b-explore__list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.b-app.l-ledger .b-explore__card { border-radius: var(--t-radlg); box-shadow: var(--lg-shadow); transition: border-color 0.15s ease; }
+.b-app.l-ledger .b-explore__card:hover { border-color: var(--lg-ctl); }
+.b-app.l-ledger .b-explore__photo {
+  height: auto !important; /* beats the inline 130px: the photo keeps its shape at every width */
+  aspect-ratio: 16 / 10;
+  margin: 0 !important; /* beats the inline -1px, which pushed the photo past the rounded corner */
+  overflow: hidden;
+}
+.b-app.l-ledger .b-explore__photo > div,
+.b-app.l-ledger .b-explore__photo img { width: 100%; height: 100%; object-fit: cover; }
+/* The price leads, as on the dashboard: it moves above the name, in the mono. */
+.b-app.l-ledger .b-explore__title { flex-direction: column-reverse; align-items: flex-start !important; gap: 0 !important; }
+.b-app.l-ledger .b-explore__title > span:last-child { font: 500 22px/1.2 var(--lg-mono) !important; letter-spacing: -0.01em; }
+.b-app.l-ledger .b-explore__title .b-head { font: 600 15.5px/1.3 var(--t-font) !important; }
+/* The save star: a white square with the star in the text-safe accent, filled in the dark colour once saved.
+   Inline, hence !important. */
+.b-app.l-ledger .b-explore__save {
+  top: 10px !important;
+  right: 10px !important;
+  border-radius: var(--t-radbtn) !important;
+  background: var(--t-sur) !important;
+  color: var(--t-accT) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+}
+.b-app.l-ledger .b-explore__save[aria-pressed='true'] { background: var(--t-acc2) !important; color: var(--t-onacc2) !important; }
+.b-app.l-ledger .b-explore .b-tour { max-width: 560px; }
+
+/* ── a home's page ────────────────────────────────────────────────────── */
+.b-app.l-ledger .b-shell.b-hd { max-width: 760px; }
+.b-app.l-ledger .b-homehero { aspect-ratio: 16 / 10; margin-bottom: 16px; border-radius: var(--t-radlg); background: var(--t-tint2); }
+.b-app.l-ledger .b-tile { border-radius: var(--t-radbtn); }
+.b-app.l-ledger .b-hd__title { flex-wrap: wrap; row-gap: 2px; }
+.b-app.l-ledger .b-hd__title h1.b-head {
+  font-size: clamp(26px, 7vw, 32px) !important; /* beats the inline 24px */
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.b-app.l-ledger .b-hd__title > span {
+  font: 500 24px/1.2 var(--lg-mono) !important; /* the price, set inline at 19px */
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.b-app.l-ledger .b-hd__meta { font-size: 14.5px !important; }
+.b-app.l-ledger .b-hd__desc { font-size: 15.5px !important; line-height: 1.6 !important; }
+.b-app.l-ledger .b-hd__agents > h2.b-head { font-size: 24px !important; }
+@media (min-width: 900px) {
+  /* The details on the left, the actions in a tile beside them that stays as the page scrolls. */
+  .b-app.l-ledger .b-shell.b-hd {
+    max-width: 1120px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    column-gap: 28px;
+    align-items: start;
+  }
+  .b-app.l-ledger .b-hd > * { grid-column: 1; min-width: 0; }
+  .b-app.l-ledger .b-hd > .b-homehero { grid-column: 1 / -1; max-height: 520px; margin-bottom: 22px; }
+  .b-app.l-ledger .b-hd__title h1.b-head { font-size: 36px !important; }
+  .b-app.l-ledger .b-hd__title > span { font-size: 28px !important; }
+  .b-app.l-ledger .b-hd__actions {
+    grid-column: 2;
+    grid-row: 2 / span 30;
+    position: sticky;
+    top: calc(var(--lg-bar-h) + 20px);
+    padding: 16px;
+    border: 1px solid var(--t-line);
+    border-radius: var(--t-radlg);
+    background: var(--t-sur);
+    box-shadow: var(--lg-shadow);
+  }
+}
+
+/* ── sheets, the menu, the toast ──────────────────────────────────────── */
+.b-app.l-ledger .b-sheet {
+  max-width: 560px;
+  padding: 20px var(--lg-gutter) calc(24px + env(safe-area-inset-bottom));
+  border-radius: var(--t-radlg) var(--t-radlg) 0 0;
+  background: var(--t-sur);
+}
+.b-app.l-ledger .b-sheet > .b-head { font-size: 21px !important; line-height: 1.25; } /* beats the inline 19 to 21px */
+.b-app.l-ledger .b-sheet .b-shell { padding-left: 0; padding-right: 0; }
+.b-app.l-ledger .b-sheet .b-shell { padding-top: 0 !important; }
+.b-app.l-ledger .b-sheet h2.b-head { font-size: 22px !important; line-height: 1.2 !important; } /* a tool repeated in a sheet */
+.b-app.l-ledger .b-contact__msg { border-left-color: var(--t-accT); border-radius: var(--t-radbtn); font-size: 14.5px; }
+.b-app.l-ledger .b-contactform__err { font-size: 14px; }
+
+/* The menu drawer: the community's name over the list, 48px rows, 8px corners. The drawer is styled inline
+   (size, radius, padding), hence !important. */
+.b-app.l-ledger [role='dialog'][aria-label='Menu'] {
+  width: min(320px, 86vw) !important;
+  padding: calc(18px + env(safe-area-inset-top)) 12px calc(24px + env(safe-area-inset-bottom)) !important;
+  gap: 2px !important;
+  background: var(--t-sur) !important;
+}
+.b-app.l-ledger [role='dialog'][aria-label='Menu'] > .b-lbl:first-child {
+  margin: 0 0 8px;
+  padding: 4px 12px 14px !important;
+  border-bottom: 1px solid var(--t-line);
+  font: 600 16px/1.3 var(--t-head);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--t-ink);
+}
+.b-app.l-ledger [role='dialog'][aria-label='Menu'] > button,
+.b-app.l-ledger [role='dialog'][aria-label='Menu'] > a {
+  min-height: 48px !important;
+  border-radius: var(--t-radbtn) !important;
+  font-size: 15.5px !important;
+}
+.b-app.l-ledger [role='dialog'][aria-label='Menu'] > button[style*='var(--t-tint)'] { font-weight: 600 !important; box-shadow: inset 3px 0 0 var(--t-accT); }
+.b-app.l-ledger [role='dialog'][aria-label='Menu'] > button:not([style*='var(--t-tint)']):hover { background: color-mix(in srgb, var(--t-ink) 6%, transparent) !important; }
+
+/* The toast: the dark ground and the 8px corners, not a black pill. Inline, hence !important. */
+.b-app.l-ledger > [role='status'] {
+  border-radius: var(--t-radbtn) !important;
+  background: var(--t-acc2) !important;
+  color: var(--t-onacc2) !important;
+  font-family: var(--t-font);
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+/* ── the landing page and the sign-in ─────────────────────────────────── */
+/* The picture, "Welcome to" as the small label over the name, the name in the sans and the place under it.
+   With no picture uploaded, the panel is the theme's dark colour, flat. */
+.b-app.l-ledger .b-landing__hero { margin-bottom: 14px; border-radius: var(--t-radlg); background: var(--t-acc2); }
+.b-app.l-ledger .b-landing__welcome {
+  margin: 0 0 6px;
+  font-size: var(--welcome-size, clamp(30px, 9vw, 42px));
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+/* "Welcome to" is inline text with a forced line break after it (not a block), so the hook that fits the
+   name still counts the lines it takes. */
+.b-app.l-ledger .b-landing__hello {
+  font: 500 14px/1.6 var(--lg-mono);
+  letter-spacing: 0.02em;
+  color: var(--t-accT);
+}
+.b-app.l-ledger .b-landing__hello::after { content: '\A'; white-space: pre; }
+/* The place sits under the name. The element is `hidden` in the page so the layouts that do not want it
+   never show it; this one turns it on. */
+.b-app.l-ledger .b-landing__place[hidden] {
+  display: block;
+  margin: 0 0 20px;
+  font-size: 15px;
+  color: var(--t-mut);
+}
+.b-app.l-ledger .b-landing__welcome:not(:has(+ .b-landing__place)) { margin-bottom: 20px; }
+.b-app.l-ledger .b-gateform .b-stack { gap: 14px !important; } /* beats the inline 12px */
+.b-app.l-ledger .b-gateform .b-btn { margin-top: 18px !important; min-height: 50px !important; } /* beats the inline 16px and 50px */
+.b-app.l-ledger .b-gateform label[style*='background'] { border-radius: var(--t-radbtn) !important; } /* the consent box */
+
+/* ── inline states on shared screens that fail 4.5:1 ──────────────────── */
+/* A done Move-in step is drawn at 55% opacity as well as struck through, which leaves its text under 4.5:1
+   on every theme. The strike-through already says it is done, so the step goes to full opacity in the muted
+   ink instead. */
+.b-app.l-ledger .b-main .b-shell [style*='opacity: 0.55'] { opacity: 1 !important; }
+.b-app.l-ledger .b-main .b-shell [style*='line-through'] { color: var(--t-mut) !important; }
