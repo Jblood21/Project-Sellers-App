@@ -1421,6 +1421,8 @@
    way past an inline style. */
 .b-app.l-foyer .b-main .b-shell [style*=' color: var(--t-acc);'] { color: var(--t-accT) !important; }
 .b-app.l-foyer .b-main .b-shell [style*='background: var(--t-tint2)'] { color: var(--t-ink) !important; }
+/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe accent stands in. */
+.b-app.l-foyer.t-wine .b-main .b-shell [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
 /* A completed Move-in step is faded to .55 inline, which leaves it under 4.5:1.
    The strike-through already says it is done. */
 .b-app.l-foyer .b-main .b-shell [style*='opacity: 0.55'] { opacity: 1 !important; }

@@ -646,7 +646,7 @@ nothing is rewritten in its record; Setup no longer offers it.
 A layout changes the typeface, shape, spacing and where things sit. It never changes what a tool
 does or what it calculates, and every screen reachable in one layout is reachable in the others.
 
-A layout is **independent of the theme**. The eleven themes are palettes and a layout takes its colours
+A layout is **independent of the theme**. The twelve themes are palettes and a layout takes its colours
 from whichever theme is chosen, so any layout works with any theme. One consequence to know about:
 Porch is Manrope only, so a community whose theme brought its own serif face loses that
 face under it. Each layout also has themes it reads best on: Ridgeline on Navy & Gold, Ice Blue & Dark Navy and Slate Blue &
@@ -655,7 +655,8 @@ White, Teal & Navy and Navy & Gold; Red Rock on Rust & Desert Plum; Trailhead on
 Soft Green; Showcase on Black, White & Orange and Charcoal & Bronze; Ledger on Ice Blue & Dark Navy, Modern Blue &
 White and Teal & Navy. That theme, the eleventh, is rust and desert plum
 on warm sand (the one theme whose cards are sand rather than white), set in Fraunces and Figtree, and it works
-under any layout like the others.
+under any layout like the others. The twelfth, Burgundy & Blush, is the one pink and wine palette: a rose fill with
+dark text on it, deep wine for the dark grounds and a blush-white page, set in Playfair Display and DM Sans.
 
 ## Development logo
 

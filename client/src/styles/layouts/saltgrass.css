@@ -83,6 +83,8 @@
 .b-app.l-saltgrass [style*='background: var(--t-tint)'] { --t-mut: var(--sg-ink); }
 .b-app.l-saltgrass [style*='; color: var(--t-acc)'],
 .b-app.l-saltgrass [style^='color: var(--t-acc)'] { --t-acc: var(--sg-accT); }
+/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline, so it takes the text-safe accent too. */
+.b-app.l-saltgrass.t-wine [style*='solid var(--t-acc);'] { --t-acc: var(--sg-accT); }
 
 /* ── focus, motion ────────────────────────────────────────────────────── */
 /* 3px, offset 2px, as the brand sets it. The brand draws it in lime, which is

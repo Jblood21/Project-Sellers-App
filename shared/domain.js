@@ -79,6 +79,11 @@ export const THEMES = {
     primary: '#4A2338', secondary: '#4F5A2A', accent: '#A3432A',
     background: '#F4EADB', text: '#2B1A20',
   },
+  wine: {
+    name: 'Burgundy & Blush', note: 'Boutique, warm, upscale, memorable',
+    primary: '#5A1E33', secondary: '#7B3149', accent: '#E07A8A',
+    background: '#FBF4F3', text: '#2B171D',
+  },
 };
 
 export const DEFAULT_THEME = 'navy';

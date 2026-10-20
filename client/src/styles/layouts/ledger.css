@@ -87,15 +87,17 @@
 }
 
 /* The themes whose accent sits too close to their dark colour to show on it (under 3:1): Modern Blue & White,
-   Deep Purple & Lavender, Teal & Navy, Slate Blue & Soft Green, Rust & Desert Plum. Three more clear 3:1 on
+   Deep Purple & Lavender, Teal & Navy, Slate Blue & Soft Green, Rust & Desert Plum, Burgundy & Blush (2.4:1
+   against the gauge's track). Three more clear 3:1 on
    the dark ground but not against the gauge's track, the light text at 20% over it (Forest Green & Warm Gold
    2.8:1, Charcoal & Bronze 2.7:1, Warm Modern Real Estate 2.1:1). On the dark grounds their highlight is the
-   light text instead, which clears 4.5:1 against that track on all eight. */
+   light text instead, which clears 4.5:1 against that track on all nine. */
 .b-app.l-ledger.t-azure,
 .b-app.l-ledger.t-violet,
 .b-app.l-ledger.t-teal,
 .b-app.l-ledger.t-sage,
 .b-app.l-ledger.t-redrock,
+.b-app.l-ledger.t-wine,
 .b-app.l-ledger.t-forest,
 .b-app.l-ledger.t-bronze,
 .b-app.l-ledger.t-clay {

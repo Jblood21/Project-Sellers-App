@@ -288,6 +288,12 @@
   font-size: 12px;
   font-weight: 700;
 }
+/* Burgundy & Blush: the rose fill is a chosen chip's only mark, 2.9:1 against an unchosen one, so it takes a text-safe rose edge. */
+.b-app.l-marketplace.t-wine .b-pill[data-on='true'] { border-color: var(--t-accT); }
+/* Burgundy & Blush: a chosen chip's price is faded to 75% inline, 4.1:1 on the rose; at full strength it is 6.2:1. */
+.b-app.l-marketplace.t-wine .b-pill[data-on='true'] > span[style*='opacity'] { opacity: 1 !important; }
+/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe rose stands in. */
+.b-app.l-marketplace.t-wine .b-main [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
 
 /* ── the home screen ──────────────────────────────────────────────────── */
 /* Wider than the app's phone column: a grid of listings needs the room. */
@@ -676,6 +682,8 @@
 .b-app.l-marketplace .b-explore__title > span:last-child { font: 800 22px/1.15 var(--t-head) !important; }
 .b-app.l-marketplace .b-explore__title .b-head { font-size: 15px !important; font-weight: 600; color: var(--t-mut); }
 .b-app.l-marketplace .b-explore .b-tour { max-width: 480px; }
+/* Burgundy & Blush: an unsaved home's star is drawn inline in the rose fill, 2.6:1 on its disc; the text-safe rose stands in. */
+.b-app.l-marketplace.t-wine .b-explore__save[aria-pressed='false'] { --t-acc: var(--t-accT); }
 
 /* ── a home's page ────────────────────────────────────────────────────── */
 .b-app.l-marketplace .b-shell.b-hd { max-width: 720px; padding-left: var(--mk-gutter); padding-right: var(--mk-gutter); box-sizing: border-box; }
