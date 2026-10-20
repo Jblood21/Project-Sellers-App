@@ -6,7 +6,7 @@ import {
   DEFAULT_TOOLS_ENABLED, isoDate, isSameLead, toolOfActivity,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
-import { FIGURES_REFRESH, refreshedSettings } from './refresh.js';
+import { FIGURES_REFRESH, needsRefresh, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
@@ -176,7 +176,7 @@ export function createFileStore(path) {
       const done = [];
       const guides = refresh.guides ? loadDefaultGuides() : [];
       for (const community of db.communities) {
-        if ((community.figuresVersion ?? '') === refresh.version) continue;
+        if (!needsRefresh(community.figuresVersion, refresh.version)) continue;
         community.settings = refreshedSettings(community, refresh);
         community.figuresVersion = refresh.version;
         community.updatedAt = now();
@@ -184,10 +184,7 @@ export function createFileStore(path) {
           const g = guideRowFromDefault(def, def.slug, 0);
           for (const row of db.guides) {
             if (row.communityId !== community.id || row.defaultKey !== def.defaultKey) continue;
-            Object.assign(row, {
-              title: g.title, category: g.category, byline: g.byline, note: g.note, summary: g.summary, body: g.body,
-              imageAlt: g.imageAlt, updatedAt: now(),
-            });
+            Object.assign(row, { summary: g.summary, body: g.body, updatedAt: now() });
           }
         }
         done.push(community.id);

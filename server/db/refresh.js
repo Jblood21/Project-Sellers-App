@@ -14,9 +14,9 @@ import { DEFAULT_SETTINGS } from '../../shared/domain.js';
  * What it changes, and nothing else:
  *   settings     these keys, in every community, overwriting what was there (the owner asked for that)
  *   byCommunity  local figures researched for one community by its id (tax, insurance, HOA dues)
- *   guides       the supplied guides' words (title, category, byline, note, summary, body, picture text), matched
- *                by their default key, so a guide the builder deleted is not brought back and one they hid stays
- *                hidden, in the same place on the list
+ *   guides       the supplied guides' summary and body, matched by their default key, so a guide the builder
+ *                deleted is not brought back, one they hid stays hidden in the same place, and its title, byline,
+ *                category, note and picture (with its description) stay as the builder left them
  */
 
 /** Keys copied from the current defaults into every community. */
@@ -43,13 +43,36 @@ export const FIGURES_REFRESH = {
     'old-mill-village-townhom-pd7g': { taxPctYr: '0.48', insuranceYr: '500', hoaMo: '291' },
   },
   guides: true,
+  /*
+   * Rates a community was sent after this moment (the lender's webhook, or Setup) are newer than anything the owner
+   * saw when choosing to overwrite, and are kept. The live figures were read at about 02:00 UTC on Oct 20, 2026; rates
+   * stamped before then (including ones typed into Setup on Oct 19) are replaced, as the owner asked.
+   */
+  keepRatesAfter: '2026-10-20T02:00:00.000Z',
 };
 
-/** A community's settings after the refresh: its own, then the refreshed keys, then its own local figures. */
+const RATE_KEYS = ['rateConv', 'rateFha', 'rateVa', 'ratesUpdatedAt'];
+const when = (value) => {
+  const time = new Date(value ?? '').getTime();
+  return Number.isNaN(time) ? null : time;
+};
+
+/**
+ * A community's settings after the refresh: its own, then the refreshed keys, then its own local figures. Rates sent
+ * to the community after `keepRatesAfter` are kept, with their date.
+ */
 export function refreshedSettings(community, refresh = FIGURES_REFRESH) {
-  return {
-    ...(community?.settings ?? {}),
-    ...refresh.settings,
-    ...(refresh.byCommunity?.[community?.id] ?? {}),
-  };
+  const own = community?.settings ?? {};
+  const theirs = when(own.ratesUpdatedAt);
+  const cutoff = when(refresh.keepRatesAfter);
+  const newerRates = theirs !== null && cutoff !== null && theirs > cutoff;
+  const settings = { ...refresh.settings };
+  if (newerRates) for (const key of RATE_KEYS) delete settings[key];
+  return { ...own, ...settings, ...(refresh.byCommunity?.[community?.id] ?? {}) };
 }
+
+/**
+ * Whether a community stamped `stamped` still needs `version`. Versions are dates (a suffix may follow) and compare as
+ * text, so a community already on a later refresh is never taken back to this one by an older build.
+ */
+export const needsRefresh = (stamped, version) => String(stamped ?? '') < String(version);

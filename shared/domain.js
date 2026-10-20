@@ -624,7 +624,9 @@ export const DEFAULT_SETTINGS = {
   // Utah's First-Time Homebuyer Assistance Program for new construction, as of Oct 2026: up to $20,000 (a 0%
   // deferred loan) on a never-occupied home priced up to $450,000, paired with a Utah Housing Corporation first
   // mortgage. The program has no income cap of its own; the one that applies is that first mortgage's, and the
-  // FHA/VA one ($162,500, 620 minimum score) is the widest. Funded until the money runs out.
+  // FHA/VA one ($162,500) is the widest. Its 620 minimum score is below the lowest credit range the screener asks
+  // about (Fair, 660+), so the minimum here is 660 (Utah Housing's FirstHome floor): a buyer it shows 620+ to and
+  // then screens out would be told two things. Funded until the money runs out.
   dpaIncomeLimit: '162500',
   // The help itself. dpaAmount is a flat figure on its own; set dpaPct as well
   // and it becomes the ceiling on a percentage of the loan. dpaPriceCap is the
@@ -633,7 +635,7 @@ export const DEFAULT_SETTINGS = {
   dpaAmount: '20000',
   dpaPct: '',
   dpaPriceCap: '450000',
-  dpaMinCredit: '620',
+  dpaMinCredit: '660',
   // Named and dated so the screen can say whose rules these are and when the
   // builder last checked them. Assistance limits are re-set every year and
   // funded programs run dry mid-year, so an undated figure goes stale silently.

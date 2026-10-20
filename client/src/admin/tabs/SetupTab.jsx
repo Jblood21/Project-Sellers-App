@@ -78,7 +78,12 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
     setSaving(true);
     setError('');
     try {
-      await adminApi.updateCommunity(token, community.id, { settings });
+      // Only what was changed on this page: sending every value it loaded would put back, over anything saved since
+      // (a second admin, the rates webhook, a figures refresh on deploy), whatever this page was opened with.
+      const changed = Object.fromEntries(
+        Object.entries(settings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(community.settings?.[key])),
+      );
+      await adminApi.updateCommunity(token, community.id, { settings: changed });
       const fresh = await reload();
       // The server trims and caps what it stores. Showing the form what was
       // really saved (not what was typed) is what makes "Saved" true, and it

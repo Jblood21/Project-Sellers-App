@@ -291,13 +291,14 @@ export function createPostgresStore(connectionString) {
      * claimed first, so two servers starting together refresh a community once. Returns the ids refreshed.
      */
     async applyFiguresRefresh(refresh) {
-      const { rows } = await q(`SELECT id FROM communities WHERE figures_version <> $1`, [refresh.version]);
+      // Earlier than this version, never later: an older build started after a newer refresh leaves it in place.
+      const { rows } = await q(`SELECT id FROM communities WHERE figures_version < $1`, [refresh.version]);
       const done = [];
       const guides = refresh.guides ? loadDefaultGuides() : [];
       for (const { id } of rows) {
         await inTransaction(async (db) => {
           const claimed = await db.query(
-            `UPDATE communities SET figures_version = $2 WHERE id = $1 AND figures_version <> $2 RETURNING settings`,
+            `UPDATE communities SET figures_version = $2 WHERE id = $1 AND figures_version < $2 RETURNING settings`,
             [id, refresh.version],
           );
           if (!claimed.rowCount) return;
@@ -308,10 +309,8 @@ export function createPostgresStore(connectionString) {
           for (const def of guides) {
             const g = guideRowFromDefault(def, def.slug, 0);
             await db.query(
-              `UPDATE guides SET title = $3, category = $4, byline = $5, note = $6, summary = $7, body = $8,
-                                 image_alt = $9, updated_at = now()
-               WHERE community_id = $1 AND default_key = $2`,
-              [id, def.defaultKey, g.title, g.category, g.byline, g.note, g.summary, g.body, g.imageAlt],
+              `UPDATE guides SET summary = $3, body = $4, updated_at = now() WHERE community_id = $1 AND default_key = $2`,
+              [id, def.defaultKey, g.summary, g.body],
             );
           }
           done.push(id);

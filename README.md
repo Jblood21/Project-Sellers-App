@@ -777,7 +777,7 @@ All estimates, and labelled as such in the buyer UI.
 Defaults: Conv 7.40 / FHA 7.02 / VA 7.04 (the Mortgage News Daily index at the close on Oct 19, 2026, dated so);
 tax 0.55%/yr; insurance $1,400/yr; HOA $45/mo; down payment help: the Utah First-Time Homebuyer Assistance Program
 (new construction), $20,000 up to a $450,000 price, income limit $162,500 (the Utah Housing FHA/VA first mortgage's,
-the widest the program pairs with), min credit 620, checked Oct 20, 2026; credit cutoffs 740 / 700 / 660.
+the widest the program pairs with), min credit 660, checked Oct 20, 2026; credit cutoffs 740 / 700 / 660.
 
 **Bringing live communities up to date.** Every community keeps its own copy of the settings and of the supplied
 guides from the day it was created, so changing a default reaches no community that already exists.
@@ -785,8 +785,11 @@ guides from the day it was created, so changing a default reaches no community t
 `FIGURES_REFRESH.version`, each community not yet at that version is claimed (so two servers starting together do it
 once), given the refreshed settings (the rates and their date, and the down payment program, from the current
 defaults; plus any figures researched for that community by id, such as its property tax, insurance and HOA dues),
-has its supplied guides' words rewritten from the files (a guide the builder deleted is not brought back, a hidden
-one stays hidden and in its place), and is stamped with the version. After that the refresh never runs again for
+has its supplied guides' summary and body rewritten from the files (a guide the builder deleted is not brought back,
+a hidden one stays hidden and in its place, and its title, byline, category, note and picture stay as the builder left
+them), and is stamped with the version. Versions are dates and only ever move forward, so an older build started
+after a newer refresh does not take a community back. Rates a community was sent after the refresh was written (by
+the lender's webhook or in Setup) are newer than the refresh's and are kept. After that the refresh never runs again for
 it, so whatever the builder then changes in Setup or the Learn tab stays. A community created later starts on the
 new defaults and is stamped at creation. The Oct 20, 2026 refresh set every community to the Oct 19 rates and the
 Utah First-Time Homebuyer Assistance Program, gave Willow Creek, Salt Grass TownHomes and Old Mill Village their own
