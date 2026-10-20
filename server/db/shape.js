@@ -79,6 +79,8 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     // The pasted YouTube or Vimeo link, when the tour is a link rather than a file. At most one of the two.
     videoLink: row.video_link ?? row.videoLink ?? '',
     videoSizeBytes: Number(video?.sizeBytes ?? video?.size_bytes ?? 0) || 0,
+    // When the builder added it: what a buyer's "Newest" puts first (listHomes in shared/domain.js).
+    createdAt: row.created_at ?? row.createdAt ?? null,
   };
 }
 

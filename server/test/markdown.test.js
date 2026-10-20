@@ -108,7 +108,7 @@ for (const file of guideFiles) {
     // The supplied ledes are short, so the summary is the whole first paragraph, not a clipped one.
     assert.equal(g.summary, markdownToText(g.body.split('\n\n')[0]));
     // Never edit the guides' own closing material: the dated figures line survives verbatim.
-    assert.match(g.body, /\*Figures shown are current as of 8\/27\/26\./);
+    assert.match(g.body, /\*Figures shown are current as of 10\/20\/26\./);
   });
 
   test(`guide ${file} keeps its lists, callouts and headings`, () => {

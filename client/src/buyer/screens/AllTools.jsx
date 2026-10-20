@@ -27,7 +27,7 @@ const LEAD_TOOLS = ['afford', 'dpa'];
  * put them and how they look.
  */
 export function useHomeModel({ onOpenLender } = {}) {
-  const { community, homes, lead, track, features, guides, agents } = useBuyer();
+  const { community, homes, lead, track, features, guides, agents, toggleSave } = useBuyer();
   const { communityId } = useParams();
   const navigate = useNavigate();
   const base = `/c/${communityId}`;
@@ -38,11 +38,14 @@ export function useHomeModel({ onOpenLender } = {}) {
   return {
     community,
     communityId,
+    // The homes themselves, for a layout that lists them on its home screen rather than behind Explore Homes.
+    homes,
     homesCount: homes.length,
     firstName: firstName(lead?.name),
     // The builder's own heading and the line under it, from Setup; each is '' to keep the layout's wording.
     greeting: homeGreeting(community?.settings, { firstName: firstName(lead?.name), community: community?.name }),
     savedCount: lead?.savedHomeIds?.length ?? 0,
+    isSaved: (homeId) => Boolean(lead?.savedHomeIds?.includes(homeId)),
     inPlan: (toolKey) => Boolean(lead?.plan?.[toolKey]),
     leadTools: enabled.filter((tool) => LEAD_TOOLS.includes(tool.k)),
     otherTools: enabled.filter((tool) => !LEAD_TOOLS.includes(tool.k)),
@@ -74,6 +77,14 @@ export function useHomeModel({ onOpenLender } = {}) {
       track('Browsed Explore Homes');
       navigate(`${base}/explore`);
     },
+    // The same line in the activity log and the same page as a card on Explore Homes, so the builder reads
+    // one kind of record whichever screen the buyer opened the home from.
+    openHome: (home) => {
+      track(`Viewed ${home.name} (${home.photos.length} photos)`);
+      navigate(`${base}/homes/${home.id}`);
+    },
+    // The star (or heart) on a home: the one save the whole app uses, which tells the team and shows the toast.
+    toggleSave,
     openArea: () => {
       track('Browsed Local Spots');
       navigate(`${base}/area`);

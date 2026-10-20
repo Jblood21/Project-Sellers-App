@@ -36,7 +36,7 @@ PDF downloads, tour requests — is tracked to the lead record and visible on th
 | Layer | Choice |
 |---|---|
 | Frontend | React 18 + Vite, React Router, one bundle serving both route trees |
-| Backend | Node 20+ / Express, REST API |
+| Backend | Node 22+ / Express, REST API |
 | Database | Postgres (`DATABASE_URL`), with a JSON-file store for local dev |
 | PDF | Client-side `window.print()` with print CSS |
 | QR | `qrcode-generator`, rendered in the admin |
@@ -72,7 +72,7 @@ TEST_DATABASE_URL=postgres://user:pw@localhost:5432/anydb npm test   # both stor
 
 `TEST_DATABASE_URL` must point at a server where the user may create and drop databases: each
 suite makes its own throwaway database on it and never touches the one named in the URL. CI runs
-both, on Node 20 and 22.
+both, on Node 22 and 24.
 
 ### Production-style run
 
@@ -218,7 +218,7 @@ Point an email-parser Zap at:
 ```
 POST https://<your-domain>/api/communities/<communityId>/rates
 x-webhook-secret: <RATES_WEBHOOK_SECRET>
-{ "conv": "6.45", "fha": "6.10", "va": "5.90" }
+{ "conv": "7.40", "fha": "7.02", "va": "7.04" }
 ```
 
 Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
@@ -476,8 +476,10 @@ Three messages — the app is deliberately quiet.
   report opens with the same "Prepared by" line and ends with how to reach them. The logo is the one uploaded
   under **Setup → Lender logo**. Without an upload, the supplied Summit Home Loans logo is used only while the
   lender is still Summit Home Loans; for any other lender the report shows their name and no logo, so a report
-  never carries another company's mark. A PNG or JPEG upload is drawn (transparent backgrounds kept); a WebP or
-  GIF upload gives the lender's name instead, never the supplied logo. With no lender name in Setup the reports
+  never carries another company's mark. A PNG or JPEG upload is drawn (transparent backgrounds kept; a large PNG is
+  scaled down to 1,600 pixels on its longer side and an interlaced one is read too); a WebP or GIF upload gives the
+  lender's name instead, never the supplied logo. A long lender name is shortened before its NMLS ID is, and a named
+  loan officer is printed with their NMLS ID or not at all. With no lender name in Setup the reports
   say nothing about a lender. `server/lib/lenderBrand.js` picks the logo and words; `server/lib/pdfImage.js`
   reads a JPEG or PNG for the PDF writer with no dependency.
 
@@ -505,7 +507,7 @@ community has no entries, so a builder who skips this never ships an empty scree
 Setup is a long page, so the sections that are mostly read and seldom changed are **folded** until you open
 them: the **FAQ**, the **Statements printed in the footer** (inside Lender & compliance), **Live rates**,
 **Monthly cost assumptions** and **Down payment assistance rules**. A folded section still shows its name, a
-one-line summary of what is in it (for example *Conv 6.875% · FHA 6.5% · VA 6.25% · updated Oct 6*), an
+one-line summary of what is in it (for example *Conv 7.40% · FHA 7.02% · VA 7.04% · updated Oct 19, 2026*), an
 **Unsaved changes** mark if you have edited it, and, for Live rates, the **Check rate inbox** button. Opening one
 does not change anything; what you type stays on the form when you fold it, and the page's **Save settings**
 button saves every section whether it is open or not. Choosing an item in *Needs your attention before launch*
@@ -515,7 +517,7 @@ opens the section it is in. Sections start folded each time the page is opened.
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
 four, and the choice saves the moment it is made. (The names are what Setup shows; what is stored on a community
-is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `keystone`.)
+is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `marketplace`.)
 
 - **Porch** (key `cornerpost`; what every community starts on) — one phone-width column of soft, rounded
   tiles, Manrope throughout, a *Book a tour* button in the header of every page, and **Talk about financing**
@@ -529,9 +531,25 @@ is a key that never changes: `cornerpost`, `saltgrass`, `foyer`, `keystone`.)
 - **Foyer** (key `foyer`) — a magazine-like look: Cormorant Garamond headlines, Jost text, thin rules, square corners, the
   tools as a numbered index and the guides as "From the journal". A centred title over a slim bar, with *Book a tour*,
   *Talk about financing* and *My Home Plan* as text links under it. Light ground.
-- **Keystone** (key `keystone`) — compact and precise: Space Grotesk with tabular figures, sharp corners, a status row of
-  figures at the top of the home screen, and a tab strip under the header (Tools, Explore, Saved, Plan, Financing).
-  Light ground.
+- **Marketplace** (key `marketplace`) — laid out like a big home-search site, in the community's own colours, Public
+  Sans throughout. A white bar with the development's mark, a text nav from 900px (Homes, Map when the site map is
+  on, Financing, Learn when the guides are on), **Saved** with its count, **Book a tour** and the menu. The home
+  screen leads with the homes: the builder's heading, the incentive, a filter bar (price from and to, fewest
+  bedrooms, Newest / Price low to high / high to low, with how many homes are showing and a reset), then every home
+  as a photo card: its status (Sold, Move-in ready, Under construction...), a heart to save it, the price large,
+  an estimated monthly payment (the Payment tool's own sum at the loan and down payment the buyer last chose there,
+  with the community's rates, taxes, insurance and HOA, shown only while that tool is on and labelled an
+  estimate), beds, baths and floor area, and the plan name and lot (when lot numbers are on). One card across on a
+  phone, two on a tablet, three from 1000px. The tools follow as "Can you buy one of these?" beside the lender
+  card, then the area, the agents, the guides as article cards, the FAQ and the builder's own videos. Explore
+  Homes becomes the same grid, and a home's page opens, from 900px, with its first photo large and the next four
+  in a square beside it (when it has five or more), with the financing, payment and save actions in a panel that
+  stays beside the details as the page scrolls. The filters only narrow what is on the screen; nothing is saved
+  or reported. Light ground.
+
+Keystone, the compact figure-led layout that was the fourth choice, has been taken away. A community still storing
+`keystone` is shown Marketplace (the layout nearest in spirit, not the default), to buyers and in Setup, and
+nothing is rewritten in its record; Setup no longer offers it.
 
 A layout changes the typeface, shape, spacing and where things sit. It never changes what a tool
 does or what it calculates, and every screen reachable in one layout is reachable in the others.
@@ -540,8 +558,8 @@ A layout is **independent of the theme**. The ten themes are palettes and a layo
 from whichever theme is chosen, so any layout works with any theme. One consequence to know about:
 Porch is Manrope only, so a community whose theme brought its own serif face loses that
 face under it. Each layout also has themes it reads best on: Ridgeline on Navy & Gold, Ice Blue & Dark Navy and Slate Blue &
-Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Keystone on Ice Blue & Dark Navy,
-Modern Blue & White and Black, White & Orange.
+Soft Green; Foyer on Charcoal & Bronze, Forest Green & Cream and Warm Modern Real Estate; Marketplace on Modern Blue &
+White, Teal & Navy and Navy & Gold.
 
 ## Development logo
 
@@ -729,7 +747,7 @@ server/
 client/src/
   buyer/             the buyer PWA: chrome, screens, the area guide, guides, realtors, the compliance
                      footer and the seven tools
-  buyer/layouts/     Porch, Ridgeline, Foyer and Keystone: header and home screen per layout
+  buyer/layouts/     Porch, Ridgeline, Foyer and Marketplace: header and home screen per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
   admin/             the admin app: the Today page and, per community, 8 sections (Leads, Stats, Homes, Area,
                      Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
@@ -746,14 +764,33 @@ All estimates, and labelled as such in the buyer UI.
 
 - **Monthly P&I** — 30-year amortisation: `L·r / (1 − (1+r)^−360)`, `r = rate/1200`.
 - **Payment** — P&I + property tax (`price × taxPctYr/100/12`) + insurance (`insuranceYr/12`)
-  + mortgage insurance (FHA `loan × 0.0055/12`; conventional under 20% down `loan × 0.005/12`;
+  + mortgage insurance (FHA on HUD's schedule: `loan × 0.0055/12` under 5% down, `0.005/12` from 5%, 0.75% / 0.70% on a loan
+    over $726,200; conventional under 20% down `loan × 0.005/12`;
   VA and 20%-down conventional none) + HOA. Cash to close = down + `price × 2.5%`, minus down
   payment assistance when the screener said "likely" and the buyer applies it.
 - **Affordability** — a range, not a single number: the comfortable end at 36% DTI and the
-  lender-maximum end at 43% (the Qualified Mortgage limit), 82% of either toward housing,
+  lender-maximum end at 43% (a common lender benchmark; there has been no federal QM DTI cap since 2021), 82% of either toward housing,
   conventional rate adjusted by credit range (excellent −0.15, fair +0.35). Enter a down payment
   and it is used as cash toward the price; leave it blank and the tool assumes 5% down.
 - **DPA screening and credit ranges** — driven entirely by the admin's Setup values.
 
-Defaults: Conv 6.45 / FHA 6.10 / VA 5.90; tax 0.55%/yr; insurance $1,400/yr; HOA $45/mo;
-DPA limit $110,000, amount $15,000, min credit 660; credit cutoffs 740 / 700 / 660.
+Defaults: Conv 7.40 / FHA 7.02 / VA 7.04 (the Mortgage News Daily index at the close on Oct 19, 2026, dated so);
+tax 0.55%/yr; insurance $1,400/yr; HOA $45/mo; down payment help: the Utah First-Time Homebuyer Assistance Program
+(new construction), $20,000 up to a $450,000 price, income limit $162,500 (the Utah Housing FHA/VA first mortgage's,
+the widest the program pairs with), min credit 660, checked Oct 20, 2026; credit cutoffs 740 / 700 / 660.
+
+**Bringing live communities up to date.** Every community keeps its own copy of the settings and of the supplied
+guides from the day it was created, so changing a default reaches no community that already exists.
+`server/db/refresh.js` carries a refresh into all of them once: on the first start of a server that has a new
+`FIGURES_REFRESH.version`, each community not yet at that version is claimed (so two servers starting together do it
+once), given the refreshed settings (the rates and their date, and the down payment program, from the current
+defaults; plus any figures researched for that community by id, such as its property tax, insurance and HOA dues),
+has its supplied guides' summary and body rewritten from the files (a guide the builder deleted is not brought back,
+a hidden one stays hidden and in its place, and its title, byline, category, note and picture stay as the builder left
+them), and is stamped with the version. Versions are dates and only ever move forward, so an older build started
+after a newer refresh does not take a community back. Rates a community was sent after the refresh was written (by
+the lender's webhook or in Setup) are newer than the refresh's and are kept. After that the refresh never runs again for
+it, so whatever the builder then changes in Setup or the Learn tab stays. A community created later starts on the
+new defaults and is stamped at creation. The Oct 20, 2026 refresh set every community to the Oct 19 rates and the
+Utah First-Time Homebuyer Assistance Program, gave Willow Creek, Salt Grass TownHomes and Old Mill Village their own
+2026 tax rates (and the two townhome communities their HO-6 insurance and HOA dues), and re-dated the guides.

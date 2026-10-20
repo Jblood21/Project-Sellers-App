@@ -32,24 +32,22 @@ function Wire({ layoutKey }) {
       </svg>
     );
   }
-  if (layoutKey === 'keystone') {
-    // A compact bar with a tab strip, a row of figures, then sharp-cornered cards.
+  if (layoutKey === 'marketplace') {
+    // A white search bar, a row of filters, then photo-first listing cards three across.
     return (
       <svg className="ax-wire" viewBox="0 0 160 72" aria-hidden="true" focusable="false">
-        <rect width="160" height="72" fill="#f1f4f7" />
-        <rect width="160" height="14" fill="#fff" />
-        <rect x="8" y="5" width="30" height="4" fill="#1d2733" />
-        <rect x="120" y="3" width="32" height="8" rx="1" fill="#2f6df0" />
-        <rect y="14" width="160" height="9" fill="#fff" />
-        <g fill="#8794a3"><rect x="8" y="17" width="14" height="3" /><rect x="30" y="17" width="14" height="3" /><rect x="52" y="17" width="14" height="3" /></g>
-        <rect x="8" y="22" width="14" height="1.5" fill="#2f6df0" />
-        <rect x="8" y="28" width="144" height="14" rx="1" fill="#fff" stroke="#c9d2dc" />
-        <g fill="#1d2733"><rect x="12" y="32" width="16" height="6" /><rect x="62" y="32" width="16" height="6" /><rect x="112" y="32" width="16" height="6" /></g>
-        <g fill="#fff" stroke="#c9d2dc">
-          <rect x="8" y="46" width="70" height="20" rx="1" /><rect x="82" y="46" width="70" height="20" rx="1" />
+        <rect width="160" height="72" fill="#f3f5f7" />
+        <rect width="160" height="12" fill="#fff" />
+        <rect x="8" y="4" width="24" height="4" fill="#1d2733" />
+        <g fill="#5b6675"><rect x="42" y="5" width="12" height="2" /><rect x="58" y="5" width="10" height="2" /><rect x="72" y="5" width="14" height="2" /></g>
+        <rect x="124" y="3" width="28" height="6" rx="1.5" fill="#1d4ed8" />
+        <g fill="#fff" stroke="#c4ccd6"><rect x="8" y="16" width="26" height="6" rx="1.5" /><rect x="38" y="16" width="20" height="6" rx="1.5" /><rect x="62" y="16" width="24" height="6" rx="1.5" /></g>
+        <g fill="#fff" stroke="#d5dbe2">
+          <rect x="8" y="27" width="44" height="40" rx="3" /><rect x="58" y="27" width="44" height="40" rx="3" /><rect x="108" y="27" width="44" height="40" rx="3" />
         </g>
-        <g fill="#1d2733"><rect x="12" y="51" width="40" height="3" /><rect x="86" y="51" width="40" height="3" /></g>
-        <g fill="#8794a3"><rect x="12" y="58" width="52" height="2" /><rect x="86" y="58" width="52" height="2" /></g>
+        <g fill="#a9c1d9"><rect x="8.5" y="27.5" width="43" height="22" rx="2.5" /><rect x="58.5" y="27.5" width="43" height="22" rx="2.5" /><rect x="108.5" y="27.5" width="43" height="22" rx="2.5" /></g>
+        <g fill="#1d2733"><rect x="12" y="53" width="22" height="4" /><rect x="62" y="53" width="22" height="4" /><rect x="112" y="53" width="22" height="4" /></g>
+        <g fill="#8794a3"><rect x="12" y="60" width="32" height="2" /><rect x="62" y="60" width="32" height="2" /><rect x="112" y="60" width="32" height="2" /></g>
       </svg>
     );
   }

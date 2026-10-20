@@ -4,7 +4,7 @@ import {
 } from '../../shared/domain.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
 import { lenderBrandOf, lenderContact, lenderTitle } from './lenderBrand.js';
-import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, wrapText } from './pdf.js';
+import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, toWinAnsi, wrapText } from './pdf.js';
 import { buildReport, reportTimeZone } from './report.js';
 
 /** The tools by short names, for the places a full list has to fit a narrow column. */
@@ -112,6 +112,19 @@ const reachWith = (lead) => [lead.phone || 'No phone', lead.email, ...(lead.extr
 const preparedBy = (brand) => (brand?.name ? `Prepared by ${oneLine(brand.name)}` : '');
 
 /**
+ * "Summit Home Loans · NMLS #1790749" fitted to a width by shortening the name only, so the NMLS ID is printed whole
+ * or, when even it will not fit, the line is cut as any other. '' when there is no lender.
+ */
+function fitLenderTitle(brand, { font = 'regular', size, width }) {
+  const name = oneLine(brand?.name);
+  if (!name) return '';
+  const id = oneLine(brand.nmls) ? ` · NMLS #${oneLine(brand.nmls)}` : '';
+  const idWidth = textWidth(toWinAnsi(id), font, size);
+  if (!id || idWidth > width / 2) return fitLine(name + id, { font, size, width });
+  return fitLine(name, { font, size, width: width - idWidth }) + toWinAnsi(id);
+}
+
+/**
  * The lender's row under the title band: their logo (or, without one, nothing), then "Prepared by" with their name and
  * NMLS ID, and how to reach them. Draws nothing when Setup has no lender; returns the y below what it drew.
  */
@@ -133,16 +146,19 @@ function lenderStrip(doc, brand, { y, logoHeight = 22, maxLogoWidth = 150 }) {
     x += 12;
   }
   const width = doc.right - x;
-  const title = oneLine(lenderTitle(brand));
   const contact = oneLine(lenderContact(brand));
-  const lo = brand.lo ? oneLine(`Loan officer: ${brand.lo.name} · NMLS #${brand.lo.nmls}`) : '';
-  const second = [contact, lo].filter(Boolean).join(' · ');
+  // A named loan officer is printed whole, NMLS ID and all, or not at all (complianceOf names one only with their
+  // ID): it is the lender's contact line that is cut to make room for them.
+  const lo = brand.lo ? toWinAnsi(oneLine(`Loan officer: ${brand.lo.name} · NMLS #${brand.lo.nmls}`)) : '';
+  const showLo = Boolean(lo) && textWidth(lo, 'regular', 7.8) <= width;
+  const room = width - (showLo ? textWidth(`${lo} · `, 'regular', 7.8) : 0);
+  const second = [contact && room >= 40 ? fitLine(contact, { size: 7.8, width: room }) : '', showLo ? lo : ''].filter(Boolean).join(' · ');
   const top = second ? y + height / 2 - 2 : y + height / 2 + 3;
   const lead = 'Prepared by ';
   const leadWidth = textWidth(lead, 'regular', 8.5);
   doc.text(lead, { x, y: top, size: 8.5, color: COLORS.muted });
-  doc.text(fitLine(title, { font: 'bold', size: 9.5, width: width - leadWidth }), { x: x + leadWidth, y: top, size: 9.5, font: 'bold' });
-  if (second) doc.text(fitLine(second, { size: 7.8, width }), { x, y: top + 11, size: 7.8, color: COLORS.muted });
+  doc.text(fitLenderTitle(brand, { font: 'bold', size: 9.5, width: width - leadWidth }), { x: x + leadWidth, y: top, size: 9.5, font: 'bold' });
+  if (second) doc.text(second, { x, y: top + 11, size: 7.8, color: COLORS.muted });
   doc.rule({ y: y + height, color: COLORS.rule, weight: 0.6 });
   return y + height;
 }
@@ -155,7 +171,10 @@ function footerOf(brand, { size = 7.5, gap = 22, privacy }) {
     const number = `Page ${page} of ${count}`;
     let used = d.text(number, { y, size, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth });
     if (lender) {
-      const name = fitLine(lender, { size, width: d.contentWidth / 2 - used });
+      // Half the row at least, or whatever the privacy line leaves when that is more (the 30 is the two gaps).
+      const privacyWidth = textWidth(fitLine(privacy, { size: size - 0.5, width: d.contentWidth }), 'regular', size - 0.5);
+      const room = Math.max(d.contentWidth / 2, d.contentWidth - privacyWidth - 30) - used;
+      const name = fitLenderTitle(brand, { size, width: room });
       used += d.text(name, { y, size, color: COLORS.muted, align: 'right', x: d.left, width: d.contentWidth - used - 14 }) + 14;
     }
     d.text(fitLine(privacy, { size: size - 0.5, width: d.contentWidth - used - 16 }), { y, size: size - 0.5, color: COLORS.muted });

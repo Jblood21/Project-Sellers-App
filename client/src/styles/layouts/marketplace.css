@@ -1,0 +1,760 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Marketplace: laid out like a big home-search site.
+
+   A white bar across the top with a text nav, then a page that leads with the
+   homes: a slim filter bar and a grid of photo cards, each with its price large,
+   an estimated monthly payment and the facts a buyer scans for. The tools follow
+   as an affordability section beside the lender. A home's page opens with a
+   photo grid, and on a wide screen keeps its actions in a column beside the
+   details. Public Sans throughout, 8px buttons, soft 14px cards.
+
+   Colour comes only from the --t-* theme tokens, so the layout holds on all
+   ten themes:
+     --t-bg page, --t-sur card and bar, --t-ink text, --t-mut muted text,
+     --t-accT the accent as TEXT, --t-acc2 / --t-onacc2 the solid button,
+     --t-tint / --t-tint2 washes, --t-line a hairline.
+
+   Every rule is scoped under .b-app.l-marketplace. !important appears only where
+   a shared screen's inline style (a height, a display) has to be beaten, and
+   each use says which.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── tokens ───────────────────────────────────────────────────────────── */
+.b-app.l-marketplace {
+  --t-head: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --t-font: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --t-headwt: 800;
+  --t-track: 0;
+  --t-up: none;
+  --t-rad: 10px;
+  --t-radlg: 14px;
+  --t-radbtn: 8px;
+
+  /* The width a search site's pages run to, and the gutter either side. */
+  --mk-wide: 1200px;
+  --mk-gutter: 16px;
+  --mk-bar-h: 60px;
+  /* The edge of a control (a select, an outline button): ink pulled toward the
+     page until it is a little over 3:1 against it, so it can be seen unfilled. */
+  --mk-ctl: color-mix(in srgb, var(--t-ink) 52%, var(--t-bg));
+  --mk-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 18px rgba(0, 0, 0, 0.07);
+  --mk-shadow-hi: 0 2px 4px rgba(0, 0, 0, 0.08), 0 12px 28px rgba(0, 0, 0, 0.12);
+
+  font-family: var(--t-font);
+  /* Lining, tabular figures, so prices and payments line up in a grid of cards. */
+  font-variant-numeric: lining-nums tabular-nums;
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .b-app.l-marketplace { --mk-gutter: 28px; }
+}
+
+/* The page keeps its place under the sticky bar when a control is focused from
+   the keyboard (WCAG 2.2 Focus Not Obscured). */
+:root:has(.b-app.l-marketplace) { scroll-padding-top: calc(var(--mk-bar-h, 60px) + 24px + env(safe-area-inset-top)); }
+
+/* The accent fill is too pale to see as a ring on a light ground on some themes;
+   the text-safe accent clears 3:1 on all of them. */
+.b-app.l-marketplace a:focus-visible,
+.b-app.l-marketplace button:focus-visible,
+.b-app.l-marketplace select:focus-visible,
+.b-app.l-marketplace input:focus-visible,
+.b-app.l-marketplace [role='button']:focus-visible {
+  outline: 2px solid var(--t-accT);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .b-app.l-marketplace *,
+  .b-app.l-marketplace *::before,
+  .b-app.l-marketplace *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
+}
+
+.b-app.l-marketplace .b-head { font-family: var(--t-head); font-weight: 800; letter-spacing: -0.01em; text-transform: none; }
+
+.b-app.l-marketplace .mk-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── the bar ──────────────────────────────────────────────────────────── */
+.b-app.l-marketplace .mk-bar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  padding-top: env(safe-area-inset-top);
+  background: var(--t-sur);
+  border-bottom: 1px solid var(--t-line);
+}
+.b-app.l-marketplace .mk-bar__in {
+  max-width: var(--mk-wide);
+  min-height: var(--mk-bar-h);
+  margin: 0 auto;
+  padding: 0 var(--mk-gutter);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+}
+.b-app.l-marketplace .mk-bar__id {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+  max-width: 46vw;
+  margin-right: 8px;
+  color: var(--t-ink);
+  text-decoration: none;
+}
+.b-app.l-marketplace .mk-bar__mark { max-width: 100%; }
+.b-app.l-marketplace .mk-bar__sp { flex: 1; }
+.b-app.l-marketplace .mk-bar__icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--t-ink);
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-bar__icon:hover { background: var(--t-tint2); }
+.b-app.l-marketplace .mk-bar__back { margin-left: -10px; }
+
+.b-app.l-marketplace .mk-nav { display: none; }
+.b-app.l-marketplace .mk-nav__list { display: flex; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.b-app.l-marketplace .mk-nav__a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--t-ink);
+  font: 600 15px/1 var(--t-font);
+  text-decoration: none;
+  cursor: pointer;
+  /* The underline a search site's current section carries, drawn inside so it never shifts the row. */
+  box-shadow: inset 0 -3px 0 transparent;
+}
+.b-app.l-marketplace .mk-nav__a:hover { color: var(--t-accT); }
+.b-app.l-marketplace .mk-nav__a[aria-current] { box-shadow: inset 0 -3px 0 var(--t-acc2); }
+
+.b-app.l-marketplace .mk-bar__saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: var(--t-radbtn);
+  color: var(--t-ink);
+  font: 600 15px/1 var(--t-font);
+  text-decoration: none;
+}
+.b-app.l-marketplace .mk-bar__saved:hover { background: var(--t-tint2); }
+/* On a phone the heart and the count say it; the word comes back when there is room. */
+.b-app.l-marketplace .mk-bar__saved-word { display: none; }
+.b-app.l-marketplace .mk-bar__count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--t-tint2);
+  font-size: 13px;
+  font-weight: 700;
+}
+.b-app.l-marketplace .mk-bar__tour {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--t-radbtn);
+  background: var(--t-acc2);
+  color: var(--t-onacc2);
+  font: 700 14px/1 var(--t-font);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-bar__tour:hover { filter: brightness(1.08); }
+
+@media (min-width: 900px) {
+  .b-app.l-marketplace .mk-nav { display: block; }
+  .b-app.l-marketplace .mk-bar__saved-word { display: inline; }
+  .b-app.l-marketplace .mk-bar__tour { min-height: 44px; padding: 0 20px; font-size: 15px; }
+  .b-app.l-marketplace .mk-bar__in { gap: 10px; }
+}
+/* The narrowest phones: the tour button keeps its words and the mark gives way. */
+@media (max-width: 359px) {
+  .b-app.l-marketplace .mk-bar__id { max-width: 34vw; }
+  .b-app.l-marketplace .mk-bar__tour { padding: 0 10px; font-size: 13px; }
+}
+
+/* ── shared pieces ────────────────────────────────────────────────────── */
+.b-app.l-marketplace .mk-h1 {
+  margin: 0;
+  font: 800 28px/1.15 var(--t-head);
+  letter-spacing: -0.015em;
+  color: var(--t-ink);
+}
+.b-app.l-marketplace .mk-h2 {
+  margin: 0;
+  font: 800 22px/1.2 var(--t-head);
+  letter-spacing: -0.01em;
+  color: var(--t-ink);
+}
+.b-app.l-marketplace .mk-lede,
+.b-app.l-marketplace .mk-sub {
+  margin: 6px 0 0;
+  color: var(--t-mut);
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 62ch;
+}
+@media (min-width: 768px) {
+  .b-app.l-marketplace .mk-h1 { font-size: 36px; }
+  .b-app.l-marketplace .mk-h2 { font-size: 26px; }
+}
+
+.b-app.l-marketplace .mk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  box-sizing: border-box;
+  border: 1.5px solid transparent;
+  border-radius: var(--t-radbtn);
+  font: 700 15px/1.2 var(--t-font);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-btn--solid { background: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-marketplace .mk-btn--solid:hover { filter: brightness(1.08); }
+.b-app.l-marketplace .mk-btn--line { background: var(--t-sur); color: var(--t-ink); border-color: var(--mk-ctl); }
+.b-app.l-marketplace .mk-btn--line:hover { background: var(--t-tint2); }
+.b-app.l-marketplace .mk-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--t-accT);
+  font-family: var(--t-font);
+  font-size: inherit;
+  font-weight: 700;
+  line-height: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  text-decoration: none;
+  font-size: 15px;
+}
+.b-app.l-marketplace .mk-inplan {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--t-tint);
+  color: var(--t-accT);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── the home screen ──────────────────────────────────────────────────── */
+/* Wider than the app's phone column: a grid of listings needs the room. */
+.b-app.l-marketplace .b-shell.mk-home {
+  max-width: var(--mk-wide);
+  padding: 0 var(--mk-gutter) 48px;
+  box-sizing: border-box;
+}
+.b-app.l-marketplace .mk-intro { padding: 24px 0 16px; }
+.b-app.l-marketplace .mk-incentive { margin: 0 0 20px; }
+
+/* The filter bar: price from and to, beds, the order, and the count. */
+.b-app.l-marketplace .mk-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 14px;
+  padding: 14px 0 16px;
+  margin-bottom: 18px;
+  border-top: 1px solid var(--t-line);
+  border-bottom: 1px solid var(--t-line);
+}
+.b-app.l-marketplace .mk-filter { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.b-app.l-marketplace .mk-filter__lbl { font-size: 12px; font-weight: 700; color: var(--t-mut); letter-spacing: 0.02em; }
+.b-app.l-marketplace .mk-filter__pair { display: flex; align-items: center; gap: 6px; }
+.b-app.l-marketplace .mk-filter__to { font-size: 14px; color: var(--t-mut); }
+.b-app.l-marketplace .mk-select {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  min-width: 96px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--mk-ctl);
+  border-radius: var(--t-radbtn);
+  /* A drawn chevron, in the muted ink of every theme: the select's own arrow is gone with appearance: none. */
+  background:
+    linear-gradient(45deg, transparent 50%, currentColor 50%) right 18px top 50% / 6px 6px no-repeat,
+    linear-gradient(135deg, currentColor 50%, transparent 50%) right 12px top 50% / 6px 6px no-repeat,
+    var(--t-sur);
+  color: var(--t-ink);
+  font: 600 15px/1.2 var(--t-font);
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-count { margin: 0 0 0 auto; align-self: center; font-size: 15px; color: var(--t-ink); }
+.b-app.l-marketplace .mk-count__of { color: var(--t-mut); }
+.b-app.l-marketplace .mk-reset { align-self: center; min-height: 44px; font-size: 15px; }
+/* On a phone the price pair takes a row of its own, and beds and the order share the next. */
+@media (max-width: 599px) {
+  .b-app.l-marketplace .mk-filter--price { flex-basis: 100%; }
+  .b-app.l-marketplace .mk-filter__pair .mk-select { flex: 1; }
+  .b-app.l-marketplace .mk-filter:not(.mk-filter--price) { flex: 1 1 120px; }
+  .b-app.l-marketplace .mk-filter .mk-select { width: 100%; }
+  .b-app.l-marketplace .mk-count { margin-left: 0; flex-basis: 100%; }
+}
+
+/* The listings. */
+.b-app.l-marketplace .mk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 600px) {
+  .b-app.l-marketplace .mk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1000px) {
+  .b-app.l-marketplace .mk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+}
+.b-app.l-marketplace .mk-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  overflow: hidden;
+  box-shadow: var(--mk-shadow);
+  transition: box-shadow 0.15s;
+}
+.b-app.l-marketplace .mk-card:hover { box-shadow: var(--mk-shadow-hi); }
+.b-app.l-marketplace .mk-card__open {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* The ring goes round the whole card, not just the button's box under the photo. */
+.b-app.l-marketplace .mk-card__open:focus-visible { outline-offset: -3px; }
+.b-app.l-marketplace .mk-card__photo {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--t-tint2);
+}
+.b-app.l-marketplace .mk-card__photo > div,
+.b-app.l-marketplace .mk-card__photo img {
+  width: 100%;
+  height: 100%;
+}
+.b-app.l-marketplace .mk-card__photo img { object-fit: cover; display: block; transition: transform 0.3s; }
+.b-app.l-marketplace .mk-card:hover .mk-card__photo img { transform: scale(1.03); }
+.b-app.l-marketplace .mk-card__nophoto {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--t-mut);
+  font-size: 13px;
+  font-weight: 600;
+}
+.b-app.l-marketplace .mk-card--sold .mk-card__photo img { filter: grayscale(0.7); opacity: 0.85; }
+.b-app.l-marketplace .mk-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  max-width: calc(100% - 80px);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.b-app.l-marketplace .mk-badge--ready { background: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-marketplace .mk-badge--sold { background: var(--t-ink); color: var(--t-sur); }
+.b-app.l-marketplace .mk-card__body { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px 16px; }
+.b-app.l-marketplace .mk-card__price { font: 800 24px/1.15 var(--t-head); letter-spacing: -0.01em; color: var(--t-ink); }
+.b-app.l-marketplace .mk-card__est { font-size: 14px; color: var(--t-mut); }
+.b-app.l-marketplace .mk-card__est b { color: var(--t-accT); font-weight: 700; }
+.b-app.l-marketplace .mk-card__facts { display: flex; flex-wrap: wrap; align-items: center; font-size: 15px; color: var(--t-ink); }
+.b-app.l-marketplace .mk-card__facts > span + span::before {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  margin: 0 10px;
+  vertical-align: -2px;
+  background: var(--mk-ctl);
+}
+.b-app.l-marketplace .mk-card__facts b { font-weight: 700; }
+.b-app.l-marketplace .mk-card__name { font-size: 14px; color: var(--t-mut); }
+.b-app.l-marketplace .mk-card__lot { white-space: nowrap; }
+.b-app.l-marketplace .mk-card__units { font-size: 13px; font-weight: 700; color: var(--t-accT); }
+/* The heart sits over the photo, a button of its own after the card's link. */
+.b-app.l-marketplace .mk-card__save {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--t-sur);
+  color: var(--t-ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-card__save[aria-pressed='true'] { color: var(--t-accT); }
+
+.b-app.l-marketplace .mk-note { margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: var(--t-mut); max-width: 90ch; }
+.b-app.l-marketplace .mk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 20px;
+  border: 1.5px dashed var(--t-line);
+  border-radius: var(--t-radlg);
+  background: var(--t-sur);
+  color: var(--t-mut);
+  text-align: center;
+}
+.b-app.l-marketplace .mk-empty__title { margin: 6px 0 0; font-size: 18px; font-weight: 800; color: var(--t-ink); }
+.b-app.l-marketplace .mk-empty__text { margin: 0; font-size: 15px; }
+.b-app.l-marketplace .mk-empty__btn { margin-top: 10px; }
+
+/* The money: the tools beside the lender. */
+.b-app.l-marketplace .mk-money {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  margin-top: 44px;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .b-app.l-marketplace .mk-money { grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: 28px; }
+}
+.b-app.l-marketplace .mk-afford,
+.b-app.l-marketplace .mk-lender {
+  padding: 22px;
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  box-shadow: var(--mk-shadow);
+}
+.b-app.l-marketplace .mk-leads { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 16px; }
+@media (min-width: 600px) {
+  .b-app.l-marketplace .mk-leads--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.b-app.l-marketplace .mk-lead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-rad);
+  background: var(--t-tint);
+  color: var(--t-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-lead:hover { border-color: var(--mk-ctl); }
+.b-app.l-marketplace .mk-lead__name { font: 800 17px/1.25 var(--t-head); }
+.b-app.l-marketplace .mk-lead__q { font-size: 14px; line-height: 1.45; color: var(--t-mut); }
+.b-app.l-marketplace .mk-lead__go { display: inline-flex; align-items: center; gap: 2px; margin-top: auto; padding-top: 4px; font-size: 15px; font-weight: 700; color: var(--t-accT); }
+
+.b-app.l-marketplace .mk-rows { margin: 16px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--t-line); }
+.b-app.l-marketplace .mk-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--t-line);
+  background: none;
+  color: var(--t-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.b-app.l-marketplace .mk-row:hover .mk-row__title { color: var(--t-accT); }
+.b-app.l-marketplace .mk-row__icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--t-rad);
+  background: var(--t-tint2);
+  color: var(--t-ink);
+}
+.b-app.l-marketplace .mk-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.b-app.l-marketplace .mk-row__title { font-size: 16px; font-weight: 700; }
+.b-app.l-marketplace .mk-row__sub { font-size: 14px; line-height: 1.4; color: var(--t-mut); }
+.b-app.l-marketplace .mk-row__go { flex: none; color: var(--t-mut); }
+/* "Around the community" as two side-by-side tiles once there is room. */
+@media (min-width: 600px) {
+  .b-app.l-marketplace .mk-rows--tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border-top: 0; }
+  .b-app.l-marketplace .mk-rows--tiles .mk-row {
+    border: 1px solid var(--t-line);
+    border-radius: var(--t-radlg);
+    background: var(--t-sur);
+    padding: 14px 16px;
+  }
+}
+.b-app.l-marketplace .mk-pair { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.b-app.l-marketplace .mk-pair > * { flex: 1 1 180px; }
+
+.b-app.l-marketplace .mk-lender { display: flex; flex-direction: column; gap: 12px; }
+.b-app.l-marketplace .mk-lender__kicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t-mut);
+}
+.b-app.l-marketplace .mk-lender__logo { align-self: flex-start; }
+.b-app.l-marketplace .mk-lender__line { margin: 0; font-size: 15px; line-height: 1.5; color: var(--t-ink); }
+.b-app.l-marketplace .mk-lender .mk-btn,
+.b-app.l-marketplace .mk-lender .b-btn { width: 100%; }
+.b-app.l-marketplace .mk-lender__legal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--t-line);
+}
+.b-app.l-marketplace .mk-lender__id { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; line-height: 1.45; color: var(--t-mut); }
+.b-app.l-marketplace .mk-lender__tel { color: var(--t-accT); font-weight: 700; }
+
+/* The sections under the money. */
+.b-app.l-marketplace .mk-sec { margin-top: 48px; }
+.b-app.l-marketplace .mk-sec > .mk-h2 { margin-bottom: 14px; }
+.b-app.l-marketplace .mk-sec__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 10px; }
+
+.b-app.l-marketplace .mk-articles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 600px) {
+  .b-app.l-marketplace .mk-articles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1000px) {
+  .b-app.l-marketplace .mk-articles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.b-app.l-marketplace .mk-article {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--t-sur);
+  border: 1px solid var(--t-line);
+  border-radius: var(--t-radlg);
+  overflow: hidden;
+  color: var(--t-ink);
+  text-decoration: none;
+  box-shadow: var(--mk-shadow);
+}
+.b-app.l-marketplace .mk-article:hover { box-shadow: var(--mk-shadow-hi); }
+.b-app.l-marketplace .mk-article__img { display: block; aspect-ratio: 16 / 9; background: var(--t-tint2); overflow: hidden; }
+.b-app.l-marketplace .mk-article__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b-app.l-marketplace .mk-article__text { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 18px; }
+.b-app.l-marketplace .mk-article__kicker { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t-accT); }
+.b-app.l-marketplace .mk-article__title { font: 800 17px/1.3 var(--t-head); }
+.b-app.l-marketplace .mk-article__sum {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--t-mut);
+}
+
+.b-app.l-marketplace .mk-res { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+@media (min-width: 768px) {
+  .b-app.l-marketplace .mk-res { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.b-app.l-marketplace .mk-res__title { margin: 0 0 8px; font: 800 17px/1.3 var(--t-head); }
+.b-app.l-marketplace .mk-res__box { background: var(--t-sur); border: 1px solid var(--t-line); border-radius: var(--t-radlg); overflow: hidden; }
+.b-app.l-marketplace .mk-res__video { display: block; width: 100%; background: #000; }
+.b-app.l-marketplace .mk-res__frame { position: relative; aspect-ratio: 16 / 9; }
+.b-app.l-marketplace .mk-res__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.b-app.l-marketplace .mk-res__body { margin: 0; padding: 14px 16px; font-size: 15px; line-height: 1.55; white-space: pre-line; }
+
+/* ── Explore Homes, as a grid of listings ─────────────────────────────── */
+.b-app.l-marketplace .b-shell.b-explore { max-width: var(--mk-wide); padding-left: var(--mk-gutter); padding-right: var(--mk-gutter); box-sizing: border-box; }
+.b-app.l-marketplace .b-explore__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px !important; /* beats the list's inline gap of 14px */
+}
+@media (min-width: 600px) {
+  .b-app.l-marketplace .b-explore__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1000px) {
+  .b-app.l-marketplace .b-explore__list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px !important; }
+}
+.b-app.l-marketplace .b-explore__card { box-shadow: var(--mk-shadow); }
+.b-app.l-marketplace .b-explore__card:hover { box-shadow: var(--mk-shadow-hi); }
+.b-app.l-marketplace .b-explore__photo {
+  height: auto !important; /* beats the inline 130px: a listing photo keeps its shape at every width */
+  aspect-ratio: 16 / 10;
+}
+.b-app.l-marketplace .b-explore__photo > div,
+.b-app.l-marketplace .b-explore__photo img { width: 100%; height: 100%; object-fit: cover; }
+/* The price leads on a listing, so it moves above the name and grows. */
+.b-app.l-marketplace .b-explore__title { flex-direction: column-reverse; align-items: flex-start !important; gap: 2px !important; }
+.b-app.l-marketplace .b-explore__title > span:last-child { font: 800 22px/1.15 var(--t-head) !important; }
+.b-app.l-marketplace .b-explore__title .b-head { font-size: 15px !important; font-weight: 600; color: var(--t-mut); }
+.b-app.l-marketplace .b-explore .b-tour { max-width: 480px; }
+
+/* ── a home's page ────────────────────────────────────────────────────── */
+.b-app.l-marketplace .b-shell.b-hd { max-width: 720px; padding-left: var(--mk-gutter); padding-right: var(--mk-gutter); box-sizing: border-box; }
+/* The four-photo grid beside the hero is drawn only on a wide screen; on a phone the page is the usual one. */
+.b-app.l-marketplace .b-hd__grid { display: none; }
+.b-app.l-marketplace .b-hd__thumb {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: var(--t-tint2);
+  cursor: pointer;
+}
+.b-app.l-marketplace .b-hd__thumb > div,
+.b-app.l-marketplace .b-hd__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b-app.l-marketplace .b-hd__thumb:hover img { filter: brightness(0.92); }
+.b-app.l-marketplace .b-hd__count {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 6px 10px;
+  border-radius: var(--t-radbtn);
+  background: var(--t-sur);
+  color: var(--t-ink);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.b-app.l-marketplace .b-hd__title > span { font: 800 26px/1.15 var(--t-head) !important; }
+
+@media (min-width: 900px) {
+  .b-app.l-marketplace .b-shell.b-hd {
+    max-width: var(--mk-wide);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    column-gap: 36px;
+    align-items: start;
+  }
+  .b-app.l-marketplace .b-hd > * { grid-column: 1; min-width: 0; }
+  /* Photos first, the way a listing opens: the hero on the left, four more in a square on the right. */
+  .b-app.l-marketplace .b-hd > .b-homehero {
+    grid-column: 1;
+    grid-row: 1;
+    height: 400px;
+    max-height: none;
+    aspect-ratio: auto;
+    margin-bottom: 22px;
+    border-radius: var(--t-radlg) 0 0 var(--t-radlg);
+  }
+  /* Fewer than five photos: no grid, and the hero runs the full width. */
+  .b-app.l-marketplace .b-hd:not(:has(.b-hd__grid)) > .b-homehero { grid-column: 1 / -1; border-radius: var(--t-radlg); }
+  .b-app.l-marketplace .b-hd__grid {
+    grid-column: 2;
+    grid-row: 1;
+    height: 400px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-left: -30px; /* closes most of the column gap, so the photos read as one block */
+    border-radius: 0 var(--t-radlg) var(--t-radlg) 0;
+    overflow: hidden;
+  }
+  /* Photos 2 to 5 are in the grid; "More photos" keeps the rest, and goes when there is no rest. */
+  .b-app.l-marketplace .b-hd__more--after-grid .b-tiles > :nth-child(-n + 4) { display: none; }
+  .b-app.l-marketplace .b-hd__more--after-grid:not(:has(.b-tiles > :nth-child(5))) { display: none; }
+  .b-app.l-marketplace .b-hd__title > span { font-size: 30px !important; }
+  .b-app.l-marketplace .b-hd__title h1 { font-size: 30px !important; }
+  /* The actions stay beside the details as the page scrolls, like a listing's contact panel. */
+  .b-app.l-marketplace .b-hd__actions {
+    grid-column: 2;
+    grid-row: 2 / span 30;
+    position: sticky;
+    top: calc(var(--mk-bar-h) + 20px);
+    padding: 20px;
+    background: var(--t-sur);
+    border: 1px solid var(--t-line);
+    border-radius: var(--t-radlg);
+    box-shadow: var(--mk-shadow);
+  }
+}

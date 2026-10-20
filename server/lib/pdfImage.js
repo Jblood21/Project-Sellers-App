@@ -7,12 +7,28 @@ import { deflateSync, inflateSync } from 'node:zlib';
  * is decoded to plain 8-bit samples, then compressed again, with any transparency moved into a separate soft mask,
  * so a logo with a transparent background sits on whatever is under it instead of on a black box.
  *
- * Anything else (WebP, GIF, an interlaced or damaged PNG, a picture too large to be worth decoding) gives null, and
- * the caller draws something else in its place. A report is never refused because of its logo.
+ * A large PNG is sampled down as it is read, to at most MAX_LOGO_SIDE pixels on its longer side: a report draws a
+ * logo a couple of inches wide, so a 4,000-pixel brand-kit file would only make the PDF heavy. Interlaced PNGs are
+ * put back together first.
+ *
+ * Anything else (WebP, GIF, a damaged PNG, one far too large to be a logo) gives null, and the caller draws something
+ * else in its place. A report is never refused because of its logo.
  */
 
-/** More pixels than this (say 2,800 x 1,400) is a photograph, not a logo: not worth the memory to decode for a report. */
-export const MAX_IMAGE_PIXELS = 4_000_000;
+/** The longer side a PNG logo is kept at: sharp at the size a report prints it, even on paper. */
+export const MAX_LOGO_SIDE = 1600;
+
+/** More pixels than this (say 10,000 x 5,000) is not a logo, and is not worth the time to read. */
+export const MAX_SOURCE_PIXELS = 50_000_000;
+
+/**
+ * The most a PNG's compressed data is ever inflated to. A small file that claims to unpack into gigabytes stops here
+ * with an error (caught below) instead of filling the memory.
+ */
+const MAX_INFLATED_BYTES = 48 * 1024 * 1024;
+
+/** Adam7, the order an interlaced PNG sends its pixels in: each pass's first column and row, and its step across and down. */
+const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -38,7 +54,8 @@ function readJpeg(buf) {
       const width = buf.readUInt16BE(i + 7);
       const components = buf[i + 9];
       const colorSpace = { 1: 'DeviceGray', 3: 'DeviceRGB', 4: 'DeviceCMYK' }[components];
-      if (!width || !height || !colorSpace || width * height > MAX_IMAGE_PIXELS) return null;
+      // Never decoded (the PDF reader does that), so its size costs nothing here; the upload limit bounds the bytes.
+      if (!width || !height || !colorSpace) return null;
       return {
         width, height, colorSpace, filter: 'DCTDecode', data: buf,
         decode: components === 4 && adobe ? [1, 0, 1, 0, 1, 0, 1, 0] : null,
@@ -83,6 +100,56 @@ function unfilter(raw, width, height, bitsPerPixel) {
   return { samples: out, stride };
 }
 
+/** The bytes one row of `width` pixels takes, not counting the filter byte in front of it. */
+const rowBytes = (width, bitsPerPixel) => Math.ceil((width * bitsPerPixel) / 8);
+
+/** Copies one pixel between two rows of samples, whole bytes or, below 8 bits a pixel, the bits themselves. */
+function copyPixel(src, srcRow, from, dst, dstRow, to, bits) {
+  if (bits >= 8) {
+    const n = bits >> 3;
+    src.copy(dst, dstRow + to * n, srcRow + from * n, srcRow + from * n + n);
+    return;
+  }
+  const mask = (1 << bits) - 1;
+  const fromBit = from * bits;
+  const toBit = to * bits;
+  const value = (src[srcRow + (fromBit >> 3)] >> (8 - bits - (fromBit & 7))) & mask;
+  const shift = 8 - bits - (toBit & 7);
+  dst[dstRow + (toBit >> 3)] = (dst[dstRow + (toBit >> 3)] & ~(mask << shift)) | (value << shift);
+}
+
+/** The seven passes of an interlaced PNG put back into one picture, laid out as a plain PNG's rows are. */
+function deinterlace(raw, width, height, bitsPerPixel) {
+  const stride = rowBytes(width, bitsPerPixel);
+  const out = Buffer.alloc(stride * height);
+  let offset = 0;
+  for (const [x0, y0, dx, dy] of ADAM7) {
+    const w = Math.ceil((width - x0) / dx);
+    const h = Math.ceil((height - y0) / dy);
+    if (w <= 0 || h <= 0) continue;
+    const size = (rowBytes(w, bitsPerPixel) + 1) * h;
+    const pass = unfilter(raw.subarray(offset, offset + size), w, h, bitsPerPixel);
+    if (!pass) return null;
+    offset += size;
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) copyPixel(pass.samples, y * pass.stride, x, out, (y0 + y * dy) * stride, x0 + x * dx, bitsPerPixel);
+    }
+  }
+  return { samples: out, stride };
+}
+
+/** The bytes a PNG's image data inflates to: its rows, each with its filter byte, pass by pass when interlaced. */
+function inflatedSize(width, height, bitsPerPixel, interlace) {
+  if (!interlace) return (rowBytes(width, bitsPerPixel) + 1) * height;
+  let total = 0;
+  for (const [x0, y0, dx, dy] of ADAM7) {
+    const w = Math.ceil((width - x0) / dx);
+    const h = Math.ceil((height - y0) / dy);
+    if (w > 0 && h > 0) total += (rowBytes(w, bitsPerPixel) + 1) * h;
+  }
+  return total;
+}
+
 /** Decodes a PNG to 8-bit colour samples and, when any pixel is see-through, an 8-bit alpha channel. */
 function readPng(buf) {
   if (buf.length < 33 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) return null;
@@ -109,16 +176,19 @@ function readPng(buf) {
   }
   if (!header || !data.length) return null;
   const { width, height, depth, colorType, interlace } = header;
-  if (!width || !height || width * height > MAX_IMAGE_PIXELS || interlace !== 0) return null;
+  if (!width || !height || width * height > MAX_SOURCE_PIXELS || interlace > 1) return null;
   const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[colorType];
   const depthOk = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] }[colorType];
   if (!channels || !depthOk?.includes(depth)) return null;
   if (colorType === 3 && !palette) return null;
 
-  // The rows can be no longer than this, so nothing past it is inflated: a small file that would unpack into
-  // gigabytes stops here with an error (caught below) instead of filling the memory.
-  const expected = (Math.ceil((width * channels * depth) / 8) + 1) * height;
-  const decoded = unfilter(inflateSync(Buffer.concat(data), { maxOutputLength: expected }), width, height, channels * depth);
+  // The rows can be no longer than this, so nothing past it is inflated.
+  const expected = inflatedSize(width, height, channels * depth, interlace);
+  if (expected > MAX_INFLATED_BYTES) return null;
+  const inflated = inflateSync(Buffer.concat(data), { maxOutputLength: expected });
+  const decoded = interlace
+    ? deinterlace(inflated, width, height, channels * depth)
+    : unfilter(inflated, width, height, channels * depth);
   if (!decoded) return null;
   const { samples, stride } = decoded;
 
@@ -140,13 +210,19 @@ function readPng(buf) {
     return (samples[row * stride + (bit >> 3)] >> (8 - depth - (bit & 7))) & ((1 << depth) - 1);
   };
 
+  // Every step-th pixel of every step-th row: a large logo comes out at most MAX_LOGO_SIDE on its longer side.
+  const step = Math.max(1, Math.ceil(Math.max(width, height) / MAX_LOGO_SIDE));
+  const outWidth = Math.ceil(width / step);
+  const outHeight = Math.ceil(height / step);
   const gray = colorType === 0 || colorType === 4;
-  const color = Buffer.alloc(width * height * (gray ? 1 : 3));
-  const alpha = Buffer.alloc(width * height, 255);
+  const color = Buffer.alloc(outWidth * outHeight * (gray ? 1 : 3));
+  const alpha = Buffer.alloc(outWidth * outHeight, 255);
   let seeThrough = false;
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const p = y * width + x;
+  for (let oy = 0; oy < outHeight; oy += 1) {
+    const y = oy * step;
+    for (let ox = 0; ox < outWidth; ox += 1) {
+      const x = ox * step;
+      const p = oy * outWidth + ox;
       let a = 255;
       if (colorType === 0) {
         color[p] = sample(y, x);
@@ -171,7 +247,7 @@ function readPng(buf) {
     }
   }
   return {
-    width, height, colorSpace: gray ? 'DeviceGray' : 'DeviceRGB', filter: 'FlateDecode',
+    width: outWidth, height: outHeight, colorSpace: gray ? 'DeviceGray' : 'DeviceRGB', filter: 'FlateDecode',
     data: deflateSync(color), alpha: seeThrough ? deflateSync(alpha) : null, decode: null,
   };
 }

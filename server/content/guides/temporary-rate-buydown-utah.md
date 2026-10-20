@@ -49,4 +49,4 @@ Dillan runs this comparison in one conversation, with your income, your loan pro
 - [How Much House Can You Afford in Northern Utah?](how-much-house-can-you-afford-northern-utah.md)
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*

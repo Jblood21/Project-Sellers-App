@@ -29,7 +29,9 @@ export default function Explore({ onOpenTour, onOpenLender }) {
   const canAskFinancing = canTalkFinancing(community, features);
 
   return (
-    <div className="b-shell" style={{ paddingTop: 20 }}>
+    // The b-explore names carry no style of their own; they are there so a layout can lay the list out as
+    // a grid of listings (see marketplace.css) without matching the inline styles.
+    <div className="b-shell b-explore" style={{ paddingTop: 20 }}>
       <h1 className="b-head" style={{ margin: '0 0 12px', fontSize: 22 }}>Explore Homes</h1>
 
       {homes.length === 0 ? (
@@ -37,7 +39,7 @@ export default function Explore({ onOpenTour, onOpenLender }) {
           We’re still adding homes to this community. Check back soon.
         </p>
       ) : null}
-      <div className="b-stack" style={{ gap: 14 }}>
+      <div className="b-stack b-explore__list" style={{ gap: 14 }}>
         {homes.map((home) => {
           const saved = lead?.savedHomeIds?.includes(home.id);
           return (
@@ -52,11 +54,12 @@ export default function Explore({ onOpenTour, onOpenLender }) {
               onKeyDown={(event) => {
                 if (event.key === 'Enter') navigate(`/c/${communityId}/homes/${home.id}`);
               }}
-              className="b-card"
+              className="b-card b-explore__card"
               style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
             >
               <button
                 type="button"
+                className="b-explore__save"
                 aria-label={saved ? `Remove ${home.name} from Homes I Like` : `Save ${home.name}`}
                 aria-pressed={saved}
                 onClick={(event) => {
@@ -74,15 +77,15 @@ export default function Explore({ onOpenTour, onOpenLender }) {
               >
                 <Star filled={saved} />
               </button>
-              <div style={{ height: 130, margin: -1, marginBottom: 0 }}>
+              <div className="b-explore__photo" style={{ height: 130, margin: -1, marginBottom: 0 }}>
                 <Photo
                   photo={home.photos[0]}
                   label={`${home.name} photo`}
                   alt={`${home.name} photo 1 of ${home.photos.length}`}
                 />
               </div>
-              <div style={{ padding: '12px 16px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+              <div className="b-explore__body" style={{ padding: '12px 16px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div className="b-explore__title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                   <span className="b-head" style={{ fontSize: 18 }}>{home.name}</span>
                   <span style={{ fontWeight: 700, fontSize: 15 }}>{money(home.price)}</span>
                 </div>

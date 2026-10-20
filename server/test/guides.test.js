@@ -56,7 +56,7 @@ for (const kind of backends()) {
       const full = await admin(`/guides/${first.id}`);
       assert.equal(full.status, 200);
       assert.ok(full.body.body.length > 500, 'the article is there');
-      assert.match(full.body.body, /Figures shown are current as of 8\/27\/26/);
+      assert.match(full.body.body, /Figures shown are current as of 10\/20\/26/);
       assert.equal((await admin('/guides/g_missing')).status, 404);
     });
 
@@ -212,7 +212,7 @@ for (const kind of backends()) {
         assert.equal(again.body.restored, 0, 'idempotent');
         assert.equal((await adminGuides(id)).length, 13);
         const back = await byKey(DEFAULT_GUIDE_ORDER[3], id);
-        assert.equal((await admin(`/guides/${back.id}`)).body.body.includes('8/27/26'), true, 'restored with its article');
+        assert.equal((await admin(`/guides/${back.id}`)).body.body.includes('10/20/26'), true, 'restored with its article');
         assert.notEqual(back.id, gone.id, 'a fresh copy, since the old row is gone');
       });
 
@@ -303,7 +303,7 @@ for (const kind of backends()) {
         const res = await api(`/api/c/${pub}/guides/${DEFAULT_GUIDE_ORDER[0]}`);
         assert.equal(res.status, 200);
         assert.equal(res.body.slug, DEFAULT_GUIDE_ORDER[0]);
-        assert.ok(res.body.body.includes('8/27/26'));
+        assert.ok(res.body.body.includes('10/20/26'));
         assert.ok(res.body.title && res.body.byline && res.body.image && res.body.imageAlt);
         assert.equal(res.body.published, undefined, 'no admin-only fields');
         assert.equal(res.body.communityId, undefined);

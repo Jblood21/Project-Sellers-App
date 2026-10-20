@@ -6,6 +6,7 @@ import {
   DEFAULT_TOOLS_ENABLED, isoDate, isSameLead, toolOfActivity,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
+import { FIGURES_REFRESH, needsRefresh, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
@@ -167,6 +168,29 @@ export function createFileStore(path) {
         community.guidesSeeded = true;
       }
       save();
+      await this.applyFiguresRefresh(FIGURES_REFRESH);
+    },
+
+    /** Brings every community not yet at `refresh.version` up to it; see refresh.js and the Postgres store. */
+    async applyFiguresRefresh(refresh) {
+      const done = [];
+      const guides = refresh.guides ? loadDefaultGuides() : [];
+      for (const community of db.communities) {
+        if (!needsRefresh(community.figuresVersion, refresh.version)) continue;
+        community.settings = refreshedSettings(community, refresh);
+        community.figuresVersion = refresh.version;
+        community.updatedAt = now();
+        for (const def of guides) {
+          const g = guideRowFromDefault(def, def.slug, 0);
+          for (const row of db.guides) {
+            if (row.communityId !== community.id || row.defaultKey !== def.defaultKey) continue;
+            Object.assign(row, { summary: g.summary, body: g.body, updatedAt: now() });
+          }
+        }
+        done.push(community.id);
+      }
+      if (done.length) save();
+      return done;
     },
 
     async close() {},
@@ -258,6 +282,8 @@ export function createFileStore(path) {
         features: { ...DEFAULT_FEATURES },
         layout: DEFAULT_LAYOUT,
         guidesSeeded: true,
+        // Created on the current defaults, so the figures refresh that wrote them is already done for it.
+        figuresVersion: FIGURES_REFRESH.version,
         createdAt: now(), updatedAt: now(),
       };
       db.communities.push(row);

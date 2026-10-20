@@ -38,9 +38,9 @@ Loan programs also cap how much a seller may contribute, and for conventional fi
 
 ## When should I ask for a closing cost estimate?
 
-You're entitled to a loan estimate within three business days of a complete application. Get one before you're emotionally committed to a house. It's much easier to compare lenders in week one than in week five.
+You're entitled to a loan estimate within three business days of applying, and for this rule an application is just six basic details. Get one before you're emotionally committed to a house. It's much easier to compare lenders in week one than in week five.
 
 This article is general educational information about home financing and does not consider your individual circumstances. It is not an offer of credit, a rate quote, a prequalification, an approval or a commitment to lend. Program rules, limits and availability change. Confirm current guidelines and property information with a licensed loan officer and with the seller or listing brokerage.
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*

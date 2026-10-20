@@ -61,7 +61,7 @@ services:
       # A fresh deployment starts empty rather than with a demo community.
       - key: SEED_DEMO
         value: "false"
-      # CI tests Node 20 and 22; pin what Render builds with to one of them.
+      # CI tests Node 22 and 24 (Node 20 reached end of life in April 2026); pin what Render builds with to one of them.
       - key: NODE_VERSION
         value: "22"
 

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { THEMES, THEME_CHIPS, num } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
-import { dateTime, fullDate } from '../../lib/format.js';
+import { fullDate } from '../../lib/format.js';
 import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { DEFAULT_SETUP_PART, SETUP_PARTS } from '../shell/sections.js';
@@ -78,7 +78,12 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
     setSaving(true);
     setError('');
     try {
-      await adminApi.updateCommunity(token, community.id, { settings });
+      // Only what was changed on this page: sending every value it loaded would put back, over anything saved since
+      // (a second admin, the rates webhook, a figures refresh on deploy), whatever this page was opened with.
+      const changed = Object.fromEntries(
+        Object.entries(settings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(community.settings?.[key])),
+      );
+      await adminApi.updateCommunity(token, community.id, { settings: changed });
       const fresh = await reload();
       // The server trims and caps what it stores. Showing the form what was
       // really saved (not what was typed) is what makes "Saved" true, and it
@@ -238,7 +243,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
 
       <Disclosure
         title="Live rates"
-        summary={`Conv ${orDash(settings.rateConv)}% · FHA ${orDash(settings.rateFha)}% · VA ${orDash(settings.rateVa)}% · updated ${settings.ratesUpdatedAt ? dateTime(settings.ratesUpdatedAt) : 'never'}`}
+        summary={`Conv ${orDash(settings.rateConv)}% · FHA ${orDash(settings.rateFha)}% · VA ${orDash(settings.rateVa)}% · updated ${settings.ratesUpdatedAt ? fullDate(settings.ratesUpdatedAt) : 'never'}`}
         tag={unsavedTag(['rateConv', 'rateFha', 'rateVa'])}
         actions={(
           <button type="button" className="btn btn-ghost" onClick={checkRates} style={{ minHeight: 34, fontSize: 12.5 }}>
@@ -252,7 +257,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
           <TextField label="VA %" value={settings.rateVa} onChange={set('rateVa')} inputMode="decimal" />
         </div>
         <span className="text-muted" style={{ fontSize: 12 }}>
-          Updated {settings.ratesUpdatedAt ? dateTime(settings.ratesUpdatedAt) : 'never'} · a Zapier email parser can
+          Updated {settings.ratesUpdatedAt ? fullDate(settings.ratesUpdatedAt) : 'never'} · a Zapier email parser can
           post new rates to this community automatically.
         </span>
       </Disclosure>

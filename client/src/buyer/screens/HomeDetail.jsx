@@ -5,6 +5,7 @@ import Photo from '../../components/Photo.jsx';
 import { isSold, unitsLabel, videoEmbed } from '@shared/domain.js';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
+import { layoutTraits } from '../layouts/index.js';
 import { canTalkFinancing } from '../reach.js';
 import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
@@ -18,7 +19,7 @@ export default function HomeDetail({ onOpenLender }) {
   // Which of the home's photos the viewer is showing; null means closed. And the video tour player.
   const [photoIndex, setPhotoIndex] = useState(null);
   const [videoOpen, setVideoOpen] = useState(false);
-  const { community, homes, lead, toggleSave, track, setTool, agents, features } = useBuyer();
+  const { community, homes, lead, toggleSave, track, setTool, agents, features, layout } = useBuyer();
   const { communityId, homeId } = useParams();
   const navigate = useNavigate();
 
@@ -32,9 +33,15 @@ export default function HomeDetail({ onOpenLender }) {
   // The video tour is an uploaded file or a YouTube/Vimeo link, never both. Nothing is shown without one.
   const embed = home.videoUrl ? '' : videoEmbed(home.videoLink);
   const hasVideo = Boolean(home.videoUrl || embed);
+  // A layout that asks for it gets photos 2 to 5 as a grid beside the hero, the way a listing opens; its
+  // stylesheet shows the grid on a wide screen and hides those four from "More photos" while it does. Only
+  // with all four, because a grid with holes in it looks broken. Every other layout's page is unchanged.
+  const photoGrid = layoutTraits(layout).photoGrid && more.length >= 4;
 
   return (
-    <div className="b-shell" style={{ paddingTop: 16 }}>
+    // The b-hd names carry no style of their own; they are there so a layout can arrange the page (a
+    // photo grid, the actions in a column beside the details) without matching the inline styles.
+    <div className="b-shell b-hd" style={{ paddingTop: 16 }}>
       {/* The hero: this home's first photo, big. Tap it to see all of them full size. */}
       <button
         type="button"
@@ -45,12 +52,31 @@ export default function HomeDetail({ onOpenLender }) {
       >
         <Photo eager photo={hero} label={`${home.name} — photo coming soon`} alt={`${home.name} photo 1 of ${home.photos.length || 1}`} />
       </button>
+      {photoGrid ? (
+        <div className="b-hd__grid">
+          {more.slice(0, 4).map((photo, index) => (
+            <button
+              key={photo.id}
+              type="button"
+              className="b-hd__thumb"
+              onClick={() => setPhotoIndex(index + 1)}
+              aria-label={`Open ${home.name} photo ${index + 2} of ${home.photos.length}`}
+            >
+              <Photo photo={photo} alt="" />
+              {/* On the last of the four, how many there are in all, since the viewer holds the rest. */}
+              {index === 3 && home.photos.length > 5 ? (
+                <span className="b-hd__count" aria-hidden="true">{home.photos.length} photos</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
+      <div className="b-hd__title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
         <h1 className="b-head" style={{ fontSize: 24 }} data-punct={/[.?!]$/.test(home.name ?? '') || undefined}>{home.name}</h1>
         <span style={{ fontWeight: 700, fontSize: 19 }}>{money(home.price)}</span>
       </div>
-      <span style={{ fontSize: 13, color: 'var(--t-mut)' }}>
+      <span className="b-hd__meta" style={{ fontSize: 13, color: 'var(--t-mut)' }}>
         {homeMeta(home)} · {home.availability}
         {home.lotNumber ? ` · ${home.lotNumber}` : ''}
       </span>
@@ -63,7 +89,7 @@ export default function HomeDetail({ onOpenLender }) {
         // A block wrapper, not alignSelf: .b-shell is not a flex container, so
         // the badge would otherwise run straight on from the line above and
         // read "Move-in ready4 available".
-        <div style={{ marginTop: 8 }}>
+        <div className="b-hd__units" style={{ marginTop: 8 }}>
           <span
             style={{
               display: 'inline-block', padding: '4px 10px', borderRadius: 999,
@@ -77,7 +103,7 @@ export default function HomeDetail({ onOpenLender }) {
           </span>
         </div>
       ) : null}
-      <p style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
+      <p className="b-hd__desc" style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
 
       {/*
         Under the description: a buyer scanning photos is not yet deciding to stop and watch. A button, not an
@@ -86,7 +112,7 @@ export default function HomeDetail({ onOpenLender }) {
       {hasVideo ? (
         <button
           type="button"
-          className="b-btn b-btn-outline"
+          className="b-btn b-btn-outline b-hd__video"
           style={{ marginBottom: 16 }}
           onClick={() => {
             track(`Watched the video tour of ${home.name}`);
@@ -98,7 +124,7 @@ export default function HomeDetail({ onOpenLender }) {
       ) : null}
 
       {home.floorPlans?.length ? (
-        <div style={{ marginBottom: 16 }}>
+        <div className="b-hd__plans" style={{ marginBottom: 16 }}>
           <span className="b-lbl" style={{ display: 'block', marginBottom: 8 }}>Floor plans</span>
           <div className="scroll-x" style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
             {home.floorPlans.map((plan, index) => (
@@ -122,7 +148,7 @@ export default function HomeDetail({ onOpenLender }) {
       ) : null}
 
       {more.length ? (
-        <div style={{ marginBottom: 16 }}>
+        <div className={`b-hd__more${photoGrid ? ' b-hd__more--after-grid' : ''}`} style={{ marginBottom: 16 }}>
           <span className="b-lbl" style={{ display: 'block', marginBottom: 8 }}>More photos</span>
           <div className="b-tiles">
             {more.map((photo, index) => (
@@ -141,52 +167,54 @@ export default function HomeDetail({ onOpenLender }) {
         </div>
       ) : null}
 
-      <div className="b-stack" style={{ gap: 10 }}>
-        {/*
-          First, because a buyer looking at a model is closest to wanting to know what it would
-          take to own it. It opens the day-then-time picker for a conversation about financing
-          with the lender; a tour is asked for below, through the agents.
-        */}
-        {canTalkFinancing(community, features) ? (
-          <button
-            type="button"
-            className="b-btn"
-            style={{ minHeight: 50 }}
-            onClick={() => {
-              track(`Asked about financing for ${home.name}`);
-              onOpenLender();
-            }}
-          >
-            Talk about financing
-          </button>
-        ) : null}
-        {/* Only when the payment tool is on: with it off the sheet cannot open, so the button would do nothing. */}
-        {community?.tools?.payment ? (
+      <div className="b-hd__actions">
+        <div className="b-stack" style={{ gap: 10 }}>
+          {/*
+            First, because a buyer looking at a model is closest to wanting to know what it would
+            take to own it. It opens the day-then-time picker for a conversation about financing
+            with the lender; a tour is asked for below, through the agents.
+          */}
+          {canTalkFinancing(community, features) ? (
+            <button
+              type="button"
+              className="b-btn"
+              style={{ minHeight: 50 }}
+              onClick={() => {
+                track(`Asked about financing for ${home.name}`);
+                onOpenLender();
+              }}
+            >
+              Talk about financing
+            </button>
+          ) : null}
+          {/* Only when the payment tool is on: with it off the sheet cannot open, so the button would do nothing. */}
+          {community?.tools?.payment ? (
+            <button
+              type="button"
+              className="b-btn b-btn-outline"
+              style={{ minHeight: 50 }}
+              onClick={() => {
+                setTool('pay', { homeId: home.id });
+                track(`Opened payment for ${home.name}`);
+                setPaymentOpen(true);
+              }}
+            >
+              See My Payment for This Home
+            </button>
+          ) : null}
           <button
             type="button"
             className="b-btn b-btn-outline"
-            style={{ minHeight: 50 }}
-            onClick={() => {
-              setTool('pay', { homeId: home.id });
-              track(`Opened payment for ${home.name}`);
-              setPaymentOpen(true);
-            }}
+            onClick={() => toggleSave(home)}
+            style={saved ? { background: 'var(--t-acc)', color: 'var(--t-onacc)' } : undefined}
           >
-            See My Payment for This Home
+            {saved ? '★ Saved to My Home Plan' : '☆ Save to My Home Plan'}
           </button>
-        ) : null}
-        <button
-          type="button"
-          className="b-btn b-btn-outline"
-          onClick={() => toggleSave(home)}
-          style={saved ? { background: 'var(--t-acc)', color: 'var(--t-onacc)' } : undefined}
-        >
-          {saved ? '★ Saved to My Home Plan' : '☆ Save to My Home Plan'}
-        </button>
+        </div>
+        <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>
+          Saving a home adds it to My Home Plan and tells the team you&apos;re interested.
+        </p>
       </div>
-      <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>
-        Saving a home adds it to My Home Plan and tells the team you&apos;re interested.
-      </p>
 
       {/*
         Under the actions rather than above them: a buyer here is deciding about
@@ -194,7 +222,7 @@ export default function HomeDetail({ onOpenLender }) {
         agents are the community's, not this home's, so every home shows the same.
       */}
       {features.agents && agents.length ? (
-        <section style={{ marginTop: 26 }} aria-labelledby="home-agents">
+        <section className="b-hd__agents" style={{ marginTop: 26 }} aria-labelledby="home-agents">
           <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
           <h2 id="home-agents" className="b-head" style={{ margin: '0 0 6px', fontSize: 24 }}>Want a Tour?</h2>
           <span className="b-lbl" style={{ display: 'block', margin: '0 0 12px', color: 'var(--t-accT)' }}>

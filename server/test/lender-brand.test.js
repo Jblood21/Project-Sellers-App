@@ -5,7 +5,7 @@ import { after, before, describe, test } from 'node:test';
 import { DEFAULT_SETTINGS } from '../../shared/domain.js';
 import { lenderBrandOf } from '../lib/lenderBrand.js';
 import { PdfDocument } from '../lib/pdf.js';
-import { MAX_IMAGE_PIXELS, pdfImageFrom } from '../lib/pdfImage.js';
+import { MAX_LOGO_SIDE, MAX_SOURCE_PIXELS, pdfImageFrom } from '../lib/pdfImage.js';
 import { buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import { buildReport, reportText } from '../lib/report.js';
 import { GIF, PNG, backends, startBackend } from './fixtures/harness.js';
@@ -126,17 +126,72 @@ describe('reading a logo for the PDF', () => {
     assert.deepEqual(pdfImageFrom(jpeg({ width: 10, height: 10, components: 4, adobe: true })).decode, [1, 0, 1, 0, 1, 0, 1, 0]);
   });
 
-  test('anything else is null, never an error: WebP, GIF, interlaced, damaged, empty or far too large', () => {
+  test('an interlaced PNG reads exactly as the same picture saved plainly, at every bit depth', () => {
+    const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
+    /** Rows of whole-byte pixels, plain and interlaced, from a function giving each pixel's bytes. */
+    const both = (width, height, pixel) => {
+      const plain = Array.from({ length: height }, (_, y) => [0, ...Array.from({ length: width }, (_, x) => pixel(x, y)).flat()]);
+      const passes = [];
+      for (const [x0, y0, dx, dy] of ADAM7) {
+        for (let y = y0; y < height; y += dy) {
+          const row = [];
+          for (let x = x0; x < width; x += dx) row.push(...pixel(x, y));
+          if (row.length) passes.push([0, ...row]);
+        }
+      }
+      return { plain, passes };
+    };
+    const rgba = both(9, 7, (x, y) => [x * 20, y * 30, (x * y) % 256, x === y ? 0 : 255]);
+    const a = pdfImageFrom(png({ width: 9, height: 7, colorType: 6, rows: rgba.plain }));
+    const b = pdfImageFrom(png({ width: 9, height: 7, colorType: 6, interlace: 1, rows: rgba.passes }));
+    assert.deepEqual([b.width, b.height], [9, 7]);
+    assert.deepEqual(pixels(b), pixels(a));
+    assert.deepEqual(alphaOf(b), alphaOf(a));
+
+    // 1-bit grey, 11 wide: pixels share bytes, so they are moved bit by bit.
+    const bit = (x, y) => ((x * 7 + y * 3) % 5 < 2 ? 1 : 0);
+    const pack = (values) => {
+      const bytes = [];
+      values.forEach((v, i) => { bytes[i >> 3] = (bytes[i >> 3] ?? 0) | (v << (7 - (i & 7))); });
+      return bytes;
+    };
+    const plainRows = Array.from({ length: 5 }, (_, y) => [0, ...pack(Array.from({ length: 11 }, (_, x) => bit(x, y)))]);
+    const passRows = [];
+    for (const [x0, y0, dx, dy] of ADAM7) {
+      for (let y = y0; y < 5; y += dy) {
+        const values = [];
+        for (let x = x0; x < 11; x += dx) values.push(bit(x, y));
+        if (values.length) passRows.push([0, ...pack(values)]);
+      }
+    }
+    const c = pdfImageFrom(png({ width: 11, height: 5, depth: 1, colorType: 0, rows: plainRows }));
+    const d = pdfImageFrom(png({ width: 11, height: 5, depth: 1, colorType: 0, interlace: 1, rows: passRows }));
+    assert.deepEqual(pixels(d), pixels(c));
+  });
+
+  test('a large PNG is sampled down to the size of a logo, and a large JPEG is kept as it is', () => {
+    const width = MAX_LOGO_SIDE * 2 + 1;
+    const row = [0, ...Array.from({ length: width }, (_, x) => [x % 256, 0, 0]).flat()];
+    const big = pdfImageFrom(png({ width, height: 3, colorType: 2, rows: [row, row, row] }));
+    assert.deepEqual([big.width, big.height], [Math.ceil(width / 3), 1], 'every third pixel of every third row');
+    const out = pixels(big);
+    assert.deepEqual([out[0], out[3], out[6]], [0, 3, 6]);
+    assert.ok(big.width <= MAX_LOGO_SIDE);
+    const photo = pdfImageFrom(jpeg({ width: 6000, height: 4000, components: 3 }));
+    assert.deepEqual([photo.width, photo.height, photo.filter], [6000, 4000, 'DCTDecode'], 'a JPEG is never decoded, so its size costs nothing');
+  });
+
+  test('anything else is null, never an error: WebP, GIF, damaged, empty or far too large', () => {
     const webp = Buffer.concat([Buffer.from('RIFF\0\0\0\0WEBPVP8 ', 'latin1'), Buffer.alloc(20)]);
     const gif = Buffer.from(GIF.split(',')[1], 'base64');
-    const interlaced = png({ width: 1, height: 1, colorType: 2, interlace: 1, rows: [[0, 1, 2, 3]] });
+    const unknownInterlace = png({ width: 1, height: 1, colorType: 2, interlace: 2, rows: [[0, 1, 2, 3]] });
     const short = png({ width: 4, height: 4, colorType: 2, rows: [[0, 1, 2, 3]] });
-    const huge = png({ width: MAX_IMAGE_PIXELS, height: 2, colorType: 0, rows: [[0, 0]] });
+    const huge = png({ width: MAX_SOURCE_PIXELS, height: 2, colorType: 0, rows: [[0, 0]] });
     const cut = jpeg({ width: 10, height: 10, components: 3 }).subarray(0, 12);
     // A 2x2 picture whose data unpacks into 20 MB: nothing past the rows a 2x2 picture can have is inflated.
     const header = png({ width: 2, height: 2, colorType: 2, rows: [[0, 0, 0, 0, 0, 0, 0]] });
     const bomb = Buffer.concat([header.subarray(0, 33), chunk('IDAT', deflateSync(Buffer.alloc(20 * 1024 * 1024))), chunk('IEND')]);
-    for (const [label, bytes] of [['bomb', bomb], ['webp', webp], ['gif', gif], ['interlaced', interlaced], ['short rows', short], ['huge', huge], ['cut jpeg', cut], ['empty', Buffer.alloc(0)], ['null', null]]) {
+    for (const [label, bytes] of [['bomb', bomb], ['webp', webp], ['gif', gif], ['unknown interlace', unknownInterlace], ['short rows', short], ['huge', huge], ['cut jpeg', cut], ['empty', Buffer.alloc(0)], ['null', null]]) {
       assert.equal(pdfImageFrom(bytes), null, label);
     }
   });
@@ -212,6 +267,22 @@ describe('the lead reports are prepared by the lender in Setup', () => {
       assert.ok(!text.includes('NMLS'), 'no NMLS line');
       assert.deepEqual(imagesIn(made.buffer), []);
       assert.ok(text.includes('Page 1 of'), 'the page numbers are still there');
+    }
+  });
+
+  test('a long name or contact is cut, never an NMLS ID: the lender ID stays in the strip and footer, the loan officer is whole or left out', () => {
+    const busy = withLender({
+      lenderName: 'Academy Mortgage Corporation doing business as Academy Home Loans of Northern Utah', lenderNmls: '3113',
+      lenderPhone: '801-325-6228', lenderEmail: 'mortgageteam.northern.utah@academyhomeloans.example', lenderWebsite: 'https://www.academyhomeloans.example/utah/ogden/mortgage',
+      loName: 'Jennifer Christensen-Whitaker', loNmls: '1234567',
+    });
+    const logo = pdfImageFrom(png({ width: 600, height: 200, colorType: 2, rows: Array.from({ length: 200 }, () => [0, ...Array(1800).fill(90)]) }));
+    for (const made of [leadsPdf(busy, { brand: lenderBrandOf(busy, { logo }) }), userPdf(busy, { brand: lenderBrandOf(busy, { logo }) })]) {
+      const pages = readPdf(made.buffer);
+      const first = pages[0].lines;
+      assert.ok(first.some((line) => line.endsWith('Loan officer: Jennifer Christensen-Whitaker · NMLS #1234567')), 'the loan officer, whole');
+      assert.ok(first.some((line) => line.endsWith('... · NMLS #3113') || line.endsWith('Northern Utah · NMLS #3113')), 'the strip keeps the lender ID');
+      for (const page of pages) assert.ok(page.lines.some((line) => /· NMLS #3113$/.test(line) && !line.startsWith('Prepared')), 'the footer keeps the lender ID');
     }
   });
 

@@ -14,7 +14,7 @@ The dues figure tells you very little on its own. What it covers, and whether th
 
 In an attached-home community, the association typically maintains the exterior of the buildings, the common landscaping, the interior streets and the shared amenities, and it usually carries a blanket property insurance policy on the structures. Some communities include snow removal and some don't. Some include exterior paint on a schedule and some assess for it separately.
 
-None of that's standard. It's written in the CC&Rs, and the CC&Rs are the only thing that governs.
+None of that's standard. It's written in the CC&Rs and the other governing documents, within limits Utah's Community Association Act sets.
 
 ## How does the HOA’s blanket policy change my insurance?
 
@@ -44,4 +44,4 @@ As an example, one new Davis County townhome community sets dues at $172 per mon
 This article is general educational information about home financing and does not consider your individual circumstances. It is not an offer of credit, a rate quote, a prequalification, an approval or a commitment to lend. Program rules, limits and availability change. Confirm current guidelines and property information with a licensed loan officer and with the seller or listing brokerage.
 
 ---
-*Figures shown are current as of 8/27/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
+*Figures shown are current as of 10/20/26. Educational information, not financial or legal advice. Published by Summit Home Loans LLC, NMLS #1790749. Equal Housing Opportunity.*
