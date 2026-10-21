@@ -261,12 +261,66 @@
 .as-call__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .as-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.as-community { gap: 8px; padding: 18px; }
+.as-community { --as-card-pad: 18px; --as-cover-h: 140px; position: relative; gap: 8px; padding: var(--as-card-pad); }
 .as-community__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 /* The name is a link; the padding gives it a 44px target and the equal negative margin keeps the card's lines where they were. */
 .as-community__name { font-size: 19px; overflow-wrap: anywhere; padding: 10px 0; margin: -10px 0; border-radius: 8px; }
 .as-community__name:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* The name's link also reaches over the picture above it, so a click on the picture opens Leads the way the name
+   does while the keyboard still meets one link, not two. The picture comes after the name in the page, so the reach
+   needs a layer of its own to stay on top of it. */
+.as-community__name::after {
+  content: ''; position: absolute; z-index: 1; top: 0; left: 0; right: 0; height: var(--as-cover-h); border-radius: 17px 17px 0 0;
+}
 .as-community__stats { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* The community's picture, edge to edge across the top of its card: the negative margin takes back the card's
+   padding and the corners follow the card's own (18px less its 1px edge). One height, picture or not, so a row of
+   cards lines up and nothing below moves while a photo loads. Until it has, the theme's colour fills the box. It
+   follows the name in the page, so the name is read first, and `order` shows it at the top all the same. */
+.as-cover {
+  order: -1; position: relative; flex: none; height: var(--as-cover-h); overflow: hidden;
+  margin: calc(-1 * var(--as-card-pad)) calc(-1 * var(--as-card-pad)) 6px;
+  border-radius: 17px 17px 0 0; background: var(--cover-ground, var(--color-accent));
+}
+.as-cover__img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
+  opacity: 0; transition: opacity 0.25s ease, transform 0.4s ease;
+}
+.as-cover__img.is-loaded { opacity: 1; }
+.as-community:has(.as-community__name:hover) .as-cover__img { transform: scale(1.03); }
+
+/* No picture yet: the community's own colours, a soft glow of its accent and its initials, so the cards still tell
+   apart at a glance. White on every set theme's primary is 5:1 or better, and a custom brand colour is darkened until
+   white on it clears 4.5:1, but the glow lightens that ground behind the initials (a pale accent most). So the ring
+   is filled with a dark wash, not a light one, and the link sits on a darker one; together they keep the initials
+   and the link at 4.5:1 or better under every theme, custom colours included. */
+.as-cover--empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background:
+    radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--cover-mark) 42%, transparent), transparent 62%),
+    var(--cover-ground, var(--color-accent));
+  color: #FFFFFF;
+}
+.as-cover--empty::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--cover-mark, var(--color-sky));
+}
+.as-cover__mark {
+  display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7); background: rgba(0, 0, 0, 0.14);
+  font-family: var(--font-heading); font-weight: 600; font-size: 22px; letter-spacing: 0.04em; line-height: 1;
+}
+/* Above the name's reach, so it opens Setup rather than Leads. */
+.as-cover__add {
+  position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 4px 11px;
+  border-radius: 999px; background: rgba(0, 0, 0, 0.26); color: #FFFFFF; font-size: 12.5px; font-weight: 600; text-decoration: none;
+}
+.as-cover__add:hover { background: rgba(0, 0, 0, 0.4); text-decoration: underline; text-underline-offset: 2px; }
+.as-cover__add:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .as-cover__img { transition: none; }
+  .as-community:has(.as-community__name:hover) .as-cover__img { transform: none; }
+}
 
 .as-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
