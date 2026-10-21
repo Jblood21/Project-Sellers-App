@@ -283,6 +283,11 @@ The admin opens on **Today**: the counts across every community (calls waiting, 
 for each community, and under the cards the calls waiting (past-their-day ones first, with a Call button for people
 who agreed to calls and an Email button). It is fed by `GET /api/admin/today`, which counts closed (archived) people nowhere.
 
+Each card wears the community's hero photo (Setup's **Hero photo (QR landing)**) across its top, so communities differ
+by picture as well as by name; clicking it opens Leads, as the name does. A community with no hero photo, or one that
+fails to load, gets a top of the same height in its own theme colours with its initials and a link straight to the hero
+photo's slot in Setup (`/setup/look#artwork`).
+
 Under those, **Agreed to calls, no call booked** lists everyone, in every community, who agreed to calls
 and texts and gave a number but has never booked a call (`isReadyToCall` in `shared/domain.js`; somebody whose call was
 handled booked one, so is not on it). Each row shows the name, the number and the community, with Call and Text buttons, and opens

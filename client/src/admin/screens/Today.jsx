@@ -23,6 +23,70 @@ function themeLabel(community) {
   return view.custom ? view.name : `${view.name} theme`;
 }
 
+// Words too small to stand for a community: "The Reserve at Willow Creek" is RW, not TR.
+const MINOR_WORDS = new Set(['the', 'a', 'an', 'at', 'of', 'on', 'in', 'by', 'and', '&']);
+
+/** Up to two letters for a community with no picture yet, from the first letter or digit of its first two main words. */
+function initialsOf(name) {
+  const words = String(name ?? '').trim().split(/\s+/).filter(Boolean);
+  const main = words.filter((word) => !MINOR_WORDS.has(word.toLowerCase()));
+  return (main.length ? main : words)
+    .map((word) => word.match(/[\p{L}\p{N}]/u)?.[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toLocaleUpperCase();
+}
+
+/**
+ * The picture across the top of a community's card: its hero photo, the one buyers see on the QR landing, so the
+ * cards differ at a glance and not only by name. The box keeps one height whether or not there is a picture, so
+ * the cards line up and nothing moves while a photo loads; the community's own theme colours fill it until then.
+ *
+ * With no photo (or one that fails to load) the box stays in those colours with the community's initials, so two
+ * cards still look different, and links straight to the hero photo's slot in Setup (#artwork), not to the top of
+ * Setup where the card's own Setup button goes. The name is the card's link to Leads; it reaches over this box
+ * (admin-shell.css), so the picture opens Leads too without a second stop for the keyboard.
+ *
+ * The card puts this box after the name and shows it on top with CSS, so the keyboard and a screen reader meet the
+ * community's name first and the photo link only after it.
+ */
+function CommunityCover({ community }) {
+  const url = community.heroPhoto;
+  const [failed, setFailed] = useState(null);
+  const [loaded, setLoaded] = useState(null);
+  const { colors } = themeView(community.theme, community.settings);
+  const style = { '--cover-ground': colors.primary, '--cover-mark': colors.accent };
+
+  if (url && failed !== url) {
+    return (
+      <div className="as-cover" style={style}>
+        <img
+          className={`as-cover__img${loaded === url ? ' is-loaded' : ''}`}
+          src={url}
+          alt={`${community.name} community photo`}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(url)}
+          onError={() => setFailed(url)}
+        />
+      </div>
+    );
+  }
+
+  const initials = initialsOf(community.name);
+  return (
+    <div className="as-cover as-cover--empty" style={style}>
+      <span className="as-cover__mark" aria-hidden="true">{initials || <NavIcon name="homes" size={26} />}</span>
+      <Link className="as-cover__add" to={`/admin/communities/${community.id}/setup/look#artwork`}>
+        <NavIcon name={url ? 'edit' : 'plus'} size={14} />
+        {url ? 'Check the photo in Setup' : 'Add a photo in Setup'}
+        <span className="as-sr"> for {community.name}</span>
+      </Link>
+    </div>
+  );
+}
+
 /**
  * Where the admin opens: the counts that need a person today, the communities, and under them the calls waiting and
  * the people who agreed to calls without booking one, across every community.
@@ -94,6 +158,7 @@ export default function Today() {
                     </Link>
                     <span className="tag tag-accent-2">{community.status}</span>
                   </div>
+                  <CommunityCover community={community} />
                   <span className="text-muted" style={{ fontSize: 13 }}>{community.location || 'Location TBD'}</span>
                   <div className="as-community__stats">
                     {community.waiting ? <span className={`as-chip ${community.overdue ? 'as-chip--late' : 'as-chip--call'}`}>{plural(community.waiting, 'call')} waiting{community.overdue ? ` · ${community.overdue} late` : ''}</span> : null}

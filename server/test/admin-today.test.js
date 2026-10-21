@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
-import { backends, startBackend } from './fixtures/harness.js';
+import { PNG, backends, startBackend } from './fixtures/harness.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const dayIso = (daysAhead) => {
@@ -190,6 +190,27 @@ for (const kind of backends()) {
       await app.store.updateLead(person.lead.id, callFor(2));
       const call = (await admin('/today')).body.calls.find((c) => c.leadId === person.lead.id);
       assert.match(call.when, /Acme Loans/);
+    });
+
+    test('each community carries its hero photo for its card, or null when it has none', async () => {
+      const pictured = await community('Pictured Pines');
+      const plain = await community('Plain Prairie');
+      // Another kind of artwork is not the picture: only the hero photo stands for a community on its card.
+      assert.equal((await admin(`/communities/${plain}/photos/icon`, { method: 'POST', body: { dataUrl: PNG } })).status, 201);
+      const first = await admin(`/communities/${pictured}/photos/hero`, { method: 'POST', body: { dataUrl: PNG } });
+      assert.equal(first.status, 201);
+
+      const cardOf = async (id) => (await admin('/today')).body.communities.find((c) => c.id === id);
+      assert.equal((await cardOf(pictured)).heroPhoto, `/api/photos/${first.body.id}`, 'an upload is served from this site');
+      assert.equal((await cardOf(plain)).heroPhoto, null);
+      const served = await api((await cardOf(pictured)).heroPhoto, { raw: true });
+      assert.equal(served.status, 200, 'the address loads without an admin token, as an <img> asks for it');
+      assert.equal(served.headers.get('content-type'), 'image/png');
+
+      // A new hero replaces the old one, and a pasted link is passed on as it is.
+      const link = 'https://images.example.test/pines.jpg';
+      assert.equal((await admin(`/communities/${pictured}/photos/hero`, { method: 'POST', body: { url: link } })).status, 201);
+      assert.equal((await cardOf(pictured)).heroPhoto, link);
     });
   });
 

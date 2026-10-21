@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { COMMUNITY_STATUSES, normalizeCommunitySlug } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
@@ -89,10 +89,13 @@ function CommunityPages({ community, leads, reload, markOpened }) {
   };
 
   const section = sectionOf(rest[0]);
+  const { hash } = useLocation();
   // A new section opens at its top, not wherever the last one was scrolled to. Keyed on the section only, so moving
-  // between Setup's parts or picking a person beside the list does not jump the page.
+  // between Setup's parts or picking a person beside the list does not jump the page. An address that names a place
+  // on the page (Today's "Add a photo" opens Setup at #artwork) is scrolled there by the section itself, and this
+  // runs after it, so it leaves that one alone.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (!hash) window.scrollTo(0, 0);
   }, [section?.key]);
   if (!section) return <Navigate to={`/admin/communities/${community.id}/leads`} replace />;
   const go = (path) => navigate(`/admin/communities/${community.id}/${path}`);

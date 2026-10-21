@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import { num } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
@@ -318,9 +318,20 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
 
 function CommunityArtwork({ community, reload }) {
   const { token } = useAdmin();
+  const { hash } = useLocation();
+  const card = useRef(null);
   const heroInput = useRef(null);
   const iconInput = useRef(null);
   const [error, setError] = useState('');
+
+  // A community card on Today with no picture, or one that fails to load, links here (#artwork). This card is the last
+  // of Look & feel, screens below the top, so it is brought into view and the hero photo's slot takes the focus,
+  // ready to pick a file.
+  useEffect(() => {
+    if (hash !== '#artwork') return;
+    card.current?.scrollIntoView({ block: 'start' });
+    document.getElementById('artwork-hero')?.focus({ preventScroll: true });
+  }, [hash]);
 
   const upload = (kind) => async (event) => {
     const file = event.target.files?.[0];
@@ -340,6 +351,7 @@ function CommunityArtwork({ community, reload }) {
     <Field label={label}>
       <button
         type="button"
+        id={`artwork-${kind}`}
         onClick={() => inputRef.current?.click()}
         style={{
           width: '100%', height, borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
@@ -353,7 +365,7 @@ function CommunityArtwork({ community, reload }) {
   );
 
   return (
-    <div className="card elev-sm" style={{ gap: 12 }}>
+    <div className="card elev-sm" id="artwork" ref={card} style={{ gap: 12 }}>
       <span className="card-kicker">Community artwork</span>
       {slot('hero', 'Hero photo (QR landing)', 'Tap to upload the community photo', heroInput, community.heroPhoto, 140)}
       {slot('icon', 'App icon (Add to Home Screen)', 'Tap to upload a square icon', iconInput, community.iconPhoto, 90)}

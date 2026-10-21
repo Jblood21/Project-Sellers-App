@@ -352,6 +352,9 @@ export function adminRouter() {
    * `ready` is everyone who agreed to calls and texts and gave a number but never booked a call (isReadyToCall):
    * people the team may ring who have not asked for a time. Those nobody has marked contacted come first, then the
    * most recent to agree; the list is capped and `totals` says how many there are.
+   *
+   * Each community also carries its hero photo (`heroPhoto`, the one buyers see on the QR landing, or null when
+   * Setup has none), so its card shows the picture a builder knows it by and not only its name.
    */
   // The most people the Today page lists who agreed to calls without asking for a time; each community's Leads has the rest.
   const READY_LISTED = 500;
@@ -362,7 +365,9 @@ export function adminRouter() {
     const calls = [];
     const ready = [];
     for (const row of await store.listCommunities()) {
-      const [community, leads] = await Promise.all([store.getCommunity(row.id), store.listLeads(row.id)]);
+      const [community, leads, heroes] = await Promise.all([
+        store.getCommunity(row.id), store.listLeads(row.id), store.listCommunityPhotos(row.id, 'hero'),
+      ]);
       if (!community) continue;
       const report = buildReport({ community, leads, now });
       const lender = lenderNameOf(community);
@@ -386,6 +391,8 @@ export function adminRouter() {
         // The four colour settings, so Today names a community on its own colours "Custom colours" (themeView
         // needs them to tell a full palette from a half-finished one) without the rest of its settings.
         settings: Object.fromEntries(CUSTOM_KEYS.map((key) => [key, community.settings?.[key] ?? ''])),
+        // Only the address, flattened the way the public route flattens it: the card needs nothing else of the photo.
+        heroPhoto: heroes[0]?.url ?? null,
         homesCount: row.homesCount, people: report.leads.length, unread: report.leads.filter(isUnread).length,
         waiting: report.comingUp.length + report.overdue.length, overdue: report.overdue.length,
         ready: agreed.length, readyNew: agreed.filter((lead) => lead.status !== 'contacted').length,
