@@ -414,6 +414,9 @@
   cursor: pointer;
 }
 .b-app.l-foyer .b-btn-outline { background: transparent; color: var(--t-ink); border-color: var(--t-ink); }
+/* The main button here is the dark colour, never the button colour, so it needs none of the edge base.css gives a
+   faint button colour (t-acc-edge). */
+.b-app.l-foyer.t-acc-edge .b-btn:not(.b-btn-outline) { box-shadow: none; }
 /* A few buttons carry an inline size (13.5px) from the shared screens; the label size is the layout's own. */
 .b-app.l-foyer .b-btn[style*='font-size'] { font-size: 12.5px !important; }
 .b-app.l-foyer .b-btn:not(:disabled):hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
@@ -1421,8 +1424,10 @@
    way past an inline style. */
 .b-app.l-foyer .b-main .b-shell [style*=' color: var(--t-acc);'] { color: var(--t-accT) !important; }
 .b-app.l-foyer .b-main .b-shell [style*='background: var(--t-tint2)'] { color: var(--t-ink) !important; }
-/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe accent stands in. */
-.b-app.l-foyer.t-wine .b-main .b-shell [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
+/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe accent stands in.
+   So does a community's own button colour that is under 3:1 on the page (t-acc-edge). */
+.b-app.l-foyer.t-wine .b-main .b-shell [style*='solid var(--t-acc);'],
+.b-app.l-foyer.t-acc-edge .b-main .b-shell [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
 /* A completed Move-in step is faded to .55 inline, which leaves it under 4.5:1.
    The strike-through already says it is done. */
 .b-app.l-foyer .b-main .b-shell [style*='opacity: 0.55'] { opacity: 1 !important; }

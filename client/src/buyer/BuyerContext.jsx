@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { TOOLS, normalizeLayout } from '@shared/domain.js';
+import { CUSTOM_KEYS } from '@shared/customTheme.js';
+import { CUSTOM_THEME, TOOLS, normalizeLayout } from '@shared/domain.js';
 import { buyerApi } from '../lib/api.js';
 import { readJson, remove, writeJson } from '../lib/storage.js';
 
@@ -42,7 +43,58 @@ function adoptSavedState(communityId, community) {
   return adopted;
 }
 
-export function BuyerProvider({ communityId, children }) {
+/**
+ * The buyer Setup's theme preview shows (/c/<id>/preview): signed in, first name Dana, nothing in her plan and
+ * no homes liked yet, so the home screen is the one a new buyer meets.
+ */
+export const PREVIEW_LEAD = Object.freeze({ name: 'Dana Example', plan: Object.freeze({}), savedHomeIds: Object.freeze([]) });
+
+const nothing = () => {};
+const nothingAsync = async () => {};
+
+/**
+ * Everything a screen can call that would leave the page: a line in the builder's activity log, a lead, a
+ * save, an email, a booking, a toast, the tour of the app. In the preview each one does nothing, so a builder
+ * trying on colours is never counted as a buyer and nothing is written to the server or to the device.
+ */
+const PREVIEW_ACTIONS = Object.freeze({
+  track: nothing,
+  toolOpened: nothing,
+  showToast: nothing,
+  enter: async () => null,
+  toggleSave: nothingAsync,
+  savePlan: nothingAsync,
+  saveMoveIn: nothingAsync,
+  emailPlan: async () => null,
+  requestTour: async () => false,
+  tutorialSeen: () => true,
+  markTutorialSeen: nothing,
+});
+
+/**
+ * The community wearing the look Setup is trying on: its theme, its layout and, for its own colours, the four
+ * colour settings laid over the saved ones. Only those four: the preview shows the theme, not unsaved copy.
+ */
+function wearing(community, look) {
+  const colours = look.theme === CUSTOM_THEME
+    ? Object.fromEntries(CUSTOM_KEYS.filter((key) => typeof look.settings?.[key] === 'string').map((key) => [key, look.settings[key]]))
+    : {};
+  return {
+    ...community,
+    theme: look.theme ?? community.theme,
+    layout: look.layout ?? community.layout,
+    settings: { ...community.settings, ...colours },
+  };
+}
+
+/**
+ * `preview` is null for a buyer. For Setup's theme preview it is the look being tried on ({ theme, layout,
+ * settings }); the provider then loads the community as a buyer would, wears that look, and stands in the demo
+ * buyer above for a session: no sign-in is read, nothing is tracked or saved, nothing is stored on the device.
+ */
+export function BuyerProvider({ communityId, preview = null, children }) {
+  // Fixed for the provider's life: a preview never turns into a buyer's visit, or the other way round.
+  const previewing = useRef(Boolean(preview)).current;
   const [community, setCommunity] = useState(null);
   // Which community is already on screen, so that swapping the address bar from its id to its clean
   // link does not read as a different community and load the whole thing a second time.
@@ -51,13 +103,13 @@ export function BuyerProvider({ communityId, children }) {
   // because the address bar was swapped to the same community's clean link while it was still waiting.
   const requestId = useRef(0);
   const [lead, setLead] = useState(null);
-  const [token, setToken] = useState(() => readJson(sessionKey(communityId))?.token ?? null);
+  const [token, setToken] = useState(() => (previewing ? null : readJson(sessionKey(communityId))?.token ?? null));
   const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToastText] = useState('');
   const [tools, setTools] = useState(() => ({
     ...DEFAULT_TOOL_STATE,
-    ...(readJson(toolsKey(communityId)) || {}),
+    ...((previewing ? null : readJson(toolsKey(communityId))) || {}),
   }));
   const toastTimer = useRef(null);
 
@@ -74,6 +126,11 @@ export function BuyerProvider({ communityId, children }) {
       .then(async (data) => {
         if (!current()) return;
         loaded.current = { id: data.id, urlKey: data.urlKey };
+        // The preview is nobody's visit: no sign-in to look up, and nothing to copy between addresses.
+        if (previewing) {
+          setCommunity(data);
+          return;
+        }
         const adopted = adoptSavedState(communityId, data);
         if (adopted.tools) setTools((prev) => ({ ...prev, ...adopted.tools }));
         setCommunity(data);
@@ -94,17 +151,18 @@ export function BuyerProvider({ communityId, children }) {
       })
       .catch((err) => current() && setLoadError(err.message))
       .finally(() => current() && setLoading(false));
-  }, [communityId]);
+  }, [communityId, previewing]);
 
   // Saved under every address the community has once it has loaded, so the figures cannot end up
   // different under its id and its clean link. Not before: a write on mount would put the defaults
-  // under the new address and hide whatever the buyer saved under the other one.
+  // under the new address and hide whatever the buyer saved under the other one. Never in the preview,
+  // which must not touch a real buyer's figures on the builder's own phone.
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!loaded.current || previewing) return;
     for (const key of new Set([communityId, loaded.current.id, loaded.current.urlKey])) {
       if (key) writeJson(toolsKey(key), tools);
     }
-  }, [communityId, tools]);
+  }, [communityId, previewing, tools]);
 
   const showToast = useCallback((message) => {
     window.clearTimeout(toastTimer.current);
@@ -262,20 +320,24 @@ export function BuyerProvider({ communityId, children }) {
     [showToast, token],
   );
 
+  // What the screens are given: the community as loaded or, in the preview, wearing the look being tried on.
+  // For a buyer it is the loaded object itself, so nothing below sees a difference.
+  const shown = useMemo(() => (preview && community ? wearing(community, preview) : community), [community, preview]);
+
   const value = useMemo(
     () => ({
       communityId,
-      community,
-      homes: community?.homes ?? [],
-      settings: community?.settings ?? {},
+      community: shown,
+      homes: shown?.homes ?? [],
+      settings: shown?.settings ?? {},
       // Resolved here so every screen and every layout reads the same answer:
       // an unknown key from an older payload falls back to the default layout.
-      layout: normalizeLayout(community?.layout),
-      features: community?.features ?? {},
+      layout: normalizeLayout(shown?.layout),
+      features: shown?.features ?? {},
       // The server sends [] when the builder has the feature switched off, so a
       // screen only has to ask whether the list is empty.
-      agents: community?.agents ?? [],
-      guides: community?.guides ?? [],
+      agents: shown?.agents ?? [],
+      guides: shown?.guides ?? [],
       // Guides are readable without the contact gate, so "is there a community"
       // and "is this person known" are different questions for the chrome.
       signedIn: Boolean(token && lead),
@@ -298,10 +360,12 @@ export function BuyerProvider({ communityId, children }) {
       emailPlan,
       tutorialSeen: () => Boolean(readJson(tutorialKey(communityId))),
       markTutorialSeen: () => writeJson(tutorialKey(communityId), true),
+      // The preview's stand-ins come last, so they replace the real ones above.
+      ...(previewing ? { ...PREVIEW_ACTIONS, signedIn: true, lead: PREVIEW_LEAD } : null),
     }),
     [
-      community, communityId, emailPlan, enter, lead, loadError, loading, requestTour, savePlan,
-      planSaves, saveMoveIn, setTool, showToast, toast, toggleSave, token, toolOpened, tools, track,
+      communityId, emailPlan, enter, lead, loadError, loading, previewing, requestTour, savePlan,
+      planSaves, saveMoveIn, setTool, showToast, shown, toast, toggleSave, token, toolOpened, tools, track,
     ],
   );
 

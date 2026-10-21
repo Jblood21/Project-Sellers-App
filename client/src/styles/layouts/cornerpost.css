@@ -442,6 +442,10 @@
 .b-app.l-cornerpost .b-btn { width: 100%; }
 .b-app.l-cornerpost .cp-btn--sm { min-height: 34px; padding: 0 14px; font-size: 13px; line-height: 18px; white-space: nowrap; }
 .b-app.l-cornerpost .cp-btn--block { display: flex; width: 100%; }
+/* A community's own button colour that is nearly its page's (t-acc-edge): Cornerpost's own filled buttons (the
+   header's Book a tour among them) get the inner edge base.css gives a filled .b-btn. Kept at the hover ring's
+   weight (the :where adds none) and before it, so the ring below still shows while the pointer is over one. */
+.b-app.l-cornerpost:where(.t-acc-edge) .cp-btn:not(.cp-btn--outline) { box-shadow: inset 0 0 0 1.5px var(--t-accT); }
 @media (hover: hover) {
   .b-app.l-cornerpost .cp-btn--primary:hover,
   .b-app.l-cornerpost .b-btn:not(.b-btn-outline):not(:disabled):hover,
@@ -544,8 +548,10 @@
   .b-app.l-cornerpost .b-pill { padding: 4px 6px; }
 }
 .b-app.l-cornerpost .b-pill[data-on='true'] { background: var(--t-acc); border-color: var(--t-acc); color: var(--t-onacc); }
-/* Burgundy & Blush: the rose fill is a chosen chip's only mark, 2.9:1 against an unchosen one, so it takes a text-safe rose edge. */
-.b-app.l-cornerpost.t-wine .b-pill[data-on='true'] { border-color: var(--t-accT); }
+/* Burgundy & Blush: the rose fill is a chosen chip's only mark, 2.9:1 against an unchosen one, so it takes a text-safe rose edge.
+   A community's own button colour that is as faint on the page (t-acc-edge, under 3:1) takes the same edge. */
+.b-app.l-cornerpost.t-wine .b-pill[data-on='true'],
+.b-app.l-cornerpost.t-acc-edge .b-pill[data-on='true'] { border-color: var(--t-accT); }
 
 /* A tick box is a tap target too, and the browser's own is 13 to 20px. The box
    is drawn here at 22px inside a 44px hit area, and the negative margin gives
@@ -686,8 +692,10 @@
 .b-app.l-cornerpost .b-main [style*=' color: var(--t-acc);'] { color: var(--t-accT) !important; }
 .b-app.l-cornerpost .b-main [style*='background: var(--t-tint2)'] { color: var(--t-ink) !important; }
 .b-app.l-cornerpost .b-pill > span[style*='opacity'] { opacity: 1 !important; font-weight: 600; }
-/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe rose stands in. */
-.b-app.l-cornerpost.t-wine .b-main [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
+/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe rose stands in.
+   So does a community's own button colour that is under 3:1 on the page (t-acc-edge). */
+.b-app.l-cornerpost.t-wine .b-main [style*='solid var(--t-acc);'],
+.b-app.l-cornerpost.t-acc-edge .b-main [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
 
 /* A completed Move-in step is faded to .55 inline, which leaves its title at
    3.2 to 4:1 and its "You" line at 2.1:1 on every theme. The strike-through

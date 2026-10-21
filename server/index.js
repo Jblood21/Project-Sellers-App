@@ -49,11 +49,14 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   // browser does not remember it forever if the domain ever has to be switched off, and
   // REDIRECT_TO_PUBLIC_ORIGIN=off (set in the Render dashboard; the service restarts and the Render
   // address works again within a minute or two) turns it off. The admin pages are never redirected,
-  // so the owner keeps a working way in to the leads and settings whatever the domain is doing.
+  // so the owner keeps a working way in to the leads and settings whatever the domain is doing. Nor is
+  // Setup's theme preview (/c/<id>/preview): it is only ever opened in a frame inside the admin, on the
+  // admin's own address, and sent to the domain it would be another origin, which the frame refuses
+  // (X-Frame-Options: SAMEORIGIN) and the preview's messages ignore, leaving the studio blank.
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-    // Routes are matched without regard to letter case, so the API exemption is too.
-    if (/^\/(api(\/|$)|admin(\/|$))/i.test(req.path) || process.env.REDIRECT_TO_PUBLIC_ORIGIN === 'off') return next();
+    // Routes are matched without regard to letter case, so the exemptions are too.
+    if (/^\/(api(\/|$)|admin(\/|$)|c\/[^/]+\/preview\/*$)/i.test(req.path) || process.env.REDIRECT_TO_PUBLIC_ORIGIN === 'off') return next();
     if (!String(req.get('accept') ?? '').includes('text/html')) return next();
     const pinned = pinnedOrigin();
     const host = String(req.get('host') ?? '').toLowerCase();
@@ -223,6 +226,11 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     app.get('/c/:communityId', withHead('landing'));
     app.get('/c/:communityId/guides', withHead('guides'));
     app.get('/c/:communityId/guides/:slug', withHead('guide'));
+    // Setup's theme preview: the buyer app's home screen drawn for the builder inside Setup, never a page for a
+    // search engine. The page says so in a robots tag once the app runs; this says it to a crawler that does not.
+    app.get('/c/:communityId/preview', (_req, res) => {
+      res.set('X-Robots-Tag', 'noindex, nofollow').sendFile(indexPath);
+    });
 
     // A built file that is not there is a 404, never the app's page. After a deploy
     // renames the hashed chunks, a tab that still holds the old page asks for a file

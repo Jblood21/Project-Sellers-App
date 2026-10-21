@@ -333,6 +333,11 @@
 }
 .b-app.l-showcase .b-pill:hover { border-color: var(--t-ink); }
 .b-app.l-showcase .b-pill[data-on='true'] { background: var(--t-acc); border-color: var(--t-acc); color: var(--t-onacc); }
+/* A faint button colour (Burgundy & Blush's rose, or a community's own under 3:1 on the page, t-acc-edge) would
+   make the chosen chip fainter than an unchosen one, whose edge is the 3:1 control line. It takes the text-safe
+   shade of its own colour as its edge instead, as Cornerpost's and Marketplace's chips do. */
+.b-app.l-showcase.t-wine .b-pill[data-on='true'],
+.b-app.l-showcase.t-acc-edge .b-pill[data-on='true'] { border-color: var(--t-accT); }
 /* The price beside a home's name is faded to 75% inline, which takes the chip's text under 4.5:1. */
 .b-app.l-showcase .b-pill > span[style*='opacity'] { opacity: 1 !important; }
 
@@ -1300,6 +1305,9 @@
 }
 .b-app.l-showcase .sc-btn--fill { background: var(--t-acc); color: var(--t-onacc); }
 .b-app.l-showcase .sc-btn--fill:hover { filter: brightness(0.94); }
+/* A community's own button colour that is nearly its page's (t-acc-edge) gets the same inner edge base.css gives
+   a filled .b-btn, so the light pill still reads as a button where it sits on the page. */
+.b-app.l-showcase.t-acc-edge .sc-btn--fill { box-shadow: inset 0 0 0 1.5px var(--t-accT); }
 .b-app.l-showcase .sc-btn--light { background: var(--t-onacc2); color: var(--sc-night); }
 .b-app.l-showcase .sc-btn--light:hover { filter: brightness(0.92); }
 .b-app.l-showcase .sc-btn--line { background: transparent; color: var(--t-onacc2); border-color: var(--sc-edge); }

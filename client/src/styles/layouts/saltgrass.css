@@ -83,8 +83,10 @@
 .b-app.l-saltgrass [style*='background: var(--t-tint)'] { --t-mut: var(--sg-ink); }
 .b-app.l-saltgrass [style*='; color: var(--t-acc)'],
 .b-app.l-saltgrass [style^='color: var(--t-acc)'] { --t-acc: var(--sg-accT); }
-/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline, so it takes the text-safe accent too. */
-.b-app.l-saltgrass.t-wine [style*='solid var(--t-acc);'] { --t-acc: var(--sg-accT); }
+/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline, so it takes the text-safe accent too.
+   So does a community's own button colour that is under 3:1 on the page (t-acc-edge). */
+.b-app.l-saltgrass.t-wine [style*='solid var(--t-acc);'],
+.b-app.l-saltgrass.t-acc-edge [style*='solid var(--t-acc);'] { --t-acc: var(--sg-accT); }
 
 /* ── focus, motion ────────────────────────────────────────────────────── */
 /* 3px, offset 2px, as the brand sets it. The brand draws it in lime, which is
@@ -248,6 +250,9 @@
 /* The price beside a home's name is drawn at 75% opacity inline, which takes the
    chip's text under 4.5:1 on the lighter themes (sage measures 4.0). */
 .b-app.l-saltgrass .b-pill > span[style*='opacity'] { opacity: 0.92 !important; }
+/* A community's own colours are checked to 4.5:1 at full strength and no further, so even 92% can take a chosen
+   chip's price under it (white on a brand colour darkened just far enough measures 3.9). Theirs is not faded. */
+.b-app.l-saltgrass.t-custom .b-pill > span[style*='opacity'] { opacity: 1 !important; }
 .b-app.l-saltgrass .b-pill:hover { border-color: var(--t-acc2); }
 .b-app.l-saltgrass .b-pill[data-on='true'] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
-import { THEMES } from '@shared/domain.js';
+import { themeView } from '@shared/customTheme.js';
 import { adminApi } from '../../lib/api.js';
 import { emailHref } from '../../lib/contact.js';
 import { useAdmin } from '../AdminContext.jsx';
@@ -13,6 +13,15 @@ import NewCommunityDialog from './NewCommunityDialog.jsx';
 import ReadyToCall from './ReadyToCall.jsx';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * The theme a community's buyers see, named the way Setup names it (themeView): "Navy & Gold theme", or
+ * "Custom colours" for a community's own.
+ */
+function themeLabel(community) {
+  const view = themeView(community.theme, community.settings);
+  return view.custom ? view.name : `${view.name} theme`;
+}
 
 /**
  * Where the admin opens: the counts that need a person today, the communities, and under them the calls waiting and
@@ -92,7 +101,7 @@ export default function Today() {
                     {!community.waiting && !community.unread ? <span className="as-chip">All caught up</span> : null}
                   </div>
                   <div className="card-meta">
-                    {plural(community.homesCount, 'home')} · {plural(community.people, 'person', 'people')} · {THEMES[community.theme]?.name} theme
+                    {plural(community.homesCount, 'home')} · {plural(community.people, 'person', 'people')} · {themeLabel(community)}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                     <Link className="btn btn-primary" to={`/admin/communities/${community.id}/leads`}>Leads</Link>

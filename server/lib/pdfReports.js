@@ -1,7 +1,8 @@
 import {
-  DEFAULT_LEAD_SORT, LEAD_SORTS, PLAN_LABELS, THEMES, TOOL_ORDER, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending,
+  DEFAULT_LEAD_SORT, LEAD_SORTS, PLAN_LABELS, TOOL_ORDER, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending,
   lenderNameOf, money, slugify, sortLeads, toolAnswerOf, toolsOfferedBy, toolsUsedOf,
 } from '../../shared/domain.js';
+import { themeView } from '../../shared/customTheme.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
 import { lenderBrandOf, lenderContact, lenderTitle } from './lenderBrand.js';
 import { COLORS, PdfDocument, fitLine, hexToRgb, textWidth, toWinAnsi, wrapText } from './pdf.js';
@@ -99,7 +100,8 @@ const mondayOf = (day) => {
   return addDays(day, -dow);
 };
 
-const themeOf = (community) => THEMES[community?.theme] ?? THEMES.navy;
+// The five colours the theme is made from, the community's own when it uses its own colours.
+const themeOf = (community) => themeView(community?.theme, community?.settings).colors;
 const consentWords = (lead) => (lead.consent?.granted ? 'Agreed' : lead.consent ? 'Declined' : 'Never asked');
 const callAbout = (lead, lender) => (lead.tour.topic === 'lender' ? `Financing (${lender})` : 'Tour (booked earlier)');
 const callWhen = (tour) => {

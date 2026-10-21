@@ -94,7 +94,7 @@ See [`.env.example`](.env.example).
 | `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
 | `SEED_DEMO` | Set to `false` to skip seeding the demo community. |
 | `PUBLIC_ORIGIN` | The one public address of the site with the `https://`, e.g. `https://touradoor.com`. **Set this in production.** It is the origin written into each page's canonical link, Open Graph tags and structured data, and into the links in emails; unset, the request's own `Host` decides, so a site that answers on two names (Render's and your domain) would publish two canonicals. A value without `https://` is ignored, and the server says so at boot. |
-| `REDIRECT_TO_PUBLIC_ORIGIN` | `off` stops the site sending a visit to its Render address (`*.onrender.com`) on to `PUBLIC_ORIGIN`. It is listed in `render.yaml` as `on`; if the custom domain ever has to be taken offline, change it to `off` in the Render dashboard (Environment). The service restarts and the Render address works again within a minute or two. The admin pages (`/admin`) and the API are never redirected, so the owner always has a way in. It assumes the domain forwards the Render host name as it received it; a proxy in front (Cloudflare, a Worker) that rewrites `Host` to the `*.onrender.com` name would send every visit round in a loop, so set it to `off` there. Buyers signed in at the Render address have to sign in again at the domain (and an app added to the home screen from the old address has to be added again): a browser keeps a visitor's saved details per address. |
+| `REDIRECT_TO_PUBLIC_ORIGIN` | `off` stops the site sending a visit to its Render address (`*.onrender.com`) on to `PUBLIC_ORIGIN`. It is listed in `render.yaml` as `on`; if the custom domain ever has to be taken offline, change it to `off` in the Render dashboard (Environment). The service restarts and the Render address works again within a minute or two. The admin pages (`/admin`) and the API are never redirected, so the owner always has a way in, and nor is Setup's theme preview (`/c/<id>/preview`), which the admin frames from its own address. It assumes the domain forwards the Render host name as it received it; a proxy in front (Cloudflare, a Worker) that rewrites `Host` to the `*.onrender.com` name would send every visit round in a loop, so set it to `off` there. Buyers signed in at the Render address have to sign in again at the domain (and an app added to the home screen from the old address has to be added again): a browser keeps a visitor's saved details per address. |
 | `PORT` | Defaults to 3000; Render sets this. |
 | `REPORT_TIME_ZONE` | The time zone whose days the lead report counts in (an IANA name, e.g. `America/Denver`). Unset or not a real zone, it is Mountain Time. |
 | `RATE_LIMITS` | `off` turns the request limits off, `on` forces them on. Unset they are on, except under `node --test`. |
@@ -313,7 +313,7 @@ same day the reports and the Today page count in; the list gets that from the se
 device's clock. Notes typed into the panel are not saved until **Save notes**; moving to another person or another
 section asks first while there are unsaved notes.
 
-**Setup** is four parts with one form behind them, each its own address: `setup/look` (layout, theme, logo, artwork),
+**Setup** is four parts with one form behind them, each its own address: `setup/look` (layout, colours, logo, artwork),
 `setup/team` (realtors, call-request alerts, the lead report address), `setup/home` (builder incentive, FAQ) and
 `setup/rules` (lender and compliance, rates, costs, assistance rules, credit cutoffs). All four stay on the page and
 only the one in view shows, so edits (and half-typed FAQ rows or realtor forms) are kept when you move to another, one **Save settings** saves them all, and leaving the page asks first while anything
@@ -657,6 +657,62 @@ White and Teal & Navy. That theme, the eleventh, is rust and desert plum
 on warm sand (the one theme whose cards are sand rather than white), set in Fraunces and Figtree, and it works
 under any layout like the others. The twelfth, Burgundy & Blush, is the one pink and wine palette: a rose fill with
 dark text on it, deep wine for the dark grounds and a blush-white page, set in Playfair Display and DM Sans.
+
+## Colours: the try-on studio
+
+**Admin → a community → Setup → Look & feel → Buyer app colours** picks the colours the buyer app wears. It is a
+try-on studio. The twelve themes are listed on the left, each with three dots (its dark colour, its button colour
+and its page) and its feel under the pointer, with a search box that finds them by name or feel (*warm*, *blue*,
+*luxury*), and **Your own colours** last. The theme buyers have now is marked **In use**.
+
+Picking a theme only **tries it on**. The preview beside the list is the community's own buyer app, in its own
+layout and with its own homes and lender, drawn in a phone frame and a computer frame (**Phone**, **Computer** or
+**Both**; until you pick, both when there is room to draw them at a useful size, else the phone), and it repaints
+the moment a theme is tried on. Under it the studio says how easy the words are to read (*Every word is easy to
+read in this theme, lowest 4.6 to 1*, measured the same way as your own colours below) and offers two buttons:
+**Use** *theme* saves it, and buyers see it at once; **Keep** *current theme* goes back to what they see now.
+Nothing reaches a buyer until Use is pressed, and the studio says so beside the button. When the list is not wide
+enough to sit beside the preview it sits above it, in a box of its own; on a phone only the phone is shown, and
+on a tablet or small laptop the switch stays, with Computer taking the whole width.
+
+Look & feel is the one Setup part that uses the wide page on a big screen, so the preview has room; the layout
+choices above it sit four across there.
+
+The preview is a page of its own, `/c/<id>/preview`, held in a frame nothing can be clicked or tabbed into.
+Setup tells the frame what to wear with a message instead of reloading it (`client/src/lib/themePreview.js`, which
+both sides import), and the frame says when it is listening and is answered then, so it never shows an older look.
+
+### Your own colours
+
+The last row swaps the list for the colour tools (**‹ All themes** brings the list back; your colours are kept
+while you try other themes):
+
+- **Start from** a theme sets all three colours to that theme's and takes the type and shapes from it. Your own
+  colours always wear one theme's fonts and corners.
+- Three colours, each chosen by its button: **1 · Brand colour** (the header, the footer and dark areas),
+  **2 · Button colour** (buttons, links and highlights) and **3 · Page colour** (the background).
+- The chosen one is set on the **colour wheel** (hue round it, strength outward; click or drag, or focus it and
+  use the arrow keys), the **Lighter or darker** slider, the **Colour code** field (`#5A1E33` or `5A1E33`; anything
+  else is explained in words), or the **Goes well with** swatches (straight across the wheel, a step either side,
+  lighter, darker). Every one sets the same colour, so the wheel is never the only way.
+
+They start as the community's saved colours if it has some, otherwise as its current theme's. Colours that are
+still exactly a theme's own (on opening, or straight after **Start from**) are that theme: the preview, the check
+and the Use button treat them as it (**Use Burgundy & Blush**), so nothing changes until you move a colour. On a
+phone the preview sits beside the wheel (*How buyers will see it*), so each move shows without scrolling.
+
+The **Readability check** under them is worked out again with every move, by `deriveTheme` in
+`shared/customTheme.js`: words on the page, on the header and footer, words in your brand colour (several layouts
+write headings, phone numbers and outline buttons in it on the page), on buttons, links and labels, and the
+smaller, softer text, each with its contrast ratio. Anything that would be under 4.5 to 1 is fixed for you, and the
+fix is said in words: a pale button colour gets dark words on it and a darker shade for links, and buttons get a
+darker edge when they would not stand out on the page; a dark page colour is lightened; a brand colour too light
+for white words, or for words in it on your page, is darkened. The preview shows the fixed colours, so what you
+see is what buyers get. Today names a community on its own colours *Custom colours*.
+
+**Use these colours** saves the three colours, the start theme and the theme `custom` in one request (the server
+takes `custom` only when all three colours are set). Choosing a set theme later leaves your colours saved, ready
+to go back to.
 
 ## Development logo
 

@@ -180,3 +180,196 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
   position: sticky; bottom: -20px; z-index: 2; margin: 0 -20px -20px; padding: 12px 20px 20px;
   background: var(--color-neutral-100); border-top: 1px solid var(--color-divider);
 }
+
+/* ── the theme studio (Setup → Look & feel → Buyer app colours) ─────────────
+   Board C: the themes listed on the left, the community's real buyer app on the right in a phone and a
+   computer frame, repainted as each theme is tried on. Board E's colour tools take the list's place while
+   "Your own colours" is tried on. */
+
+/* The studio needs the room the board drew it in, so Look & feel is the one Setup part that uses the wide
+   page when the window has it. The layout choices then sit four across instead of two, so the wider page
+   does not just make every wireframe twice as tall. */
+.as-page--narrow:has(.ax-look:not([hidden])) { max-width: 1280px; }
+.ax-look .ax-choices { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+/* Its own width decides the arrangement (not the window's), since the side menu and the page around it
+   take a different share at every size. Under 760px: the list above the preview. (Only the phone is shown on
+   a phone-width window; ThemeStudio.jsx decides that, as it is the window that makes a computer too small.)
+   While your own colours are picked on a stacked studio, their readability check comes after the preview. */
+.ax-studio { container-type: inline-size; padding: 18px; gap: 0; }
+.ax-studio__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+@container (min-width: 760px) {
+  .ax-studio__grid { grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
+  .ax-studio__grid.is-editing { grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); }
+}
+.ax-studio__side, .ax-studio__main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ax-studio__title { margin: 0; font-family: var(--font-body); }
+
+/* The list: a row a theme, each a real button. Pressed is the one being tried on. */
+.ax-studio__list { display: flex; flex-direction: column; gap: 2px; }
+.ax-try {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 5px 10px; width: 100%;
+  border-radius: 12px; border: 1px solid transparent; background: #fff; color: var(--color-text);
+  font-family: var(--font-body); font-size: 14.5px; font-weight: 500; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .ax-try:hover { background: var(--color-bg); border-color: var(--color-divider); } }
+.ax-try[aria-pressed='true'] { border: 2px solid var(--color-accent); background: var(--color-accent-100); padding: 4px 9px; }
+.ax-try:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* Your own colours is not a theme like the others, so a rule sets it apart from them. */
+.ax-try--own { position: relative; margin-top: 9px; }
+.ax-try--own::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; border-top: 1px solid var(--color-divider); }
+/* Long names wrap rather than lose their end under the tags. */
+.ax-try__name { flex: 1; min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+.ax-try .tag { flex: none; }
+/* The In use tag is the same ice as a pressed row; on one it turns white so it still reads as a tag. */
+.ax-try[aria-pressed='true'] .tag-accent { background: #fff; }
+.ax-tag-on { background: var(--color-accent); color: #fff; }
+.ax-studio__none { margin: 4px 2px 8px; font-size: 13.5px; color: var(--color-neutral-700); }
+
+/* Three overlapping dots: the dark colour, the button colour and the page. A set theme's dots wear the theme's
+   own class and read its colours from base.css, as the buyer app does; Your own colours sets them inline. */
+.ax-dots { display: flex; flex: none; }
+.ax-dots > span { width: 20px; height: 20px; border-radius: 999px; border: 2px solid #fff; background: var(--t-acc2); }
+.ax-dots > span + span { margin-left: -7px; }
+.ax-dots > span:nth-child(2) { background: var(--t-acc); }
+.ax-dots > span:nth-child(3) { background: var(--t-bg); border-color: var(--color-neutral-400); }
+
+/* On a narrow studio the list scrolls in its own box, so the preview starts close under it and a tap on a
+   theme shows its effect without scrolling away from the list. 4px inside keeps the focus rings whole. */
+@container (max-width: 759px) {
+  .ax-studio__list { max-height: 340px; overflow-y: auto; padding: 4px; border: 1px solid var(--color-divider); border-radius: 14px; }
+}
+
+/* The heading over the preview: what is being tried on, its note, and the Phone / Computer / Both switch. */
+.ax-studio__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ax-studio__heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.ax-studio__kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-neutral-600); }
+.ax-studio__name { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 22px; line-height: 1.2; color: var(--color-accent-700); }
+.ax-studio__note { margin: 0; font-size: 14px; line-height: 1.45; color: var(--color-neutral-600); }
+.ax-views { display: flex; flex: none; }
+.ax-views button {
+  min-height: 44px; padding: 0 14px; border: 1px solid var(--color-divider); background: #fff; color: var(--color-accent-700);
+  font-family: var(--font-body); font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.ax-views button + button { border-left: 0; }
+.ax-views button:first-child { border-radius: 12px 0 0 12px; }
+.ax-views button:last-child { border-radius: 0 12px 12px 0; }
+.ax-views button[aria-pressed='true'] { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.ax-views button:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* The stage and its frames. Each frame is the buyer app at a real screen's size, scaled down (the scale is
+   set inline from the stage's width). Clicks are off: it is a picture to look at, not an app to use here. */
+.ax-stage {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 24px;
+  padding: 18px; border-radius: 16px; background: var(--color-neutral-200); min-height: 240px;
+}
+.ax-frame {
+  position: relative; flex: none; overflow: hidden; background: #fff;
+  border: 1px solid #C5D5DC; box-shadow: 0 12px 30px -16px rgba(18, 58, 64, 0.4);
+}
+.ax-frame--phone { border-radius: 26px; }
+.ax-frame--computer { border-radius: 10px; }
+.ax-frame iframe { position: absolute; top: 0; left: 0; display: block; border: 0; transform-origin: 0 0; pointer-events: none; background: #fff; }
+
+.ax-studio__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ax-read { display: flex; align-items: flex-start; gap: 8px; margin: 0; flex: 1 1 260px; font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--color-accent-700); }
+.ax-read.is-low { color: #8a1c11; }
+.ax-read .ax-own__icon { stroke: currentColor; }
+.ax-studio__actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.ax-studio__now { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-neutral-700); }
+.ax-studio__hint { margin: 0; font-size: 13px; color: var(--color-neutral-600); text-align: right; }
+.ax-studio__saved { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-accent-700); }
+.ax-studio__saved:empty { display: none; }
+@container (max-width: 759px) {
+  .ax-studio__actions { width: 100%; }
+  .ax-studio__actions .btn { flex: 1 1 100%; }
+  .ax-studio__hint { text-align: left; }
+}
+
+/* ── Your own colours (board E) ─────────────────────────────────────────── */
+.ax-own { container-type: inline-size; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ax-own__back { align-self: flex-start; margin-left: -12px; }
+.ax-own__title { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 20px; color: var(--color-accent-700); }
+.ax-own__lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--color-neutral-700); }
+.ax-own__small { font-size: 12.5px; line-height: 1.45; color: var(--color-neutral-600); margin: 0; }
+.ax-own__error { font-size: 12.5px; line-height: 1.45; color: #a8332b; font-weight: 600; }
+.ax-own__start { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--color-accent-700); }
+.ax-own__start select { flex: 1; min-width: 0; width: auto; }
+.ax-own__start select:focus-visible { outline: 2px solid var(--color-accent-2); outline-offset: 1px; }
+
+/* The three colours: one column on a narrow studio, three across once there is room for the words. */
+.ax-own__slots { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+@container (min-width: 400px) { .ax-own__slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ax-own__slot {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 44px; padding: 10px 12px;
+  border-radius: 14px; border: 1px solid var(--color-divider); background: #fff; color: var(--color-text);
+  font-family: var(--font-body); text-align: left; cursor: pointer;
+}
+.ax-own__slot[aria-pressed='true'] { border: 2px solid var(--color-accent); background: var(--color-accent-100); padding: 9px 11px; }
+.ax-own__slot:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.ax-own__slot-top { display: flex; align-items: center; gap: 8px; }
+.ax-own__chip { flex: none; width: 24px; height: 24px; border-radius: 999px; border: 1px solid rgba(14, 34, 40, 0.3); }
+.ax-own__slot-name { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.ax-own__slot-desc { font-size: 12.5px; line-height: 1.35; color: var(--color-neutral-600); }
+.ax-own__slot-hex { font-size: 12.5px; font-weight: 600; color: var(--color-neutral-700); font-variant-numeric: tabular-nums; }
+
+/* The wheel beside its other controls; the controls drop under it on a narrow studio. */
+.ax-own__pick { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.ax-own__wheelbox { flex: none; width: 190px; display: flex; flex-direction: column; gap: 6px; }
+@container (max-width: 399px) { .ax-own__wheelbox { width: 100%; align-items: center; } .ax-own__hint { text-align: center; } }
+/* Hue round the rim (red at the top, as the maths in colourWheel.js reads it), white fading out from the
+   centre, and a black veil as dark as the colour is. touch-action keeps a drag on a phone from scrolling. */
+.ax-own__wheel {
+  position: relative; width: 190px; height: 190px; flex: none; border-radius: 999px; cursor: crosshair; touch-action: none;
+  background: conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+.ax-own__wheel:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+.ax-own__white, .ax-own__veil { position: absolute; inset: 0; border-radius: 999px; pointer-events: none; }
+.ax-own__white { background: radial-gradient(circle closest-side, #ffffff, rgba(255, 255, 255, 0)); }
+.ax-own__veil { background: #000000; }
+.ax-own__mark {
+  position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 999px; pointer-events: none;
+  border: 3px solid #fff; box-shadow: 0 0 0 1.5px #0E2228;
+}
+.ax-own__controls { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.ax-own__field { display: flex; flex-direction: column; gap: 5px; }
+.ax-own__field > label, .ax-own__label { font-size: 13px; font-weight: 600; color: var(--color-neutral-700); }
+.ax-own__code { font-variant-numeric: tabular-nums; }
+.ax-own__code[aria-invalid='true'] { border-color: #a8332b; }
+.ax-own__ramp { display: block; height: 12px; border-radius: 999px; border: 1px solid var(--color-divider); }
+.ax-own__range { width: 100%; height: 44px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+.ax-own__range:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.ax-own__swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.ax-own__swatch { width: 44px; height: 44px; padding: 0; border-radius: 12px; border: 1px solid rgba(14, 34, 40, 0.3); cursor: pointer; }
+.ax-own__swatch:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* The readability check, as the board lists it: a tick for a pass, a cream row with ! for a fix. */
+.ax-own__h { margin: 6px 0 0; font-family: var(--font-heading); font-weight: 600; font-size: 16px; color: var(--color-accent-700); }
+.ax-own__checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ax-own__checks li { display: flex; gap: 10px; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--color-divider); background: #fff; }
+.ax-own__checks li.is-fixed { background: #FFF7E0; border-color: #e3c36b; }
+.ax-own__checks li > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ax-own__checks strong { font-size: 14px; color: var(--color-text); }
+.ax-own__checks li > span > span { font-size: 13px; line-height: 1.4; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.ax-own__icon { flex: none; margin-top: 1px; fill: none; stroke: var(--color-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Where the keyboard is sent when what it was on goes away (the list swapped for the colour tools, Keep or Use
+   replaced by "This is what buyers see now"): a heading or a line, not a control, but it still shows the ring. */
+.ax-own__title:focus-visible, .ax-studio__now:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; border-radius: 6px; }
+
+/* On a phone the preview sits beside the wheel while your own colours are picked, as board E has it: the wheel
+   shrinks to share the row, and the stage loses most of its padding so the phone in it is as large as it can be. */
+.ax-own__wheelrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 12px; align-items: start; width: 100%; }
+.ax-own__wheelrow .ax-own__wheelbox { width: 100%; align-items: stretch; }
+.ax-own__wheelrow .ax-own__wheel { width: 100%; height: auto; aspect-ratio: 1; }
+.ax-own__wheelrow .ax-own__hint { text-align: left; }
+.ax-own__see { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ax-own__see > span { font-size: 12.5px; font-weight: 600; color: var(--color-neutral-700); }
+.ax-stage--beside { padding: 8px; gap: 8px; min-height: 0; border-radius: 14px; }
+.ax-stage--beside .ax-frame--phone { border-radius: 16px; }
+
+/* On a phone the list's box is shorter (four rows and a half, so it plainly scrolls), so the preview under it
+   starts high enough for a tap on a theme to show on it. */
+@container (max-width: 399px) {
+  .ax-studio__list { max-height: 236px; }
+}
