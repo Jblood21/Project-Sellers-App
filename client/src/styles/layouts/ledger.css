@@ -288,8 +288,9 @@
   border-color: var(--t-acc2);
 }
 .b-app.l-ledger .b-btn-outline:not(:disabled):hover { filter: none; background: var(--t-tint); }
-/* "Saved to My Home Plan" paints the accent fill inline; its edge follows the fill. */
-.b-app.l-ledger .b-btn-outline[style*='background: var(--t-acc)'] { border-color: var(--t-acc); }
+/* "Saved to My Home Plan" paints the accent fill inline. Its edge is the text-safe shade of the fill, so a light
+   button colour does not leave the saved button fainter on the page than the unsaved one. */
+.b-app.l-ledger .b-btn-outline[style*='background: var(--t-acc)'] { border-color: var(--t-accT); }
 .b-app.l-ledger .b-main .b-btn + .b-btn,
 .b-app.l-ledger .b-main .b-btn + a.b-btn { margin-top: 10px; }
 
@@ -316,9 +317,10 @@
 }
 .b-app.l-ledger .b-pill:hover { border-color: var(--t-acc2); }
 .b-app.l-ledger .b-pill[data-on='true'] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); font-weight: 600; }
-/* The price beside a home's name is faded to 75% inline, which takes the chip's text under 4.5:1. It is a
-   figure, so it is set in the mono as well. */
-.b-app.l-ledger .b-pill > span[style*='opacity'] { opacity: 1 !important; font-family: var(--lg-mono); font-weight: 500; }
+/* The price beside a home's name is faded to 75% inline on a chip that is not chosen; here it keeps the full ink
+   of the chip's other words. It is a figure, so it is set in the mono as well, on every chip, chosen or not. */
+.b-app.l-ledger .b-pill > span[style*='opacity'] { opacity: 1 !important; }
+.b-app.l-ledger .b-pill__trail { font-family: var(--lg-mono); font-weight: 500; }
 
 .b-app.l-ledger .b-field { gap: 6px; }
 .b-app.l-ledger .b-in {

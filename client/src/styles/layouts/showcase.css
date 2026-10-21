@@ -305,8 +305,9 @@
   border-color: var(--t-ink);
 }
 .b-app.l-showcase .b-btn-outline:not(:disabled):hover { filter: none; background: color-mix(in srgb, var(--t-ink) 6%, transparent); }
-/* "Saved to My Home Plan" paints the accent fill inline; its edge follows the fill. */
-.b-app.l-showcase .b-btn-outline[style*='background: var(--t-acc)'] { border-color: var(--t-acc); }
+/* "Saved to My Home Plan" paints the accent fill inline. Its edge is the text-safe shade of the fill, so a light
+   button colour does not leave the saved button fainter on the page than the unsaved one. */
+.b-app.l-showcase .b-btn-outline[style*='background: var(--t-acc)'] { border-color: var(--t-accT); }
 .b-app.l-showcase .b-main .b-btn + .b-btn,
 .b-app.l-showcase .b-main .b-btn + a.b-btn { margin-top: 10px; }
 
@@ -332,13 +333,10 @@
   .b-app.l-showcase .b-pill { padding: 6px 9px; font-size: 13.5px; }
 }
 .b-app.l-showcase .b-pill:hover { border-color: var(--t-ink); }
-.b-app.l-showcase .b-pill[data-on='true'] { background: var(--t-acc); border-color: var(--t-acc); color: var(--t-onacc); }
-/* A faint button colour (Burgundy & Blush's rose, or a community's own under 3:1 on the page, t-acc-edge) would
-   make the chosen chip fainter than an unchosen one, whose edge is the 3:1 control line. It takes the text-safe
-   shade of its own colour as its edge instead, as Cornerpost's and Marketplace's chips do. */
-.b-app.l-showcase.t-wine .b-pill[data-on='true'],
-.b-app.l-showcase.t-acc-edge .b-pill[data-on='true'] { border-color: var(--t-accT); }
-/* The price beside a home's name is faded to 75% inline, which takes the chip's text under 4.5:1. */
+/* The chosen chip's edge is the text-safe shade of the button colour, not the fill: a light button colour would
+   otherwise leave the chosen chip fainter than an unchosen one, whose edge is the 3:1 control line. */
+.b-app.l-showcase .b-pill[data-on='true'] { background: var(--t-acc); border-color: var(--t-accT); color: var(--t-onacc); }
+/* The price beside a home's name is faded to 75% inline; here it keeps the full ink of the chip's other words. */
 .b-app.l-showcase .b-pill > span[style*='opacity'] { opacity: 1 !important; }
 
 .b-app.l-showcase .b-field { gap: 6px; }
@@ -1648,13 +1646,18 @@
 .b-app.l-showcase .b-explore__title .b-head { font-size: 32px !important; line-height: 1.02 !important; letter-spacing: -0.015em; }
 .b-app.l-showcase .b-explore__title > span:last-child { font: 400 24px/1.1 var(--t-head) !important; white-space: nowrap; }
 /* The save star: a round light button with the star in the ink, filled in the
-   accent once saved. Inline, hence !important. */
+   accent once saved, with an inner edge in the text-safe shade of the accent so
+   a light button colour still shows on the photo. Inline, hence !important. */
 .b-app.l-showcase .b-explore__save {
   background: var(--t-sur) !important;
   color: var(--t-ink) !important;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25) !important;
 }
-.b-app.l-showcase .b-explore__save[aria-pressed='true'] { background: var(--t-acc) !important; color: var(--t-onacc) !important; }
+.b-app.l-showcase .b-explore__save[aria-pressed='true'] {
+  background: var(--t-acc) !important;
+  color: var(--t-onacc) !important;
+  box-shadow: inset 0 0 0 1.5px var(--t-accT), 0 1px 6px rgba(0, 0, 0, 0.25) !important;
+}
 .b-app.l-showcase .b-explore .b-tour { max-width: 560px; }
 
 /* ── a home's page ────────────────────────────────────────────────────── */

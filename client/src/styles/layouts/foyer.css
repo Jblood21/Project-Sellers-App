@@ -499,7 +499,7 @@
 }
 .b-app.l-foyer .b-pill:hover { border-color: var(--t-ink); }
 .b-app.l-foyer .b-pill[data-on='true'] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); }
-/* The price beside a home's name is faded to 75% inline, which takes the chip's text under 4.5:1. */
+/* The price beside a home's name is faded to 75% inline; here it keeps the full ink of the chip's other words. */
 .b-app.l-foyer .b-pill > span[style*='opacity'] { opacity: 1 !important; }
 
 /* A tick box is a tap target too, and the browser's own is 13 to 20px. The box
@@ -1419,15 +1419,9 @@
 .b-app.l-foyer .b-footer:not(.b-footer--print) .b-footer__copy { margin-top: 10px; }
 
 /* ── inline colours on shared screens that fail 4.5:1 ─────────────────── */
-/* The tools paint the accent FILL as text in a few places (Move-in's "Now"), and
-   muted text on a tint2 wash. Matched by what they say; !important is the only
-   way past an inline style. */
-.b-app.l-foyer .b-main .b-shell [style*=' color: var(--t-acc);'] { color: var(--t-accT) !important; }
+/* The tools paint muted text on a tint2 wash. Matched by what it says; !important
+   is the only way past an inline style. */
 .b-app.l-foyer .b-main .b-shell [style*='background: var(--t-tint2)'] { color: var(--t-ink) !important; }
-/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe accent stands in.
-   So does a community's own button colour that is under 3:1 on the page (t-acc-edge). */
-.b-app.l-foyer.t-wine .b-main .b-shell [style*='solid var(--t-acc);'],
-.b-app.l-foyer.t-acc-edge .b-main .b-shell [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
 /* A completed Move-in step is faded to .55 inline, which leaves it under 4.5:1.
    The strike-through already says it is done. */
 .b-app.l-foyer .b-main .b-shell [style*='opacity: 0.55'] { opacity: 1 !important; }

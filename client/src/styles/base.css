@@ -300,11 +300,17 @@ a.b-btn { display: flex; align-items: center; justify-content: center; text-deco
   cursor: pointer;
   padding: 0 6px;
 }
-.b-pill[data-on='true'] { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-acc); }
+/* A chosen chip is filled in the button colour, and a light button colour can be under 3:1 on the page, the
+   cards and the sheets, so on its own the fill would not say which chip is chosen. Its edge is the
+   text-safe shade of the same colour, which clears 4.5:1 on all of them by construction; where the button
+   colour is already dark enough the two are the same colour and nothing changes. */
+.b-pill[data-on='true'] { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-accT); }
 .b-row { display: flex; gap: 6px; }
 .b-stack { display: flex; flex-direction: column; }
 .b-bar { height: 8px; border-radius: 999px; background: rgba(128, 128, 128, 0.22); overflow: hidden; }
-.b-bar > span { display: block; height: 100%; background: var(--t-acc); border-radius: 999px; transition: width 0.4s; }
+/* The fill is the text-safe accent, not the button colour: a light button colour is under 3:1 on the grey track.
+   On a dark ground that redefines --t-accT the fill turns light with it. */
+.b-bar > span { display: block; height: 100%; background: var(--t-accT); border-radius: 999px; transition: width 0.4s; }
 .b-sheet-backdrop {
   position: fixed;
   inset: 0;
