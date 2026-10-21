@@ -57,6 +57,11 @@ export default function Explore({ onOpenTour, onOpenLender }) {
               className="b-card b-explore__card"
               style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
             >
+              {/*
+                The star is the save control's only mark, and the accent fill can be under 3:1 on the disc and the
+                photo. Unsaved, the star is drawn in the text-safe accent; saved, the accent disc gets an inner edge
+                in it. Where the accent is already dark the edge is the fill's own colour.
+              */}
               <button
                 type="button"
                 className="b-explore__save"
@@ -71,8 +76,8 @@ export default function Explore({ onOpenTour, onOpenLender }) {
                   borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
                   background: saved ? 'var(--t-acc)' : 'var(--t-bg)',
-                  color: saved ? 'var(--t-onacc)' : 'var(--t-acc)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,.18)',
+                  color: saved ? 'var(--t-onacc)' : 'var(--t-accT)',
+                  boxShadow: saved ? 'inset 0 0 0 1.5px var(--t-accT), 0 2px 8px rgba(0,0,0,.18)' : '0 2px 8px rgba(0,0,0,.18)',
                 }}
               >
                 <Star filled={saved} />

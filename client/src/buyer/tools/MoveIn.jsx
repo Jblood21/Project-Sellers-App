@@ -307,13 +307,14 @@ function StepRow({ item, first, today, thisYear, onToggle, onRemove }) {
         borderTop: first ? 'none' : '1px solid var(--t-line)',
       }}
     >
+      {/* Ticked, the browser fills the box in the text-safe accent: the accent fill can be under 3:1 here. */}
       <input
         type="checkbox"
         className="b-check"
         checked={item.done}
         onChange={onToggle}
         aria-label={item.label}
-        style={{ flex: 'none', width: 20, height: 20, accentColor: 'var(--t-acc)' }}
+        style={{ flex: 'none', width: 20, height: 20, accentColor: 'var(--t-accT)' }}
       />
       <span
         style={{

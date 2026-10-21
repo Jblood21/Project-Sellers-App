@@ -69,6 +69,10 @@ export default function Loans() {
 
       {state.path === 'know' ? (
         <div className="b-stack" style={{ gap: 10, marginBottom: 14 }}>
+          {/*
+            The picked card's edge is the only thing that says which one is picked, so it is the text-safe
+            accent: the accent fill itself can be under 3:1 on the page.
+          */}
           {Object.entries(PROGRAMS).map(([key, name]) => (
             <button
               key={key}
@@ -80,7 +84,7 @@ export default function Loans() {
               aria-pressed={state.picked === key}
               style={{
                 cursor: 'pointer', background: 'var(--t-sur)', textAlign: 'left', color: 'var(--t-ink)',
-                border: `1.5px solid ${state.picked === key ? 'var(--t-acc)' : 'var(--t-line)'}`,
+                border: `1.5px solid ${state.picked === key ? 'var(--t-accT)' : 'var(--t-line)'}`,
                 borderRadius: 'var(--t-radlg)', padding: '14px 16px',
                 display: 'flex', flexDirection: 'column', gap: 4,
               }}

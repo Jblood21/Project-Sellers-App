@@ -275,7 +275,7 @@
 }
 .b-app.l-trailhead .b-pill:hover { border-color: var(--t-acc2); }
 .b-app.l-trailhead .b-pill[data-on='true'] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); }
-/* The price beside a home's name is faded to 75% inline, which takes the chip's text under 4.5:1. */
+/* The price beside a home's name is faded to 75% inline; here it keeps the full ink of the chip's other words. */
 .b-app.l-trailhead .b-pill > span[style*='opacity'] { opacity: 1 !important; }
 
 .b-app.l-trailhead .b-field { gap: 6px; }
@@ -550,10 +550,12 @@
 }
 
 /* ── the round markers, shared by the trail, the strip and Up next ────── */
-/* Done: the accent with a tick in its own text colour. Current: the dark
-   colour, its number light, in a light ring and a dark one. To come: an
-   outline in the control edge with the number in the muted ink. Each sits in a
-   ring of the page's own colour, which cuts the trail's line round it. */
+/* Done: the accent with a tick in its own text colour, edged like a stop to
+   come but in the text-safe shade of the accent, so a light button colour does
+   not leave a done stop fainter than one ahead. Current: the dark colour, its
+   number light, in a light ring and a dark one. To come: an outline in the
+   control edge with the number in the muted ink. Each sits in a ring of the
+   page's own colour, which cuts the trail's line round it. */
 .b-app.l-trailhead .th-mark {
   position: relative;
   z-index: 1;
@@ -569,7 +571,7 @@
   font-variant-numeric: lining-nums tabular-nums;
   box-shadow: 0 0 0 4px var(--t-bg);
 }
-.b-app.l-trailhead .th-mark--done { background: var(--t-acc); color: var(--t-onacc); }
+.b-app.l-trailhead .th-mark--done { background: var(--t-acc); color: var(--t-onacc); border: 2px solid var(--t-accT); }
 .b-app.l-trailhead .th-mark--here {
   background: var(--t-acc2);
   color: var(--t-onacc2);
@@ -1188,7 +1190,9 @@
   background: var(--t-sur);
   box-shadow: 0 0 0 4px var(--t-bg);
 }
-.b-app.l-trailhead .th-end--reached .th-end__mark { border-style: solid; background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-acc); }
+/* Reached, the mark fills with the accent and its edge turns solid in the text-safe shade of it, so the finished
+   trail never reads fainter than the unfinished one. */
+.b-app.l-trailhead .th-end--reached .th-end__mark { border-style: solid; background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-accT); }
 .b-app.l-trailhead .th-end__words { font: 700 15px/1.2 var(--t-head); }
 
 /* Every stop done: the card that says so, on the trail before the keys. */

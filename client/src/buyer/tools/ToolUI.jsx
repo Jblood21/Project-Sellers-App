@@ -72,7 +72,17 @@ export function PillGroup({ options, value, onChange, label, stack = false }) {
           style={stack ? { flex: 'none', display: 'flex', justifyContent: 'space-between', padding: '0 16px', fontSize: 13.5 } : undefined}
         >
           <span>{keepRangesWhole(option.label)}</span>
-          {option.trailing ? <span style={{ opacity: 0.75 }}>{option.trailing}</span> : null}
+          {/*
+            The figure beside a label (a home's price) is a step quieter on a chip that is not chosen. On the
+            chosen one it sits on the chip's fill, where the words are only promised 4.5:1 at full strength, so
+            it is not faded there. It carries a class of its own so a layout can set the figure's face and weight
+            whether or not it is faded, and a chip does not change its type when it is picked.
+          */}
+          {option.trailing ? (
+            <span className="b-pill__trail" style={option.value === value ? undefined : { opacity: 0.75 }}>
+              {option.trailing}
+            </span>
+          ) : null}
         </button>
       ))}
     </div>

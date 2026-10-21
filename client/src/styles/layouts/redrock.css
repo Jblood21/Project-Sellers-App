@@ -241,8 +241,9 @@
   border-color: var(--t-acc2);
 }
 .b-app.l-redrock .b-btn-outline:not(:disabled):hover { filter: none; background: var(--t-tint); }
-/* "Saved to My Home Plan" paints the accent fill inline; its edge follows the fill. */
-.b-app.l-redrock .b-btn-outline[style*='background: var(--t-acc)'] { border-color: var(--t-acc); }
+/* "Saved to My Home Plan" paints the accent fill inline. Its edge is the text-safe shade of the fill, so a light
+   button colour does not leave the saved button fainter on the page than the unsaved one. */
+.b-app.l-redrock .b-btn-outline[style*='background: var(--t-acc)'] { border-color: var(--t-accT); }
 .b-app.l-redrock .b-main .b-btn + .b-btn,
 .b-app.l-redrock .b-main .b-btn + a.b-btn { margin-top: 10px; }
 
@@ -269,7 +270,7 @@
 }
 .b-app.l-redrock .b-pill:hover { border-color: var(--t-acc2); }
 .b-app.l-redrock .b-pill[data-on='true'] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); }
-/* The price beside a home's name is faded to 75% inline, which takes the chip's text under 4.5:1. */
+/* The price beside a home's name is faded to 75% inline; here it keeps the full ink of the chip's other words. */
 .b-app.l-redrock .b-pill > span[style*='opacity'] { opacity: 1 !important; }
 
 .b-app.l-redrock .b-field { gap: 6px; }

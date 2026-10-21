@@ -631,9 +631,10 @@ export function TourDialog({ topic, onClose }) {
                     border: '1px solid var(--t-line)', cursor: 'pointer', marginBottom: 8,
                   }}
                 >
+                  {/* Ticked, the browser fills the box in the text-safe accent: the accent fill can be under 3:1 on the tint. */}
                   <input
                     type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)}
-                    style={{ marginTop: 2, width: 18, height: 18, flex: 'none', accentColor: 'var(--t-acc)' }}
+                    style={{ marginTop: 2, width: 18, height: 18, flex: 'none', accentColor: 'var(--t-accT)' }}
                   />
                   <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--t-ink)' }}>
                     {consentText(community?.builder || community?.name)}

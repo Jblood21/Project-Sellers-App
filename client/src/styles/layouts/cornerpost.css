@@ -547,11 +547,9 @@
 @media (max-width: 400px) {
   .b-app.l-cornerpost .b-pill { padding: 4px 6px; }
 }
-.b-app.l-cornerpost .b-pill[data-on='true'] { background: var(--t-acc); border-color: var(--t-acc); color: var(--t-onacc); }
-/* Burgundy & Blush: the rose fill is a chosen chip's only mark, 2.9:1 against an unchosen one, so it takes a text-safe rose edge.
-   A community's own button colour that is as faint on the page (t-acc-edge, under 3:1) takes the same edge. */
-.b-app.l-cornerpost.t-wine .b-pill[data-on='true'],
-.b-app.l-cornerpost.t-acc-edge .b-pill[data-on='true'] { border-color: var(--t-accT); }
+/* The chosen chip as base.css draws it, restated because the chip rule above outranks it: the button colour's
+   fill, with the text-safe shade of it as the edge, so a light button colour still shows which one is chosen. */
+.b-app.l-cornerpost .b-pill[data-on='true'] { background: var(--t-acc); border-color: var(--t-accT); color: var(--t-onacc); }
 
 /* A tick box is a tap target too, and the browser's own is 13 to 20px. The box
    is drawn here at 22px inside a 44px hit area, and the negative margin gives
@@ -579,7 +577,9 @@
   border-radius: 7px;
   background: var(--t-sur);
 }
-.b-app.l-cornerpost .b-main input[type='checkbox']:checked::before { background: var(--t-acc); border-color: var(--t-acc); }
+/* Ticked, the box fills with the button colour and keeps its text-safe edge: a light button colour on its own
+   would leave a ticked box fainter than an empty one. */
+.b-app.l-cornerpost .b-main input[type='checkbox']:checked::before { background: var(--t-acc); }
 .b-app.l-cornerpost .b-main input[type='checkbox']:checked::after {
   width: 6px;
   height: 11px;
@@ -684,18 +684,16 @@
 }
 
 /* ── inline colours on shared screens that fail 4.5:1 ──────────────────── */
-/* These three are inline styles in the tool screens, which a layout may not edit,
-   so they are matched by what they say. Each fixes a pairing the themes make
-   unreadable: the accent FILL used as text, --t-mut on --t-tint2, and a selected
-   chip's secondary figure faded to 75% on the accent. !important is the point:
-   it is the only way to beat an inline style. */
-.b-app.l-cornerpost .b-main [style*=' color: var(--t-acc);'] { color: var(--t-accT) !important; }
+/* These two are inline styles in the tool screens, which a layout may not edit,
+   so they are matched by what they say. --t-mut on --t-tint2 is a pairing the
+   themes make unreadable, so the words there are set in the ink. A chip's
+   secondary figure (a home's price) is faded to 75% inline on a chip that is
+   not chosen; here it is drawn at full strength, and on every chip, chosen or
+   not, a step lighter (semibold) than the chip's bold name. !important is the
+   point: it is the only way to beat an inline style. */
 .b-app.l-cornerpost .b-main [style*='background: var(--t-tint2)'] { color: var(--t-ink) !important; }
-.b-app.l-cornerpost .b-pill > span[style*='opacity'] { opacity: 1 !important; font-weight: 600; }
-/* Burgundy & Blush: the picked loan card's only mark is an inline border in the rose fill, 2.2:1 against the others' hairline; the text-safe rose stands in.
-   So does a community's own button colour that is under 3:1 on the page (t-acc-edge). */
-.b-app.l-cornerpost.t-wine .b-main [style*='solid var(--t-acc);'],
-.b-app.l-cornerpost.t-acc-edge .b-main [style*='solid var(--t-acc);'] { --t-acc: var(--t-accT); }
+.b-app.l-cornerpost .b-pill > span[style*='opacity'] { opacity: 1 !important; }
+.b-app.l-cornerpost .b-pill__trail { font-weight: 600; }
 
 /* A completed Move-in step is faded to .55 inline, which leaves its title at
    3.2 to 4:1 and its "You" line at 2.1:1 on every theme. The strike-through
