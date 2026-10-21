@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { THEMES, THEME_CHIPS, num } from '@shared/domain.js';
+import { num } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { fullDate } from '../../lib/format.js';
@@ -15,6 +15,7 @@ import IncentiveCard from '../setup/IncentiveCard.jsx';
 import LayoutCard from '../setup/LayoutCard.jsx';
 import LogoCard from '../setup/LogoCard.jsx';
 import RealtorsCard from '../setup/RealtorsCard.jsx';
+import ThemeStudio from '../setup/ThemeStudio.jsx';
 import { Disclosure, ErrorNote, Field, TextField } from '../ui.jsx';
 import ReportButton from '../ReportButton.jsx';
 
@@ -97,16 +98,6 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
     }
   };
 
-  const setTheme = async (theme) => {
-    setError('');
-    try {
-      await adminApi.updateCommunity(token, community.id, { theme });
-      await reload();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
   const checkRates = async () => {
     setError('');
     try {
@@ -144,46 +135,12 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
         ))}
       </nav>
 
-      <div className="as-part-body" hidden={active !== 'look'}>
+      <div className="as-part-body ax-look" hidden={active !== 'look'}>
       <LayoutCard community={community} reload={reload} />
 
-      <div className="card elev-sm" style={{ gap: 10 }}>
-        <span className="card-kicker">Buyer app theme</span>
-        <div className="grid-3">
-          {Object.entries(THEMES).map(([key, theme]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTheme(key)}
-              aria-pressed={community.theme === key}
-              title={theme.note}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 6px',
-                borderRadius: 14, cursor: 'pointer',
-                background: community.theme === key ? 'var(--color-accent-100)' : 'transparent',
-                border: `2px solid ${community.theme === key ? 'var(--color-accent)' : 'var(--color-divider)'}`,
-              }}
-            >
-              <span
-                style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  background: `conic-gradient(${THEME_CHIPS[key][0]} 0 33%, ${THEME_CHIPS[key][1]} 33% 66%, ${THEME_CHIPS[key][2]} 66% 100%)`,
-                  border: '1px solid var(--color-divider)',
-                }}
-              />
-              <span style={{ fontSize: 11.5, fontWeight: 600, textAlign: 'center', lineHeight: 1.25 }}>
-                {theme.name}
-              </span>
-              <span className="text-muted" style={{ fontSize: 11, textAlign: 'center', lineHeight: 1.3 }}>
-                {theme.note}
-              </span>
-            </button>
-          ))}
-        </div>
-        <span className="text-muted" style={{ fontSize: 12 }}>
-          Changes the buyer app instantly — functionality stays identical.
-        </span>
-      </div>
+      {/* The colours: a try-on studio whose preview is this community's own buyer app, in its layout. Like the layout
+          above, it saves on its own (only when "Use" is pressed) and never waits on Save settings. */}
+      <ThemeStudio community={community} reload={reload} />
 
       <LogoCard community={community} reload={reload} />
 

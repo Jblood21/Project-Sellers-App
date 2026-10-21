@@ -1,5 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 
+import { themeView } from '@shared/customTheme.js';
 import { GUIDE_TEXT_MAX, normalizeLayout, slugify } from '@shared/domain.js';
 import Markdown from '../../components/Markdown.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -64,10 +65,9 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
     [id],
   );
   const noNavigation = useCallback(() => {}, []);
-  const previewScope = useMemo(
-    () => `b-app t-${community.theme} l-${normalizeLayout(community.layout)}`,
-    [community.theme, community.layout],
-  );
+  // Dressed as the buyer app is (themeView), so a guide previews in the community's own colours too.
+  const previewTheme = useMemo(() => themeView(community.theme, community.settings), [community.theme, community.settings]);
+  const previewScope = `b-app ${previewTheme.className} l-${normalizeLayout(community.layout)}`;
 
   if (!form) {
     return (
@@ -187,7 +187,7 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
             Preview as buyers see it
           </span>
           <div className="ax-preview-frame" role="region" aria-labelledby="guide-preview-label">
-            <div className={previewScope}>
+            <div className={previewScope} style={previewTheme.style}>
               {form.category ? <p className="ax-preview-kicker">{form.category}</p> : null}
               <h3 className="b-head ax-preview-title">{form.title || 'Untitled guide'}</h3>
               {form.byline ? <p className="ax-preview-by">{form.byline}</p> : null}

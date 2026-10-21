@@ -237,6 +237,9 @@
   transition: filter 0.15s ease, background-color 0.15s ease;
 }
 .b-app.l-trailhead .b-btn:not(:disabled):hover { filter: brightness(1.12); }
+/* The main button is the dark colour, never the button colour, so it needs none of the edge base.css gives a faint
+   button colour (t-acc-edge). */
+.b-app.l-trailhead.t-acc-edge .b-btn:not(.b-btn-outline) { box-shadow: none; }
 .b-app.l-trailhead .b-btn-outline {
   background: var(--t-sur);
   color: var(--t-acc2);

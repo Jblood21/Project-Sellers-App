@@ -87,15 +87,20 @@
 }
 
 /* The themes whose accent sits too close to their dark colour to show on it (under 3:1): Modern Blue & White,
-   Deep Purple & Lavender, Teal & Navy, Slate Blue & Soft Green, Rust & Desert Plum. Three more clear 3:1 on
+   Deep Purple & Lavender, Teal & Navy, Slate Blue & Soft Green, Rust & Desert Plum, Burgundy & Blush (2.4:1
+   against the gauge's track). Three more clear 3:1 on
    the dark ground but not against the gauge's track, the light text at 20% over it (Forest Green & Warm Gold
    2.8:1, Charcoal & Bronze 2.7:1, Warm Modern Real Estate 2.1:1). On the dark grounds their highlight is the
-   light text instead, which clears 4.5:1 against that track on all eight. */
+   light text instead, which clears 4.5:1 against that track on all nine. A community's own colours join them
+   when their button colour does not show on their brand colour or on that track (t-acc-weak, worked out in
+   shared/customTheme.js), so no rule here has to know a palette by name. */
 .b-app.l-ledger.t-azure,
 .b-app.l-ledger.t-violet,
 .b-app.l-ledger.t-teal,
 .b-app.l-ledger.t-sage,
 .b-app.l-ledger.t-redrock,
+.b-app.l-ledger.t-wine,
+.b-app.l-ledger.t-acc-weak,
 .b-app.l-ledger.t-forest,
 .b-app.l-ledger.t-bronze,
 .b-app.l-ledger.t-clay {
@@ -860,6 +865,9 @@
 .b-app.l-ledger .lg-btn--hi { background: var(--lg-hi); color: var(--lg-onhi); }
 .b-app.l-ledger .lg-btn--dark { background: var(--t-acc2); color: var(--t-onacc2); }
 .b-app.l-ledger .lg-btn--line { background: transparent; color: var(--t-acc2); border-color: var(--t-acc2); }
+/* A community's own button colour that is nearly its page's (t-acc-edge): the filled button gets the inner edge
+   base.css gives a filled .b-btn, so it still reads as a button on the page. */
+.b-app.l-ledger.t-acc-edge .lg-btn--acc { box-shadow: inset 0 0 0 1.5px var(--t-accT); }
 .b-app.l-ledger .lg-btn--acc:hover,
 .b-app.l-ledger .lg-btn--hi:hover { filter: brightness(0.94); }
 .b-app.l-ledger .lg-btn--dark:hover { filter: brightness(1.15); }

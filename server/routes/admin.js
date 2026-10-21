@@ -2,11 +2,12 @@ import { Router } from 'express';
 
 import {
   AGENT_TEXT_MAX, AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE_ALT,
-  COMPLIANCE_DEFAULTS, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
+  COMPLIANCE_DEFAULTS, CUSTOM_THEME, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
-  isSafeEmail, SLOT_TIMES, THEMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
+  isSafeEmail, isThemeKey, SLOT_TIMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
 } from '../../shared/domain.js';
+import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
@@ -382,6 +383,9 @@ export function adminRouter() {
       }
       communities.push({
         id: community.id, name: community.name, location: community.location, status: community.status, theme: community.theme,
+        // The four colour settings, so Today names a community on its own colours "Custom colours" (themeView
+        // needs them to tell a full palette from a half-finished one) without the rest of its settings.
+        settings: Object.fromEntries(CUSTOM_KEYS.map((key) => [key, community.settings?.[key] ?? ''])),
         homesCount: row.homesCount, people: report.leads.length, unread: report.leads.filter(isUnread).length,
         waiting: report.comingUp.length + report.overdue.length, overdue: report.overdue.length,
         ready: agreed.length, readyNew: agreed.filter((lead) => lead.status !== 'contacted').length,
@@ -415,7 +419,7 @@ export function adminRouter() {
       name,
       location: str(req.body?.location).slice(0, COMMUNITY_TEXT_MAX) || 'Location TBD',
       status: COMMUNITY_STATUSES.includes(req.body?.status) ? req.body.status : 'Pre-sale',
-      theme: THEMES[req.body?.theme] ? req.body.theme : DEFAULT_THEME,
+      theme: isThemeKey(req.body?.theme) ? req.body.theme : DEFAULT_THEME,
       builder: str(req.body?.builder).slice(0, COMMUNITY_TEXT_MAX),
     });
     res.status(201).json(community);
@@ -481,7 +485,7 @@ export function adminRouter() {
       }
     }
     if (req.body?.status !== undefined && COMMUNITY_STATUSES.includes(req.body.status)) patch.status = req.body.status;
-    if (req.body?.theme !== undefined && THEMES[req.body.theme]) patch.theme = req.body.theme;
+    if (req.body?.theme !== undefined && (isThemeKey(req.body.theme) || req.body.theme === CUSTOM_THEME)) patch.theme = req.body.theme;
     // An unknown layout is ignored like an unknown theme, never stored: the buyer
     // app would have no stylesheet for it.
     if (req.body?.layout !== undefined && LAYOUT_KEYS.includes(req.body.layout)) {
@@ -525,6 +529,19 @@ export function adminRouter() {
         if (key === 'reportEmail' && text && !isSafeEmail(text)) {
           return res.status(400).json({ error: 'The report email must be a single email address.' });
         }
+        if (CUSTOM_KEYS.includes(key)) {
+          // A community's own colours: colour codes (or blank), and the base a set theme, so nothing else can
+          // reach the style attribute the buyer app writes them into.
+          if (key === 'customBase') {
+            if (text && !isThemeKey(text)) return res.status(400).json({ error: 'Custom colours start from one of the themes.' });
+            settings[key] = text;
+          } else {
+            const hex = text ? normalizeHex(text) : '';
+            if (hex === null) return res.status(400).json({ error: 'Colours must be colour codes like #5A1E33.' });
+            settings[key] = hex;
+          }
+          continue;
+        }
         if (key === 'faqJson') {
           // A list, normalised: items trimmed, half-finished ones dropped, counts
           // capped. Anything that is not a list is refused rather than stored,
@@ -553,6 +570,12 @@ export function adminRouter() {
         if (req.body.features[key] !== undefined) features[key] = Boolean(req.body.features[key]);
       }
       patch.features = features;
+    }
+    // Custom colours are only ever drawn whole: choosing them, or clearing one of the three while they are in
+    // use, needs all three to be set once this request is applied.
+    const nextTheme = patch.theme ?? community.theme;
+    if (nextTheme === CUSTOM_THEME && !customThemeFrom(patch.settings ?? community.settings)) {
+      return res.status(400).json({ error: 'Pick all three colours before using your own colours.' });
     }
     if (newSlug) {
       const claimed = await store.setCommunitySlug(community.id, newSlug);

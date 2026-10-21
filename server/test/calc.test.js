@@ -198,7 +198,7 @@ test('retired themes still resolve so old communities keep rendering', () => {
 
 test('every theme carries the five colours its stylesheet is built from', () => {
   const hex = /^#[0-9A-Fa-f]{6}$/;
-  assert.equal(Object.keys(THEMES).length, 11);
+  assert.equal(Object.keys(THEMES).length, 12);
   for (const [key, t] of Object.entries(THEMES)) {
     assert.ok(t.name && t.note, `${key} is labelled for the admin picker`);
     for (const field of ['primary', 'secondary', 'accent', 'background', 'text']) {

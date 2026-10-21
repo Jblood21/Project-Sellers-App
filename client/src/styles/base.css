@@ -159,6 +159,18 @@
   --t-head: 'Fraunces', Georgia, serif; --t-font: 'Figtree', system-ui, sans-serif;
   --t-headwt: 600; --t-track: 0; --t-up: none;
 }
+/* Burgundy & Blush — Boutique, warm, upscale, memorable. The one pink and wine palette: a rose fill
+   that takes dark text (6.2:1), a deep wine for the dark grounds, and a blush-white page. The rose is
+   2.6:1 on the page, so as text it is the darker --t-accT (6.0:1 on the page, 5.7:1 on the tint). */
+.t-wine {
+  --t-bg: #FBF4F3; --t-sur: #ffffff; --t-ink: #2B171D; --t-mut: #735C64;
+  --t-acc: #E07A8A; --t-accT: #A3384C; --t-acc2: #5A1E33;
+  --t-onacc: #2B0E17; --t-onacc2: #ffffff;
+  --t-line: rgba(43, 23, 29, 0.14); --t-tint: #FCEDEF; --t-tint2: #F5ECEF;
+  --t-rad: 14px; --t-radlg: 20px; --t-radbtn: 999px;
+  --t-head: 'Playfair Display', Georgia, serif; --t-font: 'DM Sans', system-ui, sans-serif;
+  --t-headwt: 600; --t-track: 0; --t-up: none;
+}
 
 * { box-sizing: border-box; }
 
@@ -262,6 +274,11 @@ a { color: inherit; }
   cursor: pointer;
 }
 .b-btn:disabled { opacity: 0.55; cursor: default; }
+/* A community's own button colour can be nearly the page's (a pale blush on white): the words on it still read,
+   but the button itself would not show as one. Under 3:1 on the page the palette carries t-acc-edge (worked out
+   in shared/customTheme.js), and a filled button gets an edge in the text-safe shade of its own colour. Drawn
+   inside, as a shadow, so no layout's border, padding or height changes. */
+.b-app.t-acc-edge .b-btn:not(.b-btn-outline) { box-shadow: inset 0 0 0 1.5px var(--t-accT); }
 /* A link that looks like a button (call, text, email, a loan application). */
 a.b-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
 .b-btn-outline {

@@ -79,9 +79,21 @@ export const THEMES = {
     primary: '#4A2338', secondary: '#4F5A2A', accent: '#A3432A',
     background: '#F4EADB', text: '#2B1A20',
   },
+  wine: {
+    name: 'Burgundy & Blush', note: 'Boutique, warm, upscale, memorable',
+    primary: '#5A1E33', secondary: '#7B3149', accent: '#E07A8A',
+    background: '#FBF4F3', text: '#2B171D',
+  },
 };
 
 export const DEFAULT_THEME = 'navy';
+
+/**
+ * The key a community stores when it uses its own three colours instead of a set theme. The colours are four
+ * settings (customBrand, customButton, customPage, customBase) and shared/customTheme.js turns them into a
+ * full, contrast-checked palette.
+ */
+export const CUSTOM_THEME = 'custom';
 
 /**
  * The palette that shipped before this set is still on live communities, and a
@@ -101,9 +113,19 @@ const RETIRED_THEMES = {
   estate: 'clay',      // Warm Umber
 };
 
+/**
+ * Whether `key` is one of the set themes. Asked of the object's own keys only: THEMES['toString'] and
+ * THEMES['constructor'] are truthy (every object inherits them), so a plain lookup would take either as a
+ * theme and the buyer app would get the class t-toString, with no fonts, corners or weights.
+ */
+export function isThemeKey(key) {
+  return typeof key === 'string' && Object.hasOwn(THEMES, key);
+}
+
 export function normalizeTheme(theme) {
-  if (RETIRED_THEMES[theme]) return RETIRED_THEMES[theme];
-  return THEMES[theme] ? theme : DEFAULT_THEME;
+  if (theme === CUSTOM_THEME) return CUSTOM_THEME;
+  if (typeof theme === 'string' && Object.hasOwn(RETIRED_THEMES, theme)) return RETIRED_THEMES[theme];
+  return isThemeKey(theme) ? theme : DEFAULT_THEME;
 }
 
 /** Swatch stops for the admin theme picker: brand, accent, page. */
@@ -708,6 +730,13 @@ export const DEFAULT_SETTINGS = {
   // ── the FAQ shown on the home screen: a JSON list, edited in Setup ───────
   // Starts as the starter questions in shared/faq.js; the builder edits them.
   faqJson: DEFAULT_FAQ_JSON,
+
+  // ── the community's own colours, used when its theme is 'custom' (shared/customTheme.js) ───────
+  // Three colour codes and the set theme whose type and shapes they wear. Blank until a builder picks them.
+  customBrand: '',
+  customButton: '',
+  customPage: '',
+  customBase: '',
 };
 
 /**

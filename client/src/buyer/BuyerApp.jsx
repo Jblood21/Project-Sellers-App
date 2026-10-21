@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { complianceOf } from '@shared/compliance.js';
-import { DEFAULT_THEME, THEME_COLORS } from '@shared/domain.js';
+import { themeView } from '@shared/customTheme.js';
 import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialSheet } from './Chrome.jsx';
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
 import ComplianceFooter from './ComplianceFooter.jsx';
@@ -18,6 +18,7 @@ import HomeDetail from './screens/HomeDetail.jsx';
 import Landing from './screens/Landing.jsx';
 import Plan from './screens/Plan.jsx';
 import PlanPrint from './screens/PlanPrint.jsx';
+import Preview, { PREVIEW_PATH_RE } from './screens/Preview.jsx';
 import Realtors from './screens/Realtors.jsx';
 import Saved from './screens/Saved.jsx';
 import SiteMap from './screens/SiteMap.jsx';
@@ -37,8 +38,9 @@ function useCommunityChrome(community, communityId) {
     }
     link.href = `/c/${communityId}/manifest.webmanifest`;
 
+    // The phone's bar takes the theme's main colour, the community's own when it uses its own colours.
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = THEME_COLORS[community.theme] ?? THEME_COLORS[DEFAULT_THEME];
+    if (meta) meta.content = themeView(community.theme, community.settings).colors.primary;
 
     return () => {
       link?.remove();
@@ -132,9 +134,11 @@ function BuyerShell() {
     track(`Tapped ${complianceOf(community?.settings, { community }).lender.name || 'the lender'}`);
     setTourTopic('lender');
   };
+  // The theme's classes, and for a community's own colours the colour variables themselves (see themeView).
+  const view = themeView(community.theme, community.settings);
 
   return (
-    <div className={`b-app t-${community.theme} l-${layout}`}>
+    <div className={`b-app ${view.className} l-${layout}`} style={view.style}>
       <a className="b-skip" href="#b-main">Skip to the page</a>
       <StructuredData />
       {showChrome ? (
@@ -192,6 +196,9 @@ function BuyerShell() {
 
 export default function BuyerApp() {
   const { communityId } = useParams();
+  const { pathname } = useLocation();
+  // Setup's theme preview: the home screen drawn for the builder, with nobody signed in and nothing recorded.
+  if (PREVIEW_PATH_RE.test(pathname)) return <Preview />;
   return (
     <BuyerProvider communityId={communityId}>
       <BuyerShell />
