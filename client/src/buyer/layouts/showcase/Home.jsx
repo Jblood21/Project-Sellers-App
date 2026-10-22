@@ -17,6 +17,17 @@ import Placeholder from './Placeholder.jsx';
 import Row from './Row.jsx';
 import { lastHomeSeen, paymentFor, setHomeOnScreen, slideOrder, termsLine } from './numbers.js';
 
+/**
+ * How wide a slide's photo is drawn. The slide fills the window, and on any window
+ * narrower than a 16:9 photo (every phone held upright, most laptops) the photo is
+ * stretched to the window's height and cropped at the sides, so it is drawn far wider
+ * than the window: about 1.7 times the window's height for the usual 3:2 to 16:9 shots.
+ * Asking for less would hand a phone a picture a third as wide as the one it draws, and
+ * that holds on a 3x phone too: its slide is cropped from a photo drawn some 3500 device
+ * pixels wide, so it is given the largest copy, like every other picture in the app.
+ */
+const SLIDE_SIZES = '(max-aspect-ratio: 16/9) 170vh, 100vw';
+
 /** True when the buyer has asked for less motion: the carousel then jumps rather than glides. */
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -68,7 +79,7 @@ function Slide({ home, index, count, current, saved, pay, showLot, eager, onOpen
     >
       <div className="sc-slide__photo">
         <Placeholder />
-        {home.photos.length ? <Photo photo={home.photos[0]} alt="" label="" quiet eager={eager} /> : null}
+        {home.photos.length ? <Photo photo={home.photos[0]} alt="" label="" quiet eager={eager} sizes={SLIDE_SIZES} /> : null}
       </div>
       <div className="sc-slide__view">
         {count > 1 ? (
@@ -503,7 +514,7 @@ export default function Home({ model }) {
                     >
                       <span className="sc-strip__thumb" aria-hidden="true">
                         <Placeholder />
-                        {home.photos.length ? <Photo photo={home.photos[0]} alt="" label="" quiet /> : null}
+                        {home.photos.length ? <Photo photo={home.photos[0]} alt="" label="" quiet sizes="100px" /> : null}
                       </span>
                       <span className="sc-strip__text">
                         <span className="sc-strip__name">{home.name}</span>
@@ -522,7 +533,7 @@ export default function Home({ model }) {
             <div className="sc-slide sc-slide--welcome">
               <div className="sc-slide__photo">
                 <Placeholder />
-                {community?.heroPhoto ? <Photo photo={{ url: community.heroPhoto }} alt="" label="" quiet eager /> : null}
+                {community?.heroPhoto ? <Photo photo={{ url: community.heroPhoto }} alt="" label="" quiet eager sizes={SLIDE_SIZES} /> : null}
               </div>
               <div className="sc-slide__view" />
               <div className="sc-slide__text">

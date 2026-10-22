@@ -87,6 +87,7 @@ export default function Explore({ onOpenTour, onOpenLender }) {
                   photo={home.photos[0]}
                   label={`${home.name} photo`}
                   alt={`${home.name} photo 1 of ${home.photos.length}`}
+                  sizes="(min-width: 600px) 700px, 125vw"
                 />
               </div>
               <div className="b-explore__body" style={{ padding: '12px 16px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -163,7 +164,8 @@ export default function Explore({ onOpenTour, onOpenLender }) {
             }}
           >
             <div style={{ height: 170 }}>
-              <Photo photo={map[0]} label="" alt={`${community?.name} site map`} />
+              {/* A short, very wide strip: on a wide screen it runs the width of the page. */}
+              <Photo photo={map[0]} label="" alt={`${community?.name} site map`} sizes="(min-width: 1280px) 1222px, 100vw" />
             </div>
           </button>
           <span style={{ display: 'block', marginTop: 7, fontSize: 12, color: 'var(--t-mut)' }}>

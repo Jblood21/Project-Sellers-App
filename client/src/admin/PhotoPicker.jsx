@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 
-import { fileToDataUrl } from '../lib/photos.js';
+import { photoImgProps } from '../components/Photo.jsx';
+import { preparePhoto } from '../lib/photos.js';
+import { LowResNote, measureImg, useLowRes } from './lowRes.jsx';
 import { ErrorNote, Field } from './ui.jsx';
 
 /**
@@ -9,6 +11,9 @@ import { ErrorNote, Field } from './ui.jsx';
  * Deliberately does NOT upload on pick: it hands the downscaled data URL up to
  * the parent, which sends it when the dialog is saved. That keeps Cancel honest
  * — back out and the community's existing photo is untouched.
+ *
+ * `use` is what the photo is for ('hero' or 'highlight'): it sets how large a picture is
+ * kept, and when the picture shown is too small for that, a short note says so.
  */
 export default function PhotoPicker({
   label,
@@ -17,12 +22,14 @@ export default function PhotoPicker({
   pendingDataUrl,
   onPick,
   height = 150,
+  use = 'hero',
 }) {
   const inputRef = useRef(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const preview = pendingDataUrl || currentUrl || null;
+  const lowRes = useLowRes(use, preview);
 
   const pick = async (event) => {
     const file = event.target.files?.[0];
@@ -31,7 +38,7 @@ export default function PhotoPicker({
     setBusy(true);
     setError('');
     try {
-      onPick(await fileToDataUrl(file));
+      onPick((await preparePhoto(file, { kind: use === 'highlight' ? 'highlight' : 'photo' })).dataUrl);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -60,8 +67,10 @@ export default function PhotoPicker({
         {preview ? (
           <>
             <img
-              src={preview}
+              // The dialog's width: about 380 px from a small tablet up.
+              {...photoImgProps(preview, '(min-width: 480px) 380px, 100vw')}
               alt=""
+              onLoad={measureImg(lowRes.measured)}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             />
             <span
@@ -85,6 +94,7 @@ export default function PhotoPicker({
           Uploads when you save.
         </span>
       ) : null}
+      <LowResNote>{preview ? lowRes.note : ''}</LowResNote>
       <ErrorNote>{error}</ErrorNote>
     </Field>
   );

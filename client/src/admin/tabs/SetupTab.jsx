@@ -5,7 +5,8 @@ import { num } from '@shared/domain.js';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { fullDate } from '../../lib/format.js';
-import { fileToDataUrl } from '../../lib/photos.js';
+import { preparePhoto } from '../../lib/photos.js';
+import { LowResNote, useLowRes } from '../lowRes.jsx';
 import { useAdmin } from '../AdminContext.jsx';
 import { DEFAULT_SETUP_PART, SETUP_PARTS } from '../shell/sections.js';
 import ComplianceCard from '../setup/ComplianceCard.jsx';
@@ -323,6 +324,10 @@ function CommunityArtwork({ community, reload }) {
   const heroInput = useRef(null);
   const iconInput = useRef(null);
   const [error, setError] = useState('');
+  const lowRes = {
+    hero: useLowRes('hero', community.heroPhoto?.url),
+    icon: useLowRes('icon', community.iconPhoto?.url),
+  };
 
   // A community card on Today with no picture, or one that fails to load, links here (#artwork). This card is the last
   // of Look & feel, screens below the top, so it is brought into view and the hero photo's slot takes the focus,
@@ -339,10 +344,12 @@ function CommunityArtwork({ community, reload }) {
     if (!file) return;
     setError('');
     try {
-      const dataUrl = await fileToDataUrl(file);
-      await adminApi.addCommunityPhoto(token, community.id, kind, { dataUrl });
+      const picked = await preparePhoto(file, { kind: kind === 'icon' ? 'icon' : 'photo' });
+      lowRes[kind].picked({ width: picked.width, height: picked.height });
+      await adminApi.addCommunityPhoto(token, community.id, kind, { dataUrl: picked.dataUrl });
       await reload();
     } catch (err) {
+      lowRes[kind].picked(null);
       setError(err.message);
     }
   };
@@ -358,9 +365,15 @@ function CommunityArtwork({ community, reload }) {
           border: '1.5px dashed var(--color-neutral-400)', background: 'transparent', padding: 0,
         }}
       >
-        {photo ? <Photo photo={photo} alt={label} /> : <span className="text-muted" style={{ fontSize: 12.5 }}>{hint}</span>}
+        {photo ? (
+          <Photo
+            photo={photo} alt={label} sizes="(min-width: 1240px) 1180px, 100vw"
+            onMeasure={lowRes[kind].measured}
+          />
+        ) : <span className="text-muted" style={{ fontSize: 12.5 }}>{hint}</span>}
       </button>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload(kind)} />
+      <LowResNote>{photo ? lowRes[kind].note : ''}</LowResNote>
     </Field>
   );
 

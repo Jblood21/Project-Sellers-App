@@ -82,7 +82,7 @@ function HomeThumb({ home, saved, monthly, onOpen, onSave }) {
       <button type="button" className="th-thumb__open" onClick={() => onOpen(home)}>
         <span className="th-thumb__photo">
           {home.photos.length ? (
-            <Photo photo={home.photos[0]} alt="" label="" quiet />
+            <Photo photo={home.photos[0]} alt="" label="" quiet sizes="(min-width: 900px) 100px, 210px" />
           ) : (
             <span className="th-thumb__nophoto">
               <HouseGlyph size={22} />

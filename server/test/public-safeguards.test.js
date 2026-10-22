@@ -431,7 +431,7 @@ test('a forged token with multibyte characters is turned away, not an error', as
 test('the server says at boot what an unset variable will quietly cost', () => {
   const saved = { ...process.env };
   const reset = () => {
-    for (const key of ['NODE_ENV', 'PUBLIC_ORIGIN', 'SESSION_SECRET', 'DATABASE_URL', 'RESEND_API_KEY', 'EMAIL_FROM']) delete process.env[key];
+    for (const key of ['NODE_ENV', 'PUBLIC_ORIGIN', 'SESSION_SECRET', 'DATABASE_URL', 'RESEND_API_KEY', 'EMAIL_FROM', 'MALLOC_ARENA_MAX']) delete process.env[key];
   };
   try {
     reset();
@@ -441,11 +441,14 @@ test('the server says at boot what an unset variable will quietly cost', () => {
     assert.match(bare, /SESSION_SECRET is not set/);
     assert.match(bare, /DATABASE_URL is not set/);
     assert.match(bare, /Email is off/);
+    assert.match(bare, /MALLOC_ARENA_MAX is not set/, 'photo resizing needs the allocator held to two arenas on a small plan');
 
     process.env.PUBLIC_ORIGIN = 'touradoor.com';
     assert.match(bootWarnings().join('\n'), /needs the https:\/\/ in front/);
 
-    Object.assign(process.env, { PUBLIC_ORIGIN: 'https://touradoor.com', SESSION_SECRET: 's', DATABASE_URL: 'postgres://x', RESEND_API_KEY: 'k' });
+    Object.assign(process.env, {
+      PUBLIC_ORIGIN: 'https://touradoor.com', SESSION_SECRET: 's', DATABASE_URL: 'postgres://x', RESEND_API_KEY: 'k', MALLOC_ARENA_MAX: '2',
+    });
     assert.match(bootWarnings().join('\n'), /EMAIL_FROM is not set/);
 
     process.env.EMAIL_FROM = 'Touradoor <hello@touradoor.com>';
@@ -610,7 +613,9 @@ test('a limiter forgets after its window, gives a use back on request, and holds
 });
 
 test('a production site on an http:// PUBLIC_ORIGIN is told so at boot', () => {
-  const base = { NODE_ENV: 'production', SESSION_SECRET: 's', DATABASE_URL: 'postgres://x', RESEND_API_KEY: 'k', EMAIL_FROM: 'a@b.co' };
+  const base = {
+    NODE_ENV: 'production', SESSION_SECRET: 's', DATABASE_URL: 'postgres://x', RESEND_API_KEY: 'k', EMAIL_FROM: 'a@b.co', MALLOC_ARENA_MAX: '2',
+  };
   assert.deepEqual(bootWarnings({ ...base, PUBLIC_ORIGIN: 'https://touradoor.com' }), []);
   assert.match(bootWarnings({ ...base, PUBLIC_ORIGIN: 'http://touradoor.com' }).join(' '), /http:\/\//);
   assert.match(bootWarnings({ ...base, PUBLIC_ORIGIN: 'touradoor.com' }).join(' '), /https:\/\/ in front/, 'judged from the env it was handed');

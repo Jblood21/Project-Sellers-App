@@ -779,6 +779,26 @@ textarea.input { min-height: auto; resize: vertical; }
   margin: 0 0 14px;
 }
 .b-homehero:disabled { cursor: default; }
+
+/* The full-screen viewer's sign that a picture is on its way, for one the page behind does
+   not already show (that one is drawn in its place instead). It sits under the picture, which
+   covers it as it comes in. With less motion asked for, the ring is still and only dims. */
+.b-viewer-wait {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.85);
+  animation: b-viewer-spin 0.9s linear infinite;
+}
+@keyframes b-viewer-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) {
+  .b-viewer-wait { animation: b-viewer-dim 1.6s ease-in-out infinite alternate; }
+  @keyframes b-viewer-dim { to { opacity: 0.4; } }
+}
 .b-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
 .b-tile {
   display: block;

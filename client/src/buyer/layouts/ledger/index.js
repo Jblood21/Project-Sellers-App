@@ -18,7 +18,11 @@ import Home from './Home.jsx';
  * 900px the header carries them.
  */
 export default {
-  traits: { footerTone: 'light', headerTone: 'dark' },
+  traits: {
+    footerTone: 'light', headerTone: 'dark',
+    // How wide its home page's hero photo is drawn (see heroSizes in ../index.js).
+    heroSizes: '(min-width: 1180px) 1080px, (min-width: 930px) 100vw, (min-width: 900px) 930px, (min-width: 720px) 750px, 108vw',
+  },
   Header,
   Home,
 };

@@ -23,7 +23,11 @@ import Home from './Home.jsx';
  * screen, and Book a tour, Talk about financing and My Home Plan elsewhere; from 900px the header carries them.
  */
 export default {
-  traits: { footerTone: 'light', headerTone: 'dark' },
+  traits: {
+    footerTone: 'light', headerTone: 'dark',
+    // How wide its home page's hero photo is drawn (see heroSizes in ../index.js).
+    heroSizes: '(min-width: 1180px) 1120px, (min-width: 930px) 100vw, (min-width: 900px) 930px, (min-width: 740px) 750px, 107vw',
+  },
   Header,
   Home,
 };

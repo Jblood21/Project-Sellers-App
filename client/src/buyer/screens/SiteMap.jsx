@@ -47,6 +47,7 @@ export default function SiteMap() {
             photo={map[0] ?? null}
             label="Site map coming soon"
             alt={`${community?.name} site map`}
+            sizes="(min-width: 700px) 640px, 110vw"
           />
         </div>
       </button>

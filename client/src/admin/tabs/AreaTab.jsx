@@ -5,10 +5,27 @@ import { Pin, Trash } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { LowResNote, useLowRes } from '../lowRes.jsx';
 import PhotoPicker from '../PhotoPicker.jsx';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
 const BLANK = { category: 'schools', name: '', description: '', detail: '', address: '' };
+
+/** A place's photo on its card, with a note under it when it is too small for the buyer app. */
+function HighlightPhoto({ highlight }) {
+  const lowRes = useLowRes('highlight', highlight.photo.url);
+  return (
+    <>
+      <div style={{ height: 130 }}>
+        <Photo
+          photo={highlight.photo} radius={12} alt={highlight.name} sizes="(min-width: 1000px) 880px, 100vw"
+          onMeasure={lowRes.measured}
+        />
+      </div>
+      <LowResNote>{lowRes.note}</LowResNote>
+    </>
+  );
+}
 
 /**
  * "What's around here" — the answer buyers ask a sales agent on every visit.
@@ -91,11 +108,7 @@ export default function AreaTab({ community, reload }) {
           </span>
           {items.map((highlight) => (
             <div key={highlight.id} className="card elev-sm" style={{ gap: 8 }}>
-              {highlight.photo ? (
-                <div style={{ height: 130 }}>
-                  <Photo photo={highlight.photo} radius={12} alt={highlight.name} />
-                </div>
-              ) : null}
+              {highlight.photo ? <HighlightPhoto highlight={highlight} /> : null}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <span className="card-title" style={{ fontSize: 17 }}>{highlight.name}</span>
                 {highlight.detail ? (
@@ -184,6 +197,7 @@ export default function AreaTab({ community, reload }) {
           <PhotoPicker
             label="Photo (optional)"
             hint="Tap to add a photo"
+            use="highlight"
             currentUrl={dialog.highlight?.photo?.url ?? null}
             pendingDataUrl={photo}
             onPick={setPhoto}

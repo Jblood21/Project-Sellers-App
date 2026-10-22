@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import { AGENT_TEXT_MAX, agentLicenseLine } from '@shared/domain.js';
+import { photoImgProps } from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
+import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { ErrorNote, TextField } from '../ui.jsx';
 import ImageSlot from './ImageSlot.jsx';
@@ -15,6 +17,9 @@ const BLANK = {
 const textOf = (agent) => Object.fromEntries(
   Object.keys(BLANK).map((key) => [key, agent?.[key] ?? BLANK[key]]),
 );
+
+// A portrait is shown at most 110 px square, so it is kept smaller than a photo.
+const readPortrait = (file) => fileToDataUrl(file, { kind: 'portrait' });
 
 const initials = (name) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
@@ -127,7 +132,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
       <div className="ax-agent-head">
         <div className="ax-agent-thumb" aria-hidden="true">
           {(draft ? pending.photo : agent.photo?.url)
-            ? <img src={draft ? pending.photo : agent.photo.url} alt="" />
+            ? <img {...photoImgProps(draft ? pending.photo : agent.photo.url, '48px')} alt="" />
             : initials(form.name)}
         </div>
         <div className="ax-agent-meta">
@@ -179,6 +184,8 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             onRemove={draft ? async () => setPending((p) => ({ ...p, photo: null })) : discard(agent.photo ?? {})}
             removeWarning={draft ? 'Remove the picked photo?' : `Remove ${agent?.name}’s photo?`}
             hint="A head-and-shoulders portrait. It is cropped to fill a square."
+            read={readPortrait}
+            use="portrait"
           />
           <ImageSlot
             label="Agent logo"
@@ -186,6 +193,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             alt={draft ? 'Agent logo ready to upload' : `${agent.name} logo as saved`}
             pending={draft}
             read={logoToDataUrl}
+            use="agentlogo"
             onPick={draft ? async (dataUrl) => setPending((p) => ({ ...p, logo: dataUrl })) : upload(adminApi.setAgentLogo)}
             onRemove={draft ? async () => setPending((p) => ({ ...p, logo: null })) : discard(agent.logo ?? {})}
             removeWarning={draft ? 'Remove the picked logo?' : `Remove ${agent?.name}’s logo?`}

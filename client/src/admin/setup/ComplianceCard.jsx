@@ -264,6 +264,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
                 alt={community.lenderLogo ? 'Lender logo as saved' : `${defaultName} logo (supplied default)`}
                 read={logoToDataUrl}
                 onPick={uploadLogo}
+                use="lenderlogo"
                 onRemove={community.lenderLogo ? removeLogo : undefined}
                 removeWarning="Remove your lender logo and go back to the supplied Summit Home Loans logo?"
                 hint="Saves as soon as it uploads. Leave it alone to keep the supplied Summit logo. PNG, WebP, JPEG or GIF up to 3 MB, shown at least 30 pixels tall. It also goes on the lead reports when it is a PNG or JPEG; otherwise they show the lender's name."

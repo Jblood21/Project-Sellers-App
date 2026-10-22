@@ -66,9 +66,11 @@ export async function startBackend(kind, label) {
   await new Promise((resolve) => server.once('listening', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
 
-  const api = async (path, { method = 'GET', body, token, raw, headers = {} } = {}) => {
+  // `redirect: 'manual'` hands back a 3xx as it is, for a test of where it points.
+  const api = async (path, { method = 'GET', body, token, raw, headers = {}, redirect = 'follow' } = {}) => {
     const res = await fetch(`${base}${path}`, {
       method,
+      redirect,
       headers: {
         ...(body === undefined || method === 'GET' ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

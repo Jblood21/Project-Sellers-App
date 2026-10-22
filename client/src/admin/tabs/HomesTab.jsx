@@ -7,7 +7,8 @@ import { Trash } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { homeMeta } from '../../lib/format.js';
-import { fileToDataUrl, videoToDataUrl } from '../../lib/photos.js';
+import { preparePhoto, videoToDataUrl } from '../../lib/photos.js';
+import { LowResNote, rowNote, useLowRes, useLowResRow } from '../lowRes.jsx';
 import { useAdmin } from '../AdminContext.jsx';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
@@ -205,6 +206,8 @@ function FloorPlanStrip({ home, reload }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const plans = home.floorPlans ?? [];
+  const lowRes = useLowResRow('floorplan', plans.map((plan) => plan.url));
+  const smallPlans = new Set(lowRes.small.map((entry) => entry.url));
 
   const upload = async (event) => {
     const file = event.target.files?.[0];
@@ -213,7 +216,10 @@ function FloorPlanStrip({ home, reload }) {
     setBusy(true);
     setError('');
     try {
-      await adminApi.addFloorPlan(token, home.id, { dataUrl: await fileToDataUrl(file) });
+      const picked = await preparePhoto(file, { kind: 'drawing' });
+      const added = await adminApi.addFloorPlan(token, home.id, { dataUrl: picked.dataUrl });
+      // Known from the picture just picked, so a small one is pointed out without waiting for it to load.
+      if (added?.url) lowRes.measured(added.url, { width: picked.width, height: picked.height });
       await reload();
     } catch (err) {
       setError(err.message);
@@ -230,7 +236,11 @@ function FloorPlanStrip({ home, reload }) {
         </span>
         {plans.map((plan, index) => (
           <div key={plan.id} style={{ position: 'relative', width: 54, height: 54, flex: 'none' }}>
-            <Photo photo={plan} radius={8} alt={`${home.name} floor plan ${index + 1}`} fit="contain" />
+            <Photo
+              photo={plan} radius={8} alt={`${home.name} floor plan ${index + 1}`} fit="contain" sizes="54px"
+              onMeasure={(size) => lowRes.measured(plan.url, size)}
+            />
+            {smallPlans.has(plan.url) ? <span className="ax-lowres-badge" style={{ right: 2, bottom: 2, padding: '1px 5px' }}>Small</span> : null}
             <button
               type="button"
               aria-label={`Delete floor plan ${index + 1}`}
@@ -260,6 +270,7 @@ function FloorPlanStrip({ home, reload }) {
         ) : null}
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+      <LowResNote>{rowNote('floorplan', lowRes.small, 'Plan')}</LowResNote>
       <ErrorNote>{error}</ErrorNote>
     </>
   );
@@ -445,6 +456,7 @@ function SiteMapCard({ community, reload }) {
 
   const map = community.siteMap ?? null;
   const shown = Boolean(community.features?.siteMap);
+  const lowRes = useLowRes('sitemap', map?.url);
   const placed = community.homes.filter((home) => home.lotNumber).length;
 
   const upload = async (event) => {
@@ -454,11 +466,12 @@ function SiteMapCard({ community, reload }) {
     setBusy(true);
     setError('');
     try {
-      await adminApi.addCommunityPhoto(token, community.id, 'sitemap', {
-        dataUrl: await fileToDataUrl(file),
-      });
+      const picked = await preparePhoto(file, { kind: 'drawing' });
+      lowRes.picked({ width: picked.width, height: picked.height });
+      await adminApi.addCommunityPhoto(token, community.id, 'sitemap', { dataUrl: picked.dataUrl });
       await reload();
     } catch (err) {
+      lowRes.picked(null);
       setError(err.message);
     } finally {
       setBusy(false);
@@ -502,7 +515,10 @@ function SiteMapCard({ community, reload }) {
       >
         {map ? (
           <>
-            <Photo photo={map} alt="The community site map" />
+            <Photo
+              photo={map} alt="The community site map" sizes="(min-width: 1000px) 880px, 100vw"
+              onMeasure={lowRes.measured}
+            />
             <span
               style={{
                 position: 'absolute', right: 8, bottom: 8, padding: '5px 12px', borderRadius: 999,
@@ -519,6 +535,7 @@ function SiteMapCard({ community, reload }) {
         )}
       </button>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+      <LowResNote>{map ? lowRes.note : ''}</LowResNote>
 
       {/*
         A map with no lot numbers on the homes is a picture, not a map: the buyer
@@ -586,6 +603,8 @@ function PhotoStrip({ home, reload }) {
   // The downscaled photo, shown in place the moment it is ready, so the strip
   // fills in while the upload is still in flight rather than after it.
   const [pending, setPending] = useState(null);
+  const lowRes = useLowResRow('home', home.photos.map((photo) => photo.url));
+  const smallPhotos = new Set(lowRes.small.map((entry) => entry.url));
 
   const upload = async (event) => {
     const file = event.target.files?.[0];
@@ -594,9 +613,11 @@ function PhotoStrip({ home, reload }) {
     setBusy(true);
     setError('');
     try {
-      const dataUrl = await fileToDataUrl(file);
-      setPending(dataUrl);
-      await adminApi.addHomePhoto(token, home.id, { dataUrl });
+      const picked = await preparePhoto(file);
+      setPending(picked.dataUrl);
+      const added = await adminApi.addHomePhoto(token, home.id, { dataUrl: picked.dataUrl });
+      // Known from the picture just picked, so a small one is pointed out without waiting for it to load.
+      if (added?.url) lowRes.measured(added.url, { width: picked.width, height: picked.height });
       await reload();
     } catch (err) {
       setError(err.message);
@@ -632,7 +653,11 @@ function PhotoStrip({ home, reload }) {
       <div className="scroll-x" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -4px', padding: '0 4px' }}>
         {home.photos.map((photo, index) => (
           <div key={photo.id} style={{ position: 'relative', width: 170, height: 120, flex: 'none' }}>
-            <Photo photo={photo} radius={12} alt={`${home.name} photo ${index + 1}`} />
+            <Photo
+              photo={photo} radius={12} alt={`${home.name} photo ${index + 1}`} sizes="215px"
+              onMeasure={(size) => lowRes.measured(photo.url, size)}
+            />
+            {smallPhotos.has(photo.url) ? <span className="ax-lowres-badge">Small</span> : null}
             {index === 0 ? (
               <span
                 style={{
@@ -710,6 +735,7 @@ function PhotoStrip({ home, reload }) {
         ) : null}
       </div>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+      <LowResNote>{rowNote('home', lowRes.small, 'Photo')}</LowResNote>
       <ErrorNote>{error}</ErrorNote>
     </>
   );

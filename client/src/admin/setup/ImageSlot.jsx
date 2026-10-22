@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 
+import { photoImgProps } from '../../components/Photo.jsx';
 import { fileToDataUrl } from '../../lib/photos.js';
+import { LowResNote, measureImg, pickedSize, useLowRes } from '../lowRes.jsx';
 import { ErrorNote } from '../ui.jsx';
 
 /**
@@ -20,14 +22,17 @@ import { ErrorNote } from '../ui.jsx';
  *   shape      'wide' (logos, contained) or 'square' (portraits, cropped to fill)
  *   read       turns the picked File into a data URL; defaults to the photo downscale
  *   pending    true when the picture is held back until the parent saves
+ *   use        what the picture is for (a key of PICTURE_NEEDS in lowRes.jsx), so a
+ *              picture too small for it gets a short note under the slot
  */
 export default function ImageSlot({
   label, hint, image, fallback = null, plate = 'light', shape = 'wide', alt,
-  onPick, onRemove, read = fileToDataUrl, pending = false, disabled = false, removeWarning,
+  onPick, onRemove, read = fileToDataUrl, pending = false, disabled = false, removeWarning, use,
 }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(null); // 'upload' | 'remove' | null
   const [error, setError] = useState('');
+  const lowRes = useLowRes(use, image);
 
   const shown = image || fallback?.url || null;
   const working = busy !== null;
@@ -39,8 +44,12 @@ export default function ImageSlot({
     setBusy('upload');
     setError('');
     try {
-      await onPick(await read(file));
+      const dataUrl = await read(file);
+      // Said while it uploads, from the picture about to go up, rather than after.
+      lowRes.picked(await pickedSize(dataUrl));
+      await onPick(dataUrl);
     } catch (err) {
+      lowRes.picked(null);
       setError(err.message || 'That upload did not work. Try again.');
     } finally {
       setBusy(null);
@@ -74,7 +83,12 @@ export default function ImageSlot({
       <div className="ax-slot">
         <div className={plateClass}>
           {shown ? (
-            <img src={shown} alt={alt ?? (image ? `${label} as saved` : `${label} (default)`)} />
+            <img
+              // A portrait fills an 84 px square; a logo is shown as it was uploaded.
+              {...(shape === 'square' ? photoImgProps(shown, '84px') : { src: shown })}
+              alt={alt ?? (image ? `${label} as saved` : `${label} (default)`)}
+              onLoad={image && use ? measureImg(lowRes.measured) : undefined}
+            />
           ) : (
             <span className="ax-plate-empty">No image</span>
           )}
@@ -106,6 +120,7 @@ export default function ImageSlot({
         </div>
       </div>
       {hint ? <span className="field-hint">{hint}</span> : null}
+      <LowResNote>{image ? lowRes.note : ''}</LowResNote>
       <ErrorNote>{error}</ErrorNote>
     </div>
   );

@@ -232,6 +232,7 @@ export default function Home({ model }) {
                 photo={community?.heroPhoto ? { url: community.heroPhoto } : null}
                 label=""
                 alt={`${community?.name} community photo`}
+                sizes="(min-width: 1152px) 1120px, calc(100vw - 32px)"
               />
             </div>
             <div className="sg-explore__scrim">

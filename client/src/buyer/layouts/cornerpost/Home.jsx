@@ -205,6 +205,7 @@ export default function Home({ model }) {
               photo={{ url: community.heroPhoto }}
               label=""
               alt={`${community?.name} community photo`}
+              sizes="(min-width: 600px) 600px, 105vw"
             />
           ) : (
             <span className="cp-photo__img cp-photo__img--empty" aria-hidden="true" />

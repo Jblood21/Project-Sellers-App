@@ -43,7 +43,7 @@ export default function Area() {
                 <article key={highlight.id} className="b-card" style={{ overflow: 'hidden' }}>
                   {highlight.photo ? (
                     <div style={{ height: 150 }}>
-                      <Photo photo={highlight.photo} label="" alt={highlight.name} />
+                      <Photo photo={highlight.photo} label="" alt={highlight.name} sizes="(min-width: 600px) 700px, 105vw" />
                     </div>
                   ) : null}
                   <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 5 }}>

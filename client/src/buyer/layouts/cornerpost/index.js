@@ -13,7 +13,11 @@ import Home from './Home.jsx';
  * ground.
  */
 export default {
-  traits: { footerTone: 'light', headerTone: 'light' },
+  traits: {
+    footerTone: 'light', headerTone: 'light',
+    // How wide its home page's hero photo is drawn (see heroSizes in ../index.js).
+    heroSizes: '(min-width: 560px) 580px, 112vw',
+  },
   Header,
   Home,
 };

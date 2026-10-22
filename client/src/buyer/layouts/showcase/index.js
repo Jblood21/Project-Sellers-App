@@ -17,7 +17,11 @@ import Home from './Home.jsx';
  * a listing opens, so a home's own page is photo first as well.
  */
 export default {
-  traits: { footerTone: 'dark', headerTone: 'dark', photoGrid: true },
+  traits: {
+    footerTone: 'dark', headerTone: 'dark', photoGrid: true,
+    // How wide its home page's hero photo is drawn (see heroSizes in ../index.js).
+    heroSizes: '(min-width: 1180px) 1080px, (min-width: 900px) 100vw, (min-width: 760px) 1016px, 134vw',
+  },
   Header,
   Home,
 };

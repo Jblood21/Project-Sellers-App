@@ -64,6 +64,17 @@ services:
       # CI tests Node 22 and 24 (Node 20 reached end of life in April 2026); pin what Render builds with to one of them.
       - key: NODE_VERSION
         value: "22"
+      # Photos are resized on the server (server/lib/photoSizes.js), on worker threads, and
+      # glibc gives each thread its own memory arena and keeps large freed blocks for reuse,
+      # which fragments. Measured, asking for every photo at every width: 890 MB at the peak
+      # with the defaults, about 380 MB with two arenas, and 275 MB with two arenas and large
+      # blocks always handed back (falling to 120 MB after). The starter plan has 512 MB, so
+      # these two are what keep it from being restarted for running out. Check they are in
+      # the dashboard's Environment tab too.
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      - key: MALLOC_MMAP_THRESHOLD_
+        value: "131072"
 
 databases:
   - name: cornerpost-db

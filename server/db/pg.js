@@ -620,6 +620,16 @@ export function createPostgresStore(connectionString) {
       return rows[0] || null;
     },
 
+    /**
+     * The row without its bytes. A resized copy is served from memory once made, but
+     * whether the photo still exists is asked on every request, so this must stay a
+     * primary-key lookup that never touches `data`.
+     */
+    async getPhotoInfo(id) {
+      const { rows } = await q(`SELECT id, content_type, url FROM photos WHERE id = $1`, [id]);
+      return rows[0] || null;
+    },
+
     async deletePhoto(id) {
       await q(`DELETE FROM photos WHERE id = $1`, [id]);
     },
