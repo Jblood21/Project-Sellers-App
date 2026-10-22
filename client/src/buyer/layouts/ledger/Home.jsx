@@ -552,7 +552,7 @@ function HomesTile({ cls, homes, reach, monthlyOf, terms, isSaved, onSave, onOpe
                 <button type="button" className="lg-row" onClick={() => onOpenHome(home)}>
                   <span className="lg-row__photo">
                     {home.photos.length ? (
-                      <Photo photo={home.photos[0]} alt="" label="" quiet />
+                      <Photo photo={home.photos[0]} alt="" label="" quiet sizes="75px" />
                     ) : (
                       <HouseGlyph size={20} />
                     )}

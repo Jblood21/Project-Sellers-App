@@ -36,7 +36,8 @@ export default function HomeDetail({ onOpenLender }) {
   // A layout that asks for it gets photos 2 to 5 as a grid beside the hero, the way a listing opens; its
   // stylesheet shows the grid on a wide screen and hides those four from "More photos" while it does. Only
   // with all four, because a grid with holes in it looks broken. Every other layout's page is unchanged.
-  const photoGrid = layoutTraits(layout).photoGrid && more.length >= 4;
+  const { photoGrid: gridLayout, heroSizes } = layoutTraits(layout);
+  const photoGrid = gridLayout && more.length >= 4;
 
   return (
     // The b-hd names carry no style of their own; they are there so a layout can arrange the page (a
@@ -50,7 +51,12 @@ export default function HomeDetail({ onOpenLender }) {
         onClick={() => setPhotoIndex(0)}
         aria-label={hero ? `Open ${home.name} photo 1 of ${home.photos.length}` : undefined}
       >
-        <Photo eager photo={hero} label={`${home.name} — photo coming soon`} alt={`${home.name} photo 1 of ${home.photos.length || 1}`} />
+        <Photo
+          eager photo={hero} label={`${home.name} — photo coming soon`} alt={`${home.name} photo 1 of ${home.photos.length || 1}`}
+          // From 520 to 1144 px wide on a wide screen, by layout, and on a phone wider than the box,
+          // which is shorter than a wide photo's shape; each layout says (layouts/index.js).
+          sizes={heroSizes}
+        />
       </button>
       {photoGrid ? (
         <div className="b-hd__grid">
@@ -62,7 +68,7 @@ export default function HomeDetail({ onOpenLender }) {
               onClick={() => setPhotoIndex(index + 1)}
               aria-label={`Open ${home.name} photo ${index + 2} of ${home.photos.length}`}
             >
-              <Photo photo={photo} alt="" />
+              <Photo photo={photo} alt="" sizes="410px" />
               {/* On the last of the four, how many there are in all, since the viewer holds the rest. */}
               {index === 3 && home.photos.length > 5 ? (
                 <span className="b-hd__count" aria-hidden="true">{home.photos.length} photos</span>
@@ -139,7 +145,7 @@ export default function HomeDetail({ onOpenLender }) {
                   display: 'block', padding: 0, cursor: 'pointer',
                 }}
               >
-                <Photo photo={plan} alt={`${home.name} floor plan ${index + 1} of ${home.floorPlans.length}`} fit="contain" />
+                <Photo photo={plan} alt={`${home.name} floor plan ${index + 1} of ${home.floorPlans.length}`} fit="contain" sizes="148px" />
               </button>
             ))}
           </div>
@@ -159,7 +165,7 @@ export default function HomeDetail({ onOpenLender }) {
                 onClick={() => setPhotoIndex(index + 1)}
                 aria-label={`Open ${home.name} photo ${index + 2} of ${home.photos.length}`}
               >
-                <Photo photo={photo} alt={`${home.name} photo ${index + 2} of ${home.photos.length}`} />
+                <Photo photo={photo} alt={`${home.name} photo ${index + 2} of ${home.photos.length}`} sizes="(min-width: 600px) 450px, 55vw" />
               </button>
             ))}
           </div>

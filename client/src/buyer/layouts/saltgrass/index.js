@@ -12,7 +12,11 @@ import Home from './Home.jsx';
  * dark ground is the only one that can be seen.
  */
 export default {
-  traits: { footerTone: 'dark', headerTone: 'dark' },
+  traits: {
+    footerTone: 'dark', headerTone: 'dark',
+    // How wide its home page's hero photo is drawn (see heroSizes in ../index.js).
+    heroSizes: '(min-width: 680px) 712px, 112vw',
+  },
   Header,
   Home,
 };

@@ -6,6 +6,7 @@ import { complianceOf, SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
 import { buyerApi } from '../lib/api.js';
 import { emailHref, financingMessage, tourMessage } from '../lib/contact.js';
 import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
+import { photoImgProps } from '../components/Photo.jsx';
 import { useBuyer } from './BuyerContext.jsx';
 import CommunityMark from './CommunityMark.jsx';
 import { canTalkFinancing } from './reach.js';
@@ -701,7 +702,7 @@ export function AddToPhoneDialog({ open, onClose }) {
           }}
         >
           {community?.iconPhoto ? (
-            <img className="photo-img" src={community.iconPhoto} alt="" />
+            <img className="photo-img" {...photoImgProps(community.iconPhoto, '72px')} alt="" />
           ) : (
             community?.name?.[0]
           )}

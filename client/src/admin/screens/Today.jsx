@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import { themeView } from '@shared/customTheme.js';
+import { photoImgProps } from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { emailHref } from '../../lib/contact.js';
 import { useAdmin } from '../AdminContext.jsx';
@@ -63,7 +64,8 @@ function CommunityCover({ community }) {
       <div className="as-cover" style={style}>
         <img
           className={`as-cover__img${loaded === url ? ' is-loaded' : ''}`}
-          src={url}
+          // About 290 to 360 px wide in the grid, nearer 570 in one column on a small tablet.
+          {...photoImgProps(url, '(min-width: 640px) 400px, 100vw')}
           alt={`${community.name} community photo`}
           loading="lazy"
           decoding="async"

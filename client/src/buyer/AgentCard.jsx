@@ -1,5 +1,6 @@
 import { agentLicenseLine } from '@shared/domain.js';
 import { safeHref, telHref } from '@shared/compliance.js';
+import { photoImgProps } from '../components/Photo.jsx';
 import { safeEmail } from '../lib/contact.js';
 import { useBuyer } from './BuyerContext.jsx';
 import TextAction from './TextAction.jsx';
@@ -49,7 +50,11 @@ export default function AgentCard({ agent, headingLevel = 3, tour = true, homeNa
       <div className="b-agent__top">
         <div className="b-agent__photo">
           {agent.photo ? (
-            <img src={agent.photo} alt={brokerage ? `${agent.name}, ${brokerage}` : agent.name} loading="lazy" decoding="async" width="76" height="76" />
+            <img
+              // Up to 110 px square (the Foyer layout's card); 76 to 88 px in the others.
+              {...photoImgProps(agent.photo, '110px')}
+              alt={brokerage ? `${agent.name}, ${brokerage}` : agent.name} loading="lazy" decoding="async" width="76" height="76"
+            />
           ) : (
             // No portrait uploaded: an initial keeps the card's shape. The name is
             // printed beside it, so the placeholder says nothing to a screen reader.

@@ -25,6 +25,7 @@
  * of finding a new one on every page.
  */
 import { parseFaq } from './faq.js';
+import { isOwnPhoto, photoAtWidth } from './photoSizes.js';
 import {
   EHL_MARKS, HIGHLIGHT_CATEGORIES, LENDER_LOGOS, PLAN_LABELS, TOOLS, complianceOf, isSold, mapsUrl,
 } from './domain.js';
@@ -429,6 +430,18 @@ function describeHome(ctx, home) {
   return `${home.name}${facts ? `: ${facts}` : ''} at ${ctx.name}${price}.`;
 }
 
+// A link preview (iMessage, Facebook, Slack, a search result) draws its picture at most
+// about 1200 px wide. A photo uploaded here can be 4096 px and over a megabyte, which some
+// of those services give up on, so the preview asks for the 1280 px copy instead. The
+// structured data keeps the original: that is the picture itself, not a preview of it.
+const SHARE_PREVIEW_WIDTH = 1280;
+
+function sharePreview(ctx, url) {
+  if (!url) return '';
+  const own = url.startsWith(`${ctx.origin}/`) ? url.slice(ctx.origin.length) : null;
+  return own && isOwnPhoto(own) ? `${ctx.origin}${photoAtWidth(own, SHARE_PREVIEW_WIDTH)}` : url;
+}
+
 /** The title and description a page presents, plus what a search engine may do with it. */
 function metaOf(ctx, view, canonical, primaryImage) {
   const { community } = ctx;
@@ -508,7 +521,7 @@ function metaOf(ctx, view, canonical, primaryImage) {
     title: fit(title, TITLE_MAX),
     description: fit(description, DESCRIPTION_MAX),
     canonical,
-    image: primaryImage || '',
+    image: sharePreview(ctx, primaryImage),
     type,
     robots: INDEXABLE_PAGES.has(view.page) && !view.degraded ? 'index, follow' : 'noindex, nofollow',
   };

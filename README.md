@@ -100,10 +100,12 @@ See [`.env.example`](.env.example).
 | `RATE_LIMITS` | `off` turns the request limits off, `on` forces them on. Unset they are on, except under `node --test`. |
 | `DATA_FILE` | Where the JSON-file store keeps its data when `DATABASE_URL` is unset (default `data/db.json`). |
 | `RESEND_ENDPOINT` | Overrides the Resend API address; only tests and local mail catchers need it. |
+| `MALLOC_ARENA_MAX` / `MALLOC_MMAP_THRESHOLD_` | Set to `2` and `131072` on Render (both are in `render.yaml`). Photos are resized on worker threads, and with glibc's defaults memory fragments: measured, asking for every photo at every width took the server to 890 MB, against 275 MB with these two set, on a plan with 512 MB. |
+| `PHOTO_CACHE_MB` | How many megabytes of resized photo copies the server keeps in memory (default 48). See [Photos](#photos). |
 | `RENDER_GIT_COMMIT` | Set by Render on every build. `/api/health` reports it as `commit`, so you can check that a merge is the code that is live. |
 
 At boot the server logs a `WARNING:` line for each of these that is missing and quietly costs something: `PUBLIC_ORIGIN`,
-`SESSION_SECRET` and `DATABASE_URL` in production, and `RESEND_API_KEY` / `EMAIL_FROM` for email. Check the Render log after a deploy.
+`SESSION_SECRET`, `DATABASE_URL` and `MALLOC_ARENA_MAX` in production, and `RESEND_API_KEY` / `EMAIL_FROM` for email. Check the Render log after a deploy.
 
 Caching: the hashed files under `/assets` are cached for an hour. The artwork under `/brand` (logos, the
 Equal Housing mark) and `/guides` (artwork no longer shown on the guides) keeps its file name when it changes, so the server marks
@@ -222,6 +224,50 @@ x-webhook-secret: <RATES_WEBHOOK_SECRET>
 ```
 
 Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
+
+## Photos
+
+Every picture a builder uploads (hero, app icon, site map, home photos, floor plans, area photos, realtor
+portraits) is read in the browser and kept at up to **4096 pixels** on its long edge, never enlarged: all of a
+12-megapixel phone photo, which a full-width Showcase slide on a retina screen needs. Photos are saved as WebP
+at quality 0.85 (JPEG 0.90 in a browser that cannot write WebP). **Floor plans and site maps** are drawings
+that buyers zoom into, so they are kept at up to 3200 px and saved **without loss** whenever that fits (the
+smaller of a lossless WebP and a PNG, since a browser's lossless WebP can be five times the PNG), and at quality
+0.92 when it does not. A picture too detailed for the 3 MB upload limit is tried one notch lower and then a
+little smaller (never under 1920 px), so a photo straight off a camera always goes up. A realtor portrait is
+kept at 800 px, the app icon at 1024 and an area photo at 2400. Logos still go up exactly as they were made.
+
+The server then sends each screen the size it needs: `GET /api/photos/<id>?w=<width>` answers with a copy at
+the next of 320, 480, 640, 960, 1280, 1600, 1920, 2560, 3200 or 4096 pixels (`shared/photoSizes.js`), made once
+with sharp and kept in memory (`PHOTO_CACHE_MB`). Every picture in both apps lists those widths in a `srcset`
+with a `sizes` that says how wide it is drawn, so a phone downloads a small copy and a big retina screen a big
+one. A home page's hero takes its `sizes` from the layout (`heroSizes` in each layout's traits).
+
+- A copy is **never wider than the upload**; past it, the upload itself is sent as it is. A drawing stored
+  without loss is the exception: at its full size it is sent as a lossless copy made by sharp when that is
+  smaller (a browser's own lossless WebP can be twenty times the size), for drawings up to 5 megapixels.
+- WebP goes to a browser that says it shows WebP; anything else gets a JPEG (a PNG for a picture with
+  transparency or one stored without loss). Answers carry `Vary: Accept`, the same `nosniff` and sandbox headers
+  as the upload, and a year's immutable caching (a replaced picture is always a new address).
+- Only the copies decode pictures. Everything before them reads the picture's header, once per photo however
+  many requests arrive together, and a `HEAD` request decodes nothing. A picture with more pixels than the
+  largest upload (4096 x 4096, such as a huge logo) is never decoded and is always sent as stored.
+- One copy is made at a time. A request that would wait more than 8 seconds is sent the upload instead, cached
+  for five minutes only, and a visitor can have at most 400 copies made in 10 minutes. A copy over 5 megapixels
+  is a PNG rather than a lossless WebP, and a JPEG without mozjpeg's extra passes, because those two encoders
+  hold the whole picture several times over: no copy then takes more than about 155 MB at its peak.
+- `/api/photos/<id>` without `w` is unchanged, and a pasted link is still a redirect to it.
+- Link previews (`og:image`) use the 1280 copy.
+- The full-screen viewer opens on the copy the page already shows and sharpens as its own larger copy arrives
+  (with a spinner when the page has none), and draws a picture as large as the screen allows, but never larger
+  than its own pixels.
+
+**Pictures that are too small.** The admin says, under the picture, when one is smaller than where it is used:
+under 1920 px wide for the hero, a home photo or the site map, 1600 px for a floor plan (its long edge), 1200
+for an area photo, 512 for the app icon, 330 for a realtor portrait and 460 / 660 / 290 for the development,
+lender and brokerage logos. It says so as soon as a picture is picked, and for pictures already saved.
+Nothing is refused. Pictures uploaded before this change were kept at 1280 px and will look soft on large
+screens until the originals are uploaded again; the notes show which ones.
 
 ## Lot numbers, floor plans and the site map
 
@@ -895,11 +941,12 @@ shared/compliance.js the lender block, the disclosure wording and what is still 
 shared/moveInPrint.js the whole move-in plan as the printed page and the plan email show it
 shared/markdown.js   the guides' markdown parser (no raw HTML, safe links only)
 shared/schema.js     schema.org JSON-LD and page meta, used by the server and the browser
+shared/photoSizes.js the widths a photo is served at, and the srcset that lists them
 server/
   index.js           Express app, static hosting, SPA fallback, PWA manifests, security headers
   db/                Postgres store, JSON-file store, schema, demo seed
   lib/               password hashing, session tokens, id generation, the supplied guides (guides.js),
-                     server-rendered page heads (ssr.js)
+                     server-rendered page heads (ssr.js), right-sized photo copies (photoSizes.js)
   content/guides/    the thirteen supplied buyer guides, as markdown
   routes/            buyer API, admin API, rate webhook
   test/              node --test suites, run against both stores
@@ -915,7 +962,7 @@ client/src/
   admin/shell/       the frame: side menu, phone top and bottom bars, the section list (sections.js)
   admin/setup/       the Setup cards: layout, development logo, lender & compliance, realtors, builder incentive, FAQ
   admin/learn/       the buyer-guide list and editor
-  lib/               API client, formatting, photo downscaling, storage
+  lib/               API client, formatting, photo reading and sizing, storage
 ```
 
 ## The numbers

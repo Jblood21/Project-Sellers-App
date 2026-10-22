@@ -15,6 +15,10 @@ import { ChevronRight, Heart, HouseGlyph, MapGlyph, PinGlyph } from './icons.jsx
 /** How many homes the home screen shows before "See all": the board's handful, not the whole list. */
 const HOME_CARDS = 3;
 
+// A home card's photo: the width of the phone in one column, about 360 px in the grid,
+// with room for the slight zoom on hover.
+const CARD_SIZES = '(min-width: 600px) 410px, 105vw';
+
 /** The tool a layout reaches for by key, but only while the builder has it switched on. */
 function toolOf(community, key) {
   return community?.tools?.[key] ? TOOLS.find((tool) => tool.k === key) ?? null : null;
@@ -169,7 +173,7 @@ function HomeCard({ home, saved, monthly, showLot, onOpen, onSave }) {
       <button type="button" className="rr-card__open" onClick={() => onOpen(home)}>
         <span className="rr-card__photo">
           {home.photos.length ? (
-            <Photo photo={home.photos[0]} alt="" label="" quiet />
+            <Photo photo={home.photos[0]} alt="" label="" quiet sizes={CARD_SIZES} />
           ) : (
             <span className="rr-card__nophoto">
               <HouseGlyph />

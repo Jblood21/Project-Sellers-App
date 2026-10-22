@@ -6,7 +6,7 @@ import {
   videoEmbed,
 } from '@shared/domain.js';
 import { complianceOf, telHref } from '@shared/compliance.js';
-import Photo from '../../../components/Photo.jsx';
+import Photo, { photoImgProps } from '../../../components/Photo.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
 import LenderLogo, { EhlMark } from '../../LenderLogo.jsx';
 import AgentsBlock from '../../AgentsBlock.jsx';
@@ -21,6 +21,10 @@ function shortMoney(value) {
   if (n >= 1000000) return `$${Number((n / 1000000).toFixed(2))}M`;
   return `$${Math.round(n / 1000)}K`;
 }
+
+// A listing card's photo: the width of the phone in one column, about 360 px in the
+// grid, with room for the slight zoom on hover.
+const CARD_SIZES = '(min-width: 600px) 410px, 105vw';
 
 /** What a filter starts at, and what "Reset" puts back. */
 const NO_FILTERS = { minPrice: '', maxPrice: '', minBeds: '', sort: HOME_SORTS[0].k };
@@ -114,7 +118,7 @@ function ListingCard({ home, saved, monthly, showLot, onOpen, onSave }) {
       <button type="button" className="mk-card__open" onClick={() => onOpen(home)}>
         <span className="mk-card__photo">
           {home.photos.length ? (
-            <Photo photo={home.photos[0]} alt="" label="" quiet />
+            <Photo photo={home.photos[0]} alt="" label="" quiet sizes={CARD_SIZES} />
           ) : (
             <span className="mk-card__nophoto">
               <HouseGlyph />
@@ -453,7 +457,7 @@ export default function Home({ model }) {
               <li key={guide.id}>
                 <Link to={`${paths.guides}/${guide.slug}`} className="mk-article">
                   <span className="mk-article__img" aria-hidden="true">
-                    {guide.image ? <img src={guide.image} alt="" loading="lazy" decoding="async" /> : null}
+                    {guide.image ? <img {...photoImgProps(guide.image, '(min-width: 600px) 370px, 100vw')} alt="" loading="lazy" decoding="async" /> : null}
                   </span>
                   <span className="mk-article__text">
                     {guide.category ? <span className="mk-article__kicker">{guide.category}</span> : null}

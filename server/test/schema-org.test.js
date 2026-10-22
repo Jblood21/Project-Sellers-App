@@ -877,10 +877,15 @@ test('landing description is built from facts the page has, and skips what it do
 });
 
 test('meta image falls back to the hero, then to nothing', () => {
-  assert.equal(pageMeta({ page: 'landing', community, origin: ORIGIN }).image, HERO);
-  assert.equal(pageMeta({ page: 'home', community, origin: ORIGIN, home: HOME_READY }).image, photoUrls(HOME_READY)[0]);
-  assert.equal(pageMeta({ page: 'home', community, origin: ORIGIN, home: HOME_PLAN }).image, HERO, 'a home with no photo uses the hero');
-  assert.equal(pageMeta({ page: 'guide', community, origin: ORIGIN, guide: GUIDE_ONE }).image, HERO, 'a guide has no picture of its own, so it shares the hero');
+  // The preview is the 1280 px copy of a photo stored here; a link preview never draws one wider.
+  const preview = (url) => `${url}?w=1280`;
+  assert.equal(pageMeta({ page: 'landing', community, origin: ORIGIN }).image, preview(HERO));
+  assert.equal(pageMeta({ page: 'home', community, origin: ORIGIN, home: HOME_READY }).image, preview(photoUrls(HOME_READY)[0]));
+  assert.equal(pageMeta({ page: 'home', community, origin: ORIGIN, home: HOME_PLAN }).image, preview(HERO), 'a home with no photo uses the hero');
+  assert.equal(pageMeta({ page: 'guide', community, origin: ORIGIN, guide: GUIDE_ONE }).image, preview(HERO), 'a guide has no picture of its own, so it shares the hero');
+  // A link a builder pasted is another site's picture, with no copies at other sizes.
+  const pasted = 'https://images.example.com/hero.jpg';
+  assert.equal(pageMeta({ page: 'landing', community: fixture({ heroPhoto: pasted }), origin: ORIGIN }).image, pasted);
   assert.equal(pageMeta({ page: 'tools', community, origin: ORIGIN }).image, '');
   assert.equal(pageMeta({ page: 'landing', community: fixture({ heroPhoto: null }), origin: ORIGIN }).image, '');
 });

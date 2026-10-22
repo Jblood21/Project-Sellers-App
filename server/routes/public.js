@@ -14,6 +14,7 @@ import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } 
 import { emailConfigured } from '../lib/email.js';
 import { emailLoanTeam, notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
+import { askedWidth, sizedPhoto } from '../lib/photoSizes.js';
 import { sendVideo } from '../lib/video.js';
 import { catchAsyncErrors } from './admin.js';
 
@@ -703,6 +704,58 @@ export function publicRouter() {
   });
 
   // ── photos ───────────────────────────────────────────────────────────────
+  // Copies a stranger can have made. Each is a fraction of a second of CPU and is made
+  // once, then kept, so a person browsing never comes near this; it stops a script from
+  // keeping the server busy by asking for every photo at every width over and over.
+  const resizesPerIp = createLimiter({ windowMs: 10 * 60 * 1000, max: 400 });
+
+  router.get('/photos/:id', async (req, res, next) => {
+    const asked = askedWidth(req.query.w);
+    // No width (or one that is not a plain number): the stored picture, exactly as
+    // before copies existed, so every address already handed out keeps working.
+    if (asked !== null) return sendSizedPhoto(req, res, asked);
+    return next();
+  });
+
+  async function sendSizedPhoto(req, res, asked) {
+    const store = await getStore();
+    const key = clientKey(req);
+    const sized = await sizedPhoto(store, req.params.id, asked, req.get('accept'), {
+      mayEncode: () => {
+        if (resizesPerIp.wait(key)) return false;
+        resizesPerIp.hit(key);
+        return true;
+      },
+      headOnly: req.method === 'HEAD',
+    });
+    if (!sized) return res.status(404).end();
+    if (sized.redirect) return res.redirect(sized.redirect);
+    // Which bytes come back depends on whether the browser said it shows WebP, so
+    // every answer to a sized request says so, the ones that are the stored bytes too.
+    res.set('Vary', 'Accept');
+    if (sized.busy) {
+      res.set('Retry-After', '2');
+      return res.status(503).end();
+    }
+    res.set('Content-Type', SERVED_IMAGE_TYPES.has(sized.type) ? sized.type : 'application/octet-stream');
+    // The same two guards as the stored picture below, for the same reason.
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+    // A photo id is never reused (a replaced picture is a new row), so a copy can be kept
+    // for a year. The exception is the original sent because the server was too busy to
+    // make the copy: right for now, but the browser should come back for the real one.
+    res.set('Cache-Control', sized.immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=300');
+    // How big the stored picture is, whatever size this copy is. The admin asks with a HEAD
+    // to tell a builder when a picture is too small for where it is used, without
+    // downloading a large copy of every photo just to measure it.
+    if (sized.original) {
+      res.set('X-Photo-Width', String(sized.original.width));
+      res.set('X-Photo-Height', String(sized.original.height));
+    }
+    if (req.method === 'HEAD') return res.end();
+    return res.send(sized.body);
+  }
+
   router.get('/photos/:id', async (req, res) => {
     const store = await getStore();
     const photo = await store.getPhotoData(req.params.id);

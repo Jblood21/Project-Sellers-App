@@ -536,6 +536,12 @@ export function createFileStore(path) {
       return db.photos.find((p) => p.id === id) || null;
     },
 
+    /** The row without its bytes: what serving a resized copy checks on every request. */
+    async getPhotoInfo(id) {
+      const row = db.photos.find((p) => p.id === id);
+      return row ? { id: row.id, content_type: row.content_type, url: row.url } : null;
+    },
+
     async deletePhoto(id) {
       db.photos = db.photos.filter((p) => p.id !== id);
       save();

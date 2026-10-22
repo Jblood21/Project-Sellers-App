@@ -38,6 +38,13 @@ export function bootWarnings(env = process.env) {
       + 'That disk is erased on every deploy: leads, plans and uploads would be lost.',
     );
   }
+  if (production && !String(env.MALLOC_ARENA_MAX ?? '').trim()) {
+    warnings.push(
+      'MALLOC_ARENA_MAX is not set. Resizing photos on several threads then fragments memory and the '
+      + 'server can grow past what a small Render plan allows and be restarted. Set it to 2, and '
+      + 'MALLOC_MMAP_THRESHOLD_ to 131072 (render.yaml has both).',
+    );
+  }
   if (!env.RESEND_API_KEY) {
     warnings.push(
       'Email is off (RESEND_API_KEY is not set): call-request alerts to the builder and "email me my '

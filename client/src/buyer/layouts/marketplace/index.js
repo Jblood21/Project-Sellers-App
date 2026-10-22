@@ -14,7 +14,11 @@ import Home from './Home.jsx';
  * page has no such grid to restyle, so it draws one only for a layout that asks.
  */
 export default {
-  traits: { footerTone: 'light', headerTone: 'light', photoGrid: true },
+  traits: {
+    footerTone: 'light', headerTone: 'light', photoGrid: true,
+    // How wide its home page's hero photo is drawn (see heroSizes in ../index.js).
+    heroSizes: '(min-width: 1180px) 1144px, (min-width: 900px) 100vw, (min-width: 740px) 750px, 107vw',
+  },
   Header,
   Home,
 };

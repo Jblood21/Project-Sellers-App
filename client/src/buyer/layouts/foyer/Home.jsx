@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 import { videoEmbed } from '@shared/domain.js';
 import { complianceOf, telHref } from '@shared/compliance.js';
-import Photo from '../../../components/Photo.jsx';
+import Photo, { photoImgProps } from '../../../components/Photo.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
 import LenderLogo, { EhlMark } from '../../LenderLogo.jsx';
 import AgentsBlock from '../../AgentsBlock.jsx';
@@ -231,7 +231,7 @@ export default function Home({ model }) {
         <button type="button" className="fy-banner" onClick={openExplore}>
           {community?.heroPhoto ? (
             <span className="fy-banner__img">
-              <Photo photo={{ url: community.heroPhoto }} label="" alt={`${community?.name} community photo`} />
+              <Photo photo={{ url: community.heroPhoto }} label="" alt={`${community?.name} community photo`} sizes="(min-width: 640px) 590px, 100vw" />
             </span>
           ) : null}
           <span className="fy-banner__row">
@@ -295,7 +295,7 @@ export default function Home({ model }) {
               <li key={guide.id}>
                 <Link to={`${paths.guides}/${guide.slug}`} className="fy-jrow">
                   <span className="fy-jrow__img" aria-hidden="true">
-                    {guide.image ? <img src={guide.image} alt="" loading="lazy" decoding="async" /> : null}
+                    {guide.image ? <img {...photoImgProps(guide.image, '175px')} alt="" loading="lazy" decoding="async" /> : null}
                   </span>
                   <span className="fy-jrow__text">
                     {guide.category ? <span className="fy-kicker">{guide.category}</span> : null}

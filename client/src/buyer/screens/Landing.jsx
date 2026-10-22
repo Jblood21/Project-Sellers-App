@@ -27,7 +27,7 @@ export default function Landing({ onEntered }) {
     // `b-gate` as well: the layouts style a page that holds the sign-in form under that name.
     <div className="b-shell b-landing b-gate" style={{ minHeight: '100vh', paddingTop: 'calc(20px + env(safe-area-inset-top))' }}>
       <div className={`b-landing__hero${hero ? '' : ' b-landing__hero--none'}`}>
-        {hero ? <Photo eager quiet photo={hero} alt={`${community?.name} community photo`} /> : null}
+        {hero ? <Photo eager quiet photo={hero} alt={`${community?.name} community photo`} sizes="(min-width: 600px) 760px, 125vw" /> : null}
       </div>
       <h1
         ref={headingRef}

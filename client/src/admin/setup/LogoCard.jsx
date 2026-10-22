@@ -31,6 +31,7 @@ export default function LogoCard({ community, reload }) {
         alt={`${community.name} logo as saved`}
         read={logoToDataUrl}
         onPick={upload('logo')}
+        use="logo"
         onRemove={community.logo ? remove(community.logo) : undefined}
         hint="Used on light backgrounds. A transparent PNG at least 600 pixels wide looks best."
       />
@@ -41,6 +42,7 @@ export default function LogoCard({ community, reload }) {
         alt={`${community.name} light logo as saved`}
         read={logoToDataUrl}
         onPick={upload('logolight')}
+        use="logolight"
         onRemove={community.logoLight ? remove(community.logoLight) : undefined}
         hint="A white or light version, used where the buyer app has a dark header or footer."
       />

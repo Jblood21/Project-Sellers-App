@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { HOME_GUIDES, TOOLS, homeGreeting, videoEmbed } from '@shared/domain.js';
 import { complianceOf } from '@shared/compliance.js';
-import Photo from '../../components/Photo.jsx';
+import Photo, { photoImgProps } from '../../components/Photo.jsx';
 import { firstName } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { telHref } from '@shared/compliance.js';
@@ -177,6 +177,7 @@ export function HomeScreen({ model }) {
             photo={community?.heroPhoto ? { url: community.heroPhoto } : null}
             label=""
             alt={`${community?.name} community photo`}
+            sizes="(min-width: 600px) 600px, 100vw"
           />
         </div>
         {/* The picture is shown as it is, with its words on a solid caption beneath. */}
@@ -392,7 +393,7 @@ export function HomeScreen({ model }) {
             <span className="b-agents-row__faces" aria-hidden="true">
               {model.agents.map((agent) =>
                 agent.photo ? (
-                  <img key={agent.id} src={agent.photo} alt="" />
+                  <img key={agent.id} {...photoImgProps(agent.photo, '36px')} alt="" />
                 ) : (
                   <span key={agent.id} className="b-agents-row__initial">{agent.name?.trim()?.[0]}</span>
                 ),
