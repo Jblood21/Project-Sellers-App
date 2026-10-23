@@ -28,7 +28,7 @@ export default function Login() {
   // When the app itself put this form up (the server refused the session this tab held), the line under
   // the heading says so, and the heading takes the keyboard so the reason is read out.
   const blurb = sessionEnded
-    ? 'You were signed out: the password changed, or two weeks had passed. Sign in again.'
+    ? 'You were signed out: the password changed, your access was removed, or two weeks had passed. Sign in again.'
     : 'Manage your communities, homes, buyer tools and leads.';
 
   return (

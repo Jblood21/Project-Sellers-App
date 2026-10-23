@@ -19,6 +19,7 @@ const PATHS = {
   open: <><path d="M14 4h6v6" /><path d="M20 4 11 13" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>,
   signout: <><path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5" /><path d="M15 8l4 4-4 4" /><path d="M19 12H9" /></>,
   key: <><circle cx="8" cy="15" r="4" /><path d="M11 12 20 3" /><path d="M16 7l2.5 2.5" /><path d="M13 10l2.5 2.5" /></>,
+  team: <><circle cx="9" cy="8.5" r="3.2" /><path d="M3.5 19.5c.3-3.2 2.7-5.2 5.5-5.2s5.2 2 5.5 5.2" /><circle cx="16.5" cy="9.5" r="2.6" /><path d="M15.5 14.6c2.6.2 4.6 2 5 4.9" /></>,
   plus: <><path d="M12 5v14M5 12h14" /></>,
   phone: <><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z" /></>,
   chat: <><path d="M4 5h16v11H9l-5 4z" /></>,

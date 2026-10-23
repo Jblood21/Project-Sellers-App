@@ -333,6 +333,11 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`SELECT email FROM admin_users ORDER BY created_at LIMIT 1`);
       return rows[0]?.email ?? null;
     },
+    /** Every admin, oldest first (the bootstrap owner at the top), as whole rows: the route picks what to show. */
+    async listAdmins() {
+      const { rows } = await q(`SELECT * FROM admin_users ORDER BY created_at, email`);
+      return rows;
+    },
 
     async getAdminByEmail(email) {
       const { rows } = await q(`SELECT * FROM admin_users WHERE lower(email) = lower($1)`, [email]);
@@ -342,20 +347,28 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`SELECT * FROM admin_users WHERE id = $1`, [id]);
       return rows[0] || null;
     },
-    async createAdmin({ email, passwordHash, bootPasswordHash = null }) {
+    /**
+     * A new account: the bootstrap owner from the environment, or someone invited from the Team page, whose
+     * `invitedAt` marks the row as waiting for its password. An address that already has a row takes the new
+     * password and marks instead of raising, which is what boot wants; the invite route looks the address up
+     * first and refuses one that is taken, so it never arrives here.
+     */
+    async createAdmin({ email, passwordHash, bootPasswordHash = null, invitedAt = null }) {
       const { rows } = await q(
-        `INSERT INTO admin_users (id, email, password_hash, boot_password_hash) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, boot_password_hash = EXCLUDED.boot_password_hash
+        `INSERT INTO admin_users (id, email, password_hash, boot_password_hash, invited_at) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, boot_password_hash = EXCLUDED.boot_password_hash,
+           invited_at = EXCLUDED.invited_at
          RETURNING *`,
-        [uuid(), email, passwordHash, bootPasswordHash],
+        [uuid(), email, passwordHash, bootPasswordHash, invitedAt],
       );
       return rows[0];
     },
     /**
      * Changes what is given and nothing else: the password (with the moment it changed, which is what ends
-     * the sessions issued before it), or the record of the ADMIN_PASSWORD applied at boot. The row, or null.
+     * the sessions issued before it), the record of the ADMIN_PASSWORD applied at boot, or the invitation
+     * stamp (null once a password is set). The row, or null.
      */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt } = {}) {
       const sets = [];
       const params = [id];
       const set = (column, value) => {
@@ -365,9 +378,26 @@ export function createPostgresStore(connectionString) {
       if (passwordHash !== undefined) set('password_hash', passwordHash);
       if (passwordChangedAt !== undefined) set('password_changed_at', passwordChangedAt);
       if (bootPasswordHash !== undefined) set('boot_password_hash', bootPasswordHash);
+      if (invitedAt !== undefined) set('invited_at', invitedAt);
       if (!sets.length) return this.getAdminById(id);
       const { rows } = await q(`UPDATE admin_users SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, params);
       return rows[0] || null;
+    },
+    /**
+     * Removes the account, unless it is the last one. The count and the delete are one transaction under a lock
+     * that a second removal has to wait for, so two admins removing each other at the same moment cannot both get
+     * past the count and leave nobody able to sign in until the next deploy. Its reset links go with it (the table
+     * cascades), so a link in that person's mailbox is dead too. True when the row was deleted; false when it was
+     * the last one, or was not there. Not removing yourself is the route's rule.
+     */
+    async deleteAdmin(id) {
+      return inTransaction(async (db) => {
+        await db.query(`LOCK TABLE admin_users IN SHARE ROW EXCLUSIVE MODE`);
+        const { rows } = await db.query(`SELECT count(*)::int AS n FROM admin_users`);
+        if (rows[0].n <= 1) return false;
+        const { rowCount } = await db.query(`DELETE FROM admin_users WHERE id = $1`, [id]);
+        return rowCount > 0;
+      });
     },
 
     // ── password reset links ─────────────────────────────────────────────

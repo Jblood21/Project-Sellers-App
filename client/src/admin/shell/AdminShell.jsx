@@ -31,9 +31,9 @@ function Badge({ count }) {
  * The frame around every admin page. A side menu on a computer, a top bar and a bottom bar on a phone
  * (both are in the page and the stylesheet shows one), so a section is one tap away on either.
  *
- * Without a `community` it frames the Today page, whose side menu lists the communities instead of
- * the sections. `leaveOk` is asked before anything that leaves the page: Setup uses it to stop a tap
- * from throwing away unsaved edits.
+ * Without a `community` it frames the Today page and the Team page, whose side menu lists the communities
+ * instead of the sections. `leaveOk` is asked before anything that leaves the page: Setup uses it to stop
+ * a tap from throwing away unsaved edits.
  */
 export default function AdminShell({
   community = null, leads = null, section = '', communities = null, leaveOk = () => true,
@@ -122,6 +122,10 @@ export default function AdminShell({
 
         <div className="as-side__foot">
           <span className="as-side__who" title={admin?.email}>{admin?.email}</span>
+          <NavLink to="/admin/team" className="as-link as-link--quiet" onClick={guard()}>
+            <NavIcon name="team" />
+            <span className="as-link__label">Team</span>
+          </NavLink>
           <button type="button" className="as-link as-link--quiet" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
             <NavIcon name="key" />
             <span className="as-link__label">Change password</span>
@@ -153,6 +157,9 @@ export default function AdminShell({
         ) : (
           <header className="as-top">
             <span className="as-top__brand"><Wordmark size={20} /></span>
+            <Link to="/admin/team" className="as-top__icon" aria-label="Team" onClick={guard()}>
+              <NavIcon name="team" />
+            </Link>
             <button type="button" className="as-top__icon" aria-label="Change password" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
               <NavIcon name="key" />
             </button>
@@ -233,6 +240,9 @@ export default function AdminShell({
             </button>
             <Link to="/admin" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
               <NavIcon name="today" /><span className="as-link__label">Today, all communities</span>
+            </Link>
+            <Link to="/admin/team" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
+              <NavIcon name="team" /><span className="as-link__label">Team</span>
             </Link>
             <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); setPasswordOpen(true); }}>
               <NavIcon name="key" /><span className="as-link__label">Change password</span>

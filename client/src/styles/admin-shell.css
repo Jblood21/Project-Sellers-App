@@ -69,7 +69,8 @@
 /* "New community" is the board's outline button on the dark ground: a sky line, white words. */
 .as-link--add { margin-top: 8px; border: 1.5px solid var(--color-sky); color: var(--side-ink); font-weight: 600; }
 .as-link--quiet { color: var(--side-soft); font-weight: 500; }
-.as-link--quiet:hover { color: var(--side-ink); }
+/* Not the one marking the page in view (Team): that keeps the teal its ice tint was checked against. */
+.as-link--quiet:not(.active):hover { color: var(--side-ink); }
 
 /* Teal with white on a light ground; in the side menu sky with teal, as the board draws it. */
 .as-badge {
@@ -353,6 +354,29 @@
 .as-ready__meta { font-size: 12.5px; color: var(--color-neutral-600); }
 .as-ready__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .as-ready__actions .btn { padding: 0 14px; font-size: 13.5px; }
+
+/* ── Team: everyone who can sign in ─────────────────────────────────────── */
+/* The invite form is one line when there is room (the address, then the button) and stacks on a phone. */
+.as-invite { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.as-invite .field { flex: 1 1 240px; min-width: 0; }
+.as-invite .btn { min-height: 44px; }
+/* What the last invite did: on its way, or made but not emailed and why. A sentence, not a banner. */
+.as-invite__note { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.as-invite__note:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 6px; }
+.as-invite__note--warn { color: #6b4a00; }
+/* The members sit in one white box, a row each, like the calls on Today. */
+.as-team {
+  display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none;
+  background: var(--color-neutral-100); border: 1px solid var(--color-divider); border-radius: 18px; overflow: hidden;
+}
+.as-member { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-top: 1px solid var(--color-divider); }
+.as-member:first-child { border-top: 0; }
+.as-member__main { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.as-member__top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.as-member__email { font-family: var(--font-body); font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.as-member__line { font-size: 13.5px; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.as-member__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.as-member__actions .btn { min-height: 44px; padding: 0 14px; font-size: 13.5px; }
 
 /* ── Leads: a list, and the person you picked beside it ─────────────────── */
 .as-leads { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }

@@ -118,7 +118,7 @@ characters; every body a stranger can send (the buyer app and the sign-in form) 
 `/api/admin` is read until the caller has signed in. Requests are counted in memory per visitor (an address; an IPv6 block counts as
 one) and, where there is one, per person (`server/lib/limits.js`). Admin sign-in: 8 wrong passwords per address and email per 15 minutes, 30 per address, 60
 per email from anywhere (a right password gives its own count back, and guesses sent all at once are held before the
-account is looked up); password reset links: 3 requests per inbox and 10 per address in 15 minutes, and 10 tries at a
+account is looked up); team invites: 20 per signed-in address an hour, and 10 resends; password reset links: 3 requests per inbox and 10 per address in 15 minutes, and 10 tries at a
 link per address. Buyers: 400 sign-up attempts an hour per address and 8 per address and email; 5 plan emails a day
 per buyer and 5 a day to any one inbox (`name+anything@` counts as `name@`), 2 a day to any one inbox for a copy sent to a second address,
 and 30 an hour per address, counted once per message sent (a send that fails does not count); "Find out if you qualify" messages: one
@@ -154,6 +154,15 @@ Three ways, from the everyday one to the one for when nothing else works.
   value; the service restarts and that is the password. The app remembers the value it applied, so leaving the
   variable set does not put the old password back over one you later changed in the app: only a value it has not seen
   before resets anything. Clearing the variable afterwards is fine but not needed.
+
+An invitation from the **Team** page uses the same links: the person's account is made with a password nobody holds,
+and the email carries a reset link that lasts 7 days instead of 30 (`&invite=1` on it only changes the page's words to
+"Set your password"). Opening it sets their password and signs them in, exactly as a reset does; until then the account
+is listed as invited and the invite can be sent again. Every account, invited or not, can use **Forgot your
+password?** and **Change password**, and `ADMIN_PASSWORD` still applies only to the `ADMIN_EMAIL` account (an invited
+account whose address is then put in `ADMIN_EMAIL` gets the new value as its password and stops being listed as
+invited). While both variables are set, that account is made again at every start, so the Team page will not remove
+it: change or clear them in Render first.
 
 Whichever way the password changes, every session signed in with the old one ends (on the next request, within 30
 seconds): a phone that stayed signed in, a shared computer. The tab that made the change stays signed in. The sign-in
@@ -380,6 +389,25 @@ The admin has one look for every community, **Alpine Clear** (the `:root` palett
 for what you press, lake blue for outline buttons and links, and sky only as a highlight on the teal. Buttons are
 rounded rectangles; tags, chips and badges stay pills. The buyer app keeps each community's own theme.
 
+**Team**, under your email in the side menu (on a phone, the people icon at the top of Today, or **More** on a
+community), lists everyone who can sign in and lets anyone signed in invite someone by email or remove someone. Every
+admin is equal: there is one role, and a person you invite can invite and remove people too. An invite makes the
+account at once, with a password nobody holds, and emails a link to `/admin/reset?token=…&invite=1` that sets one
+(subject "You have been invited to Touradoor", naming the inviter's own address in the text so the person knows who
+asked); it works once, for 7 days, and the row says **Invited … has not set a password yet** with a **Resend invite**
+button until they have. Nobody can remove themselves, and the server refuses to remove the last account (the count and
+the delete are one locked step in the store, so two admins removing each other at once cannot empty the table).
+Removing someone deletes their account and any reset links out for them, and any device they were signed in on is
+signed out on its next request. The one account that cannot be removed here is the `ADMIN_EMAIL` one while
+`ADMIN_EMAIL` and `ADMIN_PASSWORD` are both set in Render: the app makes it again at every start, so a removal would
+last only until the next deploy. Its row says so and has no Remove button (the server refuses too); to take that
+account away, change or clear those two variables in Render first.
+With email off (no `RESEND_API_KEY`), or when Resend refuses the message, the account is still made and the page says
+the invite could not be emailed and why, so you can press Resend once it is working. Twenty invites and ten resends
+per hour per signed-in visitor, to keep a stuck button or a script from filling strangers' mailboxes from the site's
+sending address (`POST /api/admin/team/invites`, `POST /api/admin/team/invites/:id/resend`, `DELETE /api/admin/team/:id`,
+`GET /api/admin/team`).
+
 **Leads** is a list with the person you picked beside it (on a phone the list and the person are two pages, with a
 back button). *Show* (Active, Unread, calls waiting, Agreed with no call, Closed) and *Sort* (Recent, Most ★) are separate controls, and
 the **Reports** button opens the emailed report and the PDF, the PDF being made in the order chosen here. A row shows
@@ -478,11 +506,14 @@ through Postgres under UTC−6, UTC+12 and UTC and asserts the date never moves.
 
 ## Email
 
-Four messages — the app is deliberately quiet.
+Five messages — the app is deliberately quiet.
 
-- **The owner asks for a password reset link** → one plain-text email to the account's own address, with the link and
+- **An admin asks for a password reset link** → one plain-text email to the account's own address, with the link and
   how long it lasts (see [Resetting the admin password](#resetting-the-admin-password)). Nothing goes to an address
   that has no account, and the form says the same thing either way.
+- **An admin invites someone from the Team page** → one plain-text email to that address saying who invited them, with
+  the link that sets their password and how long it lasts (7 days). Sent again by **Resend invite**; see
+  [The admin layout](#the-admin-layout).
 
 - **A buyer asks for a call** → the builder is emailed straight away, with the phone
   number first (a buyer who signed up without one is asked for it in the booking sheet before
@@ -986,9 +1017,9 @@ client/src/
   buyer/layouts/     Porch, Ridgeline, Foyer, Marketplace, Red Rock, Trailhead, Showcase and Ledger: header and home screen
                      per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
-  admin/             the admin app: the Today page and, per community, 8 sections (Leads, Stats, Homes, Area,
-                     Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries both the buyer-tool and
-                     display-feature switches
+  admin/             the admin app: the Today page, the Team page (who can sign in) and, per community, 8 sections
+                     (Leads, Stats, Homes, Area, Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries
+                     both the buyer-tool and display-feature switches
   admin/shell/       the frame: side menu, phone top and bottom bars, the section list (sections.js)
   admin/setup/       the Setup cards: layout, development logo, lender & compliance, realtors, builder incentive, FAQ
   admin/learn/       the buyer-guide list and editor

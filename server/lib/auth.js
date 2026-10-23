@@ -8,6 +8,9 @@ export { MIN_PASSWORD_LENGTH };
 // How long a reset link stays good. Long enough to find the email on a phone; short enough that a link
 // in a mailbox somebody else later gets into is almost certainly dead.
 export const RESET_TTL_MS = 1000 * 60 * 30;
+// How long an invitation's set-password link stays good. An invite is read whenever the person gets round
+// to it, days later as often as not, and the account it opens has no password yet to protect from the link.
+export const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
 function secret() {
   const s = process.env.SESSION_SECRET;
@@ -22,6 +25,15 @@ export function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');
   const hash = scryptSync(password, salt, 64).toString('hex');
   return `scrypt$${salt}$${hash}`;
+}
+
+/**
+ * The hash of a password nobody holds, for an account that was invited and has not chosen its own yet: 32
+ * random bytes, hashed like any password and then forgotten, so the row can exist (and be listed, resent to,
+ * removed) while nothing typed into the sign-in form can match it. Only a set-password link gets in.
+ */
+export function unusablePasswordHash() {
+  return hashPassword(randomBytes(32).toString('hex'));
 }
 
 /** Why `password` cannot be an admin's new password, as a sentence for the person, or '' when it can. */

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { after, afterEach, before, describe, test } from 'node:test';
 
-import { forgetAdminSessions, hashPassword, hashResetToken, issueToken, readToken, verifyPassword } from '../lib/auth.js';
+import {
+  forgetAdminSessions, hashPassword, hashResetToken, issueToken, readToken, unusablePasswordHash, verifyPassword,
+} from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import { ensureAdmin } from '../index.js';
 import { backends, startBackend } from './fixtures/harness.js';
@@ -261,9 +263,9 @@ for (const kind of backends()) {
 
     describe('the Render fallback (ADMIN_PASSWORD at boot)', () => {
       const BOOT = 'boot@test.co';
-      const withEnv = async (password, fn) => {
+      const withEnv = async (password, fn, email = BOOT) => {
         const was = { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD };
-        process.env.ADMIN_EMAIL = BOOT;
+        process.env.ADMIN_EMAIL = email;
         process.env.ADMIN_PASSWORD = password;
         try {
           await ensureAdmin(store);
@@ -310,6 +312,23 @@ for (const kind of backends()) {
           assert.equal((await api('/api/admin/me', { token: changed.body.token })).status, 401, 'the old session is over');
           assert.equal((await api('/api/admin/me', { token: (await login(BOOT, 'typed-in-render-1')).body.token })).status, 200);
         });
+      });
+
+      test('an invited account whose address is then put in ADMIN_EMAIL gets the password and stops being invited', async () => {
+        const INVITED = 'invited-boot@test.co';
+        const row = await store.createAdmin({ email: INVITED, passwordHash: unusablePasswordHash(), invitedAt: new Date() });
+        assert.ok((await store.getAdminById(row.id)).invited_at, 'waiting on its invite');
+        await withEnv('typed-in-render-2', async () => {
+          const admin = await store.getAdminByEmail(INVITED);
+          assert.equal(admin.invited_at ?? null, null, 'no longer waiting: the environment set its password');
+          assert.ok(admin.password_changed_at, 'stamped as a change');
+          assert.equal((await login(INVITED, 'typed-in-render-2')).status, 200);
+          // The owner's session as it stands now: the tests above changed that password more than once.
+          const session = (await login(ADMIN, current)).body.token;
+          const listed = (await api('/api/admin/team', { token: session })).body.find((m) => m.email === INVITED);
+          assert.equal(listed.passwordSet, true, 'and the Team page lists it as joined, not invited');
+          assert.equal(listed.bootstrap, true);
+        }, INVITED);
       });
     });
 

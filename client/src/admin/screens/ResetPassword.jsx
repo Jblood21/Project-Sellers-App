@@ -13,12 +13,17 @@ const BAD_LINK = 'That link has expired or was already used. Ask for a new one.'
  * The page the email's link opens: choose a new password, and be signed in with it. The token stays in
  * the address so a reload still works; the link is good once and for 30 minutes anyway. A link that is
  * missing, spent or stale gets one message and the way to ask for another.
+ *
+ * An invitation's link is the same link with `invite=1` after it, which only changes the words: the
+ * person has no password yet, so they are setting one, not choosing a new one. The token is checked on
+ * the server exactly as a reset link's is; the hint decides nothing there.
  */
 export default function ResetPassword() {
   const { adoptSession } = useAdmin();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
+  const invited = params.get('invite') === '1';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -52,7 +57,11 @@ export default function ResetPassword() {
 
   if (state === 'bad') {
     return (
-      <AuthCard title="This link will not work" blurb={BAD_LINK} focusTitle>
+      <AuthCard
+        title="This link will not work"
+        blurb={invited ? `${BAD_LINK} Or ask whoever invited you to send the invite again.` : BAD_LINK}
+        focusTitle
+      >
         <Link to="/admin/forgot" className="btn btn-primary btn-block" style={{ marginTop: 6, minHeight: 46 }}>Ask for a new link</Link>
         <Link to="/admin" className="btn btn-link btn-block" style={{ fontSize: 14 }}>Back to sign in</Link>
       </AuthCard>
@@ -61,7 +70,12 @@ export default function ResetPassword() {
 
   if (state === 'done') {
     return (
-      <AuthCard title="Signed in" blurb="Your new password is set, and anyone signed in with the old one has been signed out.">
+      <AuthCard
+        title="Signed in"
+        blurb={invited
+          ? 'Your password is set. Sign in with it from now on, on any device.'
+          : 'Your new password is set, and anyone signed in with the old one has been signed out.'}
+      >
         <button
           type="button" className="btn btn-primary btn-block" style={{ marginTop: 6, minHeight: 46 }} autoFocus
           onClick={() => navigate('/admin', { replace: true })}
@@ -73,13 +87,20 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthCard title="Choose a new password" blurb="You will be signed in with it straight away." onSubmit={submit}>
+    <AuthCard
+      title={invited ? 'Set your password' : 'Choose a new password'}
+      blurb={invited
+        ? 'You have been invited to the Touradoor admin. Choose a password and you will be signed in with it straight away.'
+        : 'You will be signed in with it straight away.'}
+      onSubmit={submit}
+    >
       <TextField
-        label="New password" hint={`At least ${MIN_PASSWORD_LENGTH} characters.`} value={password} onChange={setPassword}
-        type="password" autoComplete="new-password" autoFocus
+        label={invited ? 'Password' : 'New password'} hint={`At least ${MIN_PASSWORD_LENGTH} characters.`} value={password}
+        onChange={setPassword} type="password" autoComplete="new-password" autoFocus
       />
       <TextField
-        label="New password again" value={confirm} onChange={setConfirm} type="password" autoComplete="new-password"
+        label={invited ? 'Password again' : 'New password again'} value={confirm} onChange={setConfirm} type="password"
+        autoComplete="new-password"
       />
       <ErrorNote>{error}</ErrorNote>
       <button type="submit" className="btn btn-primary btn-block" disabled={busy} style={{ marginTop: 6, minHeight: 46 }}>

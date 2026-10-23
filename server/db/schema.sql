@@ -13,6 +13,12 @@ ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ
 -- environment's value only when it is not this one, so a password the owner changed in the app is not
 -- quietly put back on the next deploy, while a NEW value in the Render dashboard still resets it.
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS boot_password_hash TEXT;
+-- When an invitation went out for an account that has not chosen its password yet (the Team page; the row
+-- is created with a password nobody can match, and the set-password link in the email is a reset link that
+-- lasts seven days). Cleared the moment a password is set, by that link, a reset link, a change or a new
+-- ADMIN_PASSWORD at boot, so a row with it still set is one that cannot sign in yet, and the owner can send the
+-- invite again.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ;
 
 -- The "forgot your password" links that are out. A row is the SHA-256 of the token in the link, never
 -- the token: the database cannot be read back into a working link. One live row per admin (asking again

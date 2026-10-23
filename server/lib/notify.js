@@ -198,3 +198,24 @@ export async function sendPasswordReset({ to, link }) {
 
   return sendEmail({ to, subject: 'Reset your Touradoor password', text });
 }
+
+/**
+ * The invitation to join the admin, sent to the address the owner typed on the Team page. It says who asked
+ * (the inviter's own sign-in address, so the person can tell it is from a colleague and not a stranger), what
+ * the link does and how long it is good for. The account exists already but has no password anyone holds,
+ * so the link is the only way in, and someone who was not expecting it can leave it alone. Plain text, like
+ * everything else the app sends.
+ */
+export async function sendAdminInvite({ to, invitedBy, link }) {
+  const text = [
+    'Hi,',
+    '',
+    `${invitedBy} invited you to the Touradoor admin, where the team looks after its communities, homes and leads. Set your password to get in:`,
+    '',
+    `  ${link}`,
+    '',
+    'The link works once, for 7 days. If you were not expecting this, ignore it: nothing happens without the link.',
+  ].join('\n');
+
+  return sendEmail({ to, subject: 'You have been invited to Touradoor', text });
+}
