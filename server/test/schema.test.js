@@ -104,6 +104,7 @@ test('the schema applies to a database created by an older release', opts, async
       ['leads', 'opened_at'], ['leads', 'archived_at'], ['resources', 'updated_at'],
       ['communities', 'slug'], ['homes', 'video_link'], ['leads', 'extra_emails'],
       ['admin_users', 'password_changed_at'], ['admin_users', 'boot_password_hash'], ['admin_users', 'invited_at'],
+      ['admin_users', 'role'],
     ]) {
       const added = await client.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
@@ -115,6 +116,13 @@ test('the schema applies to a database created by an older release', opts, async
     assert.equal(slugs.rowCount, 1, 'and so does the table of every address a community has had');
     const resets = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = 'admin_password_resets'`);
     assert.equal(resets.rowCount, 1, 'and the table of password reset links');
+    for (const tableName of ['admin_communities', 'admin_activity']) {
+      const table = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = $1`, [tableName]);
+      assert.equal(table.rowCount, 1, `and the ${tableName} table`);
+    }
+    // An account from before roles is a member until ensureAdmin makes it the owner.
+    const role = await client.query(`SELECT column_default FROM information_schema.columns WHERE table_name = 'admin_users' AND column_name = 'role'`);
+    assert.match(role.rows[0].column_default, /member/);
     await client.end();
   });
 });

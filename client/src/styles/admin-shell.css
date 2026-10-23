@@ -356,10 +356,12 @@
 .as-ready__actions .btn { padding: 0 14px; font-size: 13.5px; }
 
 /* ── Team: everyone who can sign in ─────────────────────────────────────── */
-/* The invite form is one line when there is room (the address, then the button) and stacks on a phone. */
+/* The invite form in the order the keyboard meets it: the address, the communities to give, then the button.
+   The address field stops short of the card's full width on a computer; an email is not that long. */
 .as-invite { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
-.as-invite .field { flex: 1 1 240px; min-width: 0; }
-.as-invite .btn { min-height: 44px; }
+.as-invite .field { flex: 1 1 240px; min-width: 0; max-width: 420px; }
+.as-invite__send { display: flex; }
+.as-invite__send .btn { min-height: 44px; }
 /* What the last invite did: on its way, or made but not emailed and why. A sentence, not a banner. */
 .as-invite__note { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--color-neutral-700); overflow-wrap: anywhere; }
 .as-invite__note:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 6px; }
@@ -377,6 +379,72 @@
 .as-member__line { font-size: 13.5px; color: var(--color-neutral-700); overflow-wrap: anywhere; }
 .as-member__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .as-member__actions .btn { min-height: 44px; padding: 0 14px; font-size: 13.5px; }
+/* The owner's row has no boxes to tick: one line says so, in the words the boxes would spell out. */
+.as-member__all { font-weight: 600; color: var(--color-text); }
+
+/* ── who can open what: the communities ticked for a person ───────────────── */
+/* One box per community, by name. A row is 44px tall so a thumb lands on it, and the box takes the admin's teal.
+   The grid takes the row's own padding back at its edges so the first box lines up with the words above it. */
+.as-access { margin: 4px 0 0; padding: 0; border: 0; min-width: 0; }
+.as-access__legend {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0; margin-bottom: 2px;
+  font-family: var(--font-body); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+.as-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 8px; margin: 0 -10px; }
+.as-check {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 500; color: var(--color-text); overflow-wrap: anywhere;
+}
+.as-check:hover { background: var(--color-neutral-200); }
+.as-check input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+.as-check input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* The word beside the group's name after a tick: Saved for a moment, in the lake blue; a problem stays, in the
+   warning brown the invite note uses. The element is always there (so the word is read out when it arrives). */
+.as-saved { font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--color-accent-2); }
+.as-saved--warn { color: #6b4a00; }
+
+/* ── Activity: what the team changed, newest first ──────────────────────── */
+/* Two selects, each beside its label (the Leads list's small capitals); a phone gives each pair its own line. */
+.as-filters { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-bottom: 12px; }
+.as-filter { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; max-width: 380px; min-width: 0; }
+.as-filter select.input { flex: 1 1 auto; min-width: 0; width: auto; }
+/* A day is a heading over one white box of rows, like the calls on Today. */
+.as-day { margin-top: 18px; }
+.as-day__title {
+  margin: 0 0 8px; font-family: var(--font-body); font-size: 13px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--color-neutral-600);
+}
+.as-day__box { background: var(--color-neutral-100); border: 1px solid var(--color-divider); border-radius: 18px; padding: 2px 18px; }
+.as-acts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.as-act {
+  display: flex; flex-wrap: wrap; align-items: baseline; row-gap: 2px; padding: 11px 0;
+  border-top: 1px solid var(--color-divider); font-size: 14.5px; line-height: 1.45;
+}
+.as-act:first-child { border-top: 0; }
+.as-act__who { font-weight: 600; overflow-wrap: anywhere; }
+.as-act__what { color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.as-act__what strong { font-weight: 600; color: var(--color-text); }
+.as-act__where { color: var(--color-accent-2); text-decoration: none; font-weight: 500; overflow-wrap: anywhere; border-radius: 4px; }
+.as-act__where:hover { text-decoration: underline; text-underline-offset: 2px; }
+.as-act__where:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.as-act__when { color: var(--color-neutral-600); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.as-act__dot { margin: 0 8px; color: var(--color-neutral-500); }
+.as-act__detail { flex-basis: 100%; font-size: 13px; color: var(--color-neutral-600); overflow-wrap: anywhere; }
+/* On a phone the parts stack: who and when on the first line, then what, then where. The dots are for one line. */
+@media (max-width: 559px) {
+  .as-act__dot { display: none; }
+  .as-act__who { flex: 1 1 auto; order: 0; }
+  .as-act__when { order: 1; font-size: 13px; }
+  .as-act__what { order: 2; flex-basis: 100%; }
+  .as-act__where { order: 3; flex-basis: 100%; font-size: 13.5px; }
+  .as-act__detail { order: 4; }
+}
+.as-more { margin-top: 16px; }
+/* Today's card: the last five, and the way to the rest. */
+.as-activity { margin-top: 24px; gap: 2px; padding: 14px 18px 6px; }
+.as-activity__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.as-activity__head .card-title { margin: 0; font-size: 18px; color: var(--color-accent-700); }
 
 /* ── Leads: a list, and the person you picked beside it ─────────────────── */
 .as-leads { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, afterEach, before, describe, test } from 'node:test';
 
-import { INVITE_TTL_MS, hashPassword, hashResetToken, verifyPassword } from '../lib/auth.js';
+import { INVITE_TTL_MS, forgetAdminAccess, hashPassword, hashResetToken, verifyPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import { backends, startBackend } from './fixtures/harness.js';
 
@@ -71,7 +71,9 @@ for (const kind of backends()) {
       assert.equal(me.invitedAt, null);
       assert.equal(me.passwordSet, true);
       assert.equal(me.bootstrap, false, 'ADMIN_EMAIL is not set here, so no account is made at boot');
-      assert.deepEqual(Object.keys(me).sort(), ['bootstrap', 'createdAt', 'email', 'id', 'invitedAt', 'passwordSet']);
+      assert.equal(me.role, 'owner');
+      assert.deepEqual(me.communityIds, [], 'the owner has every community by role, so none is listed');
+      assert.deepEqual(Object.keys(me).sort(), ['bootstrap', 'communityIds', 'createdAt', 'email', 'id', 'invitedAt', 'passwordSet', 'role']);
     });
 
     test('an invite makes the account with a password nobody can use, sends one 7-day link and marks the row', async () => {
@@ -134,10 +136,16 @@ for (const kind of backends()) {
       const listed = (await team()).body.find((m) => m.email === 'dillan@test.co');
       assert.equal(listed.passwordSet, true);
       assert.equal(listed.invitedAt, null);
-      // The new admin is equal to the owner: they see the team and can invite too.
-      assert.equal((await team(done.body.token)).status, 200);
-      assert.equal((await invite('fourth@test.co', { token: done.body.token })).status, 200);
-      assert.match(sent.at(-1).text, /dillan@test\.co invited you/);
+      assert.equal(listed.role, 'member', 'an invited person is a member');
+      assert.deepEqual(listed.communityIds, [], 'with nothing shared until the owner ticks a community');
+      // A member is not the owner: the team is not theirs to see or to add to (server/test/access.test.js has the rest).
+      const peek = await team(done.body.token);
+      assert.equal(peek.status, 403);
+      assert.equal(peek.body.error, 'Only the owner can do that.');
+      assert.equal((await invite('fourth@test.co', { token: done.body.token })).status, 403);
+      assert.equal(sent.length, 1, 'nothing went out for the refused invite');
+      // So the owner invites the fourth person, and the list below counts them.
+      assert.equal((await invite('fourth@test.co')).status, 200);
     });
 
     test('an address that already has access is refused, however it is typed', async () => {
@@ -284,6 +292,11 @@ for (const kind of backends()) {
     test('the ADMIN_EMAIL account is marked, and cannot be removed while a start would make it again', async () => {
       assert.equal((await invite('second@test.co')).status, 200);
       const second = (await reset(tokenSentTo('second@test.co'), 'second-password-1')).body.token;
+      // Removing is the owner's to do, and the app makes no second owner; the store does here, so the refusal under
+      // test is about the bootstrap account and not about the role.
+      const secondRow = await store.getAdminByEmail('second@test.co');
+      await store.updateAdmin(secondRow.id, { role: 'owner' });
+      forgetAdminAccess(secondRow.id);
       const me = (await api('/api/admin/me', { token: owner })).body;
       // As typed in the dashboard, whatever the case.
       process.env.ADMIN_EMAIL = OWNER.toUpperCase();
@@ -345,7 +358,8 @@ for (const kind of backends()) {
     test('two admins removing each other at the same moment leave one account, never none', async () => {
       const pair = [];
       for (const email of ['one@race.test', 'two@race.test']) {
-        const row = await store.createAdmin({ email, passwordHash: hashPassword('race-password-1') });
+        // Owners both: removing someone is the owner's to do, and the race is about the count, not the role.
+        const row = await store.createAdmin({ email, passwordHash: hashPassword('race-password-1'), role: 'owner' });
         const session = (await login(email, 'race-password-1')).body.token;
         assert.ok(session, `${email} is signed in`);
         pair.push({ ...row, session });

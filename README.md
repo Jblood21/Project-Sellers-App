@@ -88,7 +88,7 @@ See [`.env.example`](.env.example).
 |---|---|
 | `DATABASE_URL` | Postgres connection string. Omit for the local JSON store. |
 | `SESSION_SECRET` | Signs admin and buyer session tokens. **Set this in production.** |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Bootstraps (or resets) the admin account on boot. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Bootstraps (or resets) the admin account on boot. That account is the owner: it sees every community, runs the Team page and reads the activity log (see *Roles and access* under *The admin layout*). |
 | `RATES_WEBHOOK_SECRET` | Shared secret for the inbound rate webhook. |
 | `RESEND_API_KEY` | Enables outbound email. Omit and the app sends nothing, breaking nothing. |
 | `EMAIL_FROM` | Sender address, on a domain verified with Resend. |
@@ -390,23 +390,63 @@ for what you press, lake blue for outline buttons and links, and sky only as a h
 rounded rectangles; tags, chips and badges stay pills. The buyer app keeps each community's own theme.
 
 **Team**, under your email in the side menu (on a phone, the people icon at the top of Today, or **More** on a
-community), lists everyone who can sign in and lets anyone signed in invite someone by email or remove someone. Every
-admin is equal: there is one role, and a person you invite can invite and remove people too. An invite makes the
-account at once, with a password nobody holds, and emails a link to `/admin/reset?token=…&invite=1` that sets one
-(subject "You have been invited to Touradoor", naming the inviter's own address in the text so the person knows who
-asked); it works once, for 7 days, and the row says **Invited … has not set a password yet** with a **Resend invite**
-button until they have. Nobody can remove themselves, and the server refuses to remove the last account (the count and
-the delete are one locked step in the store, so two admins removing each other at once cannot empty the table).
-Removing someone deletes their account and any reset links out for them, and any device they were signed in on is
-signed out on its next request. The one account that cannot be removed here is the `ADMIN_EMAIL` one while
-`ADMIN_EMAIL` and `ADMIN_PASSWORD` are both set in Render: the app makes it again at every start, so a removal would
-last only until the next deploy. Its row says so and has no Remove button (the server refuses too); to take that
-account away, change or clear those two variables in Render first.
+community), is the owner's page: it lists everyone who can sign in, which communities each person has, and lets the
+owner invite someone by email (ticking the communities to give them), change what a person has, or remove them. An
+invite makes the account at once, as a member with those communities, with a password nobody holds, and emails a
+link to `/admin/reset?token=…&invite=1` that sets one (subject "You have been invited to Touradoor", naming the
+inviter's own address in the text so the person knows who asked); it works once, for 7 days, and the row says
+**Invited … has not set a password yet** with a **Resend invite** button until they have. Nobody can remove
+themselves, and the server refuses to remove the last account (the count and the delete are one locked step in the
+store, so two admins removing each other at once cannot empty the table). Removing someone deletes their account,
+their community assignments and any reset links out for them, and any device they were signed in on is signed out
+on its next request; what they did stays in the activity log under their address. The one account that cannot be
+removed here is the `ADMIN_EMAIL` one while `ADMIN_EMAIL` and `ADMIN_PASSWORD` are both set in Render: the app
+makes it again at every start, so a removal would last only until the next deploy. Its row says so and has no Remove
+button (the server refuses too); to take that account away, change or clear those two variables in Render first.
 With email off (no `RESEND_API_KEY`), or when Resend refuses the message, the account is still made and the page says
 the invite could not be emailed and why, so you can press Resend once it is working. Twenty invites and ten resends
 per hour per signed-in visitor, to keep a stuck button or a script from filling strangers' mailboxes from the site's
-sending address (`POST /api/admin/team/invites`, `POST /api/admin/team/invites/:id/resend`, `DELETE /api/admin/team/:id`,
-`GET /api/admin/team`).
+sending address (`POST /api/admin/team/invites`, `POST /api/admin/team/invites/:id/resend`,
+`PUT /api/admin/team/:id/communities`, `DELETE /api/admin/team/:id`, `GET /api/admin/team`).
+
+### Roles and access
+
+There are two roles, and the server decides by them on every admin request (`server/lib/access.js`).
+
+- **The owner** is the `ADMIN_EMAIL` account. `ensureAdmin` (`server/index.js`) marks it so at every start, which is
+  how the account that existed before roles did became the owner on the first start after they shipped; with
+  `ADMIN_EMAIL` unset and no owner at all (a local file store from before roles), the oldest account is made the
+  owner instead, so a store is never left with nobody able to make a community. The owner sees every community, can
+  make and delete communities, and alone opens **Team** and **Activity**. There is no way in the app to make someone
+  else the owner.
+- **Members** are everyone invited from Team. A member sees only the communities the owner has shared with them
+  (`admin_communities` in Postgres, `adminCommunities` in the file store) and can do everything inside those: homes,
+  photos, setup, guides, realtors, times, leads and reports. They cannot make or delete a community, and Team, the
+  activity log and the **New community** button are not theirs: the side menu and Today list only their communities,
+  and a request about any other answers `403 { "error": "You don't have access to that community." }`, the same
+  sentence whether the community exists, was deleted a moment ago or never was. Making or deleting a community, and
+  anything under `/team` or `/activity`, answers `403 { "error": "Only the owner can do that." }`. `GET /api/admin/me`
+  says the role.
+- **Assignments** are the ticked boxes on each member's row in Team (and on the invite form, so a person can start
+  with their communities): the whole list is saved at once (`PUT /api/admin/team/:id/communities { communityIds }`,
+  owner only; `400` on the owner's own row, who has every community by role), an id with no community is ignored,
+  and the member sees the change on their next request. Removing a member removes their assignments; deleting a
+  community takes it off every member's list. The role and the list ride on the same 30-second cache as the password
+  check (`requireAdmin` in `server/lib/auth.js`), cleared at once on the instance that made the change, so during a
+  deploy's brief overlap the other instance can be up to 30 seconds behind, as it is for a password change.
+- **The activity log** (`admin_activity` / `adminActivity`) is one line per change made through the admin, by
+  anyone: a community made, changed or deleted; a home added, changed, removed, its photos or video changed; a place
+  in the area guide, a Learn article or video, a realtor, a guide (added, changed, removed, the defaults restored);
+  time slots published or removed; a lead's status, notes or call changed; the lead report sent; and on the team, an
+  invite, a resend, a change of communities, a removal. Each line is who (the admin's address, copied onto the row so
+  it outlives a removal), what (an action key from `shared/adminActivity.js`, which also holds the plain-English
+  label for each, e.g. `home.added` → "Added home {subject}"), the thing changed by name, the community (by its
+  current name, or none once it is deleted: the line still names it), a few words of detail, and when. A line that
+  cannot be written is logged on the server and never fails the change it is about. The owner reads it on
+  **Activity** (newest first, by day, filtered by person or community, **Load more**) and in the **Team activity**
+  card on Today (`GET /api/admin/activity?adminId=&communityId=&before=<nextBefore of the page before>&limit=50`,
+  owner only; `limit` is capped at 200). Reading a lead (which marks it opened) and changing your own password write
+  no line: neither is something the owner oversees.
 
 **Leads** is a list with the person you picked beside it (on a phone the list and the person are two pages, with a
 back button). *Show* (Active, Unread, calls waiting, Agreed with no call, Closed) and *Sort* (Recent, Most ★) are separate controls, and
@@ -1017,7 +1057,8 @@ client/src/
   buyer/layouts/     Porch, Ridgeline, Foyer, Marketplace, Red Rock, Trailhead, Showcase and Ledger: header and home screen
                      per layout
   styles/layouts/    one stylesheet per layout, every rule scoped to .b-app.l-<layout>
-  admin/             the admin app: the Today page, the Team page (who can sign in) and, per community, 8 sections
+  admin/             the admin app: the Today page, the Team page (who can sign in, and which communities each
+                     member has), the Activity page (what everyone did; owner only) and, per community, 8 sections
                      (Leads, Stats, Homes, Area, Learn, Times, Tools, Setup), lead detail, QR + flyer. Tools carries
                      both the buyer-tool and display-feature switches
   admin/shell/       the frame: side menu, phone top and bottom bars, the section list (sections.js)

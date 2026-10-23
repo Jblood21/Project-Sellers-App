@@ -61,7 +61,7 @@ export async function startBackend(kind, label) {
   }
 
   await resetStoreForTests(store);
-  await store.createAdmin({ email: 'admin@test.co', passwordHash: hashPassword('pw123456') });
+  await store.createAdmin({ email: 'admin@test.co', passwordHash: hashPassword('pw123456'), role: 'owner' });
   const server = createApp().listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;

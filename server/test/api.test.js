@@ -55,7 +55,7 @@ before(async () => {
   process.env.RATES_WEBHOOK_SECRET = 'hook-secret';
   const store = createFileStore(join(dir, 'db.json'));
   await resetStoreForTests(store);
-  await store.createAdmin({ email: 'admin@test.co', passwordHash: hashPassword('pw123456') });
+  await store.createAdmin({ email: 'admin@test.co', passwordHash: hashPassword('pw123456'), role: 'owner' });
   server = createApp().listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}`;

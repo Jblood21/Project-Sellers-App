@@ -19,6 +19,11 @@ ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS boot_password_hash TEXT;
 -- ADMIN_PASSWORD at boot, so a row with it still set is one that cannot sign in yet, and the owner can send the
 -- invite again.
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ;
+-- 'owner' or 'member'. The owner (the ADMIN_EMAIL account; ensureAdmin in server/index.js sets this at every
+-- start) sees every community, the Team page and the activity log. A member sees only the communities in
+-- admin_communities for them, and can do everything inside those. The default is the smaller role, so an
+-- account from before roles existed, and an invited one, starts with nothing until the owner shares something.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member';
 
 -- The "forgot your password" links that are out. A row is the SHA-256 of the token in the link, never
 -- the token: the database cannot be read back into a working link. One live row per admin (asking again
@@ -82,6 +87,41 @@ ALTER TABLE communities ADD COLUMN IF NOT EXISTS guides_seeded BOOLEAN NOT NULL 
 -- Which one-time figures refresh (server/db/refresh.js) a community has had: '' for none. A community created after
 -- one is stamped with it at creation, so it starts on the new defaults and is never refreshed over its own choices.
 ALTER TABLE communities ADD COLUMN IF NOT EXISTS figures_version TEXT NOT NULL DEFAULT '';
+
+-- Which communities each member may see and work in. The owner is not listed: the role says they have all.
+-- Here rather than beside admin_users because it references communities, and the file runs top to bottom.
+-- Both cascades matter: removing a member takes their assignments with them, and deleting a community
+-- takes it off every member's list, so neither leaves a row pointing at nothing.
+CREATE TABLE IF NOT EXISTS admin_communities (
+  admin_id     TEXT NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (admin_id, community_id)
+);
+CREATE INDEX IF NOT EXISTS admin_communities_community_idx ON admin_communities(community_id);
+
+-- What each admin did, for the owner to read: one row per change made through the admin (a home added, a
+-- lead's notes changed, a member invited), with the action as a key from shared/adminActivity.js and the
+-- thing changed named in `subject`, so the row reads on its own.
+--
+-- History outlives what it is about. admin_id has no foreign key and admin_email is copied onto the row, so
+-- removing a member keeps every line they wrote (and the line that says they were removed). community_id is
+-- set NULL when the community goes rather than cascading: the owner wants to see that a community was
+-- deleted and what was done in it before, and the row names it in `subject`, so it still reads.
+CREATE TABLE IF NOT EXISTS admin_activity (
+  id           TEXT PRIMARY KEY,
+  admin_id     TEXT,
+  admin_email  TEXT NOT NULL DEFAULT '',
+  community_id TEXT REFERENCES communities(id) ON DELETE SET NULL,
+  action       TEXT NOT NULL,
+  subject      TEXT NOT NULL DEFAULT '',
+  detail       TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Newest first is the only order the log is read in, and the cursor the page carries is created_at.
+CREATE INDEX IF NOT EXISTS admin_activity_created_idx ON admin_activity(created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS admin_activity_admin_idx ON admin_activity(admin_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS admin_activity_community_idx ON admin_activity(community_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS homes (
   id           TEXT PRIMARY KEY,

@@ -9,7 +9,7 @@ import { loadDefaultGuides } from '../lib/guides.js';
 import { FIGURES_REFRESH, needsRefresh, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
+  guideRowFromDefault, shapeAdminActivity, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
   shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
@@ -17,6 +17,7 @@ const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
   consents: [], agents: [], guides: [], communitySlugs: [], passwordResets: [],
+  adminCommunities: [], adminActivity: [],
 };
 
 /**
@@ -43,7 +44,27 @@ export function createFileStore(path) {
         tagged = true;
       }
     }
+    // An account from before roles existed is a member, as the Postgres column's default makes it; ensureAdmin
+    // (server/index.js) then makes the ADMIN_EMAIL account, or failing that the oldest one, the owner.
+    for (const admin of db.admins) {
+      if (admin.role === undefined) {
+        admin.role = 'member';
+        tagged = true;
+      }
+    }
     if (tagged) save();
+    lastActivityAt = db.adminActivity.reduce((last, row) => (row.createdAt > last ? row.createdAt : last), '');
+  };
+
+  // The activity log is paged by created_at, so no two rows may share a stamp: the page's cursor is the last
+  // row's, and a twin of it would fall between two pages. Rows written within one millisecond (a test, a fast
+  // hand) take the next millisecond instead. Postgres keeps microseconds and needs no such help.
+  let lastActivityAt = '';
+  const activityStamp = () => {
+    let at = now();
+    if (at <= lastActivityAt) at = new Date(new Date(lastActivityAt).getTime() + 1).toISOString();
+    lastActivityAt = at;
+    return at;
   };
 
   const save = () => {
@@ -215,26 +236,27 @@ export function createFileStore(path) {
       return db.admins.find((a) => a.id === id) || null;
     },
     /** A new account, or the password and marks of one that exists; see the Postgres store. */
-    async createAdmin({ email, passwordHash, bootPasswordHash = null, invitedAt = null }) {
+    async createAdmin({ email, passwordHash, bootPasswordHash = null, invitedAt = null, role = null }) {
       const stamp = invitedAt ? new Date(invitedAt).toISOString() : null;
       const existing = await this.getAdminByEmail(email);
       if (existing) {
         existing.password_hash = passwordHash;
         existing.boot_password_hash = bootPasswordHash;
         existing.invited_at = stamp;
+        if (role) existing.role = role;
         save();
         return existing;
       }
       const admin = {
         id: uuid(), email, password_hash: passwordHash, password_changed_at: null, boot_password_hash: bootPasswordHash,
-        invited_at: stamp, created_at: now(),
+        invited_at: stamp, role: role ?? 'member', created_at: now(),
       };
       db.admins.push(admin);
       save();
       return admin;
     },
     /** Changes what is given and nothing else; see the Postgres store. The row, or null. */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role } = {}) {
       const admin = await this.getAdminById(id);
       if (!admin) return null;
       if (passwordHash !== undefined) admin.password_hash = passwordHash;
@@ -242,13 +264,16 @@ export function createFileStore(path) {
       if (passwordChangedAt !== undefined) admin.password_changed_at = passwordChangedAt ? new Date(passwordChangedAt).toISOString() : null;
       if (bootPasswordHash !== undefined) admin.boot_password_hash = bootPasswordHash;
       if (invitedAt !== undefined) admin.invited_at = invitedAt ? new Date(invitedAt).toISOString() : null;
+      if (role !== undefined) admin.role = role;
       save();
       return admin;
     },
     /**
-     * Removes the account and its reset links, as the Postgres table's cascade does, unless it is the last one: the
-     * count and the removal have no pause between them, so two removals at once cannot both get past the count.
-     * True when the row was deleted; false when it was the last one, or was not there.
+     * Removes the account, its reset links and its community assignments, as the Postgres tables' cascades do,
+     * unless it is the last one: the count and the removal have no pause between them, so two removals at once
+     * cannot both get past the count. What they did stays in the activity log under their address, as it does in
+     * Postgres, where that table has no foreign key to this one. True when the row was deleted; false when it was
+     * the last one, or was not there.
      */
     async deleteAdmin(id) {
       if (db.admins.length <= 1) return false;
@@ -256,8 +281,55 @@ export function createFileStore(path) {
       db.admins = db.admins.filter((a) => a.id !== id);
       if (db.admins.length === before) return false;
       db.passwordResets = db.passwordResets.filter((r) => r.adminId !== id);
+      db.adminCommunities = db.adminCommunities.filter((r) => r.adminId !== id);
       save();
       return true;
+    },
+
+    // ── which communities a member may see ───────────────────────────────
+    // The owner has every community by role and is never listed here; see the Postgres store.
+    // In the order the communities were made, as the Postgres store lists them.
+    async listAdminCommunities(adminId) {
+      const mine = new Set(db.adminCommunities.filter((r) => r.adminId === adminId).map((r) => r.communityId));
+      return db.communities.filter((c) => mine.has(c.id)).map((c) => c.id);
+    },
+    async listAdminAssignments() {
+      const order = new Map(db.communities.map((c, index) => [c.id, index]));
+      return db.adminCommunities
+        .filter((r) => order.has(r.communityId))
+        .sort((a, b) => order.get(a.communityId) - order.get(b.communityId))
+        .map((r) => ({ adminId: r.adminId, communityId: r.communityId }));
+    },
+    /** Replaces the whole list; an id with no community is dropped. Returns the ids kept. See the Postgres store. */
+    async setAdminCommunities(adminId, communityIds) {
+      const known = new Set(db.communities.map((c) => c.id));
+      const kept = [...new Set(communityIds)].filter((id) => known.has(id));
+      db.adminCommunities = db.adminCommunities.filter((r) => r.adminId !== adminId);
+      for (const communityId of kept) db.adminCommunities.push({ adminId, communityId, createdAt: now() });
+      save();
+      return this.listAdminCommunities(adminId);
+    },
+
+    // ── what each admin did ──────────────────────────────────────────────
+    // One row per change made through the admin; see admin_activity in schema.sql for why rows outlive both the
+    // admin and the community they name (deleteAdmin leaves them; deleteCommunity blanks communityId).
+    async addAdminActivity({ adminId, adminEmail, communityId = null, action, subject = '', detail = '' }) {
+      const row = {
+        id: `act_${shortId(12)}`, adminId, adminEmail: adminEmail ?? '', communityId, action, subject, detail, createdAt: activityStamp(),
+      };
+      db.adminActivity.push(row);
+      save();
+      return shapeAdminActivity({ ...row, communityName: db.communities.find((c) => c.id === communityId)?.name ?? null });
+    },
+    async listAdminActivity({ adminId = null, communityId = null, before = null, limit = 50 } = {}) {
+      const cutoff = before ? new Date(before).getTime() : Infinity;
+      const names = new Map(db.communities.map((c) => [c.id, c.name]));
+      return db.adminActivity
+        .filter((row) => (!adminId || row.adminId === adminId) && (!communityId || row.communityId === communityId)
+          && new Date(row.createdAt).getTime() < cutoff)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : b.id.localeCompare(a.id)))
+        .slice(0, limit)
+        .map((row) => shapeAdminActivity({ ...row, communityName: names.get(row.communityId) ?? null }));
     },
 
     // ── password reset links ─────────────────────────────────────────────
@@ -401,6 +473,10 @@ export function createFileStore(path) {
       db.resources = db.resources.filter((r) => r.communityId !== id);
       db.homeVideos = db.homeVideos.filter((v) => !homeIds.includes(v.homeId));
       db.consents = db.consents.filter((c) => !leadIds.includes(c.leadId));
+      // Off every member's list, as the cascade does; the activity log keeps its rows and only forgets which
+      // community they were about, as ON DELETE SET NULL does, so the owner can still read what was done there.
+      db.adminCommunities = db.adminCommunities.filter((r) => r.communityId !== id);
+      for (const row of db.adminActivity) if (row.communityId === id) row.communityId = null;
       save();
     },
 
@@ -605,6 +681,16 @@ export function createFileStore(path) {
     async getPhotoInfo(id) {
       const row = db.photos.find((p) => p.id === id);
       return row ? { id: row.id, content_type: row.content_type, url: row.url } : null;
+    },
+
+    /** Whose picture this is, for the delete route's access check and its log line; see the Postgres store. */
+    async getPhotoOwner(id) {
+      const row = db.photos.find((p) => p.id === id);
+      if (!row) return null;
+      return {
+        id: row.id, communityId: row.communityId, homeId: row.homeId ?? null, highlightId: row.highlightId ?? null,
+        agentId: row.agentId ?? null, guideId: row.guideId ?? null, kind: row.kind,
+      };
     },
 
     async deletePhoto(id) {
