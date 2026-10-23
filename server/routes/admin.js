@@ -10,7 +10,7 @@ import {
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
-import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
+import { clientKey, createLimiter, mailboxKey, reserve, tooMany } from '../lib/limits.js';
 import { rejectControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
 import { buildReport, emailReport, reportDay } from '../lib/report.js';
@@ -21,7 +21,11 @@ import {
 } from '../../shared/domain.js';
 import { loadLenderBrand } from '../lib/lenderBrand.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
-import { issueToken, requireAdmin, verifyPassword } from '../lib/auth.js';
+import {
+  RESET_TTL_MS, forgetAdminSessions, hashPassword, hashResetToken, issueToken, newResetToken, passwordProblem,
+  requireAdmin, verifyPassword,
+} from '../lib/auth.js';
+import { sendPasswordReset } from '../lib/notify.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
@@ -334,8 +338,127 @@ export function adminRouter() {
     res.json({ id: req.admin.sub, email: req.admin.email });
   });
 
+  // ── forgotten passwords ──────────────────────────────────────────────────
+  // Anyone can type an address into the form, so the answer never says whether it has an account: the
+  // same sentence either way, and the email is not waited for, so the round trip does not say whether
+  // one went out. What does differ is one write: an address with an account has its link row written
+  // before the answer (a few milliseconds; one transaction on Postgres), which a caller timing many
+  // requests could tell from an address without one. That is accepted rather than faked with a write
+  // for every stranger: there is one account, and the limits below (three requests per inbox and ten
+  // per visitor in 15 minutes, which also keep the form from filling somebody's mailbox) leave a caller
+  // few requests to time. They are held before the lookup, like a sign-in attempt, so a burst sent at
+  // once cannot all pass the check first.
+  const forgotPerMailbox = createLimiter({ windowMs: 15 * 60 * 1000, max: 3 });
+  const forgotPerIp = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+  const resetPerIp = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+  const FORGOT_ANSWER = 'If that address has an account, a reset link is on its way; it works for 30 minutes.';
+  const BAD_LINK = 'That link has expired or was already used. Ask for a new one.';
+
+  router.post('/password/forgot', async (req, res) => {
+    const store = await getStore();
+    const email = str(req.body?.email).slice(0, 254);
+    if (!email.includes('@')) return res.status(400).json({ error: 'Enter the email you sign in with.' });
+    const attempt = reserve([[forgotPerIp, clientKey(req)], [forgotPerMailbox, mailboxKey(email)]]);
+    if (attempt.wait) {
+      res.set('Retry-After', String(attempt.wait));
+      return res.status(429).json({ error: tooMany('reset requests', attempt.wait) });
+    }
+    let admin;
+    try {
+      admin = await store.getAdminByEmail(email);
+    } catch (err) {
+      attempt.release(); // our failure, not theirs
+      throw err;
+    }
+    if (admin) {
+      const { token, hash } = newResetToken();
+      await store.createPasswordReset({ adminId: admin.id, tokenHash: hash, expiresAt: new Date(Date.now() + RESET_TTL_MS) });
+      const origin = linkOriginOf(req);
+      if (!emailConfigured()) {
+        console.warn(`A password reset was asked for ${admin.email}, but email is off (RESEND_API_KEY is not set), so no link was sent. `
+          + 'Set it, or set a new ADMIN_PASSWORD in the Render dashboard instead.');
+      } else if (!origin) {
+        console.warn(`A password reset was asked for ${admin.email}, but the site\'s address is not known (set PUBLIC_ORIGIN), so no link was sent.`);
+      } else {
+        // Not awaited: the person is told the same thing either way, and a send that fails is logged by
+        // sendEmail itself. The token is in the link and nowhere else.
+        sendPasswordReset({ to: admin.email, link: `${origin}/admin/reset?token=${token}` });
+      }
+    }
+    return res.json({ ok: true, message: FORGOT_ANSWER });
+  });
+
+  router.post('/password/reset', async (req, res) => {
+    const store = await getStore();
+    const visitor = clientKey(req);
+    const attempt = reserve([[resetPerIp, visitor]]);
+    if (attempt.wait) {
+      res.set('Retry-After', String(attempt.wait));
+      return res.status(429).json({ error: tooMany('attempts', attempt.wait) });
+    }
+    const token = str(req.body?.token);
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    // One sentence for a link that is missing, made up, used or old: which of those it is tells a
+    // stranger holding a stale link nothing useful, and the owner's next step is the same for all.
+    const reset = token ? await store.getPasswordReset(hashResetToken(token)) : null;
+    if (!reset || reset.usedAt || new Date(reset.expiresAt).getTime() <= Date.now()) {
+      return res.status(400).json({ error: BAD_LINK });
+    }
+    const problem = passwordProblem(password);
+    if (problem) return res.status(400).json({ error: problem });
+    const admin = await store.getAdminById(reset.adminId);
+    if (!admin) return res.status(400).json({ error: BAD_LINK });
+    const passwordHash = hashPassword(password);
+    // Taken after the hashing, so a session issued just before this request began is surely older.
+    const changedAt = new Date();
+    // The link is spent before the password changes: two requests carrying it at once get one change.
+    if (!(await store.usePasswordReset(reset.id, changedAt))) return res.status(400).json({ error: BAD_LINK });
+    await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: changedAt });
+    forgetAdminSessions(admin.id);
+    // Whoever was guessing at this account was guessing the old password.
+    const emailKey = admin.email.toLowerCase();
+    failuresPerEmail.reset(emailKey);
+    failuresPerPerson.reset(`${visitor}|${emailKey}`);
+    // Signed in from here, with a token that dates from the change itself, so this is the one session left.
+    return res.json({ token: issueToken(admin, { issuedAt: changedAt.getTime() }), admin: { id: admin.id, email: admin.email } });
+  });
+
   // Everything below requires a signed-in admin.
   router.use(requireAdmin);
+
+  /**
+   * A new password chosen while signed in. The current one is asked for again, so a tab left open on a
+   * shared computer cannot be used to lock the owner out; a wrong one is counted like a wrong sign-in.
+   * The answer carries a fresh session for this tab, dated from the change, so it stays signed in while
+   * every other one (the old phone, the shared computer) ends on its next request.
+   */
+  router.post('/password/change', async (req, res) => {
+    const store = await getStore();
+    const current = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(401).json({ error: 'Not signed in' });
+    const visitor = clientKey(req);
+    const emailKey = admin.email.toLowerCase();
+    const personKey = `${visitor}|${emailKey}`;
+    const attempt = reserve([[failuresPerIp, visitor], [failuresPerPerson, personKey], [failuresPerEmail, emailKey]]);
+    if (attempt.wait) {
+      res.set('Retry-After', String(attempt.wait));
+      return res.status(429).json({ error: tooMany('password attempts', attempt.wait) });
+    }
+    if (!verifyPassword(current, admin.password_hash)) {
+      return res.status(400).json({ error: 'That is not your current password.' });
+    }
+    attempt.release();
+    failuresPerPerson.reset(personKey);
+    const problem = passwordProblem(password);
+    if (problem) return res.status(400).json({ error: problem });
+    const passwordHash = hashPassword(password);
+    const changedAt = new Date();
+    await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: changedAt });
+    forgetAdminSessions(admin.id);
+    return res.json({ token: issueToken(admin, { issuedAt: changedAt.getTime() }), admin: { id: admin.id, email: admin.email } });
+  });
 
   // ── communities ──────────────────────────────────────────────────────────
   router.get('/communities', async (_req, res) => {

@@ -4,6 +4,28 @@ CREATE TABLE IF NOT EXISTS admin_users (
   password_hash TEXT NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Existing databases skip the CREATE TABLE above, so these arrive by ALTER (see the note under communities).
+-- When the password last changed, by the owner in the app, by a reset link or by a new ADMIN_PASSWORD at
+-- boot; NULL for one that never has. A session token issued before this moment is refused (requireAdmin
+-- in server/lib/auth.js), which is how a reset ends the sessions of whoever had the old password.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;
+-- The ADMIN_PASSWORD last applied at boot, hashed the same way as the password itself. Boot applies the
+-- environment's value only when it is not this one, so a password the owner changed in the app is not
+-- quietly put back on the next deploy, while a NEW value in the Render dashboard still resets it.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS boot_password_hash TEXT;
+
+-- The "forgot your password" links that are out. A row is the SHA-256 of the token in the link, never
+-- the token: the database cannot be read back into a working link. One live row per admin (asking again
+-- replaces the earlier ones); used_at is set the moment a link is used, so it cannot be used twice.
+CREATE TABLE IF NOT EXISTS admin_password_resets (
+  id         TEXT PRIMARY KEY,
+  admin_id   TEXT NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS admin_password_resets_admin_idx ON admin_password_resets(admin_id);
 
 CREATE TABLE IF NOT EXISTS communities (
   id          TEXT PRIMARY KEY,

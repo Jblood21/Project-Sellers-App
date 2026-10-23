@@ -86,6 +86,11 @@ export const THEMES = {
   },
 };
 
+// The one rule an admin password has to meet: the reset page and the change dialog say it, the server holds to
+// it. Length is what makes a password hard to guess; a rule about digits and symbols makes it hard to remember
+// instead, so there is no other.
+export const MIN_PASSWORD_LENGTH = 10;
+
 export const DEFAULT_THEME = 'navy';
 
 /**

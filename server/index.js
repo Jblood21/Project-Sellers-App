@@ -7,7 +7,7 @@ import express from 'express';
 
 import { getStore } from './db/index.js';
 import { seedIfEmpty } from './db/seed.js';
-import { hashPassword, requireAdmin } from './lib/auth.js';
+import { forgetAdminSessions, hashPassword, requireAdmin, verifyPassword } from './lib/auth.js';
 import { bootWarnings } from './lib/bootcheck.js';
 import { hasControlCharacter } from './lib/params.js';
 import { originOfRequest, pinnedOrigin, renderBuyerPage, unavailablePage } from './lib/ssr.js';
@@ -100,14 +100,18 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     || (req.method === 'POST' && /^\/api\/admin\/communities\/[^/]+\/resources\/*$/i.test(req.path))
     || (req.method === 'PATCH' && /^\/api\/admin\/resources\/[^/]+\/*$/i.test(req.path));
   const isAdminPath = (req) => /^\/api\/admin(\/|$)/i.test(req.path);
-  // The one admin request a stranger legitimately makes. It carries an email and a password.
-  const isLogin = (req) => req.method === 'POST' && /^\/api\/admin\/login\/*$/i.test(req.path);
+  // The admin requests a stranger legitimately makes: signing in, asking for a password reset link, and
+  // using one. Each carries an email, a password or a token and nothing bigger.
+  const isSignIn = (req) => req.method === 'POST' && /^\/api\/admin\/(login|password\/(forgot|reset))\/*$/i.test(req.path);
   // The 6 MB parser is for a caller who has already proved they are an admin, for the same reason as
   // the video one: the limits on the sign-in form run after the body is read, so a body read first is
   // a body anyone can make this server hold in memory, a few at a time, on a 512 MB instance.
+  // requireAdmin reads the store (to learn whether the password changed since the token was issued),
+  // so a store failure arrives here as `err` and goes to the error handler, not to the parser.
   app.use((req, res, next) => {
-    if (carriesVideo(req)) return requireAdmin(req, res, () => videoJson(req, res, next));
-    if (isAdminPath(req) && !isLogin(req)) return requireAdmin(req, res, () => smallJson(req, res, next));
+    const parseWith = (parser) => (err) => (err ? next(err) : parser(req, res, next));
+    if (carriesVideo(req)) return requireAdmin(req, res, parseWith(videoJson));
+    if (isAdminPath(req) && !isSignIn(req)) return requireAdmin(req, res, parseWith(smallJson));
     return publicJson(req, res, next);
   });
 
@@ -270,8 +274,18 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   return app;
 }
 
-/** Creates the bootstrap admin from env on first boot; updates the password after that. */
-async function ensureAdmin(store) {
+/**
+ * Creates the bootstrap admin from env on first boot, and after that applies a NEW ADMIN_PASSWORD: the
+ * way back in when the owner has lost the password and the reset email cannot reach them.
+ *
+ * "New" is the point. The variable stays set in the Render dashboard for the life of the service, and
+ * applying it on every boot would put it back over a password the owner had since changed in the app,
+ * on the next deploy, without a word. So the value applied is remembered (hashed, boot_password_hash)
+ * and a boot that sees the same value again leaves the account alone. Changing the value in the
+ * dashboard is what resets the password; it also stamps password_changed_at, which ends every session
+ * that was signed in with the old one.
+ */
+export async function ensureAdmin(store) {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
   if (!email || !password) {
@@ -280,8 +294,30 @@ async function ensureAdmin(store) {
     }
     return;
   }
-  await store.createAdmin({ email, passwordHash: hashPassword(password) });
-  console.log(`Admin account ready: ${email}`);
+  const admin = await store.getAdminByEmail(email);
+  if (!admin) {
+    const passwordHash = hashPassword(password);
+    await store.createAdmin({ email, passwordHash, bootPasswordHash: passwordHash });
+    console.log(`Admin account created: ${email}`);
+    return;
+  }
+  // An account from before the value applied at boot was recorded: the password is the environment's
+  // (every boot set it until now), so record that and change nothing.
+  if (!admin.boot_password_hash && verifyPassword(password, admin.password_hash)) {
+    await store.updateAdmin(admin.id, { bootPasswordHash: admin.password_hash });
+    console.log(`Admin account ready: ${email}`);
+    return;
+  }
+  if (admin.boot_password_hash && verifyPassword(password, admin.boot_password_hash)) {
+    console.log(`Admin account ready: ${email}`);
+    return;
+  }
+  const passwordHash = hashPassword(password);
+  await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: new Date(), bootPasswordHash: passwordHash });
+  // Nothing is cached in a process that has only just booted, but this is the third thing that changes
+  // a password, and the session check hears about it from all three.
+  forgetAdminSessions(admin.id);
+  console.log(`Admin password reset from ADMIN_PASSWORD: ${email}. Every earlier sign-in has ended.`);
 }
 
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;

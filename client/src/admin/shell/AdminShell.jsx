@@ -5,6 +5,7 @@ import { COMMUNITY_STATUSES, isArchived, isTourPending, isUnread } from '@shared
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import Wordmark from '../Wordmark.jsx';
+import ChangePasswordDialog from '../screens/ChangePasswordDialog.jsx';
 import { buyerUrl } from '../screens/QrDialog.jsx';
 import { Dialog, ErrorNote, Spinner } from '../ui.jsx';
 import NavIcon from './navIcons.jsx';
@@ -41,6 +42,7 @@ export default function AdminShell({
   const { admin, signOut } = useAdmin();
   const [moreOpen, setMoreOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   const current = sectionOf(section);
   const attention = attentionCount(leads);
@@ -120,6 +122,10 @@ export default function AdminShell({
 
         <div className="as-side__foot">
           <span className="as-side__who" title={admin?.email}>{admin?.email}</span>
+          <button type="button" className="as-link as-link--quiet" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
+            <NavIcon name="key" />
+            <span className="as-link__label">Change password</span>
+          </button>
           <button type="button" className="as-link as-link--quiet" onClick={leave}>
             <NavIcon name="signout" />
             <span className="as-link__label">Sign out</span>
@@ -147,6 +153,9 @@ export default function AdminShell({
         ) : (
           <header className="as-top">
             <span className="as-top__brand"><Wordmark size={20} /></span>
+            <button type="button" className="as-top__icon" aria-label="Change password" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
+              <NavIcon name="key" />
+            </button>
             <button type="button" className="as-top__text" onClick={leave}>Sign out</button>
           </header>
         )}
@@ -225,12 +234,17 @@ export default function AdminShell({
             <Link to="/admin" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
               <NavIcon name="today" /><span className="as-link__label">Today, all communities</span>
             </Link>
+            <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); setPasswordOpen(true); }}>
+              <NavIcon name="key" /><span className="as-link__label">Change password</span>
+            </button>
             <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); leave(); }}>
               <NavIcon name="signout" /><span className="as-link__label">Sign out</span>
             </button>
           </div>
         </Dialog>
       ) : null}
+
+      {passwordOpen ? <ChangePasswordDialog onClose={() => setPasswordOpen(false)} /> : null}
 
       {switchOpen && community ? (
         <SwitchDialog
