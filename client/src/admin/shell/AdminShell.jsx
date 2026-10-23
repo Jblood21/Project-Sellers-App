@@ -31,15 +31,18 @@ function Badge({ count }) {
  * The frame around every admin page. A side menu on a computer, a top bar and a bottom bar on a phone
  * (both are in the page and the stylesheet shows one), so a section is one tap away on either.
  *
- * Without a `community` it frames the Today page and the Team page, whose side menu lists the communities
+ * Without a `community` it frames the Today, Team and Activity pages, whose side menu lists the communities
  * instead of the sections. `leaveOk` is asked before anything that leaves the page: Setup uses it to stop
  * a tap from throwing away unsaved edits.
+ *
+ * Team, Activity and New community are the owner's: a member's menus, bars and sheets leave them out, and the
+ * communities listed are the ones the server let them have.
  */
 export default function AdminShell({
   community = null, leads = null, section = '', communities = null, leaveOk = () => true,
   onEdit, onQr, title = '', blurb = '', children,
 }) {
-  const { admin, signOut } = useAdmin();
+  const { admin, isOwner, signOut } = useAdmin();
   const [moreOpen, setMoreOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -112,20 +115,30 @@ export default function AdminShell({
                   <Badge count={item.waiting} />
                 </NavLink>
               ))}
-              <Link to="/admin?new=1" className="as-link as-link--add" onClick={guard()}>
-                <NavIcon name="plus" />
-                <span className="as-link__label">New community</span>
-              </Link>
+              {isOwner ? (
+                <Link to="/admin?new=1" className="as-link as-link--add" onClick={guard()}>
+                  <NavIcon name="plus" />
+                  <span className="as-link__label">New community</span>
+                </Link>
+              ) : null}
             </div>
           )}
         </nav>
 
         <div className="as-side__foot">
           <span className="as-side__who" title={admin?.email}>{admin?.email}</span>
-          <NavLink to="/admin/team" className="as-link as-link--quiet" onClick={guard()}>
-            <NavIcon name="team" />
-            <span className="as-link__label">Team</span>
-          </NavLink>
+          {isOwner ? (
+            <>
+              <NavLink to="/admin/team" className="as-link as-link--quiet" onClick={guard()}>
+                <NavIcon name="team" />
+                <span className="as-link__label">Team</span>
+              </NavLink>
+              <NavLink to="/admin/activity" className="as-link as-link--quiet" onClick={guard()}>
+                <NavIcon name="activity" />
+                <span className="as-link__label">Activity</span>
+              </NavLink>
+            </>
+          ) : null}
           <button type="button" className="as-link as-link--quiet" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
             <NavIcon name="key" />
             <span className="as-link__label">Change password</span>
@@ -157,9 +170,16 @@ export default function AdminShell({
         ) : (
           <header className="as-top">
             <span className="as-top__brand"><Wordmark size={20} /></span>
-            <Link to="/admin/team" className="as-top__icon" aria-label="Team" onClick={guard()}>
-              <NavIcon name="team" />
-            </Link>
+            {isOwner ? (
+              <>
+                <Link to="/admin/team" className="as-top__icon" aria-label="Team" onClick={guard()}>
+                  <NavIcon name="team" />
+                </Link>
+                <Link to="/admin/activity" className="as-top__icon" aria-label="Activity" onClick={guard()}>
+                  <NavIcon name="activity" />
+                </Link>
+              </>
+            ) : null}
             <button type="button" className="as-top__icon" aria-label="Change password" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
               <NavIcon name="key" />
             </button>
@@ -241,9 +261,16 @@ export default function AdminShell({
             <Link to="/admin" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
               <NavIcon name="today" /><span className="as-link__label">Today, all communities</span>
             </Link>
-            <Link to="/admin/team" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
-              <NavIcon name="team" /><span className="as-link__label">Team</span>
-            </Link>
+            {isOwner ? (
+              <>
+                <Link to="/admin/team" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
+                  <NavIcon name="team" /><span className="as-link__label">Team</span>
+                </Link>
+                <Link to="/admin/activity" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
+                  <NavIcon name="activity" /><span className="as-link__label">Activity</span>
+                </Link>
+              </>
+            ) : null}
             <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); setPasswordOpen(true); }}>
               <NavIcon name="key" /><span className="as-link__label">Change password</span>
             </button>
@@ -267,9 +294,12 @@ export default function AdminShell({
   );
 }
 
-/** Pick another community. It opens on its Leads, the page the team lands on first. */
+/**
+ * Pick another community. It opens on its Leads, the page the team lands on first. The list is what the server
+ * answers, so a member sees only their own; New community is the owner's.
+ */
 function SwitchDialog({ current, leaveOk, onClose }) {
-  const { token } = useAdmin();
+  const { token, isOwner } = useAdmin();
   const [list, setList] = useState(null);
   const [error, setError] = useState('');
   const sheet = useRef(null);
@@ -317,9 +347,11 @@ function SwitchDialog({ current, leaveOk, onClose }) {
           </Link>
         ))}
         <hr className="as-sheet__rule" />
-        <Link to="/admin?new=1" className="as-sheet__row" onClick={guard}>
-          <NavIcon name="plus" /><span className="as-link__label">New community</span>
-        </Link>
+        {isOwner ? (
+          <Link to="/admin?new=1" className="as-sheet__row" onClick={guard}>
+            <NavIcon name="plus" /><span className="as-link__label">New community</span>
+          </Link>
+        ) : null}
         <Link to="/admin" className="as-sheet__row" onClick={guard}>
           <NavIcon name="today" /><span className="as-link__label">Today, all communities</span>
         </Link>

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { AdminProvider, useAdmin } from './AdminContext.jsx';
+import Activity from './screens/Activity.jsx';
 import CommunityDetail from './screens/CommunityDetail.jsx';
 import ForgotPassword from './screens/ForgotPassword.jsx';
 import Login from './screens/Login.jsx';
@@ -16,6 +17,16 @@ import { Spinner } from './ui.jsx';
 function KeyedCommunity() {
   const { communityId } = useParams();
   return <CommunityDetail key={communityId} />;
+}
+
+/**
+ * The pages only the owner has (Team, Activity). A member who types the address is sent to Today instead. Until
+ * /me has said who this is (a beat after signing in) the page is left to load; the server refuses it anyway.
+ */
+function OwnerOnly({ children }) {
+  const { admin } = useAdmin();
+  if (admin?.role && admin.role !== 'owner') return <Navigate to="/admin" replace />;
+  return children;
 }
 
 function AdminRoutes() {
@@ -38,7 +49,8 @@ function AdminRoutes() {
   return (
     <Routes>
       <Route index element={<Today />} />
-      <Route path="team" element={<Team />} />
+      <Route path="team" element={<OwnerOnly><Team /></OwnerOnly>} />
+      <Route path="activity" element={<OwnerOnly><Activity /></OwnerOnly>} />
       <Route path="communities/:communityId/*" element={<KeyedCommunity />} />
       <Route path="forgot" element={<ForgotPassword />} />
       <Route path="reset" element={<ResetPassword />} />

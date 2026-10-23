@@ -32,10 +32,48 @@ const outcomeOf = (result, { resent = false } = {}) => {
 };
 
 /**
- * Everyone who can sign in, and the way to add or remove someone. Every admin is equal, so anyone here can do
- * all of this; what no one can do is remove themselves, and the server keeps the last account whatever is
- * asked. Inviting makes the account at once and emails a set-password link, so the list shows the person
- * straight away, marked until they have chosen a password.
+ * The communities to tick, one box per community by name, as a group the keyboard walks through. `note` is the
+ * word beside the group's name after a change (Saved, or why not); its element is always there, so a screen
+ * reader hears the word arrive. With no communities yet the group says so, rather than showing nothing to tick.
+ */
+function CommunityChecks({ legend, communities, value, onChange, note = null }) {
+  const chosen = new Set(value);
+  return (
+    <fieldset className="as-access">
+      <legend className="as-access__legend">
+        {legend}
+        <span className={`as-saved${note?.warn ? ' as-saved--warn' : ''}`} role="status">{note?.text ?? ''}</span>
+      </legend>
+      {communities.length === 0 ? (
+        <span className="as-member__line">No communities yet. Once there is one, it can be given here.</span>
+      ) : (
+        <div className="as-checks">
+          {communities.map((community) => (
+            <label key={community.id} className="as-check">
+              <input
+                type="checkbox"
+                checked={chosen.has(community.id)}
+                onChange={(event) => onChange(event.target.checked
+                  ? [...value, community.id]
+                  : value.filter((id) => id !== community.id))}
+              />
+              <span>{community.name}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
+/**
+ * Everyone who can sign in, and the way to add or remove someone. This page is the owner's: the one account the
+ * environment names (ADMIN_EMAIL) sees every community and everything on this page, while each person invited
+ * from here is a member who sees only the communities the owner ticks for them, and can do everything inside
+ * those. The boxes save as they are ticked, so what a member can open changes the moment the owner changes it.
+ * What no one can do is remove themselves, and the server keeps the last account whatever is asked. Inviting
+ * makes the account at once and emails a set-password link, so the list shows the person straight away, marked
+ * until they have chosen a password.
  */
 export default function Team() {
   const { token, admin } = useAdmin();
@@ -43,11 +81,15 @@ export default function Team() {
   const [communities, setCommunities] = useState([]);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
+  // The communities ticked for the person about to be invited.
+  const [inviteIds, setInviteIds] = useState([]);
   const [inviteError, setInviteError] = useState('');
   // '' when nothing is in flight, 'invite' while the form sends, or the id of the person a button is working on.
   const [busy, setBusy] = useState('');
   // The sentence that says what the last invite, resend or removal did.
   const [note, setNote] = useState(null);
+  // The word beside one member's communities after a tick: { id, text, warn }. Saved goes away on its own.
+  const [accessNote, setAccessNote] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [removeError, setRemoveError] = useState('');
   const emailField = useRef(null);
@@ -57,10 +99,13 @@ export default function Team() {
   // view, which on a phone with a long list is the only way the person sees it at all. An invite puts the
   // keyboard back on the address field instead, ready for the next person.
   const focusNote = useRef(false);
+  // Ticks go to the server one after another, in the order they were made, so two quick ones cannot overtake
+  // each other and leave the server holding the earlier set.
+  const saves = useRef(Promise.resolve());
 
   useEffect(() => {
     adminApi.team(token).then(setMembers).catch((err) => setError(err.message));
-    // The side menu lists the communities on every page without one; the page itself does not need them.
+    // The side menu lists the communities on every page without one; here they are also the boxes to tick.
     adminApi.communities(token).then(setCommunities).catch(() => {});
   }, [token]);
 
@@ -82,9 +127,12 @@ export default function Team() {
     setInviteError('');
     setNote(null);
     try {
-      const result = await adminApi.inviteAdmin(token, address);
-      setMembers((list) => [...(list ?? []).filter((m) => m.id !== result.admin.id), result.admin]);
+      const result = await adminApi.inviteAdmin(token, address, inviteIds);
+      // The row as the server sees it; the communities fall back to what was ticked should the answer leave them out.
+      const created = { role: 'member', communityIds: inviteIds, ...result.admin };
+      setMembers((list) => [...(list ?? []).filter((m) => m.id !== created.id), created]);
       setEmail('');
+      setInviteIds([]);
       setNote(outcomeOf(result));
     } catch (err) {
       setInviteError(err.message);
@@ -100,7 +148,7 @@ export default function Team() {
     setNote(null);
     try {
       const result = await adminApi.resendInvite(token, member.id);
-      setMembers((list) => list.map((m) => (m.id === member.id ? result.admin : m)));
+      setMembers((list) => list.map((m) => (m.id === member.id ? { ...m, ...result.admin } : m)));
       focusNote.current = true;
       setNote(outcomeOf(result, { resent: true }));
     } catch (err) {
@@ -112,6 +160,28 @@ export default function Team() {
     } finally {
       setBusy('');
     }
+  };
+
+  /**
+   * A tick on a member's row: the boxes show the new set at once and the server is told. Saved appears beside the
+   * group's name for a moment; a refusal stays there, in the server's words, and the list is read again so the boxes
+   * show what the server really holds.
+   */
+  const saveAccess = (member, communityIds) => {
+    setMembers((list) => list.map((m) => (m.id === member.id ? { ...m, communityIds } : m)));
+    setAccessNote({ id: member.id, text: 'Saving…', warn: false });
+    saves.current = saves.current.then(async () => {
+      try {
+        await adminApi.setAdminCommunities(token, member.id, communityIds);
+        setAccessNote({ id: member.id, text: 'Saved', warn: false });
+        window.setTimeout(() => {
+          setAccessNote((current) => (current?.id === member.id && current.text === 'Saved' ? null : current));
+        }, 2500);
+      } catch (err) {
+        setAccessNote({ id: member.id, text: `Not saved: ${err.message}`, warn: true });
+        adminApi.team(token).then(setMembers).catch(() => {});
+      }
+    });
   };
 
   const confirmRemove = async () => {
@@ -140,7 +210,7 @@ export default function Team() {
     <AdminShell
       communities={communities}
       title="Team"
-      blurb="Everyone who can sign in here. Each person can do everything you can."
+      blurb="Everyone who can sign in here. You see everything; each person you invite sees only the communities you give them."
     >
       <ErrorNote>{error}</ErrorNote>
 
@@ -148,7 +218,8 @@ export default function Team() {
         <h2 className="card-title" style={{ margin: 0, fontSize: 18 }}>Invite someone</h2>
         <p className="card-body" style={{ margin: 0 }}>
           They get an email with a link to set their password; it works once, for 7 days. Until they have, their
-          row below says so, and you can send the invite again.
+          row below says so, and you can send the invite again. They can open the communities you tick, and do
+          everything inside those; you can change which ones at any time below.
         </p>
         <div className="as-invite">
           <Field label="Email">
@@ -157,6 +228,9 @@ export default function Team() {
               onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com"
             />
           </Field>
+        </div>
+        <CommunityChecks legend="Give access to" communities={communities} value={inviteIds} onChange={setInviteIds} />
+        <div className="as-invite__send">
           <button type="submit" className="btn btn-primary" disabled={busy === 'invite'}>
             {busy === 'invite' ? 'Sending…' : 'Send invite'}
           </button>
@@ -180,6 +254,7 @@ export default function Team() {
         <ul className="as-team">
           {members.map((member) => {
             const you = member.id === admin?.id;
+            const owner = member.role === 'owner';
             const working = busy === member.id;
             const canResend = !you && !member.passwordSet;
             // The account the environment makes at every start cannot be removed here; its row says what to do.
@@ -190,6 +265,7 @@ export default function Team() {
                   <div className="as-member__top">
                     <span className="as-member__email">{member.email}</span>
                     {you ? <span className="tag tag-accent">You</span> : null}
+                    {owner ? <span className="tag tag-accent-2">Owner</span> : null}
                     {!member.passwordSet ? <span className="tag tag-neutral">Invited</span> : null}
                   </div>
                   <span className="as-member__line">{statusLine(member)}</span>
@@ -199,6 +275,17 @@ export default function Team() {
                       ADMIN_EMAIL and ADMIN_PASSWORD there.
                     </span>
                   ) : null}
+                  {owner ? (
+                    <span className="as-member__line as-member__all">All communities</span>
+                  ) : (
+                    <CommunityChecks
+                      legend="Has access to"
+                      communities={communities}
+                      value={member.communityIds ?? []}
+                      onChange={(ids) => saveAccess(member, ids)}
+                      note={accessNote?.id === member.id ? accessNote : null}
+                    />
+                  )}
                 </div>
                 {canResend || canRemove ? (
                   <div className="as-member__actions">

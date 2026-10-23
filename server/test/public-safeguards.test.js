@@ -71,7 +71,7 @@ before(async () => {
   process.env.SESSION_SECRET = 'test-secret';
   const store = createFileStore(join(dir, 'db.json'));
   await resetStoreForTests(store);
-  await store.createAdmin({ email: 'admin@test.co', passwordHash: hashPassword('pw123456') });
+  await store.createAdmin({ email: 'admin@test.co', passwordHash: hashPassword('pw123456'), role: 'owner' });
   server = createApp().listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   port = server.address().port;

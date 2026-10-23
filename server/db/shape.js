@@ -316,6 +316,30 @@ export function guideRowFromDefault(def, slug, position) {
 }
 
 /**
+ * One line of the owner's activity log, from either store: the Postgres row (snake_case, with the
+ * community's current name joined on as community_name) or the file store's own (camelCase). `at` is an
+ * ISO stamp to the millisecond, which every browser's Date reads; `cursor` is the same moment at whatever
+ * precision the store keeps, for asking for the rows before it, and the route hands it on as nextBefore
+ * rather than as part of the entry. `community` is null for a row about no community (the team) and for one
+ * whose community has since been deleted; such a row still names it in `subject` or `detail`.
+ */
+export function shapeAdminActivity(row) {
+  if (!row) return null;
+  const communityId = row.community_id ?? row.communityId ?? null;
+  const at = row.created_at ?? row.createdAt;
+  return {
+    id: row.id,
+    at: new Date(at).toISOString(),
+    cursor: row.cursor ?? (at instanceof Date ? at.toISOString() : String(at)),
+    admin: { id: row.admin_id ?? row.adminId ?? null, email: row.admin_email ?? row.adminEmail ?? '' },
+    community: communityId ? { id: communityId, name: row.community_name ?? row.communityName ?? '' } : null,
+    action: row.action,
+    subject: row.subject ?? '',
+    detail: row.detail ?? '',
+  };
+}
+
+/**
  * A password reset link's record as the routes read it, from either store: the Postgres row (snake_case,
  * Date stamps) or the file store's own (camelCase, ISO strings). The token's hash stays behind: the
  * routes never need it back, and leaving it out keeps it out of anything that might print the record.

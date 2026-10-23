@@ -99,7 +99,7 @@ function isAdminToken(payload) {
   return payload.typ === undefined || payload.typ === 'admin';
 }
 
-// ── sessions after a password change ──────────────────────────────────────
+// ── sessions after a password change, and what the account may see ────────
 // A session token is stateless: nothing on the server remembers it, so nothing on the server can
 // revoke it. What the server does know is when the admin's password last changed, and a token issued
 // before that moment belongs to whoever held the old password. So every admin request compares the
@@ -109,13 +109,19 @@ function isAdminToken(payload) {
 // every one would be one query more per request on a 512 MB instance that also resizes photos, so the
 // answer is kept here for 30 seconds per admin instead. The trade: on the instance that changed the
 // password the cache is cleared at once, so the old sessions end with the change (a row read that was
-// already on its way is not trusted either; see passwordChangedAt); a second instance (Render runs one,
+// already on its way is not trusted either; see adminFacts); a second instance (Render runs one,
 // but a deploy briefly overlaps two) keeps accepting them for up to 30 seconds more, which is a short
 // tail on a change that used to never end a session at all.
+//
+// The same row says what the account is allowed to do: its role, and for a member the communities shared
+// with them. Those ride on the same entry, read in the same breath, so a request learns who is asking and
+// what they may touch for one store read every 30 seconds instead of two per request. An assignment
+// change clears the entry the way a password change does (forgetAdminAccess), with the same answer to the
+// same race, and is seen at once on this instance and within 30 seconds on an overlapping one.
 const SESSION_CHECK_TTL_MS = 30 * 1000;
-const passwordChanges = new Map(); // admin id -> { changedAt: ms or null, until: ms }
-// How many times this instance has changed each admin's password. A row read that was on its way while
-// the count moved may have been answered from before the change.
+const adminCache = new Map(); // admin id -> { changedAt: ms or null, role, communityIds: Set, until: ms }
+// How many times this instance has changed each admin's row in a way the cache must hear about. A row read
+// that was on its way while the count moved may have been answered from before the change.
 const changeCounts = new Map(); // admin id -> count
 const changeCount = (adminId) => changeCounts.get(adminId) ?? 0;
 
@@ -125,39 +131,64 @@ const timeOf = (value) => {
   return Number.isNaN(t) ? null : t;
 };
 
-/** When this admin's password last changed (ms), null for never, or undefined for no such admin. */
-async function passwordChangedAt(adminId) {
-  const known = passwordChanges.get(adminId);
-  if (known && known.until > Date.now()) return known.changedAt;
+/** 'owner' or 'member', from an admin row of either store; anything else (a row from before roles) is a member. */
+export const roleOf = (admin) => (admin?.role === 'owner' ? 'owner' : 'member');
+
+/**
+ * What a request needs to know about `adminId`: when the password last changed (ms, or null for never), the
+ * role, and the communities a member may see (empty for the owner, who has them all by role). Undefined for
+ * no such admin.
+ */
+async function adminFacts(adminId) {
+  const known = adminCache.get(adminId);
+  if (known && known.until > Date.now()) return known;
   const store = await getStore();
   // The row can be read while a reset on this instance is writing it: a read that started before the
   // write comes back with the old row after forgetAdminSessions has run, and kept as it came it would
   // hold the old sessions open for 30 seconds on the one instance that should refuse them first. So a
   // row whose read saw the count move is read again, and the answer is kept only when nothing moved.
+  // The assignments are read under the same count, for the same reason.
+  const read = async () => {
+    const admin = await store.getAdminById(adminId);
+    if (!admin) return undefined;
+    const role = roleOf(admin);
+    const communityIds = new Set(role === 'owner' ? [] : await store.listAdminCommunities(adminId));
+    return { changedAt: timeOf(admin.password_changed_at), role, communityIds };
+  };
   let seen = changeCount(adminId);
-  let admin = await store.getAdminById(adminId);
+  let facts = await read();
   if (changeCount(adminId) !== seen) {
     seen = changeCount(adminId);
-    admin = await store.getAdminById(adminId);
+    facts = await read();
   }
-  if (!admin) return undefined;
-  const changedAt = timeOf(admin.password_changed_at);
-  if (changeCount(adminId) === seen) passwordChanges.set(adminId, { changedAt, until: Date.now() + SESSION_CHECK_TTL_MS });
-  return changedAt;
+  if (!facts) return undefined;
+  if (changeCount(adminId) === seen) adminCache.set(adminId, { ...facts, until: Date.now() + SESSION_CHECK_TTL_MS });
+  return facts;
 }
+// For server/lib/access.js, which answers about an account outside a request; routes read req.access instead.
+export { adminFacts as loadAdminFacts };
 
 /**
  * Forget what was cached for `adminId`, and count the change: called by whatever changes a password on
- * this instance (the reset and change routes, ADMIN_PASSWORD at boot) once the new row is written.
+ * this instance (the reset and change routes, ADMIN_PASSWORD at boot) once the new row is written. The
+ * entry also holds the role and the shared communities, so those are read afresh too.
  */
 export function forgetAdminSessions(adminId) {
-  passwordChanges.delete(adminId);
+  adminCache.delete(adminId);
   changeCounts.set(adminId, changeCount(adminId) + 1);
 }
 
 /**
+ * The same, called by whatever changes what an account may see (the Team page sharing or withdrawing a
+ * community, a removal, the owner's role being set at boot), so the next request from that person is
+ * answered from the new row rather than from a list up to 30 seconds old.
+ */
+export const forgetAdminAccess = forgetAdminSessions;
+
+/**
  * Express middleware — requires a valid admin bearer token, issued since the admin's password last
- * changed. It reads the store (through the cache above), so it is async: a router wrapped by
+ * changed, and attaches `req.admin` (the token) and `req.access` ({ role, communityIds }, see
+ * server/lib/access.js). It reads the store (through the cache above), so it is async: a router wrapped by
  * catchAsyncErrors hands a store failure to the error handler, and index.js's parser gate passes one on
  * through `next(err)`.
  */
@@ -166,18 +197,19 @@ export async function requireAdmin(req, res, next) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   const payload = token && readToken(token);
   if (!isAdminToken(payload)) return res.status(401).json({ error: 'Not signed in' });
-  let changedAt;
+  let facts;
   try {
-    changedAt = await passwordChangedAt(payload.sub);
+    facts = await adminFacts(payload.sub);
   } catch (err) {
     return next(err);
   }
   // A token from before issue times were recorded has no `iat`; it counts as issued at the beginning of
   // time, so it is still good for an admin whose password has never changed and dead after a change.
-  if (changedAt === undefined || (changedAt !== null && (payload.iat ?? 0) < changedAt)) {
+  if (!facts || (facts.changedAt !== null && (payload.iat ?? 0) < facts.changedAt)) {
     return res.status(401).json({ error: 'Not signed in' });
   }
   req.admin = payload;
+  req.access = { role: facts.role, communityIds: facts.communityIds };
   return next();
 }
 

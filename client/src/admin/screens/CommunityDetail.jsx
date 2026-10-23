@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { COMMUNITY_STATUSES, normalizeCommunitySlug } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
@@ -47,7 +47,16 @@ export default function CommunityDetail() {
     setLeads((rows) => (rows ? rows.map((row) => (row.id === lead.id && !row.openedAt ? { ...row, openedAt: lead.openedAt } : row)) : rows));
   }, []);
 
-  if (error) return <div className="a-shell"><ErrorNote>{error}</ErrorNote></div>;
+  // A refusal reads in the server's own words (a member opening a community that is not theirs: "You don't have
+  // access to that community."), with the way back, since this frame has no menu of its own.
+  if (error) {
+    return (
+      <div className="a-shell">
+        <ErrorNote>{error}</ErrorNote>
+        <Link className="btn btn-secondary" to="/admin" style={{ marginTop: 14 }}>Back to Today</Link>
+      </div>
+    );
+  }
   if (!community) return <div className="a-shell"><Spinner /></div>;
 
   return (
@@ -72,7 +81,7 @@ function OldAddress({ community }) {
 
 /** The section the address names, inside the frame. Everything the sections share lives here. */
 function CommunityPages({ community, leads, reload, markOpened }) {
-  const { token } = useAdmin();
+  const { token, isOwner } = useAdmin();
   const navigate = useNavigate();
   const rest = (useParams()['*'] ?? '').split('/').filter(Boolean);
   const [qrOpen, setQrOpen] = useState(false);
@@ -143,6 +152,7 @@ function CommunityPages({ community, leads, reload, markOpened }) {
         <EditCommunityDialog
           community={community}
           token={token}
+          canDelete={isOwner}
           onClose={() => setEditOpen(false)}
           onSaved={async () => {
             setEditOpen(false);
@@ -189,7 +199,8 @@ function BuyerLinkField({ community, value, onChange }) {
   );
 }
 
-function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) {
+/** Name, place, builder, link, photo and status. Deleting is the owner's alone (`canDelete`): a member edits, never removes. */
+function EditCommunityDialog({ community, token, canDelete, onClose, onSaved, onDeleted }) {
   const [form, setForm] = useState({
     name: community.name,
     location: community.location,
@@ -240,7 +251,7 @@ function EditCommunityDialog({ community, token, onClose, onSaved, onDeleted }) 
       onClose={onClose}
       actions={
         <>
-          <button type="button" className="btn btn-danger" onClick={remove} style={{ marginRight: 'auto' }}>Delete</button>
+          {canDelete ? <button type="button" className="btn btn-danger" onClick={remove} style={{ marginRight: 'auto' }}>Delete</button> : null}
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
             {busy ? 'Saving…' : 'Save'}

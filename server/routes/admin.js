@@ -25,6 +25,8 @@ import {
   INVITE_TTL_MS, RESET_TTL_MS, forgetAdminSessions, hashPassword, hashResetToken, issueToken, newResetToken, passwordProblem,
   requireAdmin, unusablePasswordHash, verifyPassword,
 } from '../lib/auth.js';
+import { NO_ACCESS, canAccess, forgetAdminAccess, requireOwner, roleOf } from '../lib/access.js';
+import { recordActivity } from '../lib/activity.js';
 import { sendAdminInvite, sendPasswordReset } from '../lib/notify.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
@@ -38,6 +40,16 @@ const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'i
 // `sitemap` are the original artwork; `logo` is the development's mark, `logolight`
 // the same mark for dark backgrounds, and `lenderlogo` overrides the Summit logo.
 const COMMUNITY_PHOTO_KINDS = ['hero', 'icon', 'sitemap', 'logo', 'logolight', 'lenderlogo'];
+// The same slots as the activity log names them, so "changed the site map" reads as what the admin did.
+const ARTWORK_NAMES = {
+  hero: 'the cover photo', icon: 'the app icon', sitemap: 'the site map', logo: 'the development logo',
+  logolight: 'the development logo for dark backgrounds', lenderlogo: 'the lender logo',
+};
+// What a home's fields are called in the log, so a line says "price, availability" rather than camelCase.
+const HOME_FIELD_NAMES = {
+  name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'square feet', description: 'description',
+  availability: 'availability', lotNumber: 'lot number', readyOn: 'ready date', unitsAvailable: 'units available', videoLink: 'video link',
+};
 const AGENT_EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
 const AGENT_LABELS = {
   name: 'Name', brokerage: 'Brokerage', licenseNo: 'License number', licenseState: 'License state',
@@ -305,6 +317,59 @@ export function adminRouter() {
   const failuresPerPerson = createLimiter({ windowMs: 15 * 60 * 1000, max: 8 });
   const failuresPerEmail = createLimiter({ windowMs: 15 * 60 * 1000, max: 60 });
 
+  /** The account as a session answer carries it: what the client keeps beside the token, the role included. */
+  const sessionAdmin = (admin) => ({ id: admin.id, email: admin.email, role: roleOf(admin) });
+
+  // ── who may touch what ───────────────────────────────────────────────────
+  // Every route below that is about a community, or a thing inside one (a home, a guide, a lead, a photo),
+  // finds the community first and asks canAccess (server/lib/access.js) before it does anything else. The
+  // owner passes everywhere. A member passes inside the communities shared with them and is answered 403,
+  // with the same sentence, for any other, whether it exists or not. A thing that does not exist at all is
+  // still a 404, as it was, so a stale page learns the right thing.
+  const refuse = (res) => res.status(403).json({ error: NO_ACCESS });
+  /** Whether this admin may see `communityId`, answering the 403 when not: for the routes that read by the id alone. */
+  const allowed = (req, res, communityId) => {
+    if (canAccess(req.access, communityId)) return true;
+    refuse(res);
+    return false;
+  };
+  /**
+   * The row a route is about, looked up and checked, or null once the answer has gone out (404 for no such
+   * row, 403 for one in a community this admin may not see). `lookup` is the store's promise of the row, which
+   * carries its communityId; one helper per kind of thing below, so the first lines of every route read alike.
+   */
+  const guarded = async (req, res, lookup, missing) => {
+    const row = await lookup;
+    if (!row) {
+      res.status(404).json({ error: missing });
+      return null;
+    }
+    if (!canAccess(req.access, row.communityId)) {
+      refuse(res);
+      return null;
+    }
+    return row;
+  };
+  // A community is checked by its id before it is looked up: a member gets the one sentence for a community that
+  // is not theirs whether it exists, was deleted a moment ago or never was, and learns nothing from the difference.
+  const communityOf = async (req, res, store, id = req.params.id) => {
+    if (!allowed(req, res, id)) return null;
+    const community = await store.getCommunity(id);
+    if (!community) {
+      res.status(404).json({ error: 'Community not found' });
+      return null;
+    }
+    return community;
+  };
+  const homeOf = (req, res, store) => guarded(req, res, store.getHome(req.params.id), 'Home not found');
+  const highlightOf = (req, res, store) => guarded(req, res, store.getHighlight(req.params.id), 'Highlight not found');
+  const resourceOf = (req, res, store) => guarded(req, res, store.getResource(req.params.id), 'Not found');
+  const agentOf = (req, res, store) => guarded(req, res, store.getAgent(req.params.id), 'Realtor not found');
+  const guideOf = (req, res, store) => guarded(req, res, store.getGuide(req.params.id), 'Guide not found');
+  const slotOf = (req, res, store) => guarded(req, res, store.getSlot(req.params.id), 'Slot not found');
+  const leadOf = (req, res, store) => guarded(req, res, store.getLead(req.params.id), 'Lead not found');
+  const photoOf = (req, res, store) => guarded(req, res, store.getPhotoOwner(req.params.id), 'Photo not found');
+
   router.post('/login', async (req, res) => {
     const store = await getStore();
     const email = str(req.body?.email);
@@ -331,11 +396,12 @@ export function adminRouter() {
     }
     attempt.release();
     failuresPerPerson.reset(personKey);
-    res.json({ token: issueToken(admin), admin: { id: admin.id, email: admin.email } });
+    res.json({ token: issueToken(admin), admin: sessionAdmin(admin) });
   });
 
+  /** Who is signed in. The role comes from the row (through requireAdmin's cache), never from the token: a token outlives a role. */
   router.get('/me', requireAdmin, (req, res) => {
-    res.json({ id: req.admin.sub, email: req.admin.email });
+    res.json({ id: req.admin.sub, email: req.admin.email, role: req.access.role });
   });
 
   // ── forgotten passwords ──────────────────────────────────────────────────
@@ -421,7 +487,7 @@ export function adminRouter() {
     failuresPerEmail.reset(emailKey);
     failuresPerPerson.reset(`${visitor}|${emailKey}`);
     // Signed in from here, with a token that dates from the change itself, so this is the one session left.
-    return res.json({ token: issueToken(admin, { issuedAt: changedAt.getTime() }), admin: { id: admin.id, email: admin.email } });
+    return res.json({ token: issueToken(admin, { issuedAt: changedAt.getTime() }), admin: sessionAdmin(admin) });
   });
 
   // Everything below requires a signed-in admin.
@@ -458,19 +524,39 @@ export function adminRouter() {
     const changedAt = new Date();
     await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: changedAt, invitedAt: null });
     forgetAdminSessions(admin.id);
-    return res.json({ token: issueToken(admin, { issuedAt: changedAt.getTime() }), admin: { id: admin.id, email: admin.email } });
+    return res.json({ token: issueToken(admin, { issuedAt: changedAt.getTime() }), admin: sessionAdmin(admin) });
   });
 
   // ── the team ─────────────────────────────────────────────────────────────
-  // Every admin is equal: anyone signed in can see who else is, invite someone and remove someone. An invite
-  // makes the account at once, with a password nobody holds, and emails a set-password link: the same link
-  // the forgot form sends, kept for seven days instead of thirty minutes, so the person signs in by choosing
-  // a password and nothing (no temporary password) ever travels in the mail. Until they do, the row is
-  // marked invited, the invite can be sent again, and a sign-in attempt at that address fails like any wrong
-  // password. The limits are per signed-in visitor: an admin is trusted, but a stuck button or a script on a
-  // signed-in tab should still not be able to fill strangers' mailboxes from the site's sending address.
+  // The owner's pages: who can sign in, who sees which communities, and what everyone did. A member is
+  // answered 403 on all of them (requireOwner), so the team is the owner's alone to shape. An invite makes
+  // the account at once, as a member with whatever communities the owner ticked, with a password nobody
+  // holds, and emails a set-password link: the same link the forgot form sends, kept for seven days instead
+  // of thirty minutes, so the person signs in by choosing a password and nothing (no temporary password)
+  // ever travels in the mail. Until they do, the row is marked invited, the invite can be sent again, and a
+  // sign-in attempt at that address fails like any wrong password. The limits are per signed-in visitor: an
+  // admin is trusted, but a stuck button or a script on a signed-in tab should still not be able to fill
+  // strangers' mailboxes from the site's sending address.
+  router.use('/team', requireOwner);
+  router.use('/activity', requireOwner);
   const invitePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
   const resendPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+  const COMMUNITY_IDS_BAD = 'Send communityIds as a list of community ids.';
+  /**
+   * The `communityIds` a Team request carries: a list of ids, each once, or null for anything that is not one.
+   * An absent field is an empty list (an invite with no communities is fine); the ids are not checked against
+   * the store here, because setAdminCommunities keeps only the ones that exist.
+   */
+  const communityIdList = (value) => {
+    if (value === undefined) return [];
+    if (!Array.isArray(value) || !value.every((id) => typeof id === 'string' && !hasControlCharacter(id))) return null;
+    return [...new Set(value.map((id) => id.trim()).filter(Boolean))];
+  };
+  /** The names of these communities for a log line, in their usual order, or `none` when there are none. */
+  const namesOf = async (store, ids, none) => {
+    if (!ids.length) return none;
+    return (await store.listCommunities()).filter((c) => ids.includes(c.id)).map((c) => c.name).join(', ');
+  };
   /**
    * The address ensureAdmin (server/index.js) makes an account for at every start, while both variables are set.
    * Removing that account here would hold only until the next deploy, when it would be back with ADMIN_PASSWORD,
@@ -482,10 +568,16 @@ export function adminRouter() {
   );
   const BOOTSTRAP_STAYS = 'That account is set by ADMIN_EMAIL in Render and would be made again at the next deploy. '
     + 'Change or clear ADMIN_EMAIL and ADMIN_PASSWORD there first.';
-  /** An admin as the Team page shows it: never the hashes, and whether the invited person has set a password yet. */
-  const teamMember = (admin) => ({
+  /**
+   * An admin as the Team page shows it: never the hashes, whether the invited person has set a password yet, the
+   * role, and for a member the communities shared with them (`communityIds`). An owner's list is empty: the role
+   * says they have every community, and the page reads "All communities" from it.
+   */
+  const teamMember = (admin, communityIds = []) => ({
     id: admin.id,
     email: admin.email,
+    role: roleOf(admin),
+    communityIds: roleOf(admin) === 'owner' ? [] : communityIds,
     createdAt: admin.created_at,
     // Set until a password is chosen, by whichever link; the page says "Invited" and offers to resend.
     invitedAt: admin.invited_at ?? null,
@@ -512,7 +604,11 @@ export function adminRouter() {
 
   router.get('/team', async (_req, res) => {
     const store = await getStore();
-    res.json((await store.listAdmins()).map(teamMember));
+    // One read for everyone's communities rather than one per row: the page lists the whole team at once.
+    const [admins, assignments] = await Promise.all([store.listAdmins(), store.listAdminAssignments()]);
+    const byAdmin = new Map();
+    for (const { adminId, communityId } of assignments) byAdmin.set(adminId, [...(byAdmin.get(adminId) ?? []), communityId]);
+    res.json(admins.map((admin) => teamMember(admin, byAdmin.get(admin.id) ?? [])));
   });
 
   router.post('/team/invites', async (req, res) => {
@@ -523,18 +619,23 @@ export function adminRouter() {
     if (!isSafeEmail(email) || hasControlCharacter(email)) {
       return res.status(400).json({ error: 'Enter a full email address, like name@example.com.' });
     }
+    const communityIds = communityIdList(req.body?.communityIds);
+    if (communityIds === null) return res.status(400).json({ error: COMMUNITY_IDS_BAD });
     const hold = reserve([[invitePerIp, clientKey(req)]]);
     if (hold.wait) {
       res.set('Retry-After', String(hold.wait));
       return res.status(429).json({ error: tooMany('invites', hold.wait) });
     }
     let created;
+    let given;
     try {
       if (await store.getAdminByEmail(email)) {
         hold.release(); // nothing was sent
         return res.status(400).json({ error: 'That address already has access.' });
       }
-      created = await store.createAdmin({ email, passwordHash: unusablePasswordHash(), invitedAt: new Date() });
+      created = await store.createAdmin({ email, passwordHash: unusablePasswordHash(), invitedAt: new Date(), role: 'member' });
+      // Shared from the start, so the person opens on their communities the moment they set a password.
+      given = await store.setAdminCommunities(created.id, communityIds);
     } catch (err) {
       hold.release(); // our failure
       throw err;
@@ -542,7 +643,31 @@ export function adminRouter() {
     const { token, hash } = newResetToken();
     await store.createPasswordReset({ adminId: created.id, tokenHash: hash, expiresAt: new Date(Date.now() + INVITE_TTL_MS) });
     const outcome = await emailInvite(req, created, token);
-    return res.json({ admin: teamMember(created), ...outcome });
+    await recordActivity(store, req, {
+      action: 'team.invited', subject: created.email, detail: `Given access to: ${await namesOf(store, given, 'no communities yet')}`,
+    });
+    return res.json({ admin: teamMember(created, given), ...outcome });
+  });
+
+  /**
+   * Which communities a member may see, replaced whole: the page saves the ticked boxes as one list, so a list is
+   * what arrives, and what was shared before and is not in it is withdrawn. Not for the owner, who has every
+   * community by role and nothing here to change. Seen by the member at once on this instance: their cached
+   * access is dropped, so their next request is answered from the new list (see forgetAdminAccess).
+   */
+  router.put('/team/:id/communities', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.params.id);
+    if (!admin) return res.status(404).json({ error: 'That account is no longer here.' });
+    if (roleOf(admin) === 'owner') return res.status(400).json({ error: 'The owner has every community already.' });
+    const communityIds = req.body?.communityIds === undefined ? null : communityIdList(req.body.communityIds);
+    if (communityIds === null) return res.status(400).json({ error: COMMUNITY_IDS_BAD });
+    const kept = await store.setAdminCommunities(admin.id, communityIds);
+    forgetAdminAccess(admin.id);
+    await recordActivity(store, req, {
+      action: 'team.assigned', subject: admin.email, detail: `Now has access to: ${await namesOf(store, kept, 'no communities')}`,
+    });
+    return res.json(teamMember(admin, kept));
   });
 
   /** The invitation again, with a fresh link that replaces the earlier one. Only for an account still waiting on its password. */
@@ -561,7 +686,8 @@ export function adminRouter() {
     const invited = await store.updateAdmin(admin.id, { invitedAt: new Date() });
     await store.createPasswordReset({ adminId: admin.id, tokenHash: hash, expiresAt: new Date(Date.now() + INVITE_TTL_MS) });
     const outcome = await emailInvite(req, invited, token);
-    return res.json({ admin: teamMember(invited), ...outcome });
+    await recordActivity(store, req, { action: 'team.invited', subject: invited.email, detail: 'Sent the invite again' });
+    return res.json({ admin: teamMember(invited, await store.listAdminCommunities(invited.id)), ...outcome });
   });
 
   /**
@@ -585,14 +711,46 @@ export function adminRouter() {
         ? res.status(400).json({ error: 'The last admin cannot be removed.' })
         : res.status(404).json({ error: 'That account is no longer here.' });
     }
+    // Their assignments went with the row (the table cascades); this drops the copy their last request cached,
+    // so a request already in flight on an old token finds no row rather than a 30-second-old list.
     forgetAdminSessions(id);
+    // The email in the subject, because the row that held it is gone and the line must still read.
+    await recordActivity(store, req, { action: 'team.removed', subject: admin.email });
     return res.status(204).end();
   });
 
-  // ── communities ──────────────────────────────────────────────────────────
-  router.get('/communities', async (_req, res) => {
+  // ── the activity log ─────────────────────────────────────────────────────
+  // Owner only (router.use above). The most rows one page carries; the Today card asks for 5, the page for 50.
+  const ACTIVITY_PAGE_MAX = 200;
+  /**
+   * What everyone did, newest first, as pages: `adminId` and `communityId` narrow it to one person or one
+   * community, `before` is the `nextBefore` of the page before, and `limit` (50 unless asked) is the page's
+   * size. `nextBefore` is null on the last page. Each entry names the admin by email and the community by its
+   * current name, or null for a community since deleted (the entry's subject or detail still says which).
+   */
+  router.get('/activity', async (req, res) => {
     const store = await getStore();
-    res.json(await store.listCommunities());
+    const one = (value) => (typeof value === 'string' ? value.trim() : '');
+    const adminId = one(req.query.adminId);
+    const communityId = one(req.query.communityId);
+    const before = one(req.query.before);
+    if (before && Number.isNaN(new Date(before).getTime())) return res.status(400).json({ error: 'before must be a time from an earlier page.' });
+    const asked = req.query.limit === undefined ? 50 : Number(req.query.limit);
+    if (!Number.isInteger(asked) || asked < 1) return res.status(400).json({ error: `limit must be a whole number from 1 to ${ACTIVITY_PAGE_MAX}.` });
+    const limit = Math.min(asked, ACTIVITY_PAGE_MAX);
+    // One more than the page, to know whether there is a next one without a second query.
+    const rows = await store.listAdminActivity({ adminId: adminId || null, communityId: communityId || null, before: before || null, limit: limit + 1 });
+    const page = rows.slice(0, limit);
+    // The cursor is the store's own stamp for the last row, at whatever precision it keeps; `at` is for reading.
+    const nextBefore = rows.length > limit ? page[page.length - 1].cursor : null;
+    res.json({ entries: page.map(({ cursor, ...entry }) => entry), nextBefore });
+  });
+
+  // ── communities ──────────────────────────────────────────────────────────
+  /** Every community for the owner; for a member, the ones shared with them. The other lists (Today, the switcher) read this too. */
+  router.get('/communities', async (req, res) => {
+    const store = await getStore();
+    res.json((await store.listCommunities()).filter((row) => canAccess(req.access, row.id)));
   });
 
   /**
@@ -610,13 +768,15 @@ export function adminRouter() {
    */
   // The most people the Today page lists who agreed to calls without asking for a time; each community's Leads has the rest.
   const READY_LISTED = 500;
-  router.get('/today', async (_req, res) => {
+  router.get('/today', async (req, res) => {
     const store = await getStore();
     const now = new Date();
     const communities = [];
     const calls = [];
     const ready = [];
-    for (const row of await store.listCommunities()) {
+    // Filtered before anything is counted, so a member's totals, calls and ready list are drawn only from the
+    // communities shared with them: the page must not hint at people in a community they cannot open.
+    for (const row of (await store.listCommunities()).filter((c) => canAccess(req.access, c.id))) {
       const [community, leads, heroes] = await Promise.all([
         store.getCommunity(row.id), store.listLeads(row.id), store.listCommunityPhotos(row.id, 'hero'),
       ]);
@@ -670,7 +830,8 @@ export function adminRouter() {
     });
   });
 
-  router.post('/communities', async (req, res) => {
+  /** Making a community is the owner's: a member works inside the ones they are given and cannot add to the list. */
+  router.post('/communities', requireOwner, async (req, res) => {
     const name = str(req.body?.name).slice(0, COMMUNITY_TEXT_MAX);
     if (!name) return res.status(400).json({ error: 'Give the community a name.' });
     const store = await getStore();
@@ -681,13 +842,14 @@ export function adminRouter() {
       theme: isThemeKey(req.body?.theme) ? req.body.theme : DEFAULT_THEME,
       builder: str(req.body?.builder).slice(0, COMMUNITY_TEXT_MAX),
     });
+    await recordActivity(store, req, { communityId: community.id, action: 'community.created', subject: community.name });
     res.status(201).json(community);
   });
 
   router.get('/communities/:id', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const [
       homes, highlights, resources, heroes, icons, maps, logos, logosLight, lenderLogos, agents, guides,
     ] = await Promise.all([
@@ -725,8 +887,8 @@ export function adminRouter() {
 
   router.patch('/communities/:id', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
 
     const patch = {};
     if (req.body?.name !== undefined) patch.name = str(req.body.name).slice(0, COMMUNITY_TEXT_MAX) || community.name;
@@ -845,12 +1007,34 @@ export function adminRouter() {
         });
       }
     }
-    res.json(await store.updateCommunity(community.id, patch));
+    const updated = await store.updateCommunity(community.id, patch);
+    // Which parts of Setup moved, in the words the page uses for them, so the owner can tell a rename from a colour change.
+    const changed = [
+      ['name', 'location', 'builder', 'websiteUrl', 'status'].some((key) => key in patch) && 'details',
+      ('theme' in patch || 'layout' in patch) && 'look',
+      'settings' in patch && 'settings',
+      'tools' in patch && 'tools',
+      'features' in patch && 'features',
+      newSlug && 'buyer link',
+    ].filter(Boolean);
+    await recordActivity(store, req, {
+      communityId: community.id, action: 'community.updated', subject: updated.name, detail: changed.length ? `Changed ${changed.join(', ')}` : '',
+    });
+    res.json(updated);
   });
 
-  router.delete('/communities/:id', async (req, res) => {
+  /** Deleting a community is the owner's, like making one. Looked up first so the log can name what went. */
+  router.delete('/communities/:id', requireOwner, async (req, res) => {
     const store = await getStore();
-    await store.deleteCommunity(req.params.id);
+    const community = await store.getCommunity(req.params.id);
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+    // Who had it: their assignments go with the row, and their cached access should too, so the community is
+    // gone for them at once rather than answering "not found" for up to 30 seconds (see forgetAdminAccess).
+    const holders = (await store.listAdminAssignments()).filter((a) => a.communityId === community.id);
+    await store.deleteCommunity(community.id);
+    for (const { adminId } of holders) forgetAdminAccess(adminId);
+    // No communityId: the row it would point at is gone, so the name goes in the subject, where it keeps reading.
+    await recordActivity(store, req, { action: 'community.deleted', subject: community.name, detail: community.location });
     res.status(204).end();
   });
 
@@ -861,18 +1045,19 @@ export function adminRouter() {
    */
   router.post('/communities/:id/rates/check', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const settings = { ...community.settings, ratesUpdatedAt: new Date().toISOString() };
     const updated = await store.updateCommunity(community.id, { settings });
+    await recordActivity(store, req, { communityId: community.id, action: 'community.updated', subject: community.name, detail: 'Checked the rate inbox' });
     res.json({ settings: updated.settings, webhookConfigured: Boolean(process.env.RATES_WEBHOOK_SECRET) });
   });
 
   // ── homes ────────────────────────────────────────────────────────────────
   router.post('/communities/:id/homes', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const name = str(req.body?.name);
     if (!name) return res.status(400).json({ error: 'Give the home a name.' });
     const home = await store.createHome(community.id, {
@@ -887,13 +1072,14 @@ export function adminRouter() {
       readyOn: readyDate(req.body?.readyOn),
       unitsAvailable: unitCount(req.body?.unitsAvailable),
     });
+    await recordActivity(store, req, { communityId: community.id, action: 'home.added', subject: home.name });
     res.status(201).json(home);
   });
 
   router.patch('/homes/:id', async (req, res) => {
     const store = await getStore();
-    const home = await store.getHome(req.params.id);
-    if (!home) return res.status(404).json({ error: 'Home not found' });
+    const home = await homeOf(req, res, store);
+    if (!home) return;
     const patch = {};
     if (req.body?.name !== undefined) patch.name = str(req.body.name) || home.name;
     if (req.body?.price !== undefined) patch.price = numOr(req.body.price, home.price);
@@ -923,12 +1109,23 @@ export function adminRouter() {
     const updated = await store.updateHome(home.id, patch);
     // The file goes only once the link is saved: if saving failed, the buyer keeps the video they had.
     if (patch.videoLink) await store.deleteHomeVideo(home.id);
-    res.json(patch.videoLink ? await store.getHome(home.id) : updated);
+    const result = patch.videoLink ? await store.getHome(home.id) : updated;
+    // A save that is only the video link is a video change; anything else names the fields that moved.
+    const fields = Object.keys(patch);
+    const onlyVideo = fields.length === 1 && fields[0] === 'videoLink';
+    await recordActivity(store, req, {
+      communityId: home.communityId, action: onlyVideo ? 'home.video' : 'home.updated', subject: result?.name ?? home.name,
+      detail: onlyVideo ? (patch.videoLink ? 'set a video link' : 'removed the video link') : fields.map((key) => HOME_FIELD_NAMES[key] ?? key).join(', '),
+    });
+    res.json(result);
   });
 
   router.delete('/homes/:id', async (req, res) => {
     const store = await getStore();
-    await store.deleteHome(req.params.id);
+    const home = await homeOf(req, res, store);
+    if (!home) return;
+    await store.deleteHome(home.id);
+    await recordActivity(store, req, { communityId: home.communityId, action: 'home.deleted', subject: home.name });
     res.status(204).end();
   });
 
@@ -936,8 +1133,8 @@ export function adminRouter() {
   /** What's around the community: schools, parks, shops, clinics, commute notes. */
   router.post('/communities/:id/highlights', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const name = str(req.body?.name);
     if (!name) return res.status(400).json({ error: 'Give this place a name.' });
     const highlight = await store.createHighlight(community.id, {
@@ -947,13 +1144,14 @@ export function adminRouter() {
       detail: str(req.body?.detail),
       address: str(req.body?.address),
     });
+    await recordActivity(store, req, { communityId: community.id, action: 'highlight.added', subject: highlight.name });
     res.status(201).json(highlight);
   });
 
   router.patch('/highlights/:id', async (req, res) => {
     const store = await getStore();
-    const highlight = await store.getHighlight(req.params.id);
-    if (!highlight) return res.status(404).json({ error: 'Highlight not found' });
+    const highlight = await highlightOf(req, res, store);
+    if (!highlight) return;
     const patch = {};
     if (req.body?.name !== undefined) patch.name = str(req.body.name) || highlight.name;
     if (req.body?.description !== undefined) patch.description = str(req.body.description);
@@ -962,12 +1160,17 @@ export function adminRouter() {
     if (req.body?.category !== undefined && HIGHLIGHT_CATEGORY_KEYS.includes(req.body.category)) {
       patch.category = req.body.category;
     }
-    res.json(await store.updateHighlight(highlight.id, patch));
+    const updated = await store.updateHighlight(highlight.id, patch);
+    await recordActivity(store, req, { communityId: highlight.communityId, action: 'highlight.updated', subject: updated?.name ?? highlight.name });
+    res.json(updated);
   });
 
   router.delete('/highlights/:id', async (req, res) => {
     const store = await getStore();
-    await store.deleteHighlight(req.params.id);
+    const highlight = await highlightOf(req, res, store);
+    if (!highlight) return;
+    await store.deleteHighlight(highlight.id);
+    await recordActivity(store, req, { communityId: highlight.communityId, action: 'highlight.deleted', subject: highlight.name });
     res.status(204).end();
   });
 
@@ -975,8 +1178,8 @@ export function adminRouter() {
   /** What the builder has written and filmed, shown below the tools. */
   router.post('/communities/:id/resources', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
 
     const kind = RESOURCE_KINDS.includes(req.body?.kind) ? req.body.kind : 'article';
     const title = str(req.body?.title);
@@ -1008,17 +1211,21 @@ export function adminRouter() {
       }
     }
 
-    res.status(201).json(await store.createResource(community.id, {
+    const resource = await store.createResource(community.id, {
       kind, title, body: kind === 'article' ? str(req.body?.body) : '',
       url: kind === 'video' && !file.data ? str(req.body?.url) : '',
       ...file,
-    }));
+    });
+    await recordActivity(store, req, {
+      communityId: community.id, action: 'resource.added', subject: resource.title, detail: kind === 'video' ? 'a video' : 'an article',
+    });
+    res.status(201).json(resource);
   });
 
   router.patch('/resources/:id', async (req, res) => {
     const store = await getStore();
-    const resource = await store.getResource(req.params.id);
-    if (!resource) return res.status(404).json({ error: 'Not found' });
+    const resource = await resourceOf(req, res, store);
+    if (!resource) return;
     const patch = {};
     if (req.body?.title !== undefined) patch.title = str(req.body.title) || resource.title;
     if (req.body?.body !== undefined && resource.kind === 'article') patch.body = str(req.body.body);
@@ -1034,12 +1241,17 @@ export function adminRouter() {
       }
       Object.assign(patch, { url: str(req.body.url), data: null, contentType: '', sizeBytes: 0 });
     }
-    res.json(await store.updateResource(resource.id, patch));
+    const updated = await store.updateResource(resource.id, patch);
+    await recordActivity(store, req, { communityId: resource.communityId, action: 'resource.updated', subject: updated?.title ?? resource.title });
+    res.json(updated);
   });
 
   router.delete('/resources/:id', async (req, res) => {
     const store = await getStore();
-    await store.deleteResource(req.params.id);
+    const resource = await resourceOf(req, res, store);
+    if (!resource) return;
+    await store.deleteResource(resource.id);
+    await recordActivity(store, req, { communityId: resource.communityId, action: 'resource.deleted', subject: resource.title });
     res.status(204).end();
   });
 
@@ -1052,8 +1264,8 @@ export function adminRouter() {
    */
   router.put('/homes/:id/video', async (req, res) => {
     const store = await getStore();
-    const home = await store.getHome(req.params.id);
-    if (!home) return res.status(404).json({ error: 'Home not found' });
+    const home = await homeOf(req, res, store);
+    if (!home) return;
 
     // Validated here and not only in the browser: the cap is the product
     // decision, and a request that skips the form should not get past it.
@@ -1063,12 +1275,18 @@ export function adminRouter() {
     const saved = await store.setHomeVideo(home.id, { communityId: home.communityId, ...read });
     // An uploaded file replaces a pasted link: one source per home.
     if (home.videoLink) await store.updateHome(home.id, { videoLink: '' });
+    await recordActivity(store, req, {
+      communityId: home.communityId, action: 'home.video', subject: home.name, detail: `uploaded a walkthrough (${megabytes(read.sizeBytes)})`,
+    });
     res.json(await store.getHome(home.id) ?? saved);
   });
 
   router.delete('/homes/:id/video', async (req, res) => {
     const store = await getStore();
-    await store.deleteHomeVideo(req.params.id);
+    const home = await homeOf(req, res, store);
+    if (!home) return;
+    await store.deleteHomeVideo(home.id);
+    await recordActivity(store, req, { communityId: home.communityId, action: 'home.video', subject: home.name, detail: 'removed the walkthrough' });
     res.status(204).end();
   });
 
@@ -1106,8 +1324,8 @@ export function adminRouter() {
    */
   router.put('/homes/:id/photos/order', async (req, res) => {
     const store = await getStore();
-    const home = await store.getHome(req.params.id);
-    if (!home) return res.status(404).json({ error: 'Home not found' });
+    const home = await homeOf(req, res, store);
+    if (!home) return;
     const ids = req.body?.ids;
     const own = (await store.listHomePhotosOfKind(home.id, 'home')).map((photo) => photo.id);
     if (!Array.isArray(ids) || ids.length !== own.length || !ids.every((id) => typeof id === 'string')
@@ -1115,34 +1333,37 @@ export function adminRouter() {
       return res.status(400).json({ error: 'Send every photo of this home once, in the order you want.' });
     }
     await store.setHomePhotoOrder(home.id, ids);
+    await recordActivity(store, req, { communityId: home.communityId, action: 'home.photos', subject: home.name, detail: 'reordered' });
     res.json(await store.getHome(home.id));
   });
 
   router.post('/homes/:id/photos', async (req, res) => {
     const store = await getStore();
-    const home = await store.getHome(req.params.id);
-    if (!home) return res.status(404).json({ error: 'Home not found' });
+    const home = await homeOf(req, res, store);
+    if (!home) return;
     if ((await store.countHomePhotos(home.id)) >= MAX_PHOTOS_PER_HOME) {
       return res.status(400).json({ error: `Up to ${MAX_PHOTOS_PER_HOME} photos per home.` });
     }
     const image = readImage(req.body);
     if (image.error) return res.status(400).json({ error: image.error });
-    res.status(201).json(await store.addPhoto({ communityId: home.communityId, homeId: home.id, kind: 'home', ...image }));
+    const added = await store.addPhoto({ communityId: home.communityId, homeId: home.id, kind: 'home', ...image });
+    await recordActivity(store, req, { communityId: home.communityId, action: 'home.photos', subject: home.name, detail: 'added a photo' });
+    res.status(201).json(added);
   });
 
   /** Floor plans hang off the home like photos but under their own kind. */
   router.post('/homes/:id/floorplans', async (req, res) => {
     const store = await getStore();
-    const home = await store.getHome(req.params.id);
-    if (!home) return res.status(404).json({ error: 'Home not found' });
+    const home = await homeOf(req, res, store);
+    if (!home) return;
     if ((await store.listHomePhotosOfKind(home.id, 'floorplan')).length >= MAX_FLOOR_PLANS) {
       return res.status(400).json({ error: `Up to ${MAX_FLOOR_PLANS} floor plans per home.` });
     }
     const image = readImage(req.body);
     if (image.error) return res.status(400).json({ error: image.error });
-    res.status(201).json(await store.addPhoto({
-      communityId: home.communityId, homeId: home.id, kind: 'floorplan', ...image,
-    }));
+    const added = await store.addPhoto({ communityId: home.communityId, homeId: home.id, kind: 'floorplan', ...image });
+    await recordActivity(store, req, { communityId: home.communityId, action: 'home.photos', subject: home.name, detail: 'added a floor plan' });
+    res.status(201).json(added);
   });
 
   /**
@@ -1153,8 +1374,8 @@ export function adminRouter() {
     const kind = req.params.kind;
     if (!COMMUNITY_PHOTO_KINDS.includes(kind)) return res.status(400).json({ error: 'Unknown photo slot' });
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const image = readImage(req.body);
     if (image.error) return res.status(400).json({ error: image.error });
     // One of each per community — replace whatever is there. Added first and the
@@ -1162,28 +1383,31 @@ export function adminRouter() {
     const old = await store.listCommunityPhotos(community.id, kind);
     const added = await store.addPhoto({ communityId: community.id, kind, ...image });
     for (const photo of old) await store.deletePhoto(photo.id);
+    await recordActivity(store, req, {
+      communityId: community.id, action: 'community.updated', subject: community.name, detail: `changed ${ARTWORK_NAMES[kind]}`,
+    });
     res.status(201).json(added);
   });
 
   /** One photo per highlight — a second upload replaces the first. */
   router.post('/highlights/:id/photos', async (req, res) => {
     const store = await getStore();
-    const highlight = await store.getHighlight(req.params.id);
-    if (!highlight) return res.status(404).json({ error: 'Highlight not found' });
+    const highlight = await highlightOf(req, res, store);
+    if (!highlight) return;
     const image = readImage(req.body);
     if (image.error) return res.status(400).json({ error: image.error });
     for (const old of await store.listHighlightPhotos(highlight.id)) await store.deletePhoto(old.id);
-    res.status(201).json(await store.addPhoto({
-      communityId: highlight.communityId, highlightId: highlight.id, kind: 'highlight', ...image,
-    }));
+    const added = await store.addPhoto({ communityId: highlight.communityId, highlightId: highlight.id, kind: 'highlight', ...image });
+    await recordActivity(store, req, { communityId: highlight.communityId, action: 'highlight.updated', subject: highlight.name, detail: 'changed the photo' });
+    res.status(201).json(added);
   });
 
   // ── realtors ─────────────────────────────────────────────────────────────
   /** Up to MAX_AGENTS real estate agents per community, listed on every home. */
   router.post('/communities/:id/agents', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const full = () => res.status(400).json({ error: `Up to ${MAX_AGENTS} realtors per community.` });
     // A quick look first so a full community answers "full" before it answers
     // about the body; it is only a courtesy, the check that holds is below.
@@ -1195,26 +1419,32 @@ export function adminRouter() {
     // twice and leave five, with two of them sharing a position.
     const created = await store.createAgentIfRoom(community.id, clean.data, MAX_AGENTS);
     if (!created) return full();
+    await recordActivity(store, req, { communityId: community.id, action: 'agent.added', subject: created.name });
     res.status(201).json(created);
   });
 
   router.patch('/agents/:id', async (req, res) => {
     const store = await getStore();
-    const agent = await store.getAgent(req.params.id);
-    if (!agent) return res.status(404).json({ error: 'Realtor not found' });
+    const agent = await agentOf(req, res, store);
+    if (!agent) return;
     const clean = cleanAgent(req.body, { partial: true });
     if (clean.error) return res.status(400).json({ error: clean.error });
     const patch = { ...clean.data };
     if (Number.isInteger(req.body?.position) && req.body.position >= 0 && req.body.position <= 99) {
       patch.position = req.body.position;
     }
-    res.json(await store.updateAgent(agent.id, patch));
+    const updated = await store.updateAgent(agent.id, patch);
+    await recordActivity(store, req, { communityId: agent.communityId, action: 'agent.updated', subject: updated?.name ?? agent.name });
+    res.json(updated);
   });
 
   /** Removing the agent removes their picture and logo with them. */
   router.delete('/agents/:id', async (req, res) => {
     const store = await getStore();
-    await store.deleteAgent(req.params.id);
+    const agent = await agentOf(req, res, store);
+    if (!agent) return;
+    await store.deleteAgent(agent.id);
+    await recordActivity(store, req, { communityId: agent.communityId, action: 'agent.deleted', subject: agent.name });
     res.status(204).end();
   });
 
@@ -1224,8 +1454,8 @@ export function adminRouter() {
    */
   const agentImageRoute = (kind) => async (req, res) => {
     const store = await getStore();
-    const agent = await store.getAgent(req.params.id);
-    if (!agent) return res.status(404).json({ error: 'Realtor not found' });
+    const agent = await agentOf(req, res, store);
+    if (!agent) return;
     const image = readImage(req.body);
     if (image.error) return res.status(400).json({ error: image.error });
     const old = await store.listAgentPhotos(agent.id, kind);
@@ -1233,6 +1463,9 @@ export function adminRouter() {
       communityId: agent.communityId, agentId: agent.id, kind, ...image,
     });
     for (const photo of old) await store.deletePhoto(photo.id);
+    await recordActivity(store, req, {
+      communityId: agent.communityId, action: 'agent.updated', subject: agent.name, detail: kind === 'agent' ? 'changed the photo' : 'changed the logo',
+    });
     res.status(201).json(added);
   };
   router.post('/agents/:id/photo', agentImageRoute('agent'));
@@ -1248,15 +1481,15 @@ export function adminRouter() {
 
   router.get('/guides/:id', async (req, res) => {
     const store = await getStore();
-    const guide = await store.getGuide(req.params.id);
-    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+    const guide = await guideOf(req, res, store);
+    if (!guide) return;
     res.json(guide);
   });
 
   router.post('/communities/:id/guides', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
 
     const clean = cleanGuideText(req.body);
     if (clean.error) return res.status(400).json({ error: clean.error });
@@ -1280,7 +1513,11 @@ export function adminRouter() {
     const data = { ...clean.data, category: clean.data.category || 'Guide', published };
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return res.status(201).json(await store.createGuide(community.id, { ...data, slug }));
+        const guide = await store.createGuide(community.id, { ...data, slug });
+        await recordActivity(store, req, {
+          communityId: community.id, action: 'guide.added', subject: guide.title, detail: published ? '' : 'as a draft',
+        });
+        return res.status(201).json(guide);
       } catch (err) {
         if (!isDuplicate(err)) throw err;
         // Two requests with the same title picked the same suffix from the same
@@ -1302,9 +1539,13 @@ export function adminRouter() {
    */
   router.post('/communities/:id/guides/restore-defaults', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const added = await store.restoreDefaultGuides(community.id);
+    await recordActivity(store, req, {
+      communityId: community.id, action: 'guide.restored', subject: community.name,
+      detail: added.length === 1 ? '1 guide came back' : `${added.length} guides came back`,
+    });
     res.json({
       restored: added.length,
       guides: await store.listGuides(community.id, { includeUnpublished: true }),
@@ -1313,8 +1554,8 @@ export function adminRouter() {
 
   router.patch('/guides/:id', async (req, res) => {
     const store = await getStore();
-    const guide = await store.getGuide(req.params.id);
-    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+    const guide = await guideOf(req, res, store);
+    if (!guide) return;
 
     const clean = cleanGuideText(req.body, { partial: true });
     if (clean.error) return res.status(400).json({ error: clean.error });
@@ -1343,25 +1584,36 @@ export function adminRouter() {
     if (Number.isInteger(req.body?.position) && req.body.position >= 0 && req.body.position <= 9999) {
       patch.position = req.body.position;
     }
+    let updated;
     try {
-      res.json(await store.updateGuide(guide.id, patch));
+      updated = await store.updateGuide(guide.id, patch);
     } catch (err) {
       if (isDuplicate(err)) return res.status(400).json({ error: 'Another guide already uses that address.' });
       throw err;
     }
+    // Publishing is the change a buyer notices, so the line says so when that is what moved.
+    const published = 'published' in patch && patch.published !== guide.published;
+    await recordActivity(store, req, {
+      communityId: guide.communityId, action: 'guide.updated', subject: updated?.title ?? guide.title,
+      detail: published ? (patch.published ? 'published' : 'unpublished') : '',
+    });
+    res.json(updated);
   });
 
   router.delete('/guides/:id', async (req, res) => {
     const store = await getStore();
-    await store.deleteGuide(req.params.id);
+    const guide = await guideOf(req, res, store);
+    if (!guide) return;
+    await store.deleteGuide(guide.id);
+    await recordActivity(store, req, { communityId: guide.communityId, action: 'guide.deleted', subject: guide.title });
     res.status(204).end();
   });
 
   /** One picture per guide: a second upload replaces the first. */
   router.post('/guides/:id/image', async (req, res) => {
     const store = await getStore();
-    const guide = await store.getGuide(req.params.id);
-    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+    const guide = await guideOf(req, res, store);
+    if (!guide) return;
     const image = readImage(req.body);
     if (image.error) return res.status(400).json({ error: image.error });
     const old = await store.listGuidePhotos(guide.id);
@@ -1373,21 +1625,41 @@ export function adminRouter() {
     // builder's own photo, in the page and in the ImageObject markup. Blank
     // makes the guide fall back to its title until the builder writes a real one.
     if (guide.imageAlt === DEFAULT_GUIDE_IMAGE_ALT) await store.updateGuide(guide.id, { imageAlt: '' });
+    await recordActivity(store, req, { communityId: guide.communityId, action: 'guide.updated', subject: guide.title, detail: 'changed the picture' });
     res.status(201).json(added);
   });
 
   /** Back to the shared default picture. Answers with the guide so the editor can redraw it. */
   router.delete('/guides/:id/image', async (req, res) => {
     const store = await getStore();
-    const guide = await store.getGuide(req.params.id);
-    if (!guide) return res.status(404).json({ error: 'Guide not found' });
+    const guide = await guideOf(req, res, store);
+    if (!guide) return;
     for (const photo of await store.listGuidePhotos(guide.id)) await store.deletePhoto(photo.id);
-    res.json(await store.updateGuide(guide.id, { image: '' }));
+    const updated = await store.updateGuide(guide.id, { image: '' });
+    await recordActivity(store, req, { communityId: guide.communityId, action: 'guide.updated', subject: guide.title, detail: 'put back the default picture' });
+    res.json(updated);
   });
 
+  /**
+   * Removes one picture, whatever it belongs to. The photo row says which community it is in, which is what
+   * the access check needs, and what it hangs off (a home, a place, a realtor, a guide, or the community itself),
+   * which is what the log names: the line is about the thing the picture was of, not about the picture.
+   */
   router.delete('/photos/:id', async (req, res) => {
     const store = await getStore();
-    await store.deletePhoto(req.params.id);
+    const photo = await photoOf(req, res, store);
+    if (!photo) return;
+    await store.deletePhoto(photo.id);
+    const owned = async (lookup, action, detail) => {
+      const owner = await lookup;
+      return owner ? { action, subject: owner.name ?? owner.title, detail } : null;
+    };
+    const line = (photo.homeId && await owned(store.getHome(photo.homeId), 'home.photos', photo.kind === 'floorplan' ? 'removed a floor plan' : 'removed a photo'))
+      || (photo.highlightId && await owned(store.getHighlight(photo.highlightId), 'highlight.updated', 'removed the photo'))
+      || (photo.agentId && await owned(store.getAgent(photo.agentId), 'agent.updated', photo.kind === 'agentlogo' ? 'removed the logo' : 'removed the photo'))
+      || (photo.guideId && await owned(store.getGuide(photo.guideId), 'guide.updated', 'removed the picture'))
+      || await owned(store.getCommunity(photo.communityId), 'community.updated', `removed ${ARTWORK_NAMES[photo.kind] ?? 'a picture'}`);
+    if (line) await recordActivity(store, req, { communityId: photo.communityId, ...line });
     res.status(204).end();
   });
 
@@ -1396,14 +1668,16 @@ export function adminRouter() {
 
   router.get('/communities/:id/slots', async (req, res) => {
     const store = await getStore();
+    // Read by the id alone (no community row is needed for the list), so the check is on the id itself.
+    if (!allowed(req, res, req.params.id)) return;
     res.json(await store.listSlots(req.params.id));
   });
 
   /** Publishes every date x time the builder ticked, in one call. */
   router.post('/communities/:id/slots', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
 
     const dates = [...new Set((req.body?.dates ?? []).filter((d) => ISO_DATE.test(String(d))))];
     const times = [...new Set((req.body?.times ?? []).filter((t) => SLOT_TIMES.includes(String(t))))];
@@ -1414,12 +1688,20 @@ export function adminRouter() {
     }
 
     const created = await store.createSlots(community.id, dates.sort(), times.sort());
+    await recordActivity(store, req, {
+      communityId: community.id, action: 'slot.added',
+      subject: created.length === 1 ? '1 time slot' : `${created.length} time slots`,
+      detail: `on ${dates.join(', ')}`,
+    });
     res.status(201).json({ created: created.length, slots: await store.listSlots(community.id) });
   });
 
   router.delete('/slots/:id', async (req, res) => {
     const store = await getStore();
-    await store.deleteSlot(req.params.id);
+    const slot = await slotOf(req, res, store);
+    if (!slot) return;
+    await store.deleteSlot(slot.id);
+    await recordActivity(store, req, { communityId: slot.communityId, action: 'slot.deleted', subject: `${slot.date} ${slot.time}` });
     res.status(204).end();
   });
 
@@ -1433,8 +1715,8 @@ export function adminRouter() {
    */
   router.post('/communities/:id/report', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const to = str(community.settings?.reportEmail);
     if (!to) return res.status(400).json({ error: 'Add the report email under Setup, save it, then try again.' });
     if (!emailConfigured()) {
@@ -1474,6 +1756,10 @@ export function adminRouter() {
       console.error(`Report sent for ${community.id} but the time could not be saved:`, err);
     }
     const { report } = sent;
+    await recordActivity(store, req, {
+      communityId: community.id, action: 'report.sent', subject: community.name,
+      detail: `to ${to}: ${report.comingUp.length + report.overdue.length} calls waiting, ${report.fresh.length} new, ${report.everyone} in all`,
+    });
     res.json({
       sent: true, to, at, ...(stamped ? {} : { notRecorded: true }),
       comingUp: report.comingUp.length, overdue: report.overdue.length, newPeople: report.fresh.length, everyone: report.everyone,
@@ -1509,8 +1795,8 @@ export function adminRouter() {
       return res.status(400).json({ error: `Choose an order: ${Object.keys(LEAD_SORTS).join(', ')}.` });
     }
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
     const hold = reserve([[pdfBurst, community.id]]);
     if (hold.wait) {
       res.set('Retry-After', String(hold.wait));
@@ -1525,8 +1811,8 @@ export function adminRouter() {
   /** One person's report as a PDF: contact, what they agreed to, their homes and plan, and everything they did. */
   router.get('/leads/:id/report.pdf', async (req, res) => {
     const store = await getStore();
-    const lead = await store.getLead(req.params.id);
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    const lead = await leadOf(req, res, store);
+    if (!lead) return;
     const hold = reserve([[pdfBurst, lead.communityId]]);
     if (hold.wait) {
       res.set('Retry-After', String(hold.wait));
@@ -1541,6 +1827,8 @@ export function adminRouter() {
 
   router.get('/communities/:id/leads', async (req, res) => {
     const store = await getStore();
+    // Read by the id alone, like the slots, so the check is on the id itself.
+    if (!allowed(req, res, req.params.id)) return;
     // `callLate`: a call still waiting whose day has passed, by the same day the reports and the Today page count
     // in (REPORT_TIME_ZONE), so the Leads list cannot call a request late when they do not, whatever the device's clock says.
     const today = reportDay();
@@ -1553,11 +1841,12 @@ export function adminRouter() {
    * Reading a lead is what marks it read — there is no other caller, and the
    * only way to reach this is an admin opening that lead's screen. Stamped once
    * and never moved, so "unread" cannot come back and the badge stays honest.
+   * The stamp is a read receipt, not a change the owner oversees, so it writes no activity line.
    */
   router.get('/leads/:id', async (req, res) => {
     const store = await getStore();
-    const lead = await store.getLead(req.params.id);
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    const lead = await leadOf(req, res, store);
+    if (!lead) return;
     if (lead.openedAt) return res.json(lead);
     res.json(await store.updateLead(lead.id, { openedAt: new Date().toISOString() }));
   });
@@ -1571,8 +1860,8 @@ export function adminRouter() {
    */
   router.get('/leads/:id/consents', async (req, res) => {
     const store = await getStore();
-    const lead = await store.getLead(req.params.id);
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    const lead = await leadOf(req, res, store);
+    if (!lead) return;
     res.json(await store.listConsents(lead.id));
   });
 
@@ -1582,8 +1871,8 @@ export function adminRouter() {
    */
   router.get('/leads/:id/mismo', async (req, res) => {
     const store = await getStore();
-    const lead = await store.getLead(req.params.id);
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    const lead = await leadOf(req, res, store);
+    if (!lead) return;
     const community = await store.getCommunity(lead.communityId);
     // The home their plan names, or the first one they starred: either way a
     // home they chose, which is what makes its price the sales price.
@@ -1600,17 +1889,24 @@ export function adminRouter() {
 
   router.patch('/leads/:id', async (req, res) => {
     const store = await getStore();
-    const lead = await store.getLead(req.params.id);
-    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    const lead = await leadOf(req, res, store);
+    if (!lead) return;
     const patch = {};
+    // What this save did, in the words the Leads page uses, for the owner's log.
+    const did = [];
     if (req.body?.status !== undefined && ['new', 'contacted'].includes(req.body.status)) {
       patch.status = req.body.status;
+      did.push(patch.status === 'contacted' ? 'marked contacted' : 'marked new');
     }
-    if (req.body?.notes !== undefined) patch.notes = String(req.body.notes).slice(0, 4000);
+    if (req.body?.notes !== undefined) {
+      patch.notes = String(req.body.notes).slice(0, 4000);
+      did.push('changed the notes');
+    }
     // Archiving is reversible and never deletes: a buyer who went quiet this
     // spring is the same buyer who calls back in the autumn.
     if (req.body?.archived !== undefined) {
       patch.archivedAt = req.body.archived ? new Date().toISOString() : null;
+      did.push(req.body.archived ? 'closed' : 'reopened');
     }
     // Clearing the call request is what keeps the badge meaningful: handled
     // requests stop counting, but the request itself stays on the record.
@@ -1619,8 +1915,11 @@ export function adminRouter() {
         ...lead.tour,
         handledAt: req.body.tourHandled ? new Date().toISOString() : null,
       };
+      did.push(req.body.tourHandled ? 'call handled' : 'call reopened');
     }
-    res.json(await store.updateLead(lead.id, patch));
+    const updated = await store.updateLead(lead.id, patch);
+    await recordActivity(store, req, { communityId: lead.communityId, action: 'lead.updated', subject: lead.name, detail: did.join(', ') });
+    res.json(updated);
   });
 
   return router;

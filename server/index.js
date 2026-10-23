@@ -7,7 +7,7 @@ import express from 'express';
 
 import { getStore } from './db/index.js';
 import { seedIfEmpty } from './db/seed.js';
-import { forgetAdminSessions, hashPassword, requireAdmin, verifyPassword } from './lib/auth.js';
+import { forgetAdminAccess, forgetAdminSessions, hashPassword, requireAdmin, roleOf, verifyPassword } from './lib/auth.js';
 import { bootWarnings } from './lib/bootcheck.js';
 import { hasControlCharacter } from './lib/params.js';
 import { originOfRequest, pinnedOrigin, renderBuyerPage, unavailablePage } from './lib/ssr.js';
@@ -287,20 +287,29 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
  *
  * The same rule means the account comes back on the next start if it was removed from the Team page, which is
  * why the Team routes refuse to remove it while both variables are set, and say what to change instead.
+ *
+ * The ADMIN_EMAIL account is also the owner (see server/lib/access.js), and this is where that is set, at every
+ * start: the account that existed before roles did becomes the owner on the first start after they shipped, and
+ * nothing in the app can take the role away. With ADMIN_EMAIL unset and no owner at all (a local file store from
+ * before roles, a deploy that cleared the variables), the oldest account is made the owner instead, so a store is
+ * never left with members only and nobody able to make a community or share one.
  */
 export async function ensureAdmin(store) {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
-  if (!email || !password) {
-    if (!(await store.countAdmins())) {
-      console.warn('No admin account yet — set ADMIN_EMAIL and ADMIN_PASSWORD to create one.');
-    }
-    return;
+  if (email && password) await ensureBootstrapAccount(store, email, password);
+  else if (!(await store.countAdmins())) {
+    console.warn('No admin account yet — set ADMIN_EMAIL and ADMIN_PASSWORD to create one.');
   }
+  await ensureOwner(store, email);
+}
+
+/** The ADMIN_EMAIL account, made or brought up to date with ADMIN_PASSWORD; see ensureAdmin. */
+async function ensureBootstrapAccount(store, email, password) {
   const admin = await store.getAdminByEmail(email);
   if (!admin) {
     const passwordHash = hashPassword(password);
-    await store.createAdmin({ email, passwordHash, bootPasswordHash: passwordHash });
+    await store.createAdmin({ email, passwordHash, bootPasswordHash: passwordHash, role: 'owner' });
     console.log(`Admin account created: ${email}`);
     return;
   }
@@ -324,6 +333,24 @@ export async function ensureAdmin(store) {
   // a password, and the session check hears about it from all three.
   forgetAdminSessions(admin.id);
   console.log(`Admin password reset from ADMIN_PASSWORD: ${email}. Every earlier sign-in has ended.`);
+}
+
+/**
+ * Makes sure somebody is the owner: the ADMIN_EMAIL account when `email` names one that exists (whether or not
+ * ADMIN_PASSWORD is set beside it), otherwise the oldest account, and only when no account is the owner yet.
+ * An account that is already the owner is left alone, and so is everyone else's role.
+ */
+async function ensureOwner(store, email) {
+  const admins = await store.listAdmins();
+  const bootstrap = email ? admins.find((a) => a.email.toLowerCase() === email.toLowerCase()) : null;
+  const owner = bootstrap ?? (admins.some((a) => roleOf(a) === 'owner') ? null : admins[0]);
+  if (!owner || roleOf(owner) === 'owner') return;
+  await store.updateAdmin(owner.id, { role: 'owner' });
+  // The row changed under a session that may already be cached as a member on this instance.
+  forgetAdminAccess(owner.id);
+  console.log(bootstrap
+    ? `${owner.email} is the owner (ADMIN_EMAIL).`
+    : `${owner.email} is the owner: no account was, and ADMIN_EMAIL is not set, so the oldest one is.`);
 }
 
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;

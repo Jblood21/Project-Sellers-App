@@ -10,6 +10,7 @@ import { useAdmin } from '../AdminContext.jsx';
 import AdminShell from '../shell/AdminShell.jsx';
 import NavIcon from '../shell/navIcons.jsx';
 import { ErrorNote, Spinner } from '../ui.jsx';
+import ActivityRows from './ActivityRows.jsx';
 import NewCommunityDialog from './NewCommunityDialog.jsx';
 import ReadyToCall from './ReadyToCall.jsx';
 
@@ -91,18 +92,33 @@ function CommunityCover({ community }) {
 
 /**
  * Where the admin opens: the counts that need a person today, the communities, and under them the calls waiting and
- * the people who agreed to calls without booking one, across every community.
+ * the people who agreed to calls without booking one, across every community this person has. The server answers
+ * with the owner's every community, or the ones a member was given, so the page shows what it is sent; what is the
+ * owner's alone (New community, and the card of what the team has been doing) is kept from a member here.
  */
 export default function Today() {
-  const { token } = useAdmin();
+  const { token, isOwner } = useAdmin();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [params, setParams] = useSearchParams();
-  const creating = params.get('new') === '1';
+  // The last few things the team changed, for the owner's card; null until they have arrived.
+  const [activity, setActivity] = useState(null);
+  const creating = params.get('new') === '1' && isOwner;
 
   useEffect(() => {
     adminApi.today(token).then(setData).catch((err) => setError(err.message));
   }, [token]);
+
+  // Asked for only as the owner (the server refuses it to anyone else), and the card stays away when it fails or
+  // there is nothing yet: Today is about what needs a person, not about an empty log.
+  useEffect(() => {
+    if (!isOwner) return undefined;
+    let cancelled = false;
+    adminApi.activity(token, { limit: 5 }).then((page) => !cancelled && setActivity(page.entries ?? [])).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isOwner]);
 
   const closeNew = () => setParams({}, { replace: true });
   const totals = data?.totals;
@@ -143,12 +159,21 @@ export default function Today() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '0 0 10px' }}>
             <h2 className="as-section-title" style={{ margin: 0 }}>Your communities</h2>
-            <Link className="btn btn-primary" to="/admin?new=1"><NavIcon name="plus" size={16} /> New community</Link>
+            {isOwner ? <Link className="btn btn-primary" to="/admin?new=1"><NavIcon name="plus" size={16} /> New community</Link> : null}
           </div>
           {data.communities.length === 0 ? (
             <div className="as-empty">
-              <strong>No communities yet.</strong>
-              <span>Create your first one to get its QR code, buyer app and lead list.</span>
+              {isOwner ? (
+                <>
+                  <strong>No communities yet.</strong>
+                  <span>Create your first one to get its QR code, buyer app and lead list.</span>
+                </>
+              ) : (
+                <>
+                  <strong>No communities have been shared with you yet.</strong>
+                  <span>When the owner gives you one, it shows up here.</span>
+                </>
+              )}
             </div>
           ) : (
             <div className="as-cards">
@@ -179,6 +204,16 @@ export default function Today() {
               ))}
             </div>
           )}
+
+          {isOwner && activity?.length ? (
+            <section className="card elev-sm as-activity" aria-labelledby="team-activity">
+              <div className="as-activity__head">
+                <h2 className="card-title" id="team-activity">Team activity</h2>
+                <Link className="btn btn-link" to="/admin/activity">All activity</Link>
+              </div>
+              <ActivityRows entries={activity} compact />
+            </section>
+          ) : null}
 
           <h2 className="as-section-title" style={{ marginTop: 28 }}>Calls waiting</h2>
           {data.calls.length === 0 ? (

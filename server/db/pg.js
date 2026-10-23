@@ -10,11 +10,14 @@ import { loadDefaultGuides } from '../lib/guides.js';
 import { FIGURES_REFRESH, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
+  guideRowFromDefault, shapeAdminActivity, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
   shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
+// The log's cursor is a row's created_at at the microsecond Postgres keeps, not the millisecond a Date holds:
+// rounded, the rows written in the same millisecond as the last one shown would fall between two pages.
+const ACTIVITY_CURSOR = `to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
 export function createPostgresStore(connectionString) {
   const pool = new pg.Pool({
@@ -351,24 +354,26 @@ export function createPostgresStore(connectionString) {
      * A new account: the bootstrap owner from the environment, or someone invited from the Team page, whose
      * `invitedAt` marks the row as waiting for its password. An address that already has a row takes the new
      * password and marks instead of raising, which is what boot wants; the invite route looks the address up
-     * first and refuses one that is taken, so it never arrives here.
+     * first and refuses one that is taken, so it never arrives here. `role` is 'owner' or 'member'; left out,
+     * a new row is a member and an existing one keeps the role it has.
      */
-    async createAdmin({ email, passwordHash, bootPasswordHash = null, invitedAt = null }) {
+    async createAdmin({ email, passwordHash, bootPasswordHash = null, invitedAt = null, role = null }) {
       const { rows } = await q(
-        `INSERT INTO admin_users (id, email, password_hash, boot_password_hash, invited_at) VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO admin_users (id, email, password_hash, boot_password_hash, invited_at, role)
+         VALUES ($1, $2, $3, $4, $5, coalesce($6, 'member'))
          ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, boot_password_hash = EXCLUDED.boot_password_hash,
-           invited_at = EXCLUDED.invited_at
+           invited_at = EXCLUDED.invited_at, role = coalesce($6, admin_users.role)
          RETURNING *`,
-        [uuid(), email, passwordHash, bootPasswordHash, invitedAt],
+        [uuid(), email, passwordHash, bootPasswordHash, invitedAt, role],
       );
       return rows[0];
     },
     /**
      * Changes what is given and nothing else: the password (with the moment it changed, which is what ends
-     * the sessions issued before it), the record of the ADMIN_PASSWORD applied at boot, or the invitation
-     * stamp (null once a password is set). The row, or null.
+     * the sessions issued before it), the record of the ADMIN_PASSWORD applied at boot, the invitation
+     * stamp (null once a password is set), or the role. The row, or null.
      */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role } = {}) {
       const sets = [];
       const params = [id];
       const set = (column, value) => {
@@ -379,6 +384,7 @@ export function createPostgresStore(connectionString) {
       if (passwordChangedAt !== undefined) set('password_changed_at', passwordChangedAt);
       if (bootPasswordHash !== undefined) set('boot_password_hash', bootPasswordHash);
       if (invitedAt !== undefined) set('invited_at', invitedAt);
+      if (role !== undefined) set('role', role);
       if (!sets.length) return this.getAdminById(id);
       const { rows } = await q(`UPDATE admin_users SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, params);
       return rows[0] || null;
@@ -398,6 +404,88 @@ export function createPostgresStore(connectionString) {
         const { rowCount } = await db.query(`DELETE FROM admin_users WHERE id = $1`, [id]);
         return rowCount > 0;
       });
+    },
+
+    // ── which communities a member may see ───────────────────────────────
+    // The owner has every community by role and is never listed here; see admin_communities in schema.sql.
+    /** The ids of the communities shared with this admin, in the order the communities were made. */
+    async listAdminCommunities(adminId) {
+      const { rows } = await q(
+        `SELECT ac.community_id FROM admin_communities ac JOIN communities c ON c.id = ac.community_id
+          WHERE ac.admin_id = $1 ORDER BY c.created_at, c.id`,
+        [adminId],
+      );
+      return rows.map((r) => r.community_id);
+    },
+    /** Every assignment at once, for the Team page: [{ adminId, communityId }], in the same order per admin. */
+    async listAdminAssignments() {
+      const { rows } = await q(
+        `SELECT ac.admin_id, ac.community_id FROM admin_communities ac JOIN communities c ON c.id = ac.community_id
+          ORDER BY c.created_at, c.id`,
+      );
+      return rows.map((r) => ({ adminId: r.admin_id, communityId: r.community_id }));
+    },
+    /**
+     * Makes `communityIds` the whole of what this admin may see: what was there goes, what is given comes, in
+     * one transaction so a request in between never sees half a list. An id with no community row is ignored
+     * rather than refused (the owner may have deleted it a moment ago), and the ids kept are returned.
+     */
+    async setAdminCommunities(adminId, communityIds) {
+      return inTransaction(async (db) => {
+        await db.query(`DELETE FROM admin_communities WHERE admin_id = $1`, [adminId]);
+        await db.query(
+          `INSERT INTO admin_communities (admin_id, community_id)
+           SELECT $1, id FROM communities WHERE id = ANY($2::text[]) ON CONFLICT DO NOTHING`,
+          [adminId, [...new Set(communityIds)]],
+        );
+        const { rows } = await db.query(
+          `SELECT ac.community_id FROM admin_communities ac JOIN communities c ON c.id = ac.community_id
+            WHERE ac.admin_id = $1 ORDER BY c.created_at, c.id`,
+          [adminId],
+        );
+        return rows.map((r) => r.community_id);
+      });
+    },
+
+    // ── what each admin did ──────────────────────────────────────────────
+    // One row per change made through the admin; see admin_activity in schema.sql for why rows outlive both
+    // the admin and the community they name.
+    async addAdminActivity({ adminId, adminEmail, communityId = null, action, subject = '', detail = '' }) {
+      const { rows } = await q(
+        `WITH written AS (
+           INSERT INTO admin_activity (id, admin_id, admin_email, community_id, action, subject, detail)
+           VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
+         )
+         SELECT a.*, c.name AS community_name, ${ACTIVITY_CURSOR} AS cursor
+           FROM written a LEFT JOIN communities c ON c.id = a.community_id`,
+        [`act_${shortId(12)}`, adminId, adminEmail ?? '', communityId, action, subject, detail],
+      );
+      return shapeAdminActivity(rows[0]);
+    },
+    /**
+     * The log, newest first, with each row's community as it is named now (null once deleted). `adminId` and
+     * `communityId` narrow it to one person or one community; `before` is a row's cursor, and only the rows
+     * older than it come back; `limit` caps the page.
+     */
+    async listAdminActivity({ adminId = null, communityId = null, before = null, limit = 50 } = {}) {
+      const where = [];
+      const params = [];
+      const add = (clause, value) => {
+        params.push(value);
+        where.push(clause.replace('?', `$${params.length}`));
+      };
+      if (adminId) add('a.admin_id = ?', adminId);
+      if (communityId) add('a.community_id = ?', communityId);
+      if (before) add('a.created_at < ?::timestamptz', before);
+      params.push(limit);
+      const { rows } = await q(
+        `SELECT a.*, c.name AS community_name, ${ACTIVITY_CURSOR} AS cursor
+           FROM admin_activity a LEFT JOIN communities c ON c.id = a.community_id
+          ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+          ORDER BY a.created_at DESC, a.id DESC LIMIT $${params.length}`,
+        params,
+      );
+      return rows.map(shapeAdminActivity);
     },
 
     // ── password reset links ─────────────────────────────────────────────
@@ -714,6 +802,23 @@ export function createPostgresStore(connectionString) {
     async getPhotoInfo(id) {
       const { rows } = await q(`SELECT id, content_type, url FROM photos WHERE id = $1`, [id]);
       return rows[0] || null;
+    },
+
+    /**
+     * Whose picture this is: the community, and the home, highlight, realtor or guide it hangs off (null for
+     * community artwork), with its kind. What the admin's delete route needs to know whether the caller may
+     * remove it and what to call it in the log; the bytes stay where they are.
+     */
+    async getPhotoOwner(id) {
+      const { rows } = await q(
+        `SELECT id, community_id, home_id, highlight_id, agent_id, guide_id, kind FROM photos WHERE id = $1`, [id],
+      );
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        id: row.id, communityId: row.community_id, homeId: row.home_id ?? null, highlightId: row.highlight_id ?? null,
+        agentId: row.agent_id ?? null, guideId: row.guide_id ?? null, kind: row.kind,
+      };
     },
 
     async deletePhoto(id) {

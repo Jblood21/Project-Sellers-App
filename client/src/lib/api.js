@@ -132,6 +132,7 @@ export const buyerApi = {
 // ── admin ─────────────────────────────────────────────────────────────────
 export const adminApi = {
   login: (email, password) => request('/api/admin/login', { method: 'POST', body: { email, password } }),
+  // { id, email, role }: role is 'owner' for the account ADMIN_EMAIL names and 'member' for anyone invited.
   me: (token) => request('/api/admin/me', { token }),
   // The answer is the same whether or not the address has an account; the server says so in `message`.
   forgotPassword: (email) => request('/api/admin/password/forgot', { method: 'POST', body: { email } }),
@@ -144,10 +145,26 @@ export const adminApi = {
   team: (token) => request('/api/admin/team', { token }),
   // Makes the account and emails a set-password link. Answers { admin, sent } and, when the email did not go
   // (email off on the site, or the provider refused it), `reason` says why; the account exists either way.
-  inviteAdmin: (token, email) => request('/api/admin/team/invites', { method: 'POST', body: { email }, token }),
+  // `communityIds` are the communities the new person can open from the start; none is fine, and the owner can
+  // change the set on the Team page later.
+  inviteAdmin: (token, email, communityIds = []) =>
+    request('/api/admin/team/invites', { method: 'POST', body: { email, communityIds }, token }),
   resendInvite: (token, id) =>
     request(`/api/admin/team/invites/${encodeURIComponent(id)}/resend`, { method: 'POST', body: {}, token }),
   removeAdmin: (token, id) => request(`/api/admin/team/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // Replaces a member's set of communities. The owner has every community and no set to replace (a 400).
+  setAdminCommunities: (token, id, communityIds) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/communities`, { method: 'PUT', body: { communityIds }, token }),
+  // ── the activity log: what everyone has changed, newest first (the owner only) ──
+  // Answers { entries, nextBefore }; `before` is the last page's nextBefore, for the page after it.
+  activity: (token, { adminId = '', communityId = '', before = '', limit = 50 } = {}) => {
+    const query = new URLSearchParams();
+    if (adminId) query.set('adminId', adminId);
+    if (communityId) query.set('communityId', communityId);
+    if (before) query.set('before', before);
+    query.set('limit', String(limit));
+    return request(`/api/admin/activity?${query}`, { token });
+  },
   communities: (token) => request('/api/admin/communities', { token }),
   today: (token) => request('/api/admin/today', { token }),
   community: (token, id) => request(`/api/admin/communities/${encodeURIComponent(id)}`, { token }),
