@@ -314,3 +314,19 @@ export function guideRowFromDefault(def, slug, position) {
     position,
   };
 }
+
+/**
+ * A password reset link's record as the routes read it, from either store: the Postgres row (snake_case,
+ * Date stamps) or the file store's own (camelCase, ISO strings). The token's hash stays behind: the
+ * routes never need it back, and leaving it out keeps it out of anything that might print the record.
+ */
+export function shapePasswordReset(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    adminId: row.admin_id ?? row.adminId,
+    expiresAt: row.expires_at ?? row.expiresAt,
+    usedAt: row.used_at ?? row.usedAt ?? null,
+    createdAt: row.created_at ?? row.createdAt,
+  };
+}

@@ -118,7 +118,8 @@ characters; every body a stranger can send (the buyer app and the sign-in form) 
 `/api/admin` is read until the caller has signed in. Requests are counted in memory per visitor (an address; an IPv6 block counts as
 one) and, where there is one, per person (`server/lib/limits.js`). Admin sign-in: 8 wrong passwords per address and email per 15 minutes, 30 per address, 60
 per email from anywhere (a right password gives its own count back, and guesses sent all at once are held before the
-account is looked up). Buyers: 400 sign-up attempts an hour per address and 8 per address and email; 5 plan emails a day
+account is looked up); password reset links: 3 requests per inbox and 10 per address in 15 minutes, and 10 tries at a
+link per address. Buyers: 400 sign-up attempts an hour per address and 8 per address and email; 5 plan emails a day
 per buyer and 5 a day to any one inbox (`name+anything@` counts as `name@`), 2 a day to any one inbox for a copy sent to a second address,
 and 30 an hour per address, counted once per message sent (a send that fails does not count); "Find out if you qualify" messages: one
 every 20 seconds, 3 an hour per buyer, 20 an hour per address and 300 an hour per community; 12 booking attempts an
@@ -134,6 +135,31 @@ The file at its *current* version is cached for a year; a replacement moves the 
 with no version, or an old one, still gets the file as it is now but is `no-cache`. Uploads are capped at 25 MB (about 12 to 25
 seconds of phone video) and travel as base64 inside JSON, so only the admin routes that take one accept a body bigger than 6 MB,
 and only after sign-in; for anything longer, paste a YouTube or Vimeo link (a home's own link field is on the Homes tab; the Learn tab takes the community's videos).
+
+## Resetting the admin password
+
+Three ways, from the everyday one to the one for when nothing else works.
+
+- **Forgot your password?** on the sign-in page. Type the email the account is under and the app sends a link to
+  `/admin/reset?token=…` (subject "Reset your Touradoor password"). The link works once, for 30 minutes; opening it
+  asks for a new password (at least 10 characters, no other rule) and signs you in with it. The page answers the same
+  sentence whether or not the address has an account, the email is the only place the link ever appears, and the
+  database keeps only a hash of it. Asking again replaces the earlier link. Three requests per inbox and ten per
+  address in 15 minutes. It needs email to be on (`RESEND_API_KEY`); without it the server logs a warning and nothing
+  is sent.
+- **Change password**, under your email in the admin's side menu (on a phone, the key icon at the top of Today, or
+  **More** on a community). It asks for the current password and the new one twice. A wrong current password counts
+  like a wrong sign-in.
+- **`ADMIN_PASSWORD` in the Render dashboard** (Environment), for when the email cannot reach you. Set it to a *new*
+  value; the service restarts and that is the password. The app remembers the value it applied, so leaving the
+  variable set does not put the old password back over one you later changed in the app: only a value it has not seen
+  before resets anything. Clearing the variable afterwards is fine but not needed.
+
+Whichever way the password changes, every session signed in with the old one ends (on the next request, within 30
+seconds): a phone that stayed signed in, a shared computer. The tab that made the change stays signed in. The sign-in
+tokens carry the moment they were issued, and the server refuses one issued before the password last changed; a device
+that was still signed in is put back on the sign-in page the next time it asks the server for anything, with a line
+saying why.
 
 ## Deploying to Render
 
@@ -452,7 +478,11 @@ through Postgres under UTC−6, UTC+12 and UTC and asserts the date never moves.
 
 ## Email
 
-Three messages — the app is deliberately quiet.
+Four messages — the app is deliberately quiet.
+
+- **The owner asks for a password reset link** → one plain-text email to the account's own address, with the link and
+  how long it lasts (see [Resetting the admin password](#resetting-the-admin-password)). Nothing goes to an address
+  that has no account, and the form says the same thing either way.
 
 - **A buyer asks for a call** → the builder is emailed straight away, with the phone
   number first (a buyer who signed up without one is asked for it in the booking sheet before
@@ -945,7 +975,7 @@ shared/photoSizes.js the widths a photo is served at, and the srcset that lists 
 server/
   index.js           Express app, static hosting, SPA fallback, PWA manifests, security headers
   db/                Postgres store, JSON-file store, schema, demo seed
-  lib/               password hashing, session tokens, id generation, the supplied guides (guides.js),
+  lib/               password hashing, session tokens and reset links (auth.js), id generation, the supplied guides (guides.js),
                      server-rendered page heads (ssr.js), right-sized photo copies (photoSizes.js)
   content/guides/    the thirteen supplied buyer guides, as markdown
   routes/            buyer API, admin API, rate webhook

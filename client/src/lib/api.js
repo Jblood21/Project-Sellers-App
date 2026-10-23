@@ -12,6 +12,18 @@ const PROXY_ANSWERS = {
   524: 'The server took too long to answer. Try again, or try a smaller file.',
 };
 
+// What to do when the server refuses a token as not signed in (a 401 to a request that carried one):
+// the admin app registers a function that ends its session, so a device still holding a token from
+// before a password change is put back on the sign-in form by its next request, not left on a page
+// that cannot load. A wrong password at sign-in is a 401 too, but that request carries no token.
+let sessionRefused = null;
+export function onSessionRefused(fn) {
+  sessionRefused = fn;
+  return () => {
+    if (sessionRefused === fn) sessionRefused = null;
+  };
+}
+
 async function request(path, { method = 'GET', body, token } = {}) {
   let res;
   try {
@@ -37,6 +49,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
     data = null;
   }
   if (!res.ok) {
+    if (res.status === 401 && token) sessionRefused?.(token);
     const error = new Error(data?.error || PROXY_ANSWERS[res.status] || `Something went wrong (${res.status}). Try again in a moment.`);
     error.status = res.status;
     throw error;
@@ -58,6 +71,7 @@ async function saveFile(path, token, { fallbackName, failure, type = '' }) {
     throw new Error('We couldn’t connect. Check your connection and try again.');
   }
   if (!res.ok) {
+    if (res.status === 401) sessionRefused?.(token);
     let said = '';
     try {
       said = (await res.json())?.error ?? '';
@@ -119,6 +133,13 @@ export const buyerApi = {
 export const adminApi = {
   login: (email, password) => request('/api/admin/login', { method: 'POST', body: { email, password } }),
   me: (token) => request('/api/admin/me', { token }),
+  // The answer is the same whether or not the address has an account; the server says so in `message`.
+  forgotPassword: (email) => request('/api/admin/password/forgot', { method: 'POST', body: { email } }),
+  // Answers with a session ({ token, admin }) so the page can sign the owner straight in.
+  resetPassword: (token, password) => request('/api/admin/password/reset', { method: 'POST', body: { token, password } }),
+  // Also answers with a fresh session for this tab; every other one ends.
+  changePassword: (token, currentPassword, password) =>
+    request('/api/admin/password/change', { method: 'POST', body: { currentPassword, password }, token }),
   communities: (token) => request('/api/admin/communities', { token }),
   today: (token) => request('/api/admin/today', { token }),
   community: (token, id) => request(`/api/admin/communities/${encodeURIComponent(id)}`, { token }),

@@ -178,3 +178,23 @@ export async function emailLoanTeam({ community, lead, to, name, email, message,
     replyTo: clean(email),
   });
 }
+
+/**
+ * The link that lets the owner choose a new admin password, sent only to the address the account is
+ * under. It says what the link does, how long it is good for and what to do if they never asked, and
+ * nothing about the account beyond that: the same email goes out whether the request was theirs or
+ * somebody typing their address into the form. Plain text, like everything else the app sends.
+ */
+export async function sendPasswordReset({ to, link }) {
+  const text = [
+    'Hi,',
+    '',
+    'Somebody asked to reset the password for the Touradoor admin account at this address. If that was you, open this link and choose a new one:',
+    '',
+    `  ${link}`,
+    '',
+    'The link works once, for 30 minutes. If you did not ask for this, ignore it: your password stays as it is, and nothing changes without this email.',
+  ].join('\n');
+
+  return sendEmail({ to, subject: 'Reset your Touradoor password', text });
+}

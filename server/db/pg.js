@@ -11,7 +11,7 @@ import { FIGURES_REFRESH, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
-  shapeMoveIn, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
+  shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -338,14 +338,70 @@ export function createPostgresStore(connectionString) {
       const { rows } = await q(`SELECT * FROM admin_users WHERE lower(email) = lower($1)`, [email]);
       return rows[0] || null;
     },
-    async createAdmin({ email, passwordHash }) {
+    async getAdminById(id) {
+      const { rows } = await q(`SELECT * FROM admin_users WHERE id = $1`, [id]);
+      return rows[0] || null;
+    },
+    async createAdmin({ email, passwordHash, bootPasswordHash = null }) {
       const { rows } = await q(
-        `INSERT INTO admin_users (id, email, password_hash) VALUES ($1, $2, $3)
-         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+        `INSERT INTO admin_users (id, email, password_hash, boot_password_hash) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, boot_password_hash = EXCLUDED.boot_password_hash
          RETURNING *`,
-        [uuid(), email, passwordHash],
+        [uuid(), email, passwordHash, bootPasswordHash],
       );
       return rows[0];
+    },
+    /**
+     * Changes what is given and nothing else: the password (with the moment it changed, which is what ends
+     * the sessions issued before it), or the record of the ADMIN_PASSWORD applied at boot. The row, or null.
+     */
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash } = {}) {
+      const sets = [];
+      const params = [id];
+      const set = (column, value) => {
+        params.push(value);
+        sets.push(`${column} = $${params.length}`);
+      };
+      if (passwordHash !== undefined) set('password_hash', passwordHash);
+      if (passwordChangedAt !== undefined) set('password_changed_at', passwordChangedAt);
+      if (bootPasswordHash !== undefined) set('boot_password_hash', bootPasswordHash);
+      if (!sets.length) return this.getAdminById(id);
+      const { rows } = await q(`UPDATE admin_users SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, params);
+      return rows[0] || null;
+    },
+
+    // ── password reset links ─────────────────────────────────────────────
+    // Only the hash of a link's token is ever here; see admin_password_resets in schema.sql.
+    /** Records a new link for the admin and forgets every earlier one, so only the newest email works. */
+    async createPasswordReset({ adminId, tokenHash, expiresAt }) {
+      return inTransaction(async (db) => {
+        await db.query(`DELETE FROM admin_password_resets WHERE admin_id = $1`, [adminId]);
+        const { rows } = await db.query(
+          `INSERT INTO admin_password_resets (id, admin_id, token_hash, expires_at) VALUES ($1, $2, $3, $4) RETURNING *`,
+          [`pr_${shortId(12)}`, adminId, tokenHash, expiresAt],
+        );
+        return shapePasswordReset(rows[0]);
+      });
+    },
+    async getPasswordReset(tokenHash) {
+      const { rows } = await q(`SELECT * FROM admin_password_resets WHERE token_hash = $1`, [tokenHash]);
+      return shapePasswordReset(rows[0] ?? null);
+    },
+    /**
+     * Marks the link used, as of `usedAt`, and forgets the admin's other links. Null when it was already
+     * used: two requests carrying the same link at once can both find it unused, and the UPDATE's own
+     * condition is what lets only one of them through.
+     */
+    async usePasswordReset(id, usedAt) {
+      return inTransaction(async (db) => {
+        const { rows } = await db.query(
+          `UPDATE admin_password_resets SET used_at = $2 WHERE id = $1 AND used_at IS NULL RETURNING *`,
+          [id, usedAt],
+        );
+        if (!rows[0]) return null;
+        await db.query(`DELETE FROM admin_password_resets WHERE admin_id = $1 AND id <> $2`, [rows[0].admin_id, id]);
+        return shapePasswordReset(rows[0]);
+      });
     },
 
     // ── communities ──────────────────────────────────────────────────────

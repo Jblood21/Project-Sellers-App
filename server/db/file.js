@@ -10,13 +10,13 @@ import { FIGURES_REFRESH, needsRefresh, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
   guideRowFromDefault, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
-  shapeMoveIn, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
+  shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
-  consents: [], agents: [], guides: [], communitySlugs: [],
+  consents: [], agents: [], guides: [], communitySlugs: [], passwordResets: [],
 };
 
 /**
@@ -205,17 +205,57 @@ export function createFileStore(path) {
     async getAdminByEmail(email) {
       return db.admins.find((a) => a.email.toLowerCase() === String(email).toLowerCase()) || null;
     },
-    async createAdmin({ email, passwordHash }) {
+    async getAdminById(id) {
+      return db.admins.find((a) => a.id === id) || null;
+    },
+    async createAdmin({ email, passwordHash, bootPasswordHash = null }) {
       const existing = await this.getAdminByEmail(email);
       if (existing) {
         existing.password_hash = passwordHash;
+        existing.boot_password_hash = bootPasswordHash;
         save();
         return existing;
       }
-      const admin = { id: uuid(), email, password_hash: passwordHash, created_at: now() };
+      const admin = {
+        id: uuid(), email, password_hash: passwordHash, password_changed_at: null, boot_password_hash: bootPasswordHash, created_at: now(),
+      };
       db.admins.push(admin);
       save();
       return admin;
+    },
+    /** Changes what is given and nothing else; see the Postgres store. The row, or null. */
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash } = {}) {
+      const admin = await this.getAdminById(id);
+      if (!admin) return null;
+      if (passwordHash !== undefined) admin.password_hash = passwordHash;
+      // Kept as the ISO string every other stamp in this file is, whatever the caller handed over.
+      if (passwordChangedAt !== undefined) admin.password_changed_at = passwordChangedAt ? new Date(passwordChangedAt).toISOString() : null;
+      if (bootPasswordHash !== undefined) admin.boot_password_hash = bootPasswordHash;
+      save();
+      return admin;
+    },
+
+    // ── password reset links ─────────────────────────────────────────────
+    // Only the hash of a link's token is ever kept; see admin_password_resets in schema.sql.
+    async createPasswordReset({ adminId, tokenHash, expiresAt }) {
+      db.passwordResets = db.passwordResets.filter((r) => r.adminId !== adminId);
+      const row = {
+        id: `pr_${shortId(12)}`, adminId, tokenHash, expiresAt: new Date(expiresAt).toISOString(), usedAt: null, createdAt: now(),
+      };
+      db.passwordResets.push(row);
+      save();
+      return shapePasswordReset(row);
+    },
+    async getPasswordReset(tokenHash) {
+      return shapePasswordReset(db.passwordResets.find((r) => r.tokenHash === tokenHash) ?? null);
+    },
+    async usePasswordReset(id, usedAt) {
+      const row = db.passwordResets.find((r) => r.id === id);
+      if (!row || row.usedAt) return null;
+      row.usedAt = new Date(usedAt).toISOString();
+      db.passwordResets = db.passwordResets.filter((r) => r.id === id || r.adminId !== row.adminId);
+      save();
+      return shapePasswordReset(row);
     },
 
     async listCommunities() {

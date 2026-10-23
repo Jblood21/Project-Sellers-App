@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { useAdmin } from '../AdminContext.jsx';
-import Wordmark from '../Wordmark.jsx';
+import AuthCard from './AuthCard.jsx';
 import { ErrorNote, TextField } from '../ui.jsx';
 
 export default function Login() {
-  const { signIn } = useAdmin();
+  const { signIn, sessionEnded } = useAdmin();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,25 +25,23 @@ export default function Login() {
     }
   };
 
+  // When the app itself put this form up (the server refused the session this tab held), the line under
+  // the heading says so, and the heading takes the keyboard so the reason is read out.
+  const blurb = sessionEnded
+    ? 'You were signed out: the password changed, or two weeks had passed. Sign in again.'
+    : 'Manage your communities, homes, buyer tools and leads.';
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <form className="card elev-sm" onSubmit={submit} style={{ width: '100%', maxWidth: 380, gap: 14, padding: 24 }}>
-        <span style={{ color: 'var(--color-accent)' }}>
-          <Wordmark size={22} />
-        </span>
-        <h2 style={{ margin: '6px 0 4px', fontSize: 24 }}>Sign in</h2>
-        <p className="text-muted" style={{ fontSize: 13, margin: '0 0 6px' }}>
-          Manage your communities, homes, buyer tools and leads.
-        </p>
-        <TextField label="Email" value={email} onChange={setEmail} type="email" autoComplete="username" />
-        <TextField
-          label="Password" value={password} onChange={setPassword} type="password" autoComplete="current-password"
-        />
-        <ErrorNote>{error}</ErrorNote>
-        <button type="submit" className="btn btn-primary btn-block" disabled={busy} style={{ marginTop: 6, minHeight: 46 }}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-    </div>
+    <AuthCard title="Sign in" blurb={blurb} onSubmit={submit} focusTitle={sessionEnded}>
+      <TextField label="Email" value={email} onChange={setEmail} type="email" autoComplete="username" />
+      <TextField
+        label="Password" value={password} onChange={setPassword} type="password" autoComplete="current-password"
+      />
+      <ErrorNote>{error}</ErrorNote>
+      <button type="submit" className="btn btn-primary btn-block" disabled={busy} style={{ marginTop: 6, minHeight: 46 }}>
+        {busy ? 'Signing in…' : 'Sign in'}
+      </button>
+      <Link to="/admin/forgot" className="btn btn-link btn-block" style={{ fontSize: 14 }}>Forgot your password?</Link>
+    </AuthCard>
   );
 }

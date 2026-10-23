@@ -103,6 +103,7 @@ test('the schema applies to a database created by an older release', opts, async
       ['homes', 'lot_number'], ['communities', 'features'],
       ['leads', 'opened_at'], ['leads', 'archived_at'], ['resources', 'updated_at'],
       ['communities', 'slug'], ['homes', 'video_link'], ['leads', 'extra_emails'],
+      ['admin_users', 'password_changed_at'], ['admin_users', 'boot_password_hash'],
     ]) {
       const added = await client.query(
         `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
@@ -112,6 +113,8 @@ test('the schema applies to a database created by an older release', opts, async
     }
     const slugs = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = 'community_slugs'`);
     assert.equal(slugs.rowCount, 1, 'and so does the table of every address a community has had');
+    const resets = await client.query(`SELECT 1 FROM pg_tables WHERE tablename = 'admin_password_resets'`);
+    assert.equal(resets.rowCount, 1, 'and the table of password reset links');
     await client.end();
   });
 });
