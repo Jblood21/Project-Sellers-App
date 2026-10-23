@@ -5,6 +5,7 @@ import CommunityDetail from './screens/CommunityDetail.jsx';
 import ForgotPassword from './screens/ForgotPassword.jsx';
 import Login from './screens/Login.jsx';
 import ResetPassword from './screens/ResetPassword.jsx';
+import Team from './screens/Team.jsx';
 import Today from './screens/Today.jsx';
 import { Spinner } from './ui.jsx';
 
@@ -37,6 +38,7 @@ function AdminRoutes() {
   return (
     <Routes>
       <Route index element={<Today />} />
+      <Route path="team" element={<Team />} />
       <Route path="communities/:communityId/*" element={<KeyedCommunity />} />
       <Route path="forgot" element={<ForgotPassword />} />
       <Route path="reset" element={<ResetPassword />} />

@@ -201,6 +201,12 @@ export function createFileStore(path) {
     async firstAdminEmail() {
       return db.admins[0]?.email ?? null;
     },
+    /** Every admin, oldest first, as the Postgres store orders them. Copies, so a caller cannot edit the file through them. */
+    async listAdmins() {
+      return [...db.admins]
+        .sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.email.localeCompare(b.email)))
+        .map((admin) => ({ ...admin }));
+    },
 
     async getAdminByEmail(email) {
       return db.admins.find((a) => a.email.toLowerCase() === String(email).toLowerCase()) || null;
@@ -208,31 +214,50 @@ export function createFileStore(path) {
     async getAdminById(id) {
       return db.admins.find((a) => a.id === id) || null;
     },
-    async createAdmin({ email, passwordHash, bootPasswordHash = null }) {
+    /** A new account, or the password and marks of one that exists; see the Postgres store. */
+    async createAdmin({ email, passwordHash, bootPasswordHash = null, invitedAt = null }) {
+      const stamp = invitedAt ? new Date(invitedAt).toISOString() : null;
       const existing = await this.getAdminByEmail(email);
       if (existing) {
         existing.password_hash = passwordHash;
         existing.boot_password_hash = bootPasswordHash;
+        existing.invited_at = stamp;
         save();
         return existing;
       }
       const admin = {
-        id: uuid(), email, password_hash: passwordHash, password_changed_at: null, boot_password_hash: bootPasswordHash, created_at: now(),
+        id: uuid(), email, password_hash: passwordHash, password_changed_at: null, boot_password_hash: bootPasswordHash,
+        invited_at: stamp, created_at: now(),
       };
       db.admins.push(admin);
       save();
       return admin;
     },
     /** Changes what is given and nothing else; see the Postgres store. The row, or null. */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt } = {}) {
       const admin = await this.getAdminById(id);
       if (!admin) return null;
       if (passwordHash !== undefined) admin.password_hash = passwordHash;
       // Kept as the ISO string every other stamp in this file is, whatever the caller handed over.
       if (passwordChangedAt !== undefined) admin.password_changed_at = passwordChangedAt ? new Date(passwordChangedAt).toISOString() : null;
       if (bootPasswordHash !== undefined) admin.boot_password_hash = bootPasswordHash;
+      if (invitedAt !== undefined) admin.invited_at = invitedAt ? new Date(invitedAt).toISOString() : null;
       save();
       return admin;
+    },
+    /**
+     * Removes the account and its reset links, as the Postgres table's cascade does, unless it is the last one: the
+     * count and the removal have no pause between them, so two removals at once cannot both get past the count.
+     * True when the row was deleted; false when it was the last one, or was not there.
+     */
+    async deleteAdmin(id) {
+      if (db.admins.length <= 1) return false;
+      const before = db.admins.length;
+      db.admins = db.admins.filter((a) => a.id !== id);
+      if (db.admins.length === before) return false;
+      db.passwordResets = db.passwordResets.filter((r) => r.adminId !== id);
+      save();
+      return true;
     },
 
     // ── password reset links ─────────────────────────────────────────────

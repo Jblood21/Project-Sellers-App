@@ -140,6 +140,14 @@ export const adminApi = {
   // Also answers with a fresh session for this tab; every other one ends.
   changePassword: (token, currentPassword, password) =>
     request('/api/admin/password/change', { method: 'POST', body: { currentPassword, password }, token }),
+  // ── the team: everyone who can sign in ──────────────────────────────────
+  team: (token) => request('/api/admin/team', { token }),
+  // Makes the account and emails a set-password link. Answers { admin, sent } and, when the email did not go
+  // (email off on the site, or the provider refused it), `reason` says why; the account exists either way.
+  inviteAdmin: (token, email) => request('/api/admin/team/invites', { method: 'POST', body: { email }, token }),
+  resendInvite: (token, id) =>
+    request(`/api/admin/team/invites/${encodeURIComponent(id)}/resend`, { method: 'POST', body: {}, token }),
+  removeAdmin: (token, id) => request(`/api/admin/team/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   communities: (token) => request('/api/admin/communities', { token }),
   today: (token) => request('/api/admin/today', { token }),
   community: (token, id) => request(`/api/admin/communities/${encodeURIComponent(id)}`, { token }),

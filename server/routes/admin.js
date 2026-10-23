@@ -11,7 +11,7 @@ import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customT
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, mailboxKey, reserve, tooMany } from '../lib/limits.js';
-import { rejectControlCharacters } from '../lib/params.js';
+import { hasControlCharacter, rejectControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
 import { buildReport, emailReport, reportDay } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
@@ -22,10 +22,10 @@ import {
 import { loadLenderBrand } from '../lib/lenderBrand.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
 import {
-  RESET_TTL_MS, forgetAdminSessions, hashPassword, hashResetToken, issueToken, newResetToken, passwordProblem,
-  requireAdmin, verifyPassword,
+  INVITE_TTL_MS, RESET_TTL_MS, forgetAdminSessions, hashPassword, hashResetToken, issueToken, newResetToken, passwordProblem,
+  requireAdmin, unusablePasswordHash, verifyPassword,
 } from '../lib/auth.js';
-import { sendPasswordReset } from '../lib/notify.js';
+import { sendAdminInvite, sendPasswordReset } from '../lib/notify.js';
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
@@ -413,7 +413,8 @@ export function adminRouter() {
     const changedAt = new Date();
     // The link is spent before the password changes: two requests carrying it at once get one change.
     if (!(await store.usePasswordReset(reset.id, changedAt))) return res.status(400).json({ error: BAD_LINK });
-    await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: changedAt });
+    // An invited account becomes an ordinary one here: the link in its invitation is a reset link too.
+    await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: changedAt, invitedAt: null });
     forgetAdminSessions(admin.id);
     // Whoever was guessing at this account was guessing the old password.
     const emailKey = admin.email.toLowerCase();
@@ -455,9 +456,137 @@ export function adminRouter() {
     if (problem) return res.status(400).json({ error: problem });
     const passwordHash = hashPassword(password);
     const changedAt = new Date();
-    await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: changedAt });
+    await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: changedAt, invitedAt: null });
     forgetAdminSessions(admin.id);
     return res.json({ token: issueToken(admin, { issuedAt: changedAt.getTime() }), admin: { id: admin.id, email: admin.email } });
+  });
+
+  // ── the team ─────────────────────────────────────────────────────────────
+  // Every admin is equal: anyone signed in can see who else is, invite someone and remove someone. An invite
+  // makes the account at once, with a password nobody holds, and emails a set-password link: the same link
+  // the forgot form sends, kept for seven days instead of thirty minutes, so the person signs in by choosing
+  // a password and nothing (no temporary password) ever travels in the mail. Until they do, the row is
+  // marked invited, the invite can be sent again, and a sign-in attempt at that address fails like any wrong
+  // password. The limits are per signed-in visitor: an admin is trusted, but a stuck button or a script on a
+  // signed-in tab should still not be able to fill strangers' mailboxes from the site's sending address.
+  const invitePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
+  const resendPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+  /**
+   * The address ensureAdmin (server/index.js) makes an account for at every start, while both variables are set.
+   * Removing that account here would hold only until the next deploy, when it would be back with ADMIN_PASSWORD,
+   * so its row says so, and a removal is refused with what to change instead. Read per request: the variables
+   * are the dashboard's, and the tests set them for a moment.
+   */
+  const bootstrapEmail = () => (
+    process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD ? process.env.ADMIN_EMAIL.toLowerCase() : null
+  );
+  const BOOTSTRAP_STAYS = 'That account is set by ADMIN_EMAIL in Render and would be made again at the next deploy. '
+    + 'Change or clear ADMIN_EMAIL and ADMIN_PASSWORD there first.';
+  /** An admin as the Team page shows it: never the hashes, and whether the invited person has set a password yet. */
+  const teamMember = (admin) => ({
+    id: admin.id,
+    email: admin.email,
+    createdAt: admin.created_at,
+    // Set until a password is chosen, by whichever link; the page says "Invited" and offers to resend.
+    invitedAt: admin.invited_at ?? null,
+    passwordSet: !admin.invited_at,
+    // Made again at every start, so the page explains instead of offering Remove; see bootstrapEmail.
+    bootstrap: admin.email.toLowerCase() === bootstrapEmail(),
+  });
+  /**
+   * Emails the set-password link to a new or re-invited admin, and says whether it went. Not sent when email is
+   * off or the site's own address is unknown; the account exists either way, so the owner is told why and can
+   * press Resend once the setting is in place, rather than finding out from a log line.
+   */
+  const emailInvite = async (req, admin, token) => {
+    const origin = linkOriginOf(req);
+    if (!emailConfigured()) {
+      return { sent: false, reason: 'email is not set up on this site yet. Add RESEND_API_KEY and EMAIL_FROM in Render, then press Resend invite.' };
+    }
+    if (!origin) return { sent: false, reason: 'the site\'s address is not known. Set PUBLIC_ORIGIN in Render, then press Resend invite.' };
+    // `invite=1` only picks the words on the page ("Set your password" rather than "Choose a new one"); the
+    // token is checked on the server as it is for every reset link, and the hint changes nothing there.
+    const result = await sendAdminInvite({ to: admin.email, invitedBy: req.admin.email, link: `${origin}/admin/reset?token=${token}&invite=1` });
+    return result.sent ? { sent: true } : { sent: false, reason: result.error || result.skipped || 'the email could not be sent.' };
+  };
+
+  router.get('/team', async (_req, res) => {
+    const store = await getStore();
+    res.json((await store.listAdmins()).map(teamMember));
+  });
+
+  router.post('/team/invites', async (req, res) => {
+    const store = await getStore();
+    // Lower-cased: sign-in looks the address up without regard to case, and the row is the one the person
+    // will see in the list and in the mail's "invited by" line.
+    const email = str(req.body?.email).toLowerCase();
+    if (!isSafeEmail(email) || hasControlCharacter(email)) {
+      return res.status(400).json({ error: 'Enter a full email address, like name@example.com.' });
+    }
+    const hold = reserve([[invitePerIp, clientKey(req)]]);
+    if (hold.wait) {
+      res.set('Retry-After', String(hold.wait));
+      return res.status(429).json({ error: tooMany('invites', hold.wait) });
+    }
+    let created;
+    try {
+      if (await store.getAdminByEmail(email)) {
+        hold.release(); // nothing was sent
+        return res.status(400).json({ error: 'That address already has access.' });
+      }
+      created = await store.createAdmin({ email, passwordHash: unusablePasswordHash(), invitedAt: new Date() });
+    } catch (err) {
+      hold.release(); // our failure
+      throw err;
+    }
+    const { token, hash } = newResetToken();
+    await store.createPasswordReset({ adminId: created.id, tokenHash: hash, expiresAt: new Date(Date.now() + INVITE_TTL_MS) });
+    const outcome = await emailInvite(req, created, token);
+    return res.json({ admin: teamMember(created), ...outcome });
+  });
+
+  /** The invitation again, with a fresh link that replaces the earlier one. Only for an account still waiting on its password. */
+  router.post('/team/invites/:id/resend', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.params.id);
+    if (!admin) return res.status(404).json({ error: 'That account is no longer here.' });
+    if (!admin.invited_at) return res.status(400).json({ error: 'They have already set a password, so there is nothing to resend.' });
+    const hold = reserve([[resendPerIp, clientKey(req)]]);
+    if (hold.wait) {
+      res.set('Retry-After', String(hold.wait));
+      return res.status(429).json({ error: tooMany('invites', hold.wait) });
+    }
+    const { token, hash } = newResetToken();
+    // Stamped again, so the list says when the link that is now good went out.
+    const invited = await store.updateAdmin(admin.id, { invitedAt: new Date() });
+    await store.createPasswordReset({ adminId: admin.id, tokenHash: hash, expiresAt: new Date(Date.now() + INVITE_TTL_MS) });
+    const outcome = await emailInvite(req, invited, token);
+    return res.json({ admin: teamMember(invited), ...outcome });
+  });
+
+  /**
+   * Takes someone's access away. Not your own (sign out, or have a colleague do it), not the account the
+   * environment would make again at the next start, and never the last account, so the admin can always be got
+   * into: that last rule is the store's, checked as it deletes, so two admins removing each other at the same
+   * moment cannot both get through. Their reset links go with the row, and their sessions end on their next
+   * request: the session check reads the store for an admin it has nothing cached for and finds no row.
+   */
+  router.delete('/team/:id', async (req, res) => {
+    const store = await getStore();
+    const { id } = req.params;
+    if (id === req.admin.sub) return res.status(400).json({ error: 'You cannot remove yourself. Ask another admin to.' });
+    const admin = await store.getAdminById(id);
+    if (!admin) return res.status(404).json({ error: 'That account is no longer here.' });
+    if (admin.email.toLowerCase() === bootstrapEmail()) return res.status(400).json({ error: BOOTSTRAP_STAYS });
+    if (!(await store.deleteAdmin(id))) {
+      // The store says no for the last account, and just the same when the row went between the look-up above
+      // and now (a colleague removed it first).
+      return (await store.getAdminById(id))
+        ? res.status(400).json({ error: 'The last admin cannot be removed.' })
+        : res.status(404).json({ error: 'That account is no longer here.' });
+    }
+    forgetAdminSessions(id);
+    return res.status(204).end();
   });
 
   // ── communities ──────────────────────────────────────────────────────────

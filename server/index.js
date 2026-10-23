@@ -284,6 +284,9 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
  * and a boot that sees the same value again leaves the account alone. Changing the value in the
  * dashboard is what resets the password; it also stamps password_changed_at, which ends every session
  * that was signed in with the old one.
+ *
+ * The same rule means the account comes back on the next start if it was removed from the Team page, which is
+ * why the Team routes refuse to remove it while both variables are set, and say what to change instead.
  */
 export async function ensureAdmin(store) {
   const email = process.env.ADMIN_EMAIL;
@@ -313,7 +316,10 @@ export async function ensureAdmin(store) {
     return;
   }
   const passwordHash = hashPassword(password);
-  await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: new Date(), bootPasswordHash: passwordHash });
+  // An invited account whose address was then put in ADMIN_EMAIL gets its password here instead of from the
+  // link, so the invitation mark goes the way it does for the link: the row can sign in, and the Team page must
+  // not keep offering to send it an invite.
+  await store.updateAdmin(admin.id, { passwordHash, passwordChangedAt: new Date(), bootPasswordHash: passwordHash, invitedAt: null });
   // Nothing is cached in a process that has only just booted, but this is the third thing that changes
   // a password, and the session check hears about it from all three.
   forgetAdminSessions(admin.id);
