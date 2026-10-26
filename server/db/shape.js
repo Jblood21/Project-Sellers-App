@@ -26,6 +26,11 @@ export function shapeCommunity(row, extra = {}) {
     layout: normalizeLayout(row.layout),
     websiteUrl: row.website_url ?? row.websiteUrl ?? null,
     builder: row.builder || '',
+    // The branch (a company or group of communities) it is in, or null for none, with the branch's name beside
+    // the id as the stores' joins supply it, so a list can say "Summit Homes" without a second read. The owner
+    // changes it; a member only reads it. The public route picks its own fields, so neither reaches a buyer.
+    branchId: row.branch_id ?? row.branchId ?? null,
+    branchName: row.branch_name ?? row.branchName ?? null,
     // The clean buyer link, when the community has one. `urlKey` is what every public address is
     // written with; the id (above) is what everything is stored under and never changes.
     slug: row.slug || null,
@@ -36,6 +41,22 @@ export function shapeCommunity(row, extra = {}) {
     createdAt: row.created_at ?? row.createdAt ?? null,
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
     ...extra,
+  };
+}
+
+/**
+ * A branch as the owner's Branches page and the Team page read it: its name, and the ids of the communities and
+ * of the members in it, which the stores find (the pages have both lists already, so ids are enough). From either
+ * store's row: the Postgres one (snake_case) or the file store's own (camelCase).
+ */
+export function shapeBranch(row, { communityIds = [], memberIds = [] } = {}) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    communityIds,
+    memberIds,
+    createdAt: row.created_at ?? row.createdAt ?? null,
   };
 }
 

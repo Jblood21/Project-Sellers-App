@@ -20,6 +20,8 @@ const PATHS = {
   signout: <><path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5" /><path d="M15 8l4 4-4 4" /><path d="M19 12H9" /></>,
   key: <><circle cx="8" cy="15" r="4" /><path d="M11 12 20 3" /><path d="M16 7l2.5 2.5" /><path d="M13 10l2.5 2.5" /></>,
   team: <><circle cx="9" cy="8.5" r="3.2" /><path d="M3.5 19.5c.3-3.2 2.7-5.2 5.5-5.2s5.2 2 5.5 5.2" /><circle cx="16.5" cy="9.5" r="2.6" /><path d="M15.5 14.6c2.6.2 4.6 2 5 4.9" /></>,
+  // An office building: the branches, the companies or groups communities and people are put in.
+  branches: <><path d="M4 20.5V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v15.5" /><path d="M15 9.5h4a1 1 0 0 1 1 1v10" /><path d="M2.5 20.5h19" /><path d="M7.5 8h1.5M11 8h1.5M7.5 11.5h1.5M11 11.5h1.5M7.5 15h1.5M11 15h1.5M17.5 13h.5M17.5 16.5h.5" /><path d="M9 20.5v-3h2v3" /></>,
   // A clock with its hand turning back: the activity log, what the team changed and when.
   activity: <><path d="M3.5 12a8.5 8.5 0 1 0 8.5-8.5 9.2 9.2 0 0 0-6.4 2.6L3.5 8.3" /><path d="M3.5 3.5v4.8h4.8" /><path d="M12 7.5V12l3 2" /></>,
   plus: <><path d="M12 5v14M5 12h14" /></>,

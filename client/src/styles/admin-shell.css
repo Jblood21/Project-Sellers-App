@@ -58,7 +58,7 @@
 }
 /* On the page and in the phone's bars the ring is the teal; in the side menu it is the sky (below). */
 .as-tab:focus-visible, .as-sheet__row:focus-visible,
-.as-top__icon:focus-visible, .as-top__text:focus-visible, .as-top__name:focus-visible, .as-lead__main:focus-visible,
+.as-top__icon:focus-visible, .as-top__name:focus-visible, .as-lead__main:focus-visible,
 .as-part:focus-visible, .as-callbanner:focus-visible {
   outline: 2px solid var(--color-accent); outline-offset: 2px;
 }
@@ -99,6 +99,13 @@
   display: flex; flex-direction: column; gap: 2px;
 }
 .as-side__who { font-size: 12.5px; color: var(--side-soft); padding: 0 12px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A branch's name over its communities, once there are two or more groups: smaller than the Communities label
+   above them and in the soft white, so it reads as a divider in the list and not as another section. */
+.as-subhead {
+  display: block; padding: 10px 12px 3px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--side-soft); overflow-wrap: anywhere;
+}
+.as-subhead:first-child { padding-top: 2px; }
 
 /* ── the phone's top bar and bottom bar ──────────────────────────────────── */
 /* Both stay white with teal in them: a dark band at the top and the bottom of a small screen
@@ -110,14 +117,18 @@
   position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 8px;
   padding: 8px var(--as-pad); background: var(--color-neutral-100); border-bottom: 1px solid var(--color-divider);
 }
-.as-top__icon, .as-top__text {
+.as-top__icon {
   flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
   border: 1px solid var(--color-divider); border-radius: 50%; background: var(--color-neutral-100);
   color: var(--color-accent); cursor: pointer; text-decoration: none; padding: 0;
 }
-.as-top__icon:hover, .as-top__text:hover { background: var(--color-accent-100); }
-.as-top__text { width: auto; padding: 0 16px; border-radius: 12px; font-family: var(--font-body); font-size: 14px; font-weight: 600; }
-.as-top__brand { flex: 1; color: var(--color-accent); }
+.as-top__icon:hover { background: var(--color-accent-100); }
+.as-top__brand { flex: 1; min-width: 0; color: var(--color-accent); }
+/* The owner's bar (as-top--full) has five round buttons after the wordmark: Team, Branches, Activity, Change
+   password and Sign out, which with the gaps and the side padding take 292px, and the wordmark 106px more. Under
+   400px that is wider than the phone, and a bar wider than the phone makes every page scroll sideways; so there
+   the wordmark shows its mark alone. The member's bar has two buttons and keeps the name at any width. */
+@media (max-width: 399px) { .as-top--full .wordmark__name { display: none; } }
 .as-top__name {
   flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-height: 44px;
   padding: 0 4px; border: 0; border-radius: 10px; background: none; color: var(--color-accent-700); text-align: left; cursor: pointer;
@@ -262,6 +273,13 @@
 .as-call__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .as-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+/* A branch's block of cards: its name in the small capitals the days on Activity use, then the grid. */
+.as-branchgroup { margin-bottom: 20px; }
+.as-branchgroup:last-of-type { margin-bottom: 0; }
+.as-branchgroup__title {
+  margin: 0 0 8px; font-family: var(--font-body); font-size: 13px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--color-neutral-600); overflow-wrap: anywhere;
+}
 .as-community { --as-card-pad: 18px; --as-cover-h: 140px; position: relative; gap: 8px; padding: var(--as-card-pad); }
 .as-community__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 /* The name is a link; the padding gives it a 44px target and the equal negative margin keeps the card's lines where they were. */
@@ -381,6 +399,8 @@
 .as-member__actions .btn { min-height: 44px; padding: 0 14px; font-size: 13.5px; }
 /* The owner's row has no boxes to tick: one line says so, in the words the boxes would spell out. */
 .as-member__all { font-weight: 600; color: var(--color-text); }
+/* What a member can open, in one line, with Saved beside it for a moment after the pop-up changed it. */
+.as-member__access { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 
 /* ── who can open what: the communities ticked for a person ───────────────── */
 /* One box per community, by name. A row is 44px tall so a thumb lands on it, and the box takes the admin's teal.
@@ -403,6 +423,48 @@
    warning brown the invite note uses. The element is always there (so the word is read out when it arrives). */
 .as-saved { font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--color-accent-2); }
 .as-saved--warn { color: #6b4a00; }
+/* A word after a box's name that is not the name: which branch a community is in now, or that a person is still
+   invited. Lighter, so the name stays the thing to read. */
+.as-check__hint { font-weight: 400; color: var(--color-neutral-600); }
+
+/* ── what a person can open: their branches, then their own communities ─────── */
+/* The two parts of the Edit access pop-up and the invite form. A branch's name heads its communities in the
+   second part, in the teal, so the owner sees what ticking the branch above would cover. */
+.as-acc { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.as-acc__note { margin: 0 0 2px; font-size: 12.5px; line-height: 1.45; color: var(--color-neutral-600); }
+.as-acc__filter { margin: 4px 0 6px; font-size: 15px; }
+.as-acc__group { min-width: 0; }
+.as-acc__head {
+  display: block; padding: 8px 0 2px; font-size: 13px; font-weight: 600; color: var(--color-accent-700);
+  overflow-wrap: anywhere;
+}
+.as-acc__group:first-of-type .as-acc__head { padding-top: 2px; }
+.as-acc__covered { font-weight: 500; color: var(--color-accent-2); }
+/* In the pop-up (420px wide) the boxes go one under another; in the invite form they go several across, as the
+   old list did, so a long list of communities does not make the form a column. The pop-up's Save and Cancel
+   stay in view under a long list, as the guide editor's do (admin-extras.css), rather than a screen away. */
+.dialog .as-checks { grid-template-columns: 1fr; margin: 0 -10px; }
+.dialog:has(.as-acc) .dialog-actions {
+  position: sticky; bottom: -20px; z-index: 2; margin: 0 -20px -20px; padding: 12px 20px 20px;
+  background: var(--color-neutral-100); border-top: 1px solid var(--color-divider);
+}
+.as-acc--compact { gap: 10px; }
+.as-acc--compact .as-checks { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+/* ── Branches: a card per company or group ──────────────────────────────── */
+.as-branches { display: flex; flex-direction: column; gap: 16px; }
+.as-branch { gap: 10px; padding: 18px; }
+.as-branch__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.as-branch__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.as-branch__name { margin: 0; font-size: 19px; overflow-wrap: anywhere; }
+.as-branch__count { font-size: 13px; color: var(--color-neutral-600); }
+.as-branch__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.as-branch__actions .btn { min-height: 44px; padding: 0 14px; font-size: 13.5px; }
+/* The two lists side by side on a computer, one under the other on a phone. */
+.as-branch__cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px 24px; }
+@media (min-width: 980px) { .as-branch__cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+/* Two across where the column has the room (a computer), so ten communities do not make a card ten rows tall. */
+.as-branch__cols .as-checks { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 
 /* ── Activity: what the team changed, newest first ──────────────────────── */
 /* Two selects, each beside its label (the Leads list's small capitals); a phone gives each pair its own line. */

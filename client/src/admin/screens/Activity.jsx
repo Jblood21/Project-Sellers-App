@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { groupByBranch } from '../branches.js';
 import AdminShell from '../shell/AdminShell.jsx';
 import { ErrorNote, Spinner } from '../ui.jsx';
 import ActivityRows, { groupByDay } from './ActivityRows.jsx';
@@ -11,8 +12,9 @@ const PAGE = 50;
 /**
  * What everyone on the team has changed, newest first, for the owner: every community someone made or set up,
  * every home, photo, guide, realtor and lead they touched, with who did it and when. A page at a time, grouped
- * by day, narrowed to one person or one community with the two selects. The server keeps the log and refuses
- * the page to anyone but the owner, so a member never reaches it (AdminApp sends them to Today first).
+ * by day, narrowed to one person or one community with the two selects (the communities under their branches'
+ * names once there are two or more groups). The server keeps the log and refuses the page to anyone but the
+ * owner, so a member never reaches it (AdminApp sends them to Today first).
  */
 export default function Activity() {
   const { token } = useAdmin();
@@ -67,6 +69,8 @@ export default function Activity() {
   };
 
   const filtered = Boolean(adminId || communityId);
+  const groups = groupByBranch(communities);
+  const option = (community) => <option key={community.id} value={community.id}>{community.name}</option>;
 
   return (
     <AdminShell
@@ -86,7 +90,9 @@ export default function Activity() {
           <label className="as-bar__label" htmlFor="activity-where">Community</label>
           <select id="activity-where" className="input" value={communityId} onChange={(event) => setCommunityId(event.target.value)}>
             <option value="">All communities</option>
-            {communities.map((community) => <option key={community.id} value={community.id}>{community.name}</option>)}
+            {groups.length > 1
+              ? groups.map((group) => <optgroup key={group.id ?? ''} label={group.name}>{group.communities.map(option)}</optgroup>)
+              : communities.map(option)}
           </select>
         </div>
       </div>

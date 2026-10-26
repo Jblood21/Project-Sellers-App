@@ -113,17 +113,24 @@ function isAdminToken(payload) {
 // but a deploy briefly overlaps two) keeps accepting them for up to 30 seconds more, which is a short
 // tail on a change that used to never end a session at all.
 //
-// The same row says what the account is allowed to do: its role, and for a member the communities shared
-// with them. Those ride on the same entry, read in the same breath, so a request learns who is asking and
-// what they may touch for one store read every 30 seconds instead of two per request. An assignment
-// change clears the entry the way a password change does (forgetAdminAccess), with the same answer to the
-// same race, and is seen at once on this instance and within 30 seconds on an overlapping one.
+// The same row says what the account is allowed to do: its role, and for a member the communities they may
+// see (every community in each branch they are in, and the ones shared with them on their own, as one set;
+// see server/lib/access.js). Those ride on the same entry, read in the same breath, so a request learns who
+// is asking and what they may touch for one store read every 30 seconds instead of two per request. An
+// assignment change clears the entry the way a password change does (forgetAdminAccess), with the same
+// answer to the same race, and is seen at once on this instance and within 30 seconds on an overlapping one.
+// A change to a branch reaches whoever is in it, which is the very question the cache saves asking, so it
+// clears every entry instead (forgetAllAdminAccess).
 const SESSION_CHECK_TTL_MS = 30 * 1000;
 const adminCache = new Map(); // admin id -> { changedAt: ms or null, role, communityIds: Set, until: ms }
 // How many times this instance has changed each admin's row in a way the cache must hear about. A row read
 // that was on its way while the count moved may have been answered from before the change.
 const changeCounts = new Map(); // admin id -> count
-const changeCount = (adminId) => changeCounts.get(adminId) ?? 0;
+// And how many times it has changed something that reaches everyone at once (a branch's communities or people,
+// a community's branch): counted once for all rather than once per admin, and every admin's count moves with it,
+// so a read on its way for anyone during such a change is read again like one that saw their own count move.
+let everyoneChanges = 0;
+const changeCount = (adminId) => (changeCounts.get(adminId) ?? 0) + everyoneChanges;
 
 const timeOf = (value) => {
   if (!value) return null;
@@ -136,8 +143,8 @@ export const roleOf = (admin) => (admin?.role === 'owner' ? 'owner' : 'member');
 
 /**
  * What a request needs to know about `adminId`: when the password last changed (ms, or null for never), the
- * role, and the communities a member may see (empty for the owner, who has them all by role). Undefined for
- * no such admin.
+ * role, and the communities a member may see, through their branches and on their own together (empty for the
+ * owner, who has them all by role). Undefined for no such admin.
  */
 async function adminFacts(adminId) {
   const known = adminCache.get(adminId);
@@ -152,7 +159,7 @@ async function adminFacts(adminId) {
     const admin = await store.getAdminById(adminId);
     if (!admin) return undefined;
     const role = roleOf(admin);
-    const communityIds = new Set(role === 'owner' ? [] : await store.listAdminCommunities(adminId));
+    const communityIds = new Set(role === 'owner' ? [] : await store.listAccessibleCommunities(adminId));
     return { changedAt: timeOf(admin.password_changed_at), role, communityIds };
   };
   let seen = changeCount(adminId);
@@ -179,11 +186,22 @@ export function forgetAdminSessions(adminId) {
 }
 
 /**
- * The same, called by whatever changes what an account may see (the Team page sharing or withdrawing a
- * community, a removal, the owner's role being set at boot), so the next request from that person is
- * answered from the new row rather than from a list up to 30 seconds old.
+ * The same, called by whatever changes what one account may see (the Team page sharing or withdrawing a
+ * community or a branch, a removal, the owner's role being set at boot), so the next request from that person
+ * is answered from the new row rather than from a list up to 30 seconds old.
  */
 export const forgetAdminAccess = forgetAdminSessions;
+
+/**
+ * Forget what was cached for everyone, and count the change for everyone: called by whatever changes who may
+ * see what through a branch (its communities, a community moving between branches, a branch deleted), where
+ * working out which admins are reached would be the same read the cache saves. Each admin's next request reads
+ * their access afresh, and a read already on its way for anyone is read again, as above.
+ */
+export function forgetAllAdminAccess() {
+  adminCache.clear();
+  everyoneChanges += 1;
+}
 
 /**
  * Express middleware — requires a valid admin bearer token, issued since the admin's password last

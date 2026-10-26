@@ -9,15 +9,15 @@ import { loadDefaultGuides } from '../lib/guides.js';
 import { FIGURES_REFRESH, needsRefresh, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  guideRowFromDefault, shapeAdminActivity, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
-  shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
+  guideRowFromDefault, shapeAdminActivity, shapeAgent, shapeBranch, shapeCommunity, shapeGuide, shapeHighlight, shapeHome,
+  shapeLead, shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
 const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
   consents: [], agents: [], guides: [], communitySlugs: [], passwordResets: [],
-  adminCommunities: [], adminActivity: [],
+  adminCommunities: [], adminActivity: [], branches: [], adminBranches: [],
 };
 
 /**
@@ -174,6 +174,34 @@ export function createFileStore(path) {
       .slice(-limit)
       .reverse()
       .map((a) => ({ text: a.text, createdAt: a.createdAt }));
+  // Admins oldest first, then by address: the order the Postgres store lists them in.
+  const byAdminAge = (a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.email.localeCompare(b.email));
+
+  // ── branches ─────────────────────────────────────────────────────────────
+  // Name order, as the Postgres store lists them: lower-cased and compared by code unit, which is what its
+  // COLLATE "C" does, so the two stores put "Ivory" and "ivy homes" in the same place.
+  const byBranchName = (a, b) => {
+    const [x, y] = [a.name.toLowerCase(), b.name.toLowerCase()];
+    if (x !== y) return x < y ? -1 : 1;
+    if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  };
+  const branchRows = () => [...db.branches].sort(byBranchName);
+  const branchNameOf = (branchId) => (branchId ? db.branches.find((b) => b.id === branchId)?.name ?? null : null);
+  // A community with the name of its branch beside the id, as the Postgres store's join supplies it. A row from
+  // before branches has no branchId at all, which shapeCommunity reads as none.
+  const communityOf = (row, extra = {}) => shapeCommunity(row, { branchName: branchNameOf(row?.branchId), ...extra });
+  const communityIdsIn = (branchId) => db.communities.filter((c) => c.branchId === branchId).map((c) => c.id);
+  const memberIdsIn = (branchId) => {
+    const inBranch = new Set(db.adminBranches.filter((r) => r.branchId === branchId).map((r) => r.adminId));
+    return [...db.admins].sort(byAdminAge).filter((a) => inBranch.has(a.id)).map((a) => a.id);
+  };
+  const branchOf = (row) => (row ? shapeBranch(row, { communityIds: communityIdsIn(row.id), memberIds: memberIdsIn(row.id) }) : null);
+  // The same error pg raises for a second branch with the same name in any case (the unique index on
+  // lower(name)), so the route has one thing to catch whichever store is running.
+  const duplicateBranchName = () => Object.assign(new Error('duplicate branch name'), { code: '23505' });
+  const branchNameUsed = (name, exceptId = null) =>
+    db.branches.some((b) => b.id !== exceptId && b.name.toLowerCase() === String(name).toLowerCase());
 
   return {
     kind: 'file',
@@ -224,9 +252,7 @@ export function createFileStore(path) {
     },
     /** Every admin, oldest first, as the Postgres store orders them. Copies, so a caller cannot edit the file through them. */
     async listAdmins() {
-      return [...db.admins]
-        .sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.email.localeCompare(b.email)))
-        .map((admin) => ({ ...admin }));
+      return [...db.admins].sort(byAdminAge).map((admin) => ({ ...admin }));
     },
 
     async getAdminByEmail(email) {
@@ -269,11 +295,11 @@ export function createFileStore(path) {
       return admin;
     },
     /**
-     * Removes the account, its reset links and its community assignments, as the Postgres tables' cascades do,
-     * unless it is the last one: the count and the removal have no pause between them, so two removals at once
-     * cannot both get past the count. What they did stays in the activity log under their address, as it does in
-     * Postgres, where that table has no foreign key to this one. True when the row was deleted; false when it was
-     * the last one, or was not there.
+     * Removes the account, its reset links, its community assignments and its branch memberships, as the Postgres
+     * tables' cascades do, unless it is the last one: the count and the removal have no pause between them, so two
+     * removals at once cannot both get past the count. What they did stays in the activity log under their
+     * address, as it does in Postgres, where that table has no foreign key to this one. True when the row was
+     * deleted; false when it was the last one, or was not there.
      */
     async deleteAdmin(id) {
       if (db.admins.length <= 1) return false;
@@ -282,6 +308,7 @@ export function createFileStore(path) {
       if (db.admins.length === before) return false;
       db.passwordResets = db.passwordResets.filter((r) => r.adminId !== id);
       db.adminCommunities = db.adminCommunities.filter((r) => r.adminId !== id);
+      db.adminBranches = db.adminBranches.filter((r) => r.adminId !== id);
       save();
       return true;
     },
@@ -308,6 +335,94 @@ export function createFileStore(path) {
       for (const communityId of kept) db.adminCommunities.push({ adminId, communityId, createdAt: now() });
       save();
       return this.listAdminCommunities(adminId);
+    },
+
+    // ── branches: companies or groups of communities ─────────────────────
+    // See the Postgres store and branches in schema.sql; what its cascades do is done by hand in deleteBranch.
+    async listBranches() {
+      return branchRows().map(branchOf);
+    },
+    async getBranch(id) {
+      return branchOf(db.branches.find((b) => b.id === id));
+    },
+    async getBranchByName(name) {
+      const lower = String(name).toLowerCase();
+      return branchOf(db.branches.find((b) => b.name.toLowerCase() === lower));
+    },
+    async createBranch({ name }) {
+      if (branchNameUsed(name)) throw duplicateBranchName();
+      const row = { id: `br_${shortId(10)}`, name, createdAt: now() };
+      db.branches.push(row);
+      save();
+      return branchOf(row);
+    },
+    async updateBranch(id, { name } = {}) {
+      const row = db.branches.find((b) => b.id === id);
+      if (!row) return null;
+      if (name !== undefined) {
+        if (branchNameUsed(name, id)) throw duplicateBranchName();
+        row.name = name;
+      }
+      save();
+      return branchOf(row);
+    },
+    async deleteBranch(id) {
+      const before = db.branches.length;
+      db.branches = db.branches.filter((b) => b.id !== id);
+      if (db.branches.length === before) return false;
+      // What Postgres does by ON DELETE SET NULL and ON DELETE CASCADE: the communities stay, in no branch, and
+      // the people stay, out of it.
+      for (const community of db.communities) if (community.branchId === id) community.branchId = null;
+      db.adminBranches = db.adminBranches.filter((r) => r.branchId !== id);
+      save();
+      return true;
+    },
+    /** Replaces the whole list; a community ticked here leaves the branch it was in, one unticked is left in none. See the Postgres store. */
+    async setBranchCommunities(branchId, communityIds) {
+      if (!db.branches.some((b) => b.id === branchId)) return null;
+      const wanted = new Set(communityIds);
+      for (const community of db.communities) {
+        if (wanted.has(community.id)) community.branchId = branchId;
+        else if (community.branchId === branchId) community.branchId = null;
+      }
+      save();
+      return communityIdsIn(branchId);
+    },
+    /** Replaces the whole list, members only; an owner's or unknown id is dropped. See the Postgres store. */
+    async setBranchMembers(branchId, adminIds) {
+      if (!db.branches.some((b) => b.id === branchId)) return null;
+      const wanted = new Set(adminIds);
+      db.adminBranches = db.adminBranches.filter((r) => r.branchId !== branchId);
+      for (const admin of db.admins) {
+        if (wanted.has(admin.id) && admin.role !== 'owner') db.adminBranches.push({ adminId: admin.id, branchId, createdAt: now() });
+      }
+      save();
+      return memberIdsIn(branchId);
+    },
+    async listAdminBranches(adminId) {
+      const mine = new Set(db.adminBranches.filter((r) => r.adminId === adminId).map((r) => r.branchId));
+      return branchRows().filter((b) => mine.has(b.id)).map((b) => b.id);
+    },
+    async listAdminBranchAssignments() {
+      const order = new Map(branchRows().map((b, index) => [b.id, index]));
+      return db.adminBranches
+        .filter((r) => order.has(r.branchId))
+        .sort((a, b) => order.get(a.branchId) - order.get(b.branchId))
+        .map((r) => ({ adminId: r.adminId, branchId: r.branchId }));
+    },
+    async setAdminBranches(adminId, branchIds) {
+      const known = new Set(db.branches.map((b) => b.id));
+      const kept = [...new Set(branchIds)].filter((id) => known.has(id));
+      db.adminBranches = db.adminBranches.filter((r) => r.adminId !== adminId);
+      for (const branchId of kept) db.adminBranches.push({ adminId, branchId, createdAt: now() });
+      save();
+      return this.listAdminBranches(adminId);
+    },
+    /** The union of the admin's branches' communities and their own, in the order the communities were made. See the Postgres store. */
+    async listAccessibleCommunities(adminId) {
+      const own = new Set(db.adminCommunities.filter((r) => r.adminId === adminId).map((r) => r.communityId));
+      const branches = new Set(db.adminBranches.filter((r) => r.adminId === adminId).map((r) => r.branchId));
+      return db.communities.filter((c) => own.has(c.id) || (c.branchId && branches.has(c.branchId))).map((c) => c.id);
     },
 
     // ── what each admin did ──────────────────────────────────────────────
@@ -357,7 +472,7 @@ export function createFileStore(path) {
 
     async listCommunities() {
       return db.communities.map((c) =>
-        shapeCommunity(c, {
+        communityOf(c, {
           homesCount: db.homes.filter((h) => h.communityId === c.id).length,
           leadsCount: db.leads.filter((l) => l.communityId === c.id).length,
           pendingTours: db.leads.filter(
@@ -369,7 +484,7 @@ export function createFileStore(path) {
     },
 
     async getCommunity(id) {
-      return shapeCommunity(db.communities.find((c) => c.id === id));
+      return communityOf(db.communities.find((c) => c.id === id));
     },
 
     /** See the Postgres store: an id, the id in other case, or any slug the community has had. */
@@ -414,6 +529,7 @@ export function createFileStore(path) {
       const row = {
         id, slug, name, location, status, theme, builder,
         websiteUrl: null,
+        branchId: null,
         settings: { ...DEFAULT_SETTINGS },
         tools: { ...DEFAULT_TOOLS_ENABLED },
         features: { ...DEFAULT_FEATURES },
@@ -434,13 +550,13 @@ export function createFileStore(path) {
       if (!row) return null;
       for (const key of [
         'name', 'location', 'status', 'theme', 'websiteUrl', 'builder', 'settings', 'tools', 'features',
-        'layout',
+        'layout', 'branchId',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }
       row.updatedAt = now();
       save();
-      return shapeCommunity(row);
+      return communityOf(row);
     },
 
     /** Records when the last lead report went out, changing nothing else (see the Postgres store). */

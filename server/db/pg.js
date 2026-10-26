@@ -10,8 +10,8 @@ import { loadDefaultGuides } from '../lib/guides.js';
 import { FIGURES_REFRESH, refreshedSettings } from './refresh.js';
 import { shortId, slugId, uuid } from '../lib/ids.js';
 import {
-  guideRowFromDefault, shapeAdminActivity, shapeAgent, shapeCommunity, shapeGuide, shapeHighlight, shapeHome, shapeLead,
-  shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
+  guideRowFromDefault, shapeAdminActivity, shapeAgent, shapeBranch, shapeCommunity, shapeGuide, shapeHighlight, shapeHome,
+  shapeLead, shapeMoveIn, shapePasswordReset, shapePhoto, shapeResource, shapeSlot, shapeConsent, uniqueSlug,
 } from './shape.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -259,6 +259,29 @@ export function createPostgresStore(connectionString) {
     }
   };
 
+  // ── branches ─────────────────────────────────────────────────────────────
+  // Name order, as every page shows them, compared as plain bytes ("C") so the file store can match it exactly
+  // whatever collation the database was made with.
+  const BRANCH_ORDER = `ORDER BY lower(b.name) COLLATE "C", b.created_at, b.id`;
+  /**
+   * Branch rows as the routes read them, with the ids of the communities in each (in the order the communities
+   * were made) and of the members in each (oldest account first): two reads for the whole list, not two per branch.
+   */
+  const branchesWith = async (rows) => {
+    if (!rows.length) return [];
+    const ids = rows.map((r) => r.id);
+    const [{ rows: communities }, { rows: members }] = await Promise.all([
+      q(`SELECT id, branch_id FROM communities WHERE branch_id = ANY($1::text[]) ORDER BY created_at, id`, [ids]),
+      q(`SELECT ab.admin_id, ab.branch_id FROM admin_branches ab JOIN admin_users u ON u.id = ab.admin_id
+          WHERE ab.branch_id = ANY($1::text[]) ORDER BY u.created_at, u.email`, [ids]),
+    ]);
+    const communityIds = new Map(ids.map((id) => [id, []]));
+    for (const row of communities) communityIds.get(row.branch_id).push(row.id);
+    const memberIds = new Map(ids.map((id) => [id, []]));
+    for (const row of members) memberIds.get(row.branch_id).push(row.admin_id);
+    return rows.map((r) => shapeBranch(r, { communityIds: communityIds.get(r.id), memberIds: memberIds.get(r.id) }));
+  };
+
   return {
     kind: 'postgres',
 
@@ -447,6 +470,131 @@ export function createPostgresStore(connectionString) {
       });
     },
 
+    // ── branches: companies or groups of communities ─────────────────────
+    // A community is in at most one (communities.branch_id), a member in any number (admin_branches), and being
+    // in one is access to every community in it; see branches in schema.sql.
+    async listBranches() {
+      const { rows } = await q(`SELECT b.* FROM branches b ${BRANCH_ORDER}`);
+      return branchesWith(rows);
+    },
+    async getBranch(id) {
+      const { rows } = await q(`SELECT * FROM branches WHERE id = $1`, [id]);
+      return (await branchesWith(rows))[0] ?? null;
+    },
+    /** The branch with this name in any letter case, or null: the route refuses a second one. */
+    async getBranchByName(name) {
+      const { rows } = await q(`SELECT * FROM branches WHERE lower(name) = lower($1)`, [name]);
+      return (await branchesWith(rows))[0] ?? null;
+    },
+    /** A second branch with the same name in any case surfaces as pg's own 23505 from the unique index; the route turns it into a 400. */
+    async createBranch({ name }) {
+      const { rows } = await q(`INSERT INTO branches (id, name) VALUES ($1, $2) RETURNING *`, [`br_${shortId(10)}`, name]);
+      return shapeBranch(rows[0]);
+    },
+    /** Changes what is given (the name) and nothing else. The branch, or null for no such branch. */
+    async updateBranch(id, { name } = {}) {
+      if (name !== undefined) {
+        const { rowCount } = await q(`UPDATE branches SET name = $2 WHERE id = $1`, [id, name]);
+        if (!rowCount) return null;
+      }
+      return this.getBranch(id);
+    },
+    /**
+     * Removes the grouping and nothing else: its communities stay, in no branch (ON DELETE SET NULL), and its
+     * people stay, out of it (ON DELETE CASCADE), keeping whatever is ticked for them on their own. True when a
+     * row went; false when there was none.
+     */
+    async deleteBranch(id) {
+      const { rowCount } = await q(`DELETE FROM branches WHERE id = $1`, [id]);
+      return rowCount > 0;
+    },
+    /**
+     * Makes `communityIds` the whole of the branch: a community in it and not in the list is left in no branch,
+     * one in the list is put in, moved from whatever branch it was in since a community is in at most one. One
+     * transaction, as setAdminCommunities is, so a request in between never sees half the move. An unknown id is
+     * ignored, and the ids kept are returned; null for no such branch.
+     */
+    async setBranchCommunities(branchId, communityIds) {
+      return inTransaction(async (db) => {
+        const { rows: exists } = await db.query(`SELECT 1 FROM branches WHERE id = $1 FOR UPDATE`, [branchId]);
+        if (!exists.length) return null;
+        const ids = [...new Set(communityIds)];
+        await db.query(`UPDATE communities SET branch_id = NULL WHERE branch_id = $1 AND NOT (id = ANY($2::text[]))`, [branchId, ids]);
+        await db.query(`UPDATE communities SET branch_id = $1 WHERE id = ANY($2::text[]) AND branch_id IS DISTINCT FROM $1`, [branchId, ids]);
+        const { rows } = await db.query(`SELECT id FROM communities WHERE branch_id = $1 ORDER BY created_at, id`, [branchId]);
+        return rows.map((r) => r.id);
+      });
+    },
+    /**
+     * Makes `adminIds` the whole of who is in the branch. Members only: the owner has every community by role, so
+     * an owner's id is dropped rather than stored; an unknown id is ignored. The ids kept, oldest account first,
+     * or null for no such branch.
+     */
+    async setBranchMembers(branchId, adminIds) {
+      return inTransaction(async (db) => {
+        const { rows: exists } = await db.query(`SELECT 1 FROM branches WHERE id = $1 FOR UPDATE`, [branchId]);
+        if (!exists.length) return null;
+        await db.query(`DELETE FROM admin_branches WHERE branch_id = $1`, [branchId]);
+        await db.query(
+          `INSERT INTO admin_branches (admin_id, branch_id)
+           SELECT id, $1 FROM admin_users WHERE id = ANY($2::text[]) AND role <> 'owner' ON CONFLICT DO NOTHING`,
+          [branchId, [...new Set(adminIds)]],
+        );
+        const { rows } = await db.query(
+          `SELECT ab.admin_id FROM admin_branches ab JOIN admin_users u ON u.id = ab.admin_id
+            WHERE ab.branch_id = $1 ORDER BY u.created_at, u.email`,
+          [branchId],
+        );
+        return rows.map((r) => r.admin_id);
+      });
+    },
+    /** The ids of the branches this admin is in, in name order. */
+    async listAdminBranches(adminId) {
+      const { rows } = await q(
+        `SELECT ab.branch_id FROM admin_branches ab JOIN branches b ON b.id = ab.branch_id WHERE ab.admin_id = $1 ${BRANCH_ORDER}`,
+        [adminId],
+      );
+      return rows.map((r) => r.branch_id);
+    },
+    /** Every membership at once, for the Team page: [{ adminId, branchId }], in name order per admin. */
+    async listAdminBranchAssignments() {
+      const { rows } = await q(
+        `SELECT ab.admin_id, ab.branch_id FROM admin_branches ab JOIN branches b ON b.id = ab.branch_id ${BRANCH_ORDER}`,
+      );
+      return rows.map((r) => ({ adminId: r.admin_id, branchId: r.branch_id }));
+    },
+    /** Makes `branchIds` the whole of the branches this admin is in, the way setAdminCommunities does for communities. */
+    async setAdminBranches(adminId, branchIds) {
+      return inTransaction(async (db) => {
+        await db.query(`DELETE FROM admin_branches WHERE admin_id = $1`, [adminId]);
+        await db.query(
+          `INSERT INTO admin_branches (admin_id, branch_id)
+           SELECT $1, id FROM branches WHERE id = ANY($2::text[]) ON CONFLICT DO NOTHING`,
+          [adminId, [...new Set(branchIds)]],
+        );
+        const { rows } = await db.query(
+          `SELECT ab.branch_id FROM admin_branches ab JOIN branches b ON b.id = ab.branch_id WHERE ab.admin_id = $1 ${BRANCH_ORDER}`,
+          [adminId],
+        );
+        return rows.map((r) => r.branch_id);
+      });
+    },
+    /**
+     * Every community this admin may see: the ones in each branch they are in and the ones shared with them on
+     * their own, each once, in the order the communities were made. What the access check runs on (adminFacts in
+     * server/lib/auth.js); the Team page reads the two parts separately.
+     */
+    async listAccessibleCommunities(adminId) {
+      const { rows } = await q(
+        `SELECT c.id FROM communities c
+          WHERE c.id IN (SELECT community_id FROM admin_communities WHERE admin_id = $1)
+             OR c.branch_id IN (SELECT branch_id FROM admin_branches WHERE admin_id = $1)
+          ORDER BY c.created_at, c.id`,
+        [adminId],
+      );
+      return rows.map((r) => r.id);
+    },
+
     // ── what each admin did ──────────────────────────────────────────────
     // One row per change made through the admin; see admin_activity in schema.sql for why rows outlive both
     // the admin and the community they name.
@@ -523,9 +671,11 @@ export function createPostgresStore(connectionString) {
     },
 
     // ── communities ──────────────────────────────────────────────────────
+    // The branch's name rides along with its id (here and in getCommunity), so a list can say which company a
+    // community belongs to without a read per row; shapeCommunity picks it up as branchName.
     async listCommunities() {
       const { rows } = await q(`
-        SELECT c.*,
+        SELECT c.*, b.name AS branch_name,
                (SELECT count(*)::int FROM homes h WHERE h.community_id = c.id) AS homes_count,
                (SELECT count(*)::int FROM leads l WHERE l.community_id = c.id) AS leads_count,
                (SELECT count(*)::int FROM leads l
@@ -533,7 +683,7 @@ export function createPostgresStore(connectionString) {
                    AND l.tour IS NOT NULL
                    AND (l.tour->>'handledAt') IS NULL
                    AND l.archived_at IS NULL) AS pending_tours
-        FROM communities c ORDER BY c.created_at`);
+        FROM communities c LEFT JOIN branches b ON b.id = c.branch_id ORDER BY c.created_at`);
       return rows.map((r) =>
         shapeCommunity(r, {
           homesCount: r.homes_count,
@@ -544,7 +694,9 @@ export function createPostgresStore(connectionString) {
     },
 
     async getCommunity(id) {
-      const { rows } = await q(`SELECT * FROM communities WHERE id = $1`, [id]);
+      const { rows } = await q(
+        `SELECT c.*, b.name AS branch_name FROM communities c LEFT JOIN branches b ON b.id = c.branch_id WHERE c.id = $1`, [id],
+      );
       return shapeCommunity(rows[0]);
     },
 
@@ -636,7 +788,7 @@ export function createPostgresStore(connectionString) {
       const map = {
         name: 'name', location: 'location', status: 'status', theme: 'theme',
         websiteUrl: 'website_url', builder: 'builder', settings: 'settings', tools: 'tools',
-        features: 'features', layout: 'layout',
+        features: 'features', layout: 'layout', branchId: 'branch_id',
       };
       const sets = [];
       const params = [];
@@ -647,11 +799,12 @@ export function createPostgresStore(connectionString) {
       }
       if (!sets.length) return this.getCommunity(id);
       params.push(id);
-      const { rows } = await q(
-        `UPDATE communities SET ${sets.join(', ')}, updated_at = now() WHERE id = $${params.length} RETURNING *`,
+      const { rowCount } = await q(
+        `UPDATE communities SET ${sets.join(', ')}, updated_at = now() WHERE id = $${params.length}`,
         params,
       );
-      return shapeCommunity(rows[0]);
+      // Read back rather than RETURNING *, for the branch's name beside the id, as every other read of a community has it.
+      return rowCount ? this.getCommunity(id) : null;
     },
 
     /**

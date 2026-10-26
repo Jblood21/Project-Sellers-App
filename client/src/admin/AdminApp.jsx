@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { AdminProvider, useAdmin } from './AdminContext.jsx';
 import Activity from './screens/Activity.jsx';
+import Branches from './screens/Branches.jsx';
 import CommunityDetail from './screens/CommunityDetail.jsx';
 import ForgotPassword from './screens/ForgotPassword.jsx';
 import Login from './screens/Login.jsx';
@@ -20,7 +21,7 @@ function KeyedCommunity() {
 }
 
 /**
- * The pages only the owner has (Team, Activity). A member who types the address is sent to Today instead. Until
+ * The pages only the owner has (Team, Branches, Activity). A member who types the address is sent to Today instead. Until
  * /me has said who this is (a beat after signing in) the page is left to load; the server refuses it anyway.
  */
 function OwnerOnly({ children }) {
@@ -50,6 +51,7 @@ function AdminRoutes() {
     <Routes>
       <Route index element={<Today />} />
       <Route path="team" element={<OwnerOnly><Team /></OwnerOnly>} />
+      <Route path="branches" element={<OwnerOnly><Branches /></OwnerOnly>} />
       <Route path="activity" element={<OwnerOnly><Activity /></OwnerOnly>} />
       <Route path="communities/:communityId/*" element={<KeyedCommunity />} />
       <Route path="forgot" element={<ForgotPassword />} />

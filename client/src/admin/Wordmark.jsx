@@ -22,6 +22,7 @@ export default function Wordmark({ size = 20, showName = true }) {
       </svg>
       {showName ? (
         <span
+          className="wordmark__name"
           style={{
             fontFamily: 'var(--font-heading)',
             fontWeight: 700,

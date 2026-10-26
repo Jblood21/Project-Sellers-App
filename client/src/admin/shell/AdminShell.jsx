@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 
 import { COMMUNITY_STATUSES, isArchived, isTourPending, isUnread } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { groupByBranch, headedGroups } from '../branches.js';
 import Wordmark from '../Wordmark.jsx';
 import ChangePasswordDialog from '../screens/ChangePasswordDialog.jsx';
 import { buyerUrl } from '../screens/QrDialog.jsx';
@@ -31,15 +32,17 @@ function Badge({ count }) {
  * The frame around every admin page. A side menu on a computer, a top bar and a bottom bar on a phone
  * (both are in the page and the stylesheet shows one), so a section is one tap away on either.
  *
- * Without a `community` it frames the Today, Team and Activity pages, whose side menu lists the communities
- * instead of the sections. `leaveOk` is asked before anything that leaves the page: Setup uses it to stop
- * a tap from throwing away unsaved edits.
+ * Without a `community` it frames the Today, Team, Branches and Activity pages, whose side menu lists the
+ * communities instead of the sections, under their branches' names once there are groups to tell apart, by the
+ * same rule as Today's cards (headedGroups; `branches` gives the names when the rows do not carry them).
+ * `leaveOk` is asked before anything that leaves the page: Setup uses it to stop a tap from throwing away
+ * unsaved edits.
  *
- * Team, Activity and New community are the owner's: a member's menus, bars and sheets leave them out, and the
- * communities listed are the ones the server let them have.
+ * Team, Branches, Activity and New community are the owner's: a member's menus, bars and sheets leave them out,
+ * and the communities listed are the ones the server let them have.
  */
 export default function AdminShell({
-  community = null, leads = null, section = '', communities = null, leaveOk = () => true,
+  community = null, leads = null, section = '', communities = null, branches = null, leaveOk = () => true,
   onEdit, onQr, title = '', blurb = '', children,
 }) {
   const { admin, isOwner, signOut } = useAdmin();
@@ -62,6 +65,8 @@ export default function AdminShell({
   const base = community ? `/admin/communities/${community.id}` : '';
   const countFor = (key) => (key === 'leads' ? attention : 0);
   const url = community ? buyerUrl(community) : '';
+  const groups = groupByBranch(communities ?? [], branches ?? []);
+  const headed = headedGroups(groups, isOwner);
 
   const sectionLink = (item, { onNavigate, className = 'as-link', first = false } = {}) => (
     <NavLink
@@ -108,12 +113,17 @@ export default function AdminShell({
           ) : (
             <div className="as-group">
               <span className="as-eyebrow">Communities</span>
-              {(communities ?? []).map((item) => (
-                <NavLink key={item.id} to={`/admin/communities/${item.id}`} className="as-link" onClick={guard()}>
-                  <NavIcon name="homes" />
-                  <span className="as-link__label">{item.name}</span>
-                  <Badge count={item.waiting} />
-                </NavLink>
+              {groups.map((group) => (
+                <Fragment key={group.id ?? ''}>
+                  {headed ? <span className="as-subhead">{group.name}</span> : null}
+                  {group.communities.map((item) => (
+                    <NavLink key={item.id} to={`/admin/communities/${item.id}`} className="as-link" onClick={guard()}>
+                      <NavIcon name="homes" />
+                      <span className="as-link__label">{item.name}</span>
+                      <Badge count={item.waiting} />
+                    </NavLink>
+                  ))}
+                </Fragment>
               ))}
               {isOwner ? (
                 <Link to="/admin?new=1" className="as-link as-link--add" onClick={guard()}>
@@ -132,6 +142,10 @@ export default function AdminShell({
               <NavLink to="/admin/team" className="as-link as-link--quiet" onClick={guard()}>
                 <NavIcon name="team" />
                 <span className="as-link__label">Team</span>
+              </NavLink>
+              <NavLink to="/admin/branches" className="as-link as-link--quiet" onClick={guard()}>
+                <NavIcon name="branches" />
+                <span className="as-link__label">Branches</span>
               </NavLink>
               <NavLink to="/admin/activity" className="as-link as-link--quiet" onClick={guard()}>
                 <NavIcon name="activity" />
@@ -168,12 +182,17 @@ export default function AdminShell({
             </button>
           </header>
         ) : (
-          <header className="as-top">
+          // The owner's bar is the full one: five round buttons after the wordmark, which on the narrowest phones
+          // is more than fits beside the name, so the stylesheet keeps the mark alone there (as-top--full).
+          <header className={`as-top${isOwner ? ' as-top--full' : ''}`}>
             <span className="as-top__brand"><Wordmark size={20} /></span>
             {isOwner ? (
               <>
                 <Link to="/admin/team" className="as-top__icon" aria-label="Team" onClick={guard()}>
                   <NavIcon name="team" />
+                </Link>
+                <Link to="/admin/branches" className="as-top__icon" aria-label="Branches" onClick={guard()}>
+                  <NavIcon name="branches" />
                 </Link>
                 <Link to="/admin/activity" className="as-top__icon" aria-label="Activity" onClick={guard()}>
                   <NavIcon name="activity" />
@@ -183,7 +202,9 @@ export default function AdminShell({
             <button type="button" className="as-top__icon" aria-label="Change password" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
               <NavIcon name="key" />
             </button>
-            <button type="button" className="as-top__text" onClick={leave}>Sign out</button>
+            <button type="button" className="as-top__icon" aria-label="Sign out" onClick={leave}>
+              <NavIcon name="signout" />
+            </button>
           </header>
         )}
 
@@ -265,6 +286,9 @@ export default function AdminShell({
               <>
                 <Link to="/admin/team" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
                   <NavIcon name="team" /><span className="as-link__label">Team</span>
+                </Link>
+                <Link to="/admin/branches" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
+                  <NavIcon name="branches" /><span className="as-link__label">Branches</span>
                 </Link>
                 <Link to="/admin/activity" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
                   <NavIcon name="activity" /><span className="as-link__label">Activity</span>

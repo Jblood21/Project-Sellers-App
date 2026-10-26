@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { accessSummary } from '../branches.js';
 import AdminShell from '../shell/AdminShell.jsx';
 import { Dialog, ErrorNote, Field, Spinner } from '../ui.jsx';
+import AccessPicker from './AccessPicker.jsx';
 
 const dateOf = (iso) => {
   const date = new Date(iso);
@@ -32,64 +34,79 @@ const outcomeOf = (result, { resent = false } = {}) => {
 };
 
 /**
- * The communities to tick, one box per community by name, as a group the keyboard walks through. `note` is the
- * word beside the group's name after a change (Saved, or why not); its element is always there, so a screen
- * reader hears the word arrive. With no communities yet the group says so, rather than showing nothing to tick.
+ * The pop-up that changes what one member can open: their branches and their own communities, saved together
+ * as one list each, so the row never shows half of a change. Cancel (or Escape) throws the ticks away; Save
+ * tells the server and hands the row back as the server now holds it. A refusal stays in the pop-up, in the
+ * server's words, with the ticks still there to try again.
  */
-function CommunityChecks({ legend, communities, value, onChange, note = null }) {
-  const chosen = new Set(value);
+function AccessDialog({ member, branches, communities, onClose, onSaved }) {
+  const { token } = useAdmin();
+  const [access, setAccess] = useState({ branchIds: member.branchIds ?? [], communityIds: member.communityIds ?? [] });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const row = await adminApi.setAdminAccess(token, member.id, access);
+      // The row as the server sees it; the ticks fall back to what was chosen should the answer leave them out.
+      onSaved({ ...member, ...access, ...(row?.id === member.id ? row : {}) });
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
   return (
-    <fieldset className="as-access">
-      <legend className="as-access__legend">
-        {legend}
-        <span className={`as-saved${note?.warn ? ' as-saved--warn' : ''}`} role="status">{note?.text ?? ''}</span>
-      </legend>
-      {communities.length === 0 ? (
-        <span className="as-member__line">No communities yet. Once there is one, it can be given here.</span>
-      ) : (
-        <div className="as-checks">
-          {communities.map((community) => (
-            <label key={community.id} className="as-check">
-              <input
-                type="checkbox"
-                checked={chosen.has(community.id)}
-                onChange={(event) => onChange(event.target.checked
-                  ? [...value, community.id]
-                  : value.filter((id) => id !== community.id))}
-              />
-              <span>{community.name}</span>
-            </label>
-          ))}
-        </div>
+    <Dialog
+      title={`Access for ${member.email}`}
+      onClose={onClose}
+      actions={(
+        <>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        </>
       )}
-    </fieldset>
+    >
+      <p className="card-body" style={{ margin: 0 }}>
+        They can open every community in the branches you tick, now and later, and the communities you tick on
+        their own, and do everything inside those.
+      </p>
+      <AccessPicker branches={branches} communities={communities} {...access} onChange={setAccess} />
+      <ErrorNote>{error}</ErrorNote>
+    </Dialog>
   );
 }
 
 /**
  * Everyone who can sign in, and the way to add or remove someone. This page is the owner's: the one account the
  * environment names (ADMIN_EMAIL) sees every community and everything on this page, while each person invited
- * from here is a member who sees only the communities the owner ticks for them, and can do everything inside
- * those. The boxes save as they are ticked, so what a member can open changes the moment the owner changes it.
- * What no one can do is remove themselves, and the server keeps the last account whatever is asked. Inviting
- * makes the account at once and emails a set-password link, so the list shows the person straight away, marked
- * until they have chosen a password.
+ * from here is a member who sees only what the owner gives them, and can do everything inside those. What a
+ * member has is the communities of every branch they are in (now and later) plus the communities ticked for
+ * them on their own; each row says so in one line, and Edit access opens the pop-up that changes it. What no one
+ * can do is remove themselves, and the server keeps the last account whatever is asked. Inviting makes the
+ * account at once and emails a set-password link, so the list shows the person straight away, marked until they
+ * have chosen a password.
  */
 export default function Team() {
   const { token, admin } = useAdmin();
   const [members, setMembers] = useState(null);
   const [communities, setCommunities] = useState([]);
+  // null until they have arrived; [] when the server has none (or would not say), so the page still works.
+  const [branches, setBranches] = useState(null);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
-  // The communities ticked for the person about to be invited.
-  const [inviteIds, setInviteIds] = useState([]);
+  // The branches and communities ticked for the person about to be invited.
+  const [inviteAccess, setInviteAccess] = useState({ branchIds: [], communityIds: [] });
   const [inviteError, setInviteError] = useState('');
   // '' when nothing is in flight, 'invite' while the form sends, or the id of the person a button is working on.
   const [busy, setBusy] = useState('');
   // The sentence that says what the last invite, resend or removal did.
   const [note, setNote] = useState(null);
-  // The word beside one member's communities after a tick: { id, text, warn }. Saved goes away on its own.
+  // The word beside one member's access line after the pop-up saved: { id, text }. It goes away on its own.
   const [accessNote, setAccessNote] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [removeError, setRemoveError] = useState('');
   const emailField = useRef(null);
@@ -99,14 +116,12 @@ export default function Team() {
   // view, which on a phone with a long list is the only way the person sees it at all. An invite puts the
   // keyboard back on the address field instead, ready for the next person.
   const focusNote = useRef(false);
-  // Ticks go to the server one after another, in the order they were made, so two quick ones cannot overtake
-  // each other and leave the server holding the earlier set.
-  const saves = useRef(Promise.resolve());
 
   useEffect(() => {
     adminApi.team(token).then(setMembers).catch((err) => setError(err.message));
     // The side menu lists the communities on every page without one; here they are also the boxes to tick.
     adminApi.communities(token).then(setCommunities).catch(() => {});
+    adminApi.branches(token).then((list) => setBranches(list ?? [])).catch(() => setBranches([]));
   }, [token]);
 
   useEffect(() => {
@@ -127,12 +142,12 @@ export default function Team() {
     setInviteError('');
     setNote(null);
     try {
-      const result = await adminApi.inviteAdmin(token, address, inviteIds);
-      // The row as the server sees it; the communities fall back to what was ticked should the answer leave them out.
-      const created = { role: 'member', communityIds: inviteIds, ...result.admin };
+      const result = await adminApi.inviteAdmin(token, address, inviteAccess.communityIds, inviteAccess.branchIds);
+      // The row as the server sees it; the access falls back to what was ticked should the answer leave it out.
+      const created = { role: 'member', ...inviteAccess, ...result.admin };
       setMembers((list) => [...(list ?? []).filter((m) => m.id !== created.id), created]);
       setEmail('');
-      setInviteIds([]);
+      setInviteAccess({ branchIds: [], communityIds: [] });
       setNote(outcomeOf(result));
     } catch (err) {
       setInviteError(err.message);
@@ -162,26 +177,12 @@ export default function Team() {
     }
   };
 
-  /**
-   * A tick on a member's row: the boxes show the new set at once and the server is told. Saved appears beside the
-   * group's name for a moment; a refusal stays there, in the server's words, and the list is read again so the boxes
-   * show what the server really holds.
-   */
-  const saveAccess = (member, communityIds) => {
-    setMembers((list) => list.map((m) => (m.id === member.id ? { ...m, communityIds } : m)));
-    setAccessNote({ id: member.id, text: 'Saving…', warn: false });
-    saves.current = saves.current.then(async () => {
-      try {
-        await adminApi.setAdminCommunities(token, member.id, communityIds);
-        setAccessNote({ id: member.id, text: 'Saved', warn: false });
-        window.setTimeout(() => {
-          setAccessNote((current) => (current?.id === member.id && current.text === 'Saved' ? null : current));
-        }, 2500);
-      } catch (err) {
-        setAccessNote({ id: member.id, text: `Not saved: ${err.message}`, warn: true });
-        adminApi.team(token).then(setMembers).catch(() => {});
-      }
-    });
+  /** The pop-up saved: the row shows the new line at once, with Saved beside it for a moment. */
+  const savedAccess = (saved) => {
+    setMembers((list) => list.map((m) => (m.id === saved.id ? saved : m)));
+    setEditing(null);
+    setAccessNote({ id: saved.id, text: 'Saved' });
+    window.setTimeout(() => setAccessNote((current) => (current?.id === saved.id ? null : current)), 2500);
   };
 
   const confirmRemove = async () => {
@@ -209,8 +210,9 @@ export default function Team() {
   return (
     <AdminShell
       communities={communities}
+      branches={branches ?? []}
       title="Team"
-      blurb="Everyone who can sign in here. You see everything; each person you invite sees only the communities you give them."
+      blurb="Everyone who can sign in here. You see everything; each person you invite sees only the branches and communities you give them."
     >
       <ErrorNote>{error}</ErrorNote>
 
@@ -218,8 +220,9 @@ export default function Team() {
         <h2 className="card-title" style={{ margin: 0, fontSize: 18 }}>Invite someone</h2>
         <p className="card-body" style={{ margin: 0 }}>
           They get an email with a link to set their password; it works once, for 7 days. Until they have, their
-          row below says so, and you can send the invite again. They can open the communities you tick, and do
-          everything inside those; you can change which ones at any time below.
+          row below says so, and you can send the invite again. They can open every community in the branches you
+          tick, now and later, and the communities you tick on their own, and do everything inside those; Edit
+          access below changes it at any time.
         </p>
         <div className="as-invite">
           <Field label="Email">
@@ -229,7 +232,7 @@ export default function Team() {
             />
           </Field>
         </div>
-        <CommunityChecks legend="Give access to" communities={communities} value={inviteIds} onChange={setInviteIds} />
+        <AccessPicker branches={branches ?? []} communities={communities} {...inviteAccess} onChange={setInviteAccess} compact />
         <div className="as-invite__send">
           <button type="submit" className="btn btn-primary" disabled={busy === 'invite'}>
             {busy === 'invite' ? 'Sending…' : 'Send invite'}
@@ -275,20 +278,22 @@ export default function Team() {
                       ADMIN_EMAIL and ADMIN_PASSWORD there.
                     </span>
                   ) : null}
-                  {owner ? (
-                    <span className="as-member__line as-member__all">All communities</span>
-                  ) : (
-                    <CommunityChecks
-                      legend="Has access to"
-                      communities={communities}
-                      value={member.communityIds ?? []}
-                      onChange={(ids) => saveAccess(member, ids)}
-                      note={accessNote?.id === member.id ? accessNote : null}
-                    />
-                  )}
+                  <span className="as-member__line as-member__access">
+                    {/* The names are only right once the branches have arrived; until then the line waits. */}
+                    <span className={owner ? 'as-member__all' : undefined}>{branches ? accessSummary(member, branches, communities) : ''}</span>
+                    <span className="as-saved" role="status">{accessNote?.id === member.id ? accessNote.text : ''}</span>
+                  </span>
                 </div>
-                {canResend || canRemove ? (
+                {!owner || canResend || canRemove ? (
                   <div className="as-member__actions">
+                    {!owner ? (
+                      <button
+                        type="button" className="btn btn-secondary" onClick={() => setEditing(member)} disabled={working || !branches}
+                        aria-label={`Edit access for ${member.email}`} aria-haspopup="dialog"
+                      >
+                        Edit access
+                      </button>
+                    ) : null}
                     {canResend ? (
                       <button
                         type="button" className="btn btn-ghost" onClick={() => resend(member)} disabled={working}
@@ -311,6 +316,16 @@ export default function Team() {
             );
           })}
         </ul>
+      ) : null}
+
+      {editing ? (
+        <AccessDialog
+          member={editing}
+          branches={branches ?? []}
+          communities={communities}
+          onClose={() => setEditing(null)}
+          onSaved={savedAccess}
+        />
       ) : null}
 
       {removing ? (

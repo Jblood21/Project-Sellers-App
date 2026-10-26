@@ -25,7 +25,7 @@ import {
   INVITE_TTL_MS, RESET_TTL_MS, forgetAdminSessions, hashPassword, hashResetToken, issueToken, newResetToken, passwordProblem,
   requireAdmin, unusablePasswordHash, verifyPassword,
 } from '../lib/auth.js';
-import { NO_ACCESS, canAccess, forgetAdminAccess, requireOwner, roleOf } from '../lib/access.js';
+import { NO_ACCESS, canAccess, forgetAdminAccess, forgetAllAdminAccess, isOwner, requireOwner, roleOf } from '../lib/access.js';
 import { recordActivity } from '../lib/activity.js';
 import { sendAdminInvite, sendPasswordReset } from '../lib/notify.js';
 
@@ -530,7 +530,7 @@ export function adminRouter() {
   // ── the team ─────────────────────────────────────────────────────────────
   // The owner's pages: who can sign in, who sees which communities, and what everyone did. A member is
   // answered 403 on all of them (requireOwner), so the team is the owner's alone to shape. An invite makes
-  // the account at once, as a member with whatever communities the owner ticked, with a password nobody
+  // the account at once, as a member with whatever branches and communities the owner ticked, with a password nobody
   // holds, and emails a set-password link: the same link the forgot form sends, kept for seven days instead
   // of thirty minutes, so the person signs in by choosing a password and nothing (no temporary password)
   // ever travels in the mail. Until they do, the row is marked invited, the invite can be sent again, and a
@@ -542,12 +542,14 @@ export function adminRouter() {
   const invitePerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
   const resendPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
   const COMMUNITY_IDS_BAD = 'Send communityIds as a list of community ids.';
+  const BRANCH_IDS_BAD = 'Send branchIds as a list of branch ids.';
   /**
-   * The `communityIds` a Team request carries: a list of ids, each once, or null for anything that is not one.
-   * An absent field is an empty list (an invite with no communities is fine); the ids are not checked against
-   * the store here, because setAdminCommunities keeps only the ones that exist.
+   * A list of ids a Team or Branches request carries (`communityIds`, `branchIds`, `adminIds`): each once, or
+   * null for anything that is not a list of strings. An absent field is an empty list (an invite with no
+   * communities is fine); the ids are not checked against the store here, because every set* store method keeps
+   * only the ones that exist.
    */
-  const communityIdList = (value) => {
+  const idList = (value) => {
     if (value === undefined) return [];
     if (!Array.isArray(value) || !value.every((id) => typeof id === 'string' && !hasControlCharacter(id))) return null;
     return [...new Set(value.map((id) => id.trim()).filter(Boolean))];
@@ -556,6 +558,22 @@ export function adminRouter() {
   const namesOf = async (store, ids, none) => {
     if (!ids.length) return none;
     return (await store.listCommunities()).filter((c) => ids.includes(c.id)).map((c) => c.name).join(', ');
+  };
+  /** "A", "A and B", "A, B and C": names the way a sentence lists them. */
+  const listed = (names) => (names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
+  /**
+   * What a person may see, for a log line: their branches first (every community in each, now and later), then
+   * the communities ticked for them on their own, or "no communities" for neither. "the Summit Homes branch, and
+   * Willow Creek" says where each part of their access comes from, which is what the owner reads the line for.
+   */
+  const describeAccess = async (store, branchIds, communityIds) => {
+    const parts = [];
+    if (branchIds.length) {
+      const names = (await store.listBranches()).filter((b) => branchIds.includes(b.id)).map((b) => b.name);
+      if (names.length) parts.push(`the ${listed(names)} ${names.length === 1 ? 'branch' : 'branches'}`);
+    }
+    if (communityIds.length) parts.push(await namesOf(store, communityIds, ''));
+    return parts.filter(Boolean).join(', and ') || 'no communities';
   };
   /**
    * The address ensureAdmin (server/index.js) makes an account for at every start, while both variables are set.
@@ -570,13 +588,15 @@ export function adminRouter() {
     + 'Change or clear ADMIN_EMAIL and ADMIN_PASSWORD there first.';
   /**
    * An admin as the Team page shows it: never the hashes, whether the invited person has set a password yet, the
-   * role, and for a member the communities shared with them (`communityIds`). An owner's list is empty: the role
-   * says they have every community, and the page reads "All communities" from it.
+   * role, and for a member where their access comes from: the branches they are in (`branchIds`, every community
+   * in each) and the communities shared with them on their own (`communityIds`). An owner's lists are empty: the
+   * role says they have every community, and the page reads "All communities" from it.
    */
-  const teamMember = (admin, communityIds = []) => ({
+  const teamMember = (admin, communityIds = [], branchIds = []) => ({
     id: admin.id,
     email: admin.email,
     role: roleOf(admin),
+    branchIds: roleOf(admin) === 'owner' ? [] : branchIds,
     communityIds: roleOf(admin) === 'owner' ? [] : communityIds,
     createdAt: admin.created_at,
     // Set until a password is chosen, by whichever link; the page says "Invited" and offers to resend.
@@ -604,11 +624,16 @@ export function adminRouter() {
 
   router.get('/team', async (_req, res) => {
     const store = await getStore();
-    // One read for everyone's communities rather than one per row: the page lists the whole team at once.
-    const [admins, assignments] = await Promise.all([store.listAdmins(), store.listAdminAssignments()]);
-    const byAdmin = new Map();
-    for (const { adminId, communityId } of assignments) byAdmin.set(adminId, [...(byAdmin.get(adminId) ?? []), communityId]);
-    res.json(admins.map((admin) => teamMember(admin, byAdmin.get(admin.id) ?? [])));
+    // One read for everyone's communities and one for everyone's branches rather than two per row: the page
+    // lists the whole team at once.
+    const [admins, assignments, memberships] = await Promise.all([
+      store.listAdmins(), store.listAdminAssignments(), store.listAdminBranchAssignments(),
+    ]);
+    const communitiesOf = new Map();
+    for (const { adminId, communityId } of assignments) communitiesOf.set(adminId, [...(communitiesOf.get(adminId) ?? []), communityId]);
+    const branchesOf = new Map();
+    for (const { adminId, branchId } of memberships) branchesOf.set(adminId, [...(branchesOf.get(adminId) ?? []), branchId]);
+    res.json(admins.map((admin) => teamMember(admin, communitiesOf.get(admin.id) ?? [], branchesOf.get(admin.id) ?? [])));
   });
 
   router.post('/team/invites', async (req, res) => {
@@ -619,8 +644,10 @@ export function adminRouter() {
     if (!isSafeEmail(email) || hasControlCharacter(email)) {
       return res.status(400).json({ error: 'Enter a full email address, like name@example.com.' });
     }
-    const communityIds = communityIdList(req.body?.communityIds);
+    const communityIds = idList(req.body?.communityIds);
     if (communityIds === null) return res.status(400).json({ error: COMMUNITY_IDS_BAD });
+    const branchIds = idList(req.body?.branchIds);
+    if (branchIds === null) return res.status(400).json({ error: BRANCH_IDS_BAD });
     const hold = reserve([[invitePerIp, clientKey(req)]]);
     if (hold.wait) {
       res.set('Retry-After', String(hold.wait));
@@ -628,6 +655,7 @@ export function adminRouter() {
     }
     let created;
     let given;
+    let joined;
     try {
       if (await store.getAdminByEmail(email)) {
         hold.release(); // nothing was sent
@@ -636,6 +664,7 @@ export function adminRouter() {
       created = await store.createAdmin({ email, passwordHash: unusablePasswordHash(), invitedAt: new Date(), role: 'member' });
       // Shared from the start, so the person opens on their communities the moment they set a password.
       given = await store.setAdminCommunities(created.id, communityIds);
+      joined = await store.setAdminBranches(created.id, branchIds);
     } catch (err) {
       hold.release(); // our failure
       throw err;
@@ -644,30 +673,55 @@ export function adminRouter() {
     await store.createPasswordReset({ adminId: created.id, tokenHash: hash, expiresAt: new Date(Date.now() + INVITE_TTL_MS) });
     const outcome = await emailInvite(req, created, token);
     await recordActivity(store, req, {
-      action: 'team.invited', subject: created.email, detail: `Given access to: ${await namesOf(store, given, 'no communities yet')}`,
+      action: 'team.invited', subject: created.email, detail: `Given access to: ${await describeAccess(store, joined, given)}`,
     });
-    return res.json({ admin: teamMember(created, given), ...outcome });
+    return res.json({ admin: teamMember(created, given, joined), ...outcome });
   });
 
   /**
-   * Which communities a member may see, replaced whole: the page saves the ticked boxes as one list, so a list is
-   * what arrives, and what was shared before and is not in it is withdrawn. Not for the owner, who has every
-   * community by role and nothing here to change. Seen by the member at once on this instance: their cached
-   * access is dropped, so their next request is answered from the new list (see forgetAdminAccess).
+   * Which communities a member may see on their own, replaced whole: the page saves the ticked boxes as one list,
+   * so a list is what arrives, and what was shared before and is not in it is withdrawn. Their branches are left
+   * as they are (PUT /team/:id/access below changes both at once). Not for the owner, who has every community by
+   * role and nothing here to change. Seen by the member at once on this instance: their cached access is dropped,
+   * so their next request is answered from the new list (see forgetAdminAccess).
    */
   router.put('/team/:id/communities', async (req, res) => {
     const store = await getStore();
     const admin = await store.getAdminById(req.params.id);
     if (!admin) return res.status(404).json({ error: 'That account is no longer here.' });
     if (roleOf(admin) === 'owner') return res.status(400).json({ error: 'The owner has every community already.' });
-    const communityIds = req.body?.communityIds === undefined ? null : communityIdList(req.body.communityIds);
+    const communityIds = req.body?.communityIds === undefined ? null : idList(req.body.communityIds);
     if (communityIds === null) return res.status(400).json({ error: COMMUNITY_IDS_BAD });
     const kept = await store.setAdminCommunities(admin.id, communityIds);
     forgetAdminAccess(admin.id);
+    const branchIds = await store.listAdminBranches(admin.id);
     await recordActivity(store, req, {
-      action: 'team.assigned', subject: admin.email, detail: `Now has access to: ${await namesOf(store, kept, 'no communities')}`,
+      action: 'team.assigned', subject: admin.email, detail: `Now has access to: ${await describeAccess(store, branchIds, kept)}`,
     });
-    return res.json(teamMember(admin, kept));
+    return res.json(teamMember(admin, kept, branchIds));
+  });
+
+  /**
+   * Where a member's access comes from, both parts at once: the branches they are in and the communities shared
+   * with them on their own, each replaced whole, which is what the Edit access dialog saves. Both lists have to
+   * be sent: one left out would have to mean "and clear the other", which nobody means, so it is refused instead.
+   */
+  router.put('/team/:id/access', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.params.id);
+    if (!admin) return res.status(404).json({ error: 'That account is no longer here.' });
+    if (roleOf(admin) === 'owner') return res.status(400).json({ error: 'The owner has every community already.' });
+    const branchIds = req.body?.branchIds === undefined ? null : idList(req.body.branchIds);
+    if (branchIds === null) return res.status(400).json({ error: BRANCH_IDS_BAD });
+    const communityIds = req.body?.communityIds === undefined ? null : idList(req.body.communityIds);
+    if (communityIds === null) return res.status(400).json({ error: COMMUNITY_IDS_BAD });
+    const joined = await store.setAdminBranches(admin.id, branchIds);
+    const kept = await store.setAdminCommunities(admin.id, communityIds);
+    forgetAdminAccess(admin.id);
+    await recordActivity(store, req, {
+      action: 'team.assigned', subject: admin.email, detail: `Now has access to: ${await describeAccess(store, joined, kept)}`,
+    });
+    return res.json(teamMember(admin, kept, joined));
   });
 
   /** The invitation again, with a fresh link that replaces the earlier one. Only for an account still waiting on its password. */
@@ -687,7 +741,9 @@ export function adminRouter() {
     await store.createPasswordReset({ adminId: admin.id, tokenHash: hash, expiresAt: new Date(Date.now() + INVITE_TTL_MS) });
     const outcome = await emailInvite(req, invited, token);
     await recordActivity(store, req, { action: 'team.invited', subject: invited.email, detail: 'Sent the invite again' });
-    return res.json({ admin: teamMember(invited, await store.listAdminCommunities(invited.id)), ...outcome });
+    return res.json({
+      admin: teamMember(invited, await store.listAdminCommunities(invited.id), await store.listAdminBranches(invited.id)), ...outcome,
+    });
   });
 
   /**
@@ -746,8 +802,158 @@ export function adminRouter() {
     res.json({ entries: page.map(({ cursor, ...entry }) => entry), nextBefore });
   });
 
+  // ── branches ─────────────────────────────────────────────────────────────
+  // A branch is a company or a group: the owner's way of boxing one builder's communities off from another's
+  // while still seeing all of them. A community is in at most one branch; a person can be in several, and being
+  // in one is access to every community in it, now and whenever one is added, on top of whatever is ticked for
+  // them on their own (server/lib/access.js). All of it is the owner's: a member sees the name of the branch a
+  // community is in on the community itself (GET /communities) and nothing more, so every route here answers a
+  // member 403.
+  //
+  // A change to which communities a branch holds reaches whoever is in it (and, for a community moved from
+  // another branch, whoever is in that one), and which members those are is exactly the question the access cache
+  // exists to avoid asking per request, so those changes clear the whole cache (forgetAllAdminAccess) rather than
+  // work it out; each admin's next request reads their access afresh. A change to who is in a branch names the
+  // people, so it clears only theirs.
+  router.use('/branches', requireOwner);
+  const BRANCH_NAME_MAX = 80;
+  /** The branch's name from a request body: trimmed, 1 to 80 characters, or the sentence saying why not. */
+  const branchNameOf = (body) => {
+    const { value, error } = textField(body, 'name', 'The branch name');
+    if (error) return { error };
+    if (!value) return { error: 'Give the branch a name.' };
+    if (value.length > BRANCH_NAME_MAX) return { error: `The branch name is too long (up to ${BRANCH_NAME_MAX} characters).` };
+    return { name: value };
+  };
+  /**
+   * Whether another branch already has this name in any letter case; the owner would otherwise have two "Summit
+   * Homes" to tell apart in every list. The unique index in schema.sql is what catches two requests racing
+   * (isDuplicate, below); this check is what lets the answer say which name.
+   */
+  const branchNameTaken = async (store, name, exceptId = null) => {
+    const other = await store.getBranchByName(name);
+    return Boolean(other && other.id !== exceptId);
+  };
+  const nameTaken = (name) => `There is already a branch called ${name}.`;
+  const BRANCH_MISSING = 'Branch not found';
+  const branchOf = async (req, res, store) => {
+    const branch = await store.getBranch(req.params.id);
+    if (!branch) res.status(404).json({ error: BRANCH_MISSING });
+    return branch;
+  };
+  /** "2 communities", "1 person": a count with its noun, for a log line. */
+  const countOf = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  /** Every branch with its communities and people, in name order: what the Branches page and the Edit access dialog list. */
+  router.get('/branches', async (_req, res) => {
+    const store = await getStore();
+    res.json(await store.listBranches());
+  });
+
+  router.post('/branches', async (req, res) => {
+    const store = await getStore();
+    const { name, error } = branchNameOf(req.body);
+    if (error) return res.status(400).json({ error });
+    if (await branchNameTaken(store, name)) return res.status(400).json({ error: nameTaken(name) });
+    let branch;
+    try {
+      branch = await store.createBranch({ name });
+    } catch (err) {
+      if (!isDuplicate(err)) throw err;
+      return res.status(400).json({ error: nameTaken(name) });
+    }
+    await recordActivity(store, req, { action: 'branch.created', subject: branch.name });
+    return res.status(201).json(branch);
+  });
+
+  /** A rename. Nothing about who or what is in the branch moves, so nobody's access changes. */
+  router.patch('/branches/:id', async (req, res) => {
+    const store = await getStore();
+    const branch = await branchOf(req, res, store);
+    if (!branch) return;
+    const { name, error } = branchNameOf(req.body);
+    if (error) return res.status(400).json({ error });
+    if (await branchNameTaken(store, name, branch.id)) return res.status(400).json({ error: nameTaken(name) });
+    let renamed;
+    try {
+      renamed = await store.updateBranch(branch.id, { name });
+    } catch (err) {
+      if (!isDuplicate(err)) throw err;
+      return res.status(400).json({ error: nameTaken(name) });
+    }
+    if (!renamed) return res.status(404).json({ error: BRANCH_MISSING });
+    // The same name again is not a change, and a line saying "renamed from X to X" would only puzzle the owner.
+    if (renamed.name !== branch.name) {
+      await recordActivity(store, req, { action: 'branch.updated', subject: renamed.name, detail: `Renamed from ${branch.name}` });
+    }
+    return res.json(renamed);
+  });
+
+  /**
+   * Takes the grouping away and nothing else: its communities stay, in no branch, and its people keep their
+   * accounts and whatever communities are ticked for them on their own (the cascades in schema.sql; the file
+   * store does the same by hand). What goes, at once, is the access that came only through the branch.
+   */
+  router.delete('/branches/:id', async (req, res) => {
+    const store = await getStore();
+    const branch = await branchOf(req, res, store);
+    if (!branch) return;
+    if (!(await store.deleteBranch(branch.id))) return res.status(404).json({ error: BRANCH_MISSING });
+    forgetAllAdminAccess();
+    await recordActivity(store, req, {
+      action: 'branch.deleted', subject: branch.name,
+      detail: `Kept its ${countOf(branch.communityIds.length, 'community', 'communities')} and ${countOf(branch.memberIds.length, 'person', 'people')}`,
+    });
+    return res.status(204).end();
+  });
+
+  /**
+   * Which communities are in the branch, replaced whole, as the page's ticked boxes are saved. A community is in
+   * at most one branch, so one ticked here leaves the branch it was in; one unticked is left in no branch. An
+   * unknown id is ignored, as on the Team page.
+   */
+  router.put('/branches/:id/communities', async (req, res) => {
+    const store = await getStore();
+    const branch = await branchOf(req, res, store);
+    if (!branch) return;
+    const communityIds = req.body?.communityIds === undefined ? null : idList(req.body.communityIds);
+    if (communityIds === null) return res.status(400).json({ error: COMMUNITY_IDS_BAD });
+    const kept = await store.setBranchCommunities(branch.id, communityIds);
+    if (kept === null) return res.status(404).json({ error: BRANCH_MISSING });
+    forgetAllAdminAccess();
+    await recordActivity(store, req, {
+      action: 'branch.updated', subject: branch.name, detail: `Communities: ${await namesOf(store, kept, 'none')}`,
+    });
+    return res.json(await store.getBranch(branch.id));
+  });
+
+  /**
+   * Who is in the branch, replaced whole. Members only: the owner has every community by role, so an owner's id
+   * is dropped rather than stored, and an unknown id is ignored. Whoever was in it and whoever now is has their
+   * cached access dropped, so the change reaches each of them on their next request.
+   */
+  router.put('/branches/:id/members', async (req, res) => {
+    const store = await getStore();
+    const branch = await branchOf(req, res, store);
+    if (!branch) return;
+    const adminIds = req.body?.adminIds === undefined ? null : idList(req.body.adminIds);
+    if (adminIds === null) return res.status(400).json({ error: 'Send adminIds as a list of account ids.' });
+    const kept = await store.setBranchMembers(branch.id, adminIds);
+    if (kept === null) return res.status(404).json({ error: BRANCH_MISSING });
+    for (const adminId of new Set([...branch.memberIds, ...kept])) forgetAdminAccess(adminId);
+    const emails = (await store.listAdmins()).filter((a) => kept.includes(a.id)).map((a) => a.email);
+    await recordActivity(store, req, {
+      action: 'branch.updated', subject: branch.name, detail: `People: ${emails.join(', ') || 'none'}`,
+    });
+    return res.json(await store.getBranch(branch.id));
+  });
+
   // ── communities ──────────────────────────────────────────────────────────
-  /** Every community for the owner; for a member, the ones shared with them. The other lists (Today, the switcher) read this too. */
+  /**
+   * Every community for the owner; for a member, the ones shared with them. The other lists (Today, the switcher)
+   * read this too. Each row says which branch it is in (`branchId`, `branchName`, null for none), for a member as
+   * for the owner: the name is read-only there, and all a member learns of branches.
+   */
   router.get('/communities', async (req, res) => {
     const store = await getStore();
     res.json((await store.listCommunities()).filter((row) => canAccess(req.access, row.id)));
@@ -800,6 +1006,8 @@ export function adminRouter() {
       }
       communities.push({
         id: community.id, name: community.name, location: community.location, status: community.status, theme: community.theme,
+        // The branch (company or group) it is in, so the page can group the cards under it; see `branches` below.
+        branchId: community.branchId, branchName: community.branchName,
         // The four colour settings, so Today names a community on its own colours "Custom colours" (themeView
         // needs them to tell a full palette from a half-finished one) without the rest of its settings.
         settings: Object.fromEntries(CUSTOM_KEYS.map((key) => [key, community.settings?.[key] ?? ''])),
@@ -819,8 +1027,16 @@ export function adminRouter() {
       return Number.isNaN(t) ? -Infinity : t;
     };
     ready.sort((a, b) => (a.contacted - b.contacted) || (time(b.agreedAt ?? b.firstVisitAt) - time(a.agreedAt ?? a.firstVisitAt)));
+    // The branches to group the cards under, in name order: every branch for the owner, who sees them all and may
+    // want an empty one to put a card in; for a member, only the branches their own communities are in, which is
+    // all a member learns of branches (the names are on their cards already).
+    const inView = new Set(communities.map((c) => c.branchId).filter(Boolean));
+    const branches = (await store.listBranches())
+      .filter((b) => isOwner(req.access) || inView.has(b.id))
+      .map(({ id, name }) => ({ id, name }));
     res.json({
       communities,
+      branches,
       calls: calls.slice(0, 30).map(({ key, ...call }) => call),
       ready: ready.slice(0, READY_LISTED).map(({ firstVisitAt, ...person }) => person),
       totals: {
@@ -911,6 +1127,25 @@ export function adminRouter() {
     // app would have no stylesheet for it.
     if (req.body?.layout !== undefined && LAYOUT_KEYS.includes(req.body.layout)) {
       patch.layout = req.body.layout;
+    }
+    // Which branch (company or group) the community is in: the owner's to change, and null takes it out of any.
+    // A member's forms never send it; one that does is refused in words rather than quietly ignored, so a stale
+    // form cannot look as if it worked. Checked before anything is saved, like the slug, so a refusal changes
+    // nothing. `movedTo` is the branch it is going into, null for out of its branch, undefined for no move.
+    let movedTo;
+    if (req.body?.branchId !== undefined) {
+      if (!isOwner(req.access)) return res.status(400).json({ error: 'Only the owner can move a community between branches.' });
+      const to = req.body.branchId === null ? null : (typeof req.body.branchId === 'string' ? str(req.body.branchId) || null : undefined);
+      if (to === undefined) return res.status(400).json({ error: 'Send branchId as a branch id, or null for no branch.' });
+      if (to !== community.branchId) {
+        if (to) {
+          movedTo = await store.getBranch(to);
+          if (!movedTo) return res.status(400).json({ error: 'That branch is no longer here.' });
+        } else {
+          movedTo = null;
+        }
+        patch.branchId = to;
+      }
     }
 
     if (req.body?.settings) {
@@ -1008,17 +1243,28 @@ export function adminRouter() {
       }
     }
     const updated = await store.updateCommunity(community.id, patch);
-    // Which parts of Setup moved, in the words the page uses for them, so the owner can tell a rename from a colour change.
+    // Its people changed with the branch: whoever is in the old branch or the new one sees it go or come at once.
+    if (movedTo !== undefined) forgetAllAdminAccess();
+    // Which parts of Setup moved, in the words the page uses for them, so the owner can tell a rename from a colour
+    // change. The forms send back every field they loaded, so a field counts only when its value is new: the Edit
+    // community pop-up that only picks a branch must not read as "Changed details" as well. Settings, tools and
+    // features are whole objects normalised on the way in, which cannot be told apart from the stored ones with
+    // any confidence, so they count when sent, as before.
+    const differs = (key) => key in patch && patch[key] !== community[key];
     const changed = [
-      ['name', 'location', 'builder', 'websiteUrl', 'status'].some((key) => key in patch) && 'details',
-      ('theme' in patch || 'layout' in patch) && 'look',
+      ['name', 'location', 'builder', 'websiteUrl', 'status'].some(differs) && 'details',
+      (differs('theme') || differs('layout')) && 'look',
       'settings' in patch && 'settings',
       'tools' in patch && 'tools',
       'features' in patch && 'features',
       newSlug && 'buyer link',
     ].filter(Boolean);
+    // A move between branches is its own clause, naming the branch, since that is what the owner looks for.
+    const moved = movedTo === undefined ? '' : movedTo ? `moved to branch ${movedTo.name}` : `taken out of branch ${community.branchName}`;
+    const detail = [changed.length ? `Changed ${changed.join(', ')}` : '', moved].filter(Boolean).join('; ');
     await recordActivity(store, req, {
-      communityId: community.id, action: 'community.updated', subject: updated.name, detail: changed.length ? `Changed ${changed.join(', ')}` : '',
+      communityId: community.id, action: 'community.updated', subject: updated.name,
+      detail: detail.charAt(0).toUpperCase() + detail.slice(1),
     });
     res.json(updated);
   });
@@ -1029,10 +1275,13 @@ export function adminRouter() {
     const community = await store.getCommunity(req.params.id);
     if (!community) return res.status(404).json({ error: 'Community not found' });
     // Who had it: their assignments go with the row, and their cached access should too, so the community is
-    // gone for them at once rather than answering "not found" for up to 30 seconds (see forgetAdminAccess).
+    // gone for them at once rather than answering "not found" for up to 30 seconds (see forgetAdminAccess). One
+    // in a branch was had by whoever is in that branch as well, which is the cache's question to avoid, so that
+    // case clears everyone's.
     const holders = (await store.listAdminAssignments()).filter((a) => a.communityId === community.id);
     await store.deleteCommunity(community.id);
-    for (const { adminId } of holders) forgetAdminAccess(adminId);
+    if (community.branchId) forgetAllAdminAccess();
+    else for (const { adminId } of holders) forgetAdminAccess(adminId);
     // No communityId: the row it would point at is gone, so the name goes in the subject, where it keeps reading.
     await recordActivity(store, req, { action: 'community.deleted', subject: community.name, detail: community.location });
     res.status(204).end();

@@ -88,7 +88,26 @@ ALTER TABLE communities ADD COLUMN IF NOT EXISTS guides_seeded BOOLEAN NOT NULL 
 -- one is stamped with it at creation, so it starts on the new defaults and is never refreshed over its own choices.
 ALTER TABLE communities ADD COLUMN IF NOT EXISTS figures_version TEXT NOT NULL DEFAULT '';
 
--- Which communities each member may see and work in. The owner is not listed: the role says they have all.
+-- A branch is a company or a group of communities: the owner's way of boxing one builder's communities off from
+-- another's while still seeing all of them. A community is in at most one branch (communities.branch_id, below);
+-- a person can be in several (admin_branches, further down). Being in a branch is access to every community in
+-- it, now and whenever one is added, on top of whatever is ticked for the person on their own (admin_communities).
+CREATE TABLE IF NOT EXISTS branches (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- One name per branch in any letter case: two "Summit Homes" would be impossible to tell apart in every list. The
+-- route checks first to say so in words; this is what catches two requests racing.
+CREATE UNIQUE INDEX IF NOT EXISTS branches_name_idx ON branches (lower(name));
+-- Which branch a community is in, or NULL for none. Deleting a branch leaves its communities where they are, in
+-- no branch, rather than taking them with it: a branch is a grouping, not a container. The ALTER sits here, after
+-- branches, because it references that table and the file runs top to bottom.
+ALTER TABLE communities ADD COLUMN IF NOT EXISTS branch_id TEXT REFERENCES branches(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS communities_branch_idx ON communities(branch_id);
+
+-- Which communities each member may see and work in on their own, beside whatever their branches hold. The owner
+-- is not listed: the role says they have all.
 -- Here rather than beside admin_users because it references communities, and the file runs top to bottom.
 -- Both cascades matter: removing a member takes their assignments with them, and deleting a community
 -- takes it off every member's list, so neither leaves a row pointing at nothing.
@@ -99,6 +118,18 @@ CREATE TABLE IF NOT EXISTS admin_communities (
   PRIMARY KEY (admin_id, community_id)
 );
 CREATE INDEX IF NOT EXISTS admin_communities_community_idx ON admin_communities(community_id);
+
+-- Which branches each member is in. Being in one is access to every community in it, including those put in
+-- later, so a new community for a company reaches its people without a visit to each row in Team. The owner is
+-- not listed, for the reason they are not listed above. Both cascades matter: removing a member takes them out of
+-- their branches, and deleting a branch takes everyone out of it (they keep their own communities above).
+CREATE TABLE IF NOT EXISTS admin_branches (
+  admin_id   TEXT NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  branch_id  TEXT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (admin_id, branch_id)
+);
+CREATE INDEX IF NOT EXISTS admin_branches_branch_idx ON admin_branches(branch_id);
 
 -- What each admin did, for the owner to read: one row per change made through the admin (a home added, a
 -- lead's notes changed, a member invited), with the action as a key from shared/adminActivity.js and the

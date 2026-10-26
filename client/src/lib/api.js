@@ -145,16 +145,34 @@ export const adminApi = {
   team: (token) => request('/api/admin/team', { token }),
   // Makes the account and emails a set-password link. Answers { admin, sent } and, when the email did not go
   // (email off on the site, or the provider refused it), `reason` says why; the account exists either way.
-  // `communityIds` are the communities the new person can open from the start; none is fine, and the owner can
-  // change the set on the Team page later.
-  inviteAdmin: (token, email, communityIds = []) =>
-    request('/api/admin/team/invites', { method: 'POST', body: { email, communityIds }, token }),
+  // `branchIds` and `communityIds` are what the new person can open from the start (every community in those
+  // branches, now and later, plus those communities on their own); none is fine, and the owner can change both
+  // on the Team page later.
+  inviteAdmin: (token, email, communityIds = [], branchIds = []) =>
+    request('/api/admin/team/invites', { method: 'POST', body: { email, communityIds, branchIds }, token }),
   resendInvite: (token, id) =>
     request(`/api/admin/team/invites/${encodeURIComponent(id)}/resend`, { method: 'POST', body: {}, token }),
   removeAdmin: (token, id) => request(`/api/admin/team/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
   // Replaces a member's set of communities. The owner has every community and no set to replace (a 400).
   setAdminCommunities: (token, id, communityIds) =>
     request(`/api/admin/team/${encodeURIComponent(id)}/communities`, { method: 'PUT', body: { communityIds }, token }),
+  // Replaces a member's branches and their own communities in one go, the way the Edit access pop-up saves them:
+  // one answer, so the row never shows half of a change. Answers the member's row as GET /team lists it.
+  setAdminAccess: (token, id, { branchIds, communityIds }) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/access`, { method: 'PUT', body: { branchIds, communityIds }, token }),
+  // ── branches: the companies or groups communities and people are put in (the owner only) ──
+  // Each row is { id, name, communityIds, memberIds, createdAt }. A community is in at most one branch, so giving
+  // one to a branch takes it out of the branch it was in; a person can be in several.
+  branches: (token) => request('/api/admin/branches', { token }),
+  createBranch: (token, name) => request('/api/admin/branches', { method: 'POST', body: { name }, token }),
+  renameBranch: (token, id, name) =>
+    request(`/api/admin/branches/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name }, token }),
+  // The communities and people stay; only the grouping goes (and with it the access it gave).
+  deleteBranch: (token, id) => request(`/api/admin/branches/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  setBranchCommunities: (token, id, communityIds) =>
+    request(`/api/admin/branches/${encodeURIComponent(id)}/communities`, { method: 'PUT', body: { communityIds }, token }),
+  setBranchMembers: (token, id, adminIds) =>
+    request(`/api/admin/branches/${encodeURIComponent(id)}/members`, { method: 'PUT', body: { adminIds }, token }),
   // ── the activity log: what everyone has changed, newest first (the owner only) ──
   // Answers { entries, nextBefore }; `before` is the last page's nextBefore, for the page after it.
   activity: (token, { adminId = '', communityId = '', before = '', limit = 50 } = {}) => {

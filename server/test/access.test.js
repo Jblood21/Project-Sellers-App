@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
-import { NO_ACCESS, OWNER_ONLY, canAccess, loadAccess } from '../lib/access.js';
+import { NO_ACCESS, OWNER_ONLY, canAccess, forgetAdminAccess, loadAccess } from '../lib/access.js';
 import { hashPassword } from '../lib/auth.js';
 import { ensureAdmin } from '../index.js';
 import { GIF, backends, startBackend } from './fixtures/harness.js';
@@ -184,8 +184,11 @@ for (const kind of backends()) {
         ['POST', '/team/invites', { email: 'nope@test.co' }],
         ['POST', `/team/invites/${memberId}/resend`, {}],
         ['PUT', `/team/${memberId}/communities`, { communityIds: [theirs] }],
+        ['PUT', `/team/${memberId}/access`, { branchIds: [], communityIds: [theirs] }],
         ['DELETE', `/team/${memberId}`],
         ['GET', '/activity'],
+        ['GET', '/branches'],
+        ['POST', '/branches', { name: 'Not Allowed' }],
       ]) {
         const res = await asMember(path, { method, body });
         assert.equal(res.status, 403, `${method} ${path}: ${JSON.stringify(res.body)}`);
@@ -306,6 +309,36 @@ for (const kind of backends()) {
       const gone = await asMember(`/communities/${extra}`);
       assert.equal(gone.status, 403, 'a community that was taken away answers as any other that is not theirs');
       assert.equal(gone.body.error, NO_ACCESS);
+    });
+
+    test('a member\'s access is the union of their branches\' communities and their own', async () => {
+      // Made straight in the store (the routes are covered in branches.test.js): the member has `mine` on their
+      // own, and a branch holding `theirs` is what the union adds.
+      const branch = await store.createBranch({ name: 'Union Co' });
+      assert.deepEqual(await store.setBranchCommunities(branch.id, [theirs]), [theirs]);
+      assert.deepEqual(await store.setAdminBranches(memberId, [branch.id]), [branch.id]);
+      forgetAdminAccess(memberId);
+      assert.deepEqual(await loadAccess(memberId), { role: 'member', communityIds: new Set([mine, theirs]) });
+      assert.deepEqual(await store.listAdminCommunities(memberId), [mine], 'the list of their own is only their own');
+      assert.deepEqual(await store.listAdminBranches(memberId), [branch.id]);
+      assert.deepEqual(await store.listAccessibleCommunities(memberId), [mine, theirs], 'in the order the communities were made');
+      assert.equal((await asMember(`/communities/${theirs}`)).status, 200, 'the branch opens it');
+      assert.deepEqual((await asMember('/communities')).body.map((c) => c.id), [mine, theirs]);
+      assert.equal((await asMember('/communities')).body.find((c) => c.id === theirs).branchName, 'Union Co', 'and a member reads the branch name');
+      // The same community both ways is one community, and losing one way keeps the other.
+      await store.setAdminCommunities(memberId, [mine, theirs]);
+      forgetAdminAccess(memberId);
+      assert.deepEqual([...(await loadAccess(memberId)).communityIds], [mine, theirs]);
+      await store.setAdminBranches(memberId, []);
+      forgetAdminAccess(memberId);
+      assert.deepEqual([...(await loadAccess(memberId)).communityIds], [mine, theirs], 'still shared on their own');
+      await store.setAdminCommunities(memberId, [mine]);
+      forgetAdminAccess(memberId);
+      assert.deepEqual([...(await loadAccess(memberId)).communityIds], [mine]);
+      // Back the way the tests below expect, with the branch gone and the community still there.
+      assert.equal(await store.deleteBranch(branch.id), true);
+      assert.equal((await store.getCommunity(theirs)).branchId, null, 'the community stays, in no branch');
+      assert.equal((await asMember(`/communities/${theirs}`)).status, 403);
     });
 
     test('a removed member is signed out, and their session stays dead', async () => {

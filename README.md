@@ -390,9 +390,11 @@ for what you press, lake blue for outline buttons and links, and sky only as a h
 rounded rectangles; tags, chips and badges stay pills. The buyer app keeps each community's own theme.
 
 **Team**, under your email in the side menu (on a phone, the people icon at the top of Today, or **More** on a
-community), is the owner's page: it lists everyone who can sign in, which communities each person has, and lets the
-owner invite someone by email (ticking the communities to give them), change what a person has, or remove them. An
-invite makes the account at once, as a member with those communities, with a password nobody holds, and emails a
+community), is the owner's page: it lists everyone who can sign in, with a one-line summary of what each person has
+(their branches, then the communities ticked for them on their own; see *Branches* under *Roles and access*), and
+lets the owner invite someone by email (ticking branches and communities to give them from the start), change what a
+person has (**Edit access**, which saves branches and communities together), or remove them. An
+invite makes the account at once, as a member with those branches and communities, with a password nobody holds, and emails a
 link to `/admin/reset?token=…&invite=1` that sets one (subject "You have been invited to Touradoor", naming the
 inviter's own address in the text so the person knows who asked); it works once, for 7 days, and the row says
 **Invited … has not set a password yet** with a **Resend invite** button until they have. Nobody can remove
@@ -406,8 +408,9 @@ button (the server refuses too); to take that account away, change or clear thos
 With email off (no `RESEND_API_KEY`), or when Resend refuses the message, the account is still made and the page says
 the invite could not be emailed and why, so you can press Resend once it is working. Twenty invites and ten resends
 per hour per signed-in visitor, to keep a stuck button or a script from filling strangers' mailboxes from the site's
-sending address (`POST /api/admin/team/invites`, `POST /api/admin/team/invites/:id/resend`,
-`PUT /api/admin/team/:id/communities`, `DELETE /api/admin/team/:id`, `GET /api/admin/team`).
+sending address (`POST /api/admin/team/invites { email, branchIds, communityIds }`, `POST /api/admin/team/invites/:id/resend`,
+`PUT /api/admin/team/:id/access { branchIds, communityIds }`, `PUT /api/admin/team/:id/communities`,
+`DELETE /api/admin/team/:id`, `GET /api/admin/team`, whose rows carry `branchIds` and `communityIds`).
 
 ### Roles and access
 
@@ -419,9 +422,11 @@ There are two roles, and the server decides by them on every admin request (`ser
   owner instead, so a store is never left with nobody able to make a community. The owner sees every community, can
   make and delete communities, and alone opens **Team** and **Activity**. There is no way in the app to make someone
   else the owner.
-- **Members** are everyone invited from Team. A member sees only the communities the owner has shared with them
-  (`admin_communities` in Postgres, `adminCommunities` in the file store) and can do everything inside those: homes,
-  photos, setup, guides, realtors, times, leads and reports. They cannot make or delete a community, and Team, the
+- **Members** are everyone invited from Team. A member sees only the communities the owner has given them, through
+  the branches they are in and on their own (see *Branches* below; `admin_branches` and `admin_communities` in
+  Postgres, `adminBranches` and `adminCommunities` in the file store) and can do everything inside those: homes,
+  photos, setup, guides, realtors, times, leads and reports. They cannot make or delete a community or move one
+  between branches, and Team, Branches, the
   activity log and the **New community** button are not theirs: the side menu and Today list only their communities,
   and a request about any other answers `403 { "error": "You don't have access to that community." }`, the same
   sentence whether the community exists, was deleted a moment ago or never was. Making or deleting a community, and
@@ -434,11 +439,37 @@ There are two roles, and the server decides by them on every admin request (`ser
   community takes it off every member's list. The role and the list ride on the same 30-second cache as the password
   check (`requireAdmin` in `server/lib/auth.js`), cleared at once on the instance that made the change, so during a
   deploy's brief overlap the other instance can be up to 30 seconds behind, as it is for a password change.
+- **Branches** are companies or groups of communities, for an owner who runs the app for more than one builder and
+  wants each one's communities boxed off from the others' while still seeing them all. The **Branches** page (under
+  Team in the side menu; owner only) makes them: a name (1 to 80 characters, no two alike in any letter case), the
+  communities in it and the people in it, as ticked boxes. A community is in one branch at most, or none (set on
+  the Branches page, or in the community's **Edit community** dialog, where only the owner sees the Branch choice);
+  a person can be in any number. Being in a branch is access to every community in it, now and whenever one is
+  added to it later, so a new community for a company reaches its people without a visit to each row in Team. A
+  member's access is the two together: the communities of every branch they are in plus the ones ticked for them on
+  their own (**Edit access** on their row in Team, or the invite form, which has both), and `GET /api/admin/me` and
+  everything else answer from that one set. Taking a community out of a branch, or a person out of one, takes that
+  access away on their next request; what is ticked for the person on their own stays. Deleting a branch deletes only
+  the grouping: its communities stay, in no branch, and its people keep their accounts and their own communities.
+  A member sees the name of the branch a community is in (on the community and on their Today cards) and nothing
+  else about branches; a member who sends a `branchId` is answered `400 { "error": "Only the owner can move a
+  community between branches." }`. The owner's Today groups the community cards under branch headings (and the side
+  menu its list) as soon as there are two groups, "No branch" included; a member sees those headings only when they
+  are in two or more branches, so one branch plus a community of their own reads as one plain list. A change to
+  which communities a branch holds (or to a community's branch, or a branch deleted) reaches whoever is in it, so it
+  clears the access cache for everyone on that instance rather than work out who; a change to who is in a branch
+  clears only theirs. (`GET /api/admin/branches` → `[{ id, name, communityIds, memberIds, createdAt }]`,
+  `POST /api/admin/branches { name }`, `PATCH /api/admin/branches/:id { name }`, `DELETE /api/admin/branches/:id`,
+  `PUT /api/admin/branches/:id/communities { communityIds }`, `PUT /api/admin/branches/:id/members { adminIds }`,
+  all owner only; `PATCH /api/admin/communities/:id { branchId }` with `null` for none; `GET /api/admin/communities`
+  rows and `GET /api/admin/today` cards carry `branchId` and `branchName`, and Today carries `branches`.)
 - **The activity log** (`admin_activity` / `adminActivity`) is one line per change made through the admin, by
   anyone: a community made, changed or deleted; a home added, changed, removed, its photos or video changed; a place
   in the area guide, a Learn article or video, a realtor, a guide (added, changed, removed, the defaults restored);
-  time slots published or removed; a lead's status, notes or call changed; the lead report sent; and on the team, an
-  invite, a resend, a change of communities, a removal. Each line is who (the admin's address, copied onto the row so
+  time slots published or removed; a lead's status, notes or call changed; the lead report sent; on the team, an
+  invite, a resend, a change of access (the line names the branches and the communities), a removal; and on
+  branches, one made, renamed, its communities or people changed, or deleted (a community moved between branches is
+  a line about the community: "moved to branch Summit Homes", "taken out of branch Summit Homes"). Each line is who (the admin's address, copied onto the row so
   it outlives a removal), what (an action key from `shared/adminActivity.js`, which also holds the plain-English
   label for each, e.g. `home.added` → "Added home {subject}"), the thing changed by name, the community (by its
   current name, or none once it is deleted: the line still names it), a few words of detail, and when. A line that

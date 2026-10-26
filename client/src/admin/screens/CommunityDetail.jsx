@@ -15,7 +15,7 @@ import LearnTab from '../tabs/LearnTab.jsx';
 import SetupTab from '../tabs/SetupTab.jsx';
 import StatsTab from '../tabs/StatsTab.jsx';
 import ToolsTab from '../tabs/ToolsTab.jsx';
-import { Dialog, ErrorNote, PillRow, Spinner, TextField } from '../ui.jsx';
+import { Dialog, ErrorNote, Field, PillRow, Spinner, TextField } from '../ui.jsx';
 import Flyer from './Flyer.jsx';
 import QrDialog from './QrDialog.jsx';
 
@@ -153,6 +153,7 @@ function CommunityPages({ community, leads, reload, markOpened }) {
           community={community}
           token={token}
           canDelete={isOwner}
+          canMove={isOwner}
           onClose={() => setEditOpen(false)}
           onSaved={async () => {
             setEditOpen(false);
@@ -199,8 +200,12 @@ function BuyerLinkField({ community, value, onChange }) {
   );
 }
 
-/** Name, place, builder, link, photo and status. Deleting is the owner's alone (`canDelete`): a member edits, never removes. */
-function EditCommunityDialog({ community, token, canDelete, onClose, onSaved, onDeleted }) {
+/**
+ * Name, place, builder, link, photo, status and, for the owner, the branch. Deleting is the owner's alone
+ * (`canDelete`): a member edits, never removes. So is moving a community between branches (`canMove`): a member
+ * sees no Branch field and sends no branchId, which the server would refuse.
+ */
+function EditCommunityDialog({ community, token, canDelete, canMove = false, onClose, onSaved, onDeleted }) {
   const [form, setForm] = useState({
     name: community.name,
     location: community.location,
@@ -208,10 +213,23 @@ function EditCommunityDialog({ community, token, canDelete, onClose, onSaved, on
     websiteUrl: community.websiteUrl ?? '',
     status: community.status,
     slug: community.slug ?? '',
+    branchId: community.branchId ?? '',
   });
   const [heroDataUrl, setHeroDataUrl] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // The branches to pick from, read when the pop-up opens (the owner only; the server refuses them to a member).
+  // null until they arrive; while they are on their way the field shows the branch the community is in, if any.
+  const [branches, setBranches] = useState(null);
+
+  useEffect(() => {
+    if (!canMove) return undefined;
+    let cancelled = false;
+    adminApi.branches(token).then((list) => !cancelled && setBranches(list ?? [])).catch(() => !cancelled && setBranches([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [token, canMove]);
 
   const save = async () => {
     setBusy(true);
@@ -219,12 +237,14 @@ function EditCommunityDialog({ community, token, canDelete, onClose, onSaved, on
     try {
       // A blank link is not a request to remove it: a community always has an address. Said, rather than
       // saved as if it had worked.
-      const { slug, ...rest } = form;
+      const { slug, branchId, ...fields } = form;
       if (community.slug && !slug.trim()) {
         setError('A community always has a buyer link. Type the one you want, or put back the one it had.');
         setBusy(false);
         return;
       }
+      // The branch goes only from the owner, and None goes as null: "" would be a branch that does not exist.
+      const rest = canMove ? { ...fields, branchId: branchId || null } : fields;
       await adminApi.updateCommunity(token, community.id, slug.trim() ? { ...rest, slug } : rest);
       // Only sent when a new file was picked, so saving other fields never
       // disturbs the existing photo.
@@ -287,6 +307,18 @@ function EditCommunityDialog({ community, token, canDelete, onClose, onSaved, on
           options={COMMUNITY_STATUSES.map((value) => ({ value, label: value }))}
         />
       </div>
+      {canMove ? (
+        <Field label="Branch" hint="The company or group this community belongs to. People in that branch can open it.">
+          <select
+            className="input" value={form.branchId} disabled={branches === null}
+            onChange={(event) => setForm((f) => ({ ...f, branchId: event.target.value }))}
+          >
+            <option value="">None</option>
+            {(branches ?? (community.branchId ? [{ id: community.branchId, name: community.branchName ?? 'Its branch' }] : []))
+              .map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+          </select>
+        </Field>
+      ) : null}
       <ErrorNote>{error}</ErrorNote>
     </Dialog>
   );
