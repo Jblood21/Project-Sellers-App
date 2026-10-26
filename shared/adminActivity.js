@@ -36,7 +36,10 @@ export const ACTIONS = Object.freeze({
   'report.sent': 'Sent the lead report',
   'team.invited': 'Invited {subject}',
   'team.removed': 'Removed {subject}',
-  'team.assigned': 'Changed communities for {subject}',
+  'team.assigned': 'Changed access for {subject}',
+  'branch.created': 'Created branch {subject}',
+  'branch.updated': 'Changed branch {subject}',
+  'branch.deleted': 'Deleted branch {subject}',
 });
 
 /** Whether `action` is a key the log knows. */

@@ -7,6 +7,7 @@ import { photoImgProps } from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { emailHref } from '../../lib/contact.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { groupByBranch, headedGroups } from '../branches.js';
 import AdminShell from '../shell/AdminShell.jsx';
 import NavIcon from '../shell/navIcons.jsx';
 import { ErrorNote, Spinner } from '../ui.jsx';
@@ -90,11 +91,44 @@ function CommunityCover({ community }) {
   );
 }
 
+/** One community's card: its name (the link to Leads), picture, place, what needs a person, and the ways in. */
+function CommunityCard({ community }) {
+  return (
+    <article className="card elev-sm as-community">
+      <div className="as-community__head">
+        <Link className="card-title as-community__name" to={`/admin/communities/${community.id}/leads`} style={{ color: 'inherit', textDecoration: 'none' }}>
+          {community.name}
+        </Link>
+        <span className="tag tag-accent-2">{community.status}</span>
+      </div>
+      <CommunityCover community={community} />
+      <span className="text-muted" style={{ fontSize: 13 }}>{community.location || 'Location TBD'}</span>
+      <div className="as-community__stats">
+        {community.waiting ? <span className={`as-chip ${community.overdue ? 'as-chip--late' : 'as-chip--call'}`}>{plural(community.waiting, 'call')} waiting{community.overdue ? ` · ${community.overdue} late` : ''}</span> : null}
+        {community.unread ? <span className="as-chip as-chip--soft">{community.unread} new</span> : null}
+        {!community.waiting && !community.unread ? <span className="as-chip">All caught up</span> : null}
+      </div>
+      <div className="card-meta">
+        {plural(community.homesCount, 'home')} · {plural(community.people, 'person', 'people')} · {themeLabel(community)}
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+        <Link className="btn btn-primary" to={`/admin/communities/${community.id}/leads`}>Leads</Link>
+        <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/homes`}>Homes</Link>
+        <Link className="btn btn-link" to={`/admin/communities/${community.id}/setup`}>Setup</Link>
+      </div>
+    </article>
+  );
+}
+
 /**
  * Where the admin opens: the counts that need a person today, the communities, and under them the calls waiting and
  * the people who agreed to calls without booking one, across every community this person has. The server answers
  * with the owner's every community, or the ones a member was given, so the page shows what it is sent; what is the
  * owner's alone (New community, and the card of what the team has been doing) is kept from a member here.
+ *
+ * The cards sit under their branches' names (the companies or groups the owner sorts communities into), in name
+ * order with "No branch" last, so one company's communities read as one block; the heading is left out when
+ * there is only one block, and for a member unless they are in two or more branches (headedGroups).
  */
 export default function Today() {
   const { token, isOwner } = useAdmin();
@@ -122,10 +156,13 @@ export default function Today() {
 
   const closeNew = () => setParams({}, { replace: true });
   const totals = data?.totals;
+  const groups = data ? groupByBranch(data.communities, data.branches) : [];
+  const headed = headedGroups(groups, isOwner);
 
   return (
     <AdminShell
       communities={data?.communities ?? []}
+      branches={data?.branches ?? []}
       title="Today"
       blurb="What needs a person right now, across every community."
     >
@@ -175,35 +212,17 @@ export default function Today() {
                 </>
               )}
             </div>
-          ) : (
-            <div className="as-cards">
-              {data.communities.map((community) => (
-                <article key={community.id} className="card elev-sm as-community">
-                  <div className="as-community__head">
-                    <Link className="card-title as-community__name" to={`/admin/communities/${community.id}/leads`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                      {community.name}
-                    </Link>
-                    <span className="tag tag-accent-2">{community.status}</span>
-                  </div>
-                  <CommunityCover community={community} />
-                  <span className="text-muted" style={{ fontSize: 13 }}>{community.location || 'Location TBD'}</span>
-                  <div className="as-community__stats">
-                    {community.waiting ? <span className={`as-chip ${community.overdue ? 'as-chip--late' : 'as-chip--call'}`}>{plural(community.waiting, 'call')} waiting{community.overdue ? ` · ${community.overdue} late` : ''}</span> : null}
-                    {community.unread ? <span className="as-chip as-chip--soft">{community.unread} new</span> : null}
-                    {!community.waiting && !community.unread ? <span className="as-chip">All caught up</span> : null}
-                  </div>
-                  <div className="card-meta">
-                    {plural(community.homesCount, 'home')} · {plural(community.people, 'person', 'people')} · {themeLabel(community)}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                    <Link className="btn btn-primary" to={`/admin/communities/${community.id}/leads`}>Leads</Link>
-                    <Link className="btn btn-ghost" to={`/admin/communities/${community.id}/homes`}>Homes</Link>
-                    <Link className="btn btn-link" to={`/admin/communities/${community.id}/setup`}>Setup</Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
+          ) : groups.map((group) => (
+            <section
+              key={group.id ?? ''} className="as-branchgroup"
+              aria-labelledby={headed ? `today-branch-${group.id ?? 'none'}` : undefined}
+            >
+              {headed ? <h3 className="as-branchgroup__title" id={`today-branch-${group.id ?? 'none'}`}>{group.name}</h3> : null}
+              <div className="as-cards">
+                {group.communities.map((community) => <CommunityCard key={community.id} community={community} />)}
+              </div>
+            </section>
+          ))}
 
           {isOwner && activity?.length ? (
             <section className="card elev-sm as-activity" aria-labelledby="team-activity">

@@ -44,7 +44,7 @@ for (const kind of backends()) {
       const res = await admin('/today');
       assert.equal(res.status, 200);
       assert.deepEqual(res.body, {
-        communities: [], calls: [], ready: [],
+        communities: [], branches: [], calls: [], ready: [],
         totals: { communities: 0, people: 0, unread: 0, waiting: 0, overdue: 0, ready: 0, readyNew: 0 },
       });
     });

@@ -73,7 +73,8 @@ for (const kind of backends()) {
       assert.equal(me.bootstrap, false, 'ADMIN_EMAIL is not set here, so no account is made at boot');
       assert.equal(me.role, 'owner');
       assert.deepEqual(me.communityIds, [], 'the owner has every community by role, so none is listed');
-      assert.deepEqual(Object.keys(me).sort(), ['bootstrap', 'communityIds', 'createdAt', 'email', 'id', 'invitedAt', 'passwordSet', 'role']);
+      assert.deepEqual(me.branchIds, [], 'nor is a branch');
+      assert.deepEqual(Object.keys(me).sort(), ['bootstrap', 'branchIds', 'communityIds', 'createdAt', 'email', 'id', 'invitedAt', 'passwordSet', 'role']);
     });
 
     test('an invite makes the account with a password nobody can use, sends one 7-day link and marks the row', async () => {
