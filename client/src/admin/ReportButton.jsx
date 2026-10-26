@@ -11,7 +11,7 @@ const sentOn = (iso) => {
     : date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 
-const textStyle = { fontSize: 12.5, lineHeight: 1.45, overflowWrap: 'anywhere' };
+const textStyle = { fontSize: 14, lineHeight: 1.45, overflowWrap: 'anywhere' };
 
 /**
  * "Email the report": the scheduled calls waiting, the people who signed up since the last report, and a
@@ -23,7 +23,7 @@ const textStyle = { fontSize: 12.5, lineHeight: 1.45, overflowWrap: 'anywhere' }
  * field.
  */
 export default function ReportButton({ community, reload, blocked = '', onOpenSetup }) {
-  const { token } = useAdmin();
+  const { token, isOwner } = useAdmin();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -56,7 +56,9 @@ export default function ReportButton({ community, reload, blocked = '', onOpenSe
     } catch (err) {
       // A report that really went out stays on screen when the next press is only held back for a moment.
       if (err.status !== 429) setResult(null);
-      setError(err.message);
+      // The server's 503 names the keys to add in Render, which is the account owner's to do and means nothing to
+      // anyone else, so a member is told the fact and who can fix it.
+      setError(err.status === 503 && !isOwner ? 'The report could not be sent. Email is not working right now. Tell the account owner.' : err.message);
     } finally {
       setBusy(false);
     }
@@ -83,7 +85,11 @@ export default function ReportButton({ community, reload, blocked = '', onOpenSe
     );
   }
 
-  const why = blocked || (emailOff ? 'Email is not set up on this site yet. The site owner adds RESEND_API_KEY and EMAIL_FROM in Render.' : '');
+  // Same split as the email note on Setup: the keys and Render are the owner's, so everyone else gets a plain line.
+  const emailWhy = isOwner
+    ? 'Email is not set up on this site yet. The site owner adds RESEND_API_KEY and EMAIL_FROM in Render.'
+    : 'Email is not working right now. Tell the account owner.';
+  const why = blocked || (emailOff ? emailWhy : '');
   const calls = result ? result.comingUp + result.overdue : 0;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

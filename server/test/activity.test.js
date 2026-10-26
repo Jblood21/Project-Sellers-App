@@ -107,7 +107,7 @@ for (const kind of backends()) {
       // A home, worked on by the member too, once the owner has shared the community with them.
       await asOwner('PUT', `/team/${memberId}/communities`, { communityIds: [cid] }, 200,
         { action: 'team.assigned', subject: MEMBER, detail: new RegExp(`Now has access to: ${NAME}`), community: null });
-      const home = await asOwner('POST', `/communities/${cid}/homes`, { name: 'The Larch' }, 201, { action: 'home.added', subject: 'The Larch' });
+      const home = await asOwner('POST', `/communities/${cid}/homes`, { name: 'The Larch', price: 450000 }, 201, { action: 'home.added', subject: 'The Larch' });
       await asMember('PATCH', `/homes/${home.id}`, { price: 500000, availability: 'Move-in ready' }, 200, { action: 'home.updated', subject: 'The Larch', detail: /price, availability/ });
       await asMember('PATCH', `/homes/${home.id}`, { videoLink: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }, 200, { action: 'home.video', subject: 'The Larch', detail: /set a video link/ });
       const photo = await asOwner('POST', `/homes/${home.id}/photos`, { dataUrl: GIF }, 201, { action: 'home.photos', subject: 'The Larch', detail: /added a photo/ });
@@ -137,7 +137,7 @@ for (const kind of backends()) {
 
       // Guides: one written, one supplied and then brought back.
       const guide = await asOwner('POST', `/communities/${cid}/guides`, { title: 'Moving in', published: false }, 201, { action: 'guide.added', subject: 'Moving in', detail: /draft/ });
-      await asOwner('PATCH', `/guides/${guide.id}`, { published: true }, 200, { action: 'guide.updated', subject: 'Moving in', detail: /^published$/ });
+      await asOwner('PATCH', `/guides/${guide.id}`, { published: true, body: 'Where the boxes go, and who to ask about the keys.' }, 200, { action: 'guide.updated', subject: 'Moving in', detail: /^published$/ });
       await asOwner('POST', `/guides/${guide.id}/image`, { dataUrl: GIF }, 201, { action: 'guide.updated', subject: 'Moving in', detail: /changed the picture/ });
       await asOwner('DELETE', `/guides/${guide.id}/image`, undefined, 200, { action: 'guide.updated', subject: 'Moving in', detail: /default picture/ });
       const supplied = (await admin(`/communities/${cid}`, owner)).body.guides.find((g) => g.defaultKey);
@@ -253,7 +253,7 @@ for (const kind of backends()) {
       store.addAdminActivity = async () => { throw new Error('the log is down'); };
       let home;
       try {
-        home = await admin(`/communities/${cid}/homes`, owner, { method: 'POST', body: { name: 'The Quiet One' } });
+        home = await admin(`/communities/${cid}/homes`, owner, { method: 'POST', body: { name: 'The Quiet One', price: 450000 } });
       } finally {
         store.addAdminActivity = real;
       }

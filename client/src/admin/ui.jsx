@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
+import { isConnectionError } from '../lib/api.js';
 import '../styles/admin-extras.css';
 
 // What Tab can land on. Hidden controls (the file inputs behind the upload
@@ -192,7 +193,7 @@ export function PillRow({ options, value, onChange, label }) {
               border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-divider)'}`, cursor: 'pointer', padding: '0 12px',
               background: active ? 'var(--color-accent)' : '#fff',
               color: active ? '#fff' : 'var(--color-accent-700)',
-              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600,
+              fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
             }}
           >
             {option.label}
@@ -203,7 +204,12 @@ export function PillRow({ options, value, onChange, label }) {
   );
 }
 
-export function Toggle({ on, onChange, label }) {
+/**
+ * A switch. `busy` is for one whose change is on its way to the server: it cannot be tapped again until the answer
+ * comes, so a slow signal does not invite a second tap that flips it straight back. The caller shows the new
+ * position at once and says "Saving…" beside it.
+ */
+export function Toggle({ on, onChange, label, busy = false }) {
   return (
     <button
       type="button"
@@ -211,10 +217,14 @@ export function Toggle({ on, onChange, label }) {
       role="switch"
       aria-checked={on}
       aria-label={label}
-      onClick={() => onChange(!on)}
+      aria-busy={busy || undefined}
+      // aria-disabled, not disabled: a disabled button drops the keyboard's place, and somebody tabbing through the
+      // switches would find themselves back at the top of the page after every tap.
+      aria-disabled={busy || undefined}
+      onClick={() => !busy && onChange(!on)}
       style={{
-        width: 46, height: 27, flex: 'none', borderRadius: 999, border: 'none', cursor: 'pointer',
-        position: 'relative', padding: 0,
+        width: 46, height: 27, flex: 'none', borderRadius: 999, border: 'none', cursor: busy ? 'progress' : 'pointer',
+        position: 'relative', padding: 0, opacity: busy ? 0.7 : 1,
         background: on ? 'var(--color-accent)' : 'var(--color-neutral-500)',
         transition: 'background .18s',
       }}
@@ -233,15 +243,106 @@ export function Toggle({ on, onChange, label }) {
 export function ErrorNote({ children }) {
   if (!children) return null;
   return (
-    <p style={{ color: '#a8332b', fontSize: 12.5, margin: '4px 0 0' }} role="alert">
+    <p style={{ color: '#a8332b', fontSize: 14, margin: '4px 0 0' }} role="alert">
       {children}
     </p>
   );
 }
 
+/**
+ * What a failed change says, and whether trying again could help. A request that never got an answer, or got a
+ * server error, is a connection problem and reads the same everywhere: "Not saved. Check your connection." The
+ * server's own sentence for a refusal (a 400 or 403 says exactly what is wrong) is kept as it is, with no Retry,
+ * since sending the same thing again would only be refused again.
+ */
+export function saveFailure(error) {
+  if (isConnectionError(error)) return { text: 'Not saved. Check your connection.', canRetry: true };
+  return { text: error?.message || 'Not saved. Try again in a moment.', canRetry: false };
+}
+
+/**
+ * One change at a time, with what the person needs to know about it: whether it is on its way (`saving`, for the
+ * button's "Saving…" and to keep it from being tapped twice) and, if it failed, the plain sentence (`failure`).
+ * `run(task)` takes a function that makes the request and answers whether it worked; `retry()` runs the same one
+ * again, which is what the note's Retry button calls. The request's own result is for the caller to keep, since a
+ * save and a state update differ from one screen to the next.
+ */
+export function useSaving() {
+  const [state, setState] = useState({ saving: false, failure: null });
+  const task = useRef(null);
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const run = useCallback(async (next) => {
+    if (busy.current) return false;
+    busy.current = true;
+    task.current = next;
+    // An earlier failure stays up while it is tried again (its Retry button reads "Saving…"), and goes when the
+    // change has saved, so the note does not blink out and back in on a signal that is only slow.
+    if (mounted.current) setState((now) => ({ saving: true, failure: now.failure }));
+    try {
+      await next();
+      if (mounted.current) setState({ saving: false, failure: null });
+      return true;
+    } catch (error) {
+      if (mounted.current) setState({ saving: false, failure: saveFailure(error) });
+      return false;
+    } finally {
+      busy.current = false;
+    }
+  }, []);
+  const retry = useCallback(() => (task.current ? run(task.current) : Promise.resolve(false)), [run]);
+  const clear = useCallback(() => setState({ saving: false, failure: null }), []);
+  return { saving: state.saving, failure: state.failure, run, retry, clear };
+}
+
+/** The sentence under a button or switch whose change did not save, with Retry when trying again could help. */
+export function SaveNote({ saver }) {
+  const { failure, saving, retry } = saver;
+  if (!failure) return null;
+  return (
+    <div className="ax-fail" role="alert">
+      <span className="ax-fail__text">{failure.text}</span>
+      {failure.canRetry ? (
+        <button type="button" className="btn btn-secondary" onClick={retry} aria-disabled={saving || undefined}>
+          {saving ? 'Saving…' : 'Retry'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * A page that could not load: what went wrong in the words the request came back with (already plain: "We couldn’t
+ * connect…", or the server's own sentence when it refused) and a Retry button when waiting or moving could fix it.
+ * `children` are further buttons, such as the way back.
+ */
+export function LoadError({ error, onRetry, retrying = false, children }) {
+  if (!error) return null;
+  return (
+    <div className="ax-fail ax-fail--page" role="alert">
+      <span className="ax-fail__text">{error.message}</span>
+      <span className="ax-fail__buttons">
+        {isConnectionError(error) && onRetry ? (
+          <button type="button" className="btn btn-primary" onClick={() => !retrying && onRetry()} aria-disabled={retrying || undefined}>
+            {retrying ? 'Trying…' : 'Retry'}
+          </button>
+        ) : null}
+        {children}
+      </span>
+    </div>
+  );
+}
+
 export function Spinner({ label = 'Loading…' }) {
   return (
-    <p className="text-muted" style={{ fontSize: 13, padding: '24px 0' }}>
+    <p className="text-muted" style={{ fontSize: 14, padding: '24px 0' }}>
       {label}
     </p>
   );

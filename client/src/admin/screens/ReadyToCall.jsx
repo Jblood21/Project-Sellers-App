@@ -81,7 +81,7 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
 
       <div className="as-ready" role="region" aria-label="People who agreed to calls but have not booked one" tabIndex={-1}>
         {rows.length === 0 ? (
-          <p className="text-muted" style={{ fontSize: 13, margin: 0, padding: 16 }}>
+          <p className="text-muted" style={{ fontSize: 14, margin: 0, padding: 16 }}>
             {view === 'new' && !query && !place ? 'Everyone here has been contacted. Choose Everyone to see them.' : 'No one matches.'}
           </p>
         ) : (
@@ -112,7 +112,7 @@ export default function ReadyToCall({ people, total, totalNew, communities }) {
           </ul>
         )}
       </div>
-      <p className="text-muted" role="status" style={{ fontSize: 12.5, margin: '8px 0 0' }}>
+      <p className="text-muted" role="status" style={{ fontSize: 14, margin: '8px 0 0' }}>
         {rows.length === 1 ? '1 person' : `${rows.length} people`} shown
         {people.length < total ? `, from the ${people.length} listed here of ${total}. Each community's Leads, under Agreed, has everyone.` : '.'}
       </p>

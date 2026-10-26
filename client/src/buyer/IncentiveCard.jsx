@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { DEFAULT_SETTINGS, complianceOf, fillTokens, incentiveRecipient, telHref } from '@shared/domain.js';
+import { DEFAULT_SETTINGS, complianceOf, fillTokens, incentiveRecipient, incentiveWritten, telHref } from '@shared/domain.js';
 import { buyerApi } from '../lib/api.js';
 import { useBuyer } from './BuyerContext.jsx';
 import ContactSheet from './ContactSheet.jsx';
@@ -14,8 +14,10 @@ import ContactSheet from './ContactSheet.jsx';
  * button on a computer, and the message each one starts is already written:
  * "Contact me about the preferred lender incentive for <development>."
  *
- * Renders nothing when the switch is off or there is no headline and no body: a
- * card with nothing to say is worse than none.
+ * Renders nothing when the switch is off or the builder has not written both a headline
+ * and the details: a card with nothing of theirs in it is a promise nobody made. (The
+ * server already serves the card as off in that case; this keeps a copy of the payload
+ * from an older server honest too.)
  */
 export default function IncentiveCard({ className = '' }) {
   const { community, features, track, token } = useBuyer();
@@ -29,7 +31,7 @@ export default function IncentiveCard({ className = '' }) {
   const title = fill(settings.incentiveTitle);
   const body = fill(settings.incentiveBody);
   const fine = fill(settings.incentiveFinePrint);
-  if (!title && !body) return null;
+  if (!incentiveWritten(settings)) return null;
 
   const button = fill(settings.incentiveButton) || DEFAULT_SETTINGS.incentiveButton;
   const message = fill(settings.incentiveMessage || DEFAULT_SETTINGS.incentiveMessage);

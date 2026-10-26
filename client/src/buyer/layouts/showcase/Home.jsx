@@ -62,8 +62,8 @@ function Slide({ home, index, count, current, saved, pay, showLot, eager, onOpen
   const price = num(home.price);
   const sqft = num(home.sqft);
   const facts = [
-    `${num(home.beds)} bd`,
-    `${num(home.baths)} ba`,
+    num(home.beds) > 0 ? `${num(home.beds)} bd` : '',
+    num(home.baths) > 0 ? `${num(home.baths)} ba` : '',
     sqft ? `${sqft.toLocaleString('en-US')} sq ft` : '',
     showLot && home.lotNumber ? home.lotNumber : '',
   ].filter(Boolean);
@@ -140,7 +140,7 @@ function Slide({ home, index, count, current, saved, pay, showLot, eager, onOpen
             {termsLine(pay)} <span className="sc-slide__offer">An estimate, not a loan offer.</span>
           </p>
         ) : null}
-        <p className="sc-slide__facts">{facts.join(' · ')}</p>
+        {facts.length ? <p className="sc-slide__facts">{facts.join(' · ')}</p> : null}
         <div className="sc-slide__row">
           <button
             type="button"

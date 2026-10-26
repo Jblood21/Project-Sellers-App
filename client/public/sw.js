@@ -22,11 +22,25 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// A page sends this when it is holding something it may have to send as it closes (see client/src/admin/homes/
+// removals.jsx). The browser stops an idle worker, and starting one takes longer than a closing page leaves, so
+// the message is what has the worker running by the time that request arrives. It needs no answer.
+self.addEventListener('message', () => {});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // A request sent with keepalive is one the page sent as it was being closed or left (a photo whose removal was
+  // waiting out its Undo time). Left to the page, a browser drops it when a service worker controls that page, so
+  // the worker sends it itself: it lives on after the page is gone, and the answer has nobody left to read it.
+  if (request.keepalive && url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  if (request.method !== 'GET') return;
   if (url.pathname.startsWith('/api/')) return;
 
   // Navigations: network first so a deploy is picked up, cache as the offline fallback.

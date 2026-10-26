@@ -161,8 +161,8 @@ function HomeCard({ home, saved, monthly, showLot, onOpen, onSave }) {
   const price = num(home.price);
   const sqft = num(home.sqft);
   const facts = [
-    `${num(home.beds)} bd`,
-    `${num(home.baths)} ba`,
+    num(home.beds) > 0 ? `${num(home.beds)} bd` : '',
+    num(home.baths) > 0 ? `${num(home.baths)} ba` : '',
     sqft ? `${sqft.toLocaleString('en-US')} sq ft` : '',
     String(home.availability ?? '').trim(),
   ].filter(Boolean);
@@ -193,7 +193,7 @@ function HomeCard({ home, saved, monthly, showLot, onOpen, onSave }) {
               </span>
             ) : null}
           </span>
-          <span className="rr-card__facts">{facts.join(' · ')}</span>
+          {facts.length ? <span className="rr-card__facts">{facts.join(' · ')}</span> : null}
           <span className="rr-chips">
             <span className="rr-chip">{home.name}</span>
             {showLot && home.lotNumber ? <span className="rr-chip">{home.lotNumber}</span> : null}

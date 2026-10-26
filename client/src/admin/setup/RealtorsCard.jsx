@@ -37,14 +37,14 @@ export default function RealtorsCard({ community, reload }) {
         <span className="card-kicker">Realtors</span>
         <span className="tag tag-neutral" aria-live="polite">{agents.length} of {MAX_AGENTS} added</span>
       </div>
-      <p className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
+      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
         Agents buyers can contact about homes here. They are listed on the home screen under “Schedule your tour.”, under every home, and on a Meet the agent page. Buyers can call, text or email them, and ask to tour.
         Changes here save on their own, not with the Save settings button.
       </p>
 
       {agents.length && !shown ? (
         <div className="ax-callout">
-          <span style={{ fontSize: 12.5, lineHeight: 1.45 }}>
+          <span style={{ fontSize: 14, lineHeight: 1.45 }}>
             Buyers are not seeing these realtors. <strong>Realtors</strong> is switched off under Tools.
           </span>
           <button type="button" className="btn btn-secondary" onClick={show} style={{ alignSelf: 'flex-start', minHeight: 44 }}>
@@ -68,7 +68,7 @@ export default function RealtorsCard({ community, reload }) {
         />
       ) : null}
 
-      {notice ? <p className="ax-callout" role="status" style={{ margin: 0, fontSize: 13 }}>{notice}</p> : null}
+      {notice ? <p className="ax-callout" role="status" style={{ margin: 0, fontSize: 14 }}>{notice}</p> : null}
 
       {!adding ? (
         <>
@@ -84,7 +84,7 @@ export default function RealtorsCard({ community, reload }) {
             ＋ Add a realtor
           </button>
           {full ? (
-            <span id="ax-agents-full" className="text-muted" style={{ fontSize: 12.5 }}>
+            <span id="ax-agents-full" className="text-muted" style={{ fontSize: 14 }}>
               {MAX_AGENTS} is the most a community can list. Remove one to add another.
             </span>
           ) : null}

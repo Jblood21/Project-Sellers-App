@@ -199,7 +199,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
         {unsaved ? <span className="tag tag-accent">Unsaved changes</span> : null}
       </div>
 
-      <p className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
+      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
         This is printed at the foot of every buyer page, on the printed plan and in the plan email. The
         wording starts from Summit Home Loans&apos; and has not been reviewed by counsel, so have your
         compliance team read it before launch. The small labels in the footer itself (Loan officer, Verify
@@ -218,12 +218,12 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
               </li>
             ))}
           </ul>
-          {unsaved ? <span style={{ fontSize: 12 }}>Based on the form as it is now, including unsaved edits.</span> : null}
+          {unsaved ? <span style={{ fontSize: 14 }}>Based on the form as it is now, including unsaved edits.</span> : null}
         </section>
       ) : (
         <section className="ax-callout ax-callout--ok" aria-labelledby="ax-attention">
           <h5 id="ax-attention">Nothing is missing</h5>
-          <span style={{ fontSize: 13 }}>Every license and link the footer expects is filled in.</span>
+          <span style={{ fontSize: 14 }}>Every license and link the footer expects is filled in.</span>
         </section>
       )}
 
@@ -235,7 +235,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
           <button
             type="button" className="btn btn-ghost" disabled={atDefaults} onClick={() => restore(group)}
             aria-label={`${group.restore} for ${group.title.toLowerCase()}`}
-            style={{ minHeight: 44, fontSize: 12.5 }}
+            style={{ minHeight: 44, fontSize: 14 }}
           >
             {group.restore}
           </button>
@@ -248,13 +248,13 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
               </span>
             ) : null}
             {group.note ? (
-              <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+              <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
                 In any statement, {'{lender}'} becomes the lender&apos;s name, and {'{nmls}'}, {'{lo}'}, {'{loNmls}'},{' '}
                 {'{community}'} and {'{builder}'} work the same way. A word in braces that is not one of these is
                 printed exactly as typed, so a typo is visible rather than lost.
               </span>
             ) : null}
-            {group.help ? <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.5 }}>{group.help}</span> : null}
+            {group.help ? <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>{group.help}</span> : null}
             <div className="ax-cols">{group.fields.map(renderField)}</div>
             {group.id === 'lender' ? (
               <ImageSlot
@@ -323,7 +323,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
           {links.length ? <p>{links.map((link) => link.label).join(' · ')}</p> : null}
           <p>{result.copyright}</p>
         </div>
-        <span className="text-muted" style={{ fontSize: 12 }}>
+        <span className="text-muted" style={{ fontSize: 14 }}>
           Text only. The buyer app adds the lender logo and the Equal Housing Lender mark.
         </span>
       </section>

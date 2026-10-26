@@ -88,7 +88,7 @@ describe('server-rendered page heads', () => {
     draftSlug = 'secret-draft';
     const draft = await json(`/api/admin/communities/${cid}/guides`, { method: 'POST', body: { title: 'Secret Draft' } });
     await api(`/api/admin/guides/${draft.id}`, { method: 'PATCH', body: { slug: draftSlug, published: false } });
-    const hostile = await json(`/api/admin/communities/${hostileId}/guides`, { method: 'POST', body: { title: HOSTILE_TITLE } });
+    const hostile = await json(`/api/admin/communities/${hostileId}/guides`, { method: 'POST', body: { title: HOSTILE_TITLE, published: true } });
     await api(`/api/admin/guides/${hostile.id}`, { method: 'PATCH', body: { slug: 'hostile-guide', summary: HOSTILE_TITLE } });
     plain = INDEX_HTML;
   });

@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import {
-  NEXT_STEPS, PROGRAMS, TOOLS, calcAffordability, calcPayment, dpaCap, isSold, listHomes, money, num, ratesOf,
-  videoEmbed,
+  NEXT_STEPS, PROGRAMS, TOOLS, calcAffordability, calcPayment, dpaCap, incentiveWritten, isSold, listHomes, money, num,
+  ratesOf, videoEmbed,
 } from '@shared/domain.js';
 import { complianceOf, telHref } from '@shared/compliance.js';
 import Photo from '../../../components/Photo.jsx';
@@ -895,10 +895,8 @@ export default function Home({ model }) {
     .find((tool) => !inPlan(tool.k)) ?? null;
 
   const lenderReady = complianceOf(community?.settings, { community }).lender.ready;
-  // The incentive card draws nothing without a headline or a body; it is given a place only when it has one.
-  const incentive = Boolean(
-    features.incentive && (String(settings.incentiveTitle ?? '').trim() || String(settings.incentiveBody ?? '').trim()),
-  );
+  // The incentive card draws nothing until the builder has written a headline and the details; it is given a place only then.
+  const incentive = Boolean(features.incentive && incentiveWritten(settings));
 
   // The tiles in the order they read, each with the width it asks for on the phone's two columns and the wide
   // screen's four. Only the ones this community draws are listed, so the packing sees no gaps.

@@ -76,21 +76,21 @@ export default function PhotoPicker({
             <span
               style={{
                 position: 'absolute', right: 8, bottom: 8, padding: '5px 12px', borderRadius: 999,
-                background: 'rgba(14,34,40,.72)', color: '#fff', fontSize: 12, fontWeight: 600,
+                background: 'rgba(14,34,40,.72)', color: '#fff', fontSize: 14, fontWeight: 600,
               }}
             >
               {busy ? 'Reading…' : 'Replace'}
             </span>
           </>
         ) : (
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
+          <span className="text-muted" style={{ fontSize: 14 }}>
             {busy ? 'Reading…' : hint}
           </span>
         )}
       </button>
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={pick} />
       {pendingDataUrl ? (
-        <span className="text-muted" style={{ fontSize: 11.5 }}>
+        <span className="text-muted" style={{ fontSize: 14 }}>
           Uploads when you save.
         </span>
       ) : null}

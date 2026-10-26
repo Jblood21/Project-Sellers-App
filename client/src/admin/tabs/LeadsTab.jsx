@@ -127,7 +127,7 @@ export default function LeadsTab({
         ) : null}
 
         {leads.length > 0 && rows.length === 0 ? (
-          <p className="text-muted" style={{ fontSize: 13 }}>
+          <p className="text-muted" style={{ fontSize: 14 }}>
             {filter === 'active' && archived === leads.length
               ? 'Every lead is archived. Tap Closed to see them.'
               : 'No leads match that search or filter.'}
@@ -177,7 +177,11 @@ export default function LeadsTab({
                     {lead.status === 'contacted' ? <span className="as-chip">Contacted</span> : null}
                     {isArchived(lead) ? <span className="as-chip">Archived</span> : null}
                   </span>
-                  <span className="as-lead__line">{[lead.phone, lead.email].filter(Boolean).join(' · ')}</span>
+                  <span className="as-lead__line">
+                    {lead.phone ? <span className="as-lead__phone">{lead.phone}</span> : null}
+                    {lead.phone && lead.email ? ' · ' : null}
+                    {lead.email}
+                  </span>
                   <span className="as-lead__meta">
                     {plural(toolsUsedOf(lead).length, 'tool')} used · ★ {lead.savedHomeIds.length} saved · {plural(lead.activityCount ?? 0, 'action')} ·{' '}
                     {shortDate(lead.firstVisitAt)}
@@ -230,7 +234,7 @@ export default function LeadsTab({
           <div className="card elev-sm" style={{ gap: 8 }}>
             <PdfReportButton community={community} title="PDF report" sort={sort} />
           </div>
-          <p className="text-muted" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.45 }}>
+          <p className="text-muted" style={{ fontSize: 14, margin: 0, lineHeight: 1.45 }}>
             People you have closed are left out of every report.
           </p>
         </Dialog>

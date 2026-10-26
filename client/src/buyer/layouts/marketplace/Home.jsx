@@ -111,6 +111,8 @@ function ListingCard({ home, saved, monthly, showLot, onOpen, onSave }) {
   const status = statusOf(home);
   const price = num(home.price);
   const units = isSold(home) ? '' : unitsLabel(home);
+  const beds = num(home.beds);
+  const baths = num(home.baths);
   const sqft = num(home.sqft);
 
   return (
@@ -134,11 +136,14 @@ function ListingCard({ home, saved, monthly, showLot, onOpen, onSave }) {
               Est. <b>{money(monthly)}</b>/mo
             </span>
           ) : null}
-          <span className="mk-card__facts">
-            <span><b>{num(home.beds)}</b> {num(home.beds) === 1 ? 'bd' : 'bds'}</span>
-            <span><b>{num(home.baths)}</b> ba</span>
-            {sqft ? <span><b>{sqft.toLocaleString('en-US')}</b> sqft</span> : null}
-          </span>
+          {/* Each fact only when the builder gave it: a blank box is stored as 0, and "0 bds" is not a fact. */}
+          {beds > 0 || baths > 0 || sqft > 0 ? (
+            <span className="mk-card__facts">
+              {beds > 0 ? <span><b>{beds}</b> {beds === 1 ? 'bd' : 'bds'}</span> : null}
+              {baths > 0 ? <span><b>{baths}</b> ba</span> : null}
+              {sqft > 0 ? <span><b>{sqft.toLocaleString('en-US')}</b> sqft</span> : null}
+            </span>
+          ) : null}
           <span className="mk-card__name">
             {home.name}
             {showLot && home.lotNumber ? <span className="mk-card__lot"> · {home.lotNumber}</span> : null}

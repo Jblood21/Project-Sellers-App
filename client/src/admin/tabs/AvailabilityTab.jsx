@@ -113,7 +113,7 @@ export default function AvailabilityTab({ community, reload }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="card-title" style={{ fontSize: 15 }}>Buyers can book these times to talk about financing</div>
-            <div className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+            <div className="text-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
               {bookingOn
                 ? 'On: “Talk about financing” lets buyers pick a day and a time from the list below. Tours are not booked here: “Book a tour” sends buyers to your agents to call or text.'
                 : 'Off: “Talk about financing” shows the lender’s phone, text and email instead of these times, which are kept for when you switch it back on. You are not emailed when someone taps Call, Text or Email; it shows in their activity on the lead.'}
@@ -122,12 +122,12 @@ export default function AvailabilityTab({ community, reload }) {
           <Toggle on={bookingOn} onChange={flip} label="Buyers can book financing times" />
         </div>
         {bookingOn && slots && !upcoming.length && !financeNothing ? (
-          <p className="text-muted" style={{ fontSize: 12.5, margin: 0 }}>
+          <p className="text-muted" style={{ fontSize: 14, margin: 0 }}>
             No times are published, so “Talk about financing” shows the lender’s phone, text and email until you add some.
           </p>
         ) : null}
         {tourNobody || financeNothing ? (
-          <p role="alert" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5, fontWeight: 600, color: '#8a1c11' }}>
+          <p role="alert" style={{ fontSize: 14, margin: '2px 0 0', lineHeight: 1.5, fontWeight: 600, color: '#8a1c11' }}>
             {tourNobody
               ? '“Book a tour” has nobody to send buyers to yet. Add a realtor with a phone or email, or a sales team phone or email below.'
               : ''}
@@ -137,7 +137,7 @@ export default function AvailabilityTab({ community, reload }) {
               : ''}
           </p>
         ) : (
-          <p className="text-muted" style={{ fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.5 }}>
+          <p className="text-muted" style={{ fontSize: 14, margin: '2px 0 0', lineHeight: 1.5 }}>
             {hasAgentContact
               ? '“Book a tour” takes buyers to your realtors to call, text or email. They see the sales team contact below only when no realtor can be reached.'
               : '“Book a tour” shows the sales team contact below, because no realtor can be reached yet. Add a realtor with a phone or email to send buyers to them.'}
@@ -156,19 +156,19 @@ export default function AvailabilityTab({ community, reload }) {
         {teamChanged || teamSaved ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button type="button" className="btn btn-primary" onClick={saveTeam} disabled={!teamChanged}>Save contact</button>
-            {teamSaved && !teamChanged ? <span className="text-muted" style={{ fontSize: 12.5 }}>Saved ✓</span> : null}
+            {teamSaved && !teamChanged ? <span className="text-muted" style={{ fontSize: 14 }}>Saved ✓</span> : null}
           </div>
         ) : null}
         {/* Here, beside the switch and the contact fields that can fail, not at the foot of the list of times. */}
         <ErrorNote>{error}</ErrorNote>
       </div>
-      <p className="text-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.55 }}>
+      <p className="text-muted" style={{ fontSize: 14, margin: 0, lineHeight: 1.55 }}>
         Times you publish here are the only times buyers can choose for talking about financing.
         Nothing else is offered, so an empty list means no one can book one.
       </p>
 
       {slots && !upcoming.length ? (
-        <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+        <p className="text-muted" style={{ fontSize: 14, margin: 0 }}>
           Nothing published yet.
         </p>
       ) : null}
@@ -181,7 +181,7 @@ export default function AvailabilityTab({ community, reload }) {
               <span
                 key={slot.id}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5,
+                  display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14,
                   padding: '0 0 0 14px', borderRadius: 999,
                   border: '1px solid var(--color-divider)',
                   background: slot.leadId ? 'var(--color-accent)' : 'transparent',
@@ -189,7 +189,7 @@ export default function AvailabilityTab({ community, reload }) {
                 }}
               >
                 {formatSlotTime(slot.time)}
-                {slot.leadId ? <span style={{ fontSize: 10, opacity: 0.85 }}>booked</span> : null}
+                {slot.leadId ? <span style={{ fontSize: 14, opacity: 0.85 }}>booked</span> : null}
                 <button
                   type="button"
                   aria-label={`Remove ${formatSlotDate(date)} at ${formatSlotTime(slot.time)}`}
@@ -208,7 +208,7 @@ export default function AvailabilityTab({ community, reload }) {
       ))}
 
       {past.length ? (
-        <p className="text-muted" style={{ fontSize: 12 }}>
+        <p className="text-muted" style={{ fontSize: 14 }}>
           {past.reduce((n, [, d]) => n + d.length, 0)} past time
           {past.reduce((n, [, d]) => n + d.length, 0) === 1 ? '' : 's'} hidden — buyers are never shown these.
         </p>
@@ -285,7 +285,7 @@ function AddSlots({ community, onClose, onSaved }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginTop: 8 }}>
         {DAY_LABELS.map((label, i) => (
-          <span key={i} className="text-muted" style={{ textAlign: 'center', fontSize: 11, padding: '4px 0' }}>
+          <span key={i} className="text-muted" style={{ textAlign: 'center', fontSize: 14, padding: '4px 0' }}>
             {label}
           </span>
         ))}
@@ -307,7 +307,7 @@ function AddSlots({ community, onClose, onSaved }) {
                 border: `1px solid ${on ? 'transparent' : 'var(--color-divider)'}`,
                 background: on ? 'var(--color-accent)' : 'transparent',
                 color: isPast ? 'var(--color-neutral-400)' : on ? '#fff' : 'var(--color-text)',
-                fontSize: 13, fontWeight: on ? 700 : 500, padding: 0,
+                fontSize: 14, fontWeight: on ? 700 : 500, padding: 0,
               }}
             >
               {date.getDate()}
@@ -316,7 +316,7 @@ function AddSlots({ community, onClose, onSaved }) {
         })}
       </div>
 
-      <span className="text-muted" style={{ fontSize: 12, display: 'block', margin: '12px 0 6px' }}>
+      <span className="text-muted" style={{ fontSize: 14, display: 'block', margin: '12px 0 6px' }}>
         Times on each of those days
       </span>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -329,7 +329,7 @@ function AddSlots({ community, onClose, onSaved }) {
               aria-pressed={on}
               onClick={() => toggle(times, time, setTimes)}
               style={{
-                minHeight: 44, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', fontSize: 12,
+                minHeight: 44, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', fontSize: 14,
                 border: `1px solid ${on ? 'transparent' : 'var(--color-divider)'}`,
                 background: on ? 'var(--color-accent)' : 'transparent',
                 color: on ? '#fff' : 'var(--color-text)',
@@ -342,7 +342,7 @@ function AddSlots({ community, onClose, onSaved }) {
         })}
       </div>
 
-      <p className="text-muted" style={{ fontSize: 12, margin: '10px 0 0', lineHeight: 1.45 }}>
+      <p className="text-muted" style={{ fontSize: 14, margin: '10px 0 0', lineHeight: 1.45 }}>
         {total
           ? `${dates.length} day${dates.length === 1 ? '' : 's'} × ${times.length} time${times.length === 1 ? '' : 's'} = ${total} slots. Times you already published are left alone.`
           : 'Pick at least one day and one time.'}

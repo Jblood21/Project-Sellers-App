@@ -15,7 +15,7 @@ import LearnTab from '../tabs/LearnTab.jsx';
 import SetupTab from '../tabs/SetupTab.jsx';
 import StatsTab from '../tabs/StatsTab.jsx';
 import ToolsTab from '../tabs/ToolsTab.jsx';
-import { Dialog, ErrorNote, Field, PillRow, Spinner, TextField } from '../ui.jsx';
+import { Dialog, ErrorNote, Field, LoadError, PillRow, Spinner, TextField } from '../ui.jsx';
 import Flyer from './Flyer.jsx';
 import QrDialog from './QrDialog.jsx';
 
@@ -25,22 +25,40 @@ export default function CommunityDetail() {
   const { communityId } = useParams();
   const [community, setCommunity] = useState(null);
   const [leads, setLeads] = useState(null);
-  const [error, setError] = useState('');
+  // The error the first load ended in (kept whole so the screen can tell a bad signal, worth a Retry, from a refusal).
+  const [error, setError] = useState(null);
+  const [retrying, setRetrying] = useState(false);
 
-  const reload = useCallback(async () => {
+  /**
+   * Reads the community and, unless `leads: false`, everyone in it again. A switch or a setting never changes the
+   * people, and their list is by far the biggest part of the read (hundreds of kilobytes for a community with
+   * hundreds of leads), so a save that cannot have touched them asks for the community alone and the page settles
+   * sooner on a slow signal.
+   */
+  const reload = useCallback(async (options) => {
+    // Anything but an explicit `leads: false` reads them: some callers hand reload straight on as a handler.
+    const withLeads = options?.leads !== false;
     const [next, nextLeads] = await Promise.all([
       adminApi.community(token, communityId),
-      adminApi.leads(token, communityId),
+      withLeads ? adminApi.leads(token, communityId) : null,
     ]);
     setCommunity(next);
-    setLeads(nextLeads);
+    if (withLeads) setLeads(nextLeads);
     // Handed back so a caller can show what was really stored, not what it sent.
     return next;
   }, [communityId, token]);
 
-  useEffect(() => {
-    reload().catch((err) => setError(err.message));
+  const load = useCallback(() => {
+    setRetrying(true);
+    reload()
+      .then(() => setError(null))
+      .catch(setError)
+      .finally(() => setRetrying(false));
   }, [reload]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Opening a person marks them read on the server; the list was loaded before that, so say so here too.
   const markOpened = useCallback((lead) => {
@@ -49,11 +67,13 @@ export default function CommunityDetail() {
 
   // A refusal reads in the server's own words (a member opening a community that is not theirs: "You don't have
   // access to that community."), with the way back, since this frame has no menu of its own.
-  if (error) {
+  // A bad signal gets a Retry as well; a refusal does not, since asking again would only be refused again.
+  if (error && !community) {
     return (
       <div className="a-shell">
-        <ErrorNote>{error}</ErrorNote>
-        <Link className="btn btn-secondary" to="/admin" style={{ marginTop: 14 }}>Back to Today</Link>
+        <LoadError error={error} onRetry={load} retrying={retrying}>
+          <Link className="btn btn-secondary" to="/admin">Back to Today</Link>
+        </LoadError>
       </div>
     );
   }
@@ -176,7 +196,7 @@ function BuyerLinkField({ community, value, onChange }) {
     <div className="field">
       <label htmlFor="buyer-link">Buyer link</label>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span className="text-muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{origin.replace(/^https?:\/\//, '')}/c/</span>
+        <span className="text-muted" style={{ fontSize: 14, whiteSpace: 'nowrap' }}>{origin.replace(/^https?:\/\//, '')}/c/</span>
         <input
           id="buyer-link" className="input" value={value} autoCapitalize="none" autoCorrect="off" spellCheck={false}
           onChange={(event) => onChange(event.target.value)} aria-describedby="buyer-link-note"

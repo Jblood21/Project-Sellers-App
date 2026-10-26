@@ -32,7 +32,7 @@ export default function ForgotPassword() {
   if (sent) {
     return (
       <AuthCard title="Check your email" blurb={sent} focusTitle>
-        <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+        <p className="text-muted" style={{ fontSize: 14, margin: 0 }}>
           Nothing there after a few minutes? Check the spam folder, or try again.
         </p>
         <Link to="/admin" className="btn btn-secondary btn-block" style={{ marginTop: 6, minHeight: 46 }}>Back to sign in</Link>

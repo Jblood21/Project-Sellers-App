@@ -137,7 +137,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
         </div>
         <div className="ax-agent-meta">
           <span className="card-title" style={{ fontSize: 15 }}>{title}</span>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
+          <span className="text-muted" style={{ fontSize: 14 }}>
             {draft ? 'Fill this in, then add them.' : [agent.brokerage, license].filter(Boolean).join(' · ') || 'No brokerage yet'}
           </span>
         </div>

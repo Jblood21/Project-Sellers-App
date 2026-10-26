@@ -54,7 +54,7 @@ export default function HomeHeadingCard({ community, settings, setSettings }) {
         <span className="card-kicker">Home screen heading</span>
         {unsaved ? <span className="tag tag-accent">Unsaved changes</span> : null}
       </div>
-      <p className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
+      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
         The first words a buyer reads after they sign in. Leave a box empty to keep the wording shown in grey.
         Type <strong>{'{name}'}</strong> for the buyer&apos;s first name and <strong>{'{community}'}</strong> for {community.name}.
       </p>
@@ -81,7 +81,7 @@ export default function HomeHeadingCard({ community, settings, setSettings }) {
         <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: 17, color: 'var(--color-text)' }}>{preview.headline}</p>
         <p>{preview.subhead}</p>
       </div>
-      <span className="text-muted" style={{ fontSize: 12 }}>Shown for a buyer named Dana. It goes live when you press Save settings.</span>
+      <span className="text-muted" style={{ fontSize: 14 }}>Shown for a buyer named Dana. It goes live when you press Save settings.</span>
     </div>
   );
 }

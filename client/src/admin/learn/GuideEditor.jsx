@@ -88,8 +88,13 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
     onClose();
   };
 
+  // Switching a guide on that has no text yet would put an empty page in front of buyers, so it is held back until
+  // there is something to read. A guide that was already live and empty is left to be edited, not blocked.
+  const publishingEmpty = form.published && !base.published && !form.body.trim();
+
   const save = async () => {
     if (!form.title.trim()) return setError('A guide needs a title.');
+    if (publishingEmpty) return setError('Write the guide text before you publish it, or leave it as a draft.');
     setBusy(true);
     setError('');
     try {
@@ -168,11 +173,14 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Toggle on={form.published} onChange={set('published')} label="Published" />
-            <span style={{ fontSize: 13 }}>
-              <strong>{form.published ? 'Published' : 'Hidden from buyers'}</strong>
+            <span style={{ fontSize: 14 }}>
+              <strong>{form.published ? 'Published' : 'Draft, hidden from buyers'}</strong>
               <span className="text-muted">{form.published ? ' · buyers can read it' : ' · only you can see it'}</span>
             </span>
           </div>
+          {publishingEmpty ? (
+            <ErrorNote>This guide has no text yet. Write the guide text below before you publish it.</ErrorNote>
+          ) : null}
 
           <TextAreaField
             label="Guide text (Markdown)" rows={18} className="input ax-body" spellCheck
@@ -183,7 +191,7 @@ export default function GuideEditor({ community, guideId, onClose, onSaved }) {
         </div>
 
         <div className="ax-editor-col ax-sticky">
-          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase' }} className="text-muted" id="guide-preview-label">
+          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase' }} className="text-muted" id="guide-preview-label">
             Preview as buyers see it
           </span>
           <div className="ax-preview-frame" role="region" aria-labelledby="guide-preview-label">

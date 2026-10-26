@@ -10,7 +10,7 @@ import { useAdmin } from '../AdminContext.jsx';
 import { groupByBranch, headedGroups } from '../branches.js';
 import AdminShell from '../shell/AdminShell.jsx';
 import NavIcon from '../shell/navIcons.jsx';
-import { ErrorNote, Spinner } from '../ui.jsx';
+import { LoadError, Spinner } from '../ui.jsx';
 import ActivityRows from './ActivityRows.jsx';
 import NewCommunityDialog from './NewCommunityDialog.jsx';
 import ReadyToCall from './ReadyToCall.jsx';
@@ -102,7 +102,7 @@ function CommunityCard({ community }) {
         <span className="tag tag-accent-2">{community.status}</span>
       </div>
       <CommunityCover community={community} />
-      <span className="text-muted" style={{ fontSize: 13 }}>{community.location || 'Location TBD'}</span>
+      <span className="text-muted" style={{ fontSize: 14 }}>{community.location || 'Location TBD'}</span>
       <div className="as-community__stats">
         {community.waiting ? <span className={`as-chip ${community.overdue ? 'as-chip--late' : 'as-chip--call'}`}>{plural(community.waiting, 'call')} waiting{community.overdue ? ` · ${community.overdue} late` : ''}</span> : null}
         {community.unread ? <span className="as-chip as-chip--soft">{community.unread} new</span> : null}
@@ -133,15 +133,31 @@ function CommunityCard({ community }) {
 export default function Today() {
   const { token, isOwner } = useAdmin();
   const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  // The error the page's load ended in, kept whole so a bad signal gets a Retry and a refusal does not.
+  const [error, setError] = useState(null);
+  const [retrying, setRetrying] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [params, setParams] = useSearchParams();
   // The last few things the team changed, for the owner's card; null until they have arrived.
   const [activity, setActivity] = useState(null);
   const creating = params.get('new') === '1' && isOwner;
 
   useEffect(() => {
-    adminApi.today(token).then(setData).catch((err) => setError(err.message));
-  }, [token]);
+    let cancelled = false;
+    setRetrying(true);
+    adminApi
+      .today(token)
+      .then((next) => {
+        if (cancelled) return;
+        setData(next);
+        setError(null);
+      })
+      .catch((err) => !cancelled && setError(err))
+      .finally(() => !cancelled && setRetrying(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [token, attempt]);
 
   // Asked for only as the owner (the server refuses it to anyone else), and the card stays away when it fails or
   // there is nothing yet: Today is about what needs a person, not about an empty log.
@@ -166,7 +182,7 @@ export default function Today() {
       title="Today"
       blurb="What needs a person right now, across every community."
     >
-      <ErrorNote>{error}</ErrorNote>
+      {!data ? <LoadError error={error} onRetry={() => setAttempt((n) => n + 1)} retrying={retrying} /> : null}
       {!data && !error ? <Spinner /> : null}
 
       {data ? (
@@ -267,13 +283,13 @@ export default function Today() {
             </ul>
           )}
           {totals.waiting > data.calls.length ? (
-            <p className="text-muted" style={{ fontSize: 12.5 }}>
+            <p className="text-muted" style={{ fontSize: 14 }}>
               Showing the first {data.calls.length} of {totals.waiting}. Open a community to see the rest.
             </p>
           ) : null}
 
           <h2 className="as-section-title" id="ready">Agreed to calls, no call booked</h2>
-          <p className="text-muted" style={{ fontSize: 13, margin: '-4px 0 10px' }}>
+          <p className="text-muted" style={{ fontSize: 14, margin: '-4px 0 10px' }}>
             They said yes to calls and texts and gave a number, but have not asked for a time. Open one to see them in
             their community&apos;s Leads.
           </p>

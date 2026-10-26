@@ -267,13 +267,13 @@ export default function LayoutCard({ community, reload }) {
             <span className="ax-choice-head">
               <span className="ax-choice-name">{layout.name}</span>
               {current === layout.k ? <span className="tag tag-accent">In use</span> : null}
-              {saving === layout.k ? <span className="text-muted" style={{ fontSize: 12 }}>Saving…</span> : null}
+              {saving === layout.k ? <span className="text-muted" style={{ fontSize: 14 }}>Saving…</span> : null}
             </span>
             <span className="ax-choice-note">{layout.note}</span>
           </button>
         ))}
       </div>
-      <span className="text-muted" style={{ fontSize: 12 }}>
+      <span className="text-muted" style={{ fontSize: 14 }}>
         Changes the type, the shapes and where buttons sit, instantly. Every tool does exactly
         what it did before, and the theme below still sets the colours.
       </span>

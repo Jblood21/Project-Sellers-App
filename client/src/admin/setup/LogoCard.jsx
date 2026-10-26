@@ -46,7 +46,7 @@ export default function LogoCard({ community, reload }) {
         onRemove={community.logoLight ? remove(community.logoLight) : undefined}
         hint="A white or light version, used where the buyer app has a dark header or footer."
       />
-      <span className="text-muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
+      <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
         PNG, WebP, JPEG or GIF up to 3 MB. SVG files are not accepted. Without a logo, buyers see
         the community name as text.
       </span>

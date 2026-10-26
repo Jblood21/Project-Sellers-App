@@ -74,7 +74,7 @@ for (const kind of backends()) {
       assert.equal(first.status, 201);
       assert.equal(first.body.slug, 'what-about-taxes');
       assert.equal(first.body.category, 'Guide');
-      assert.equal(first.body.published, true);
+      assert.equal(first.body.published, false, 'a guide a builder adds starts as a draft, so an empty page never goes live');
       assert.equal(first.body.body, '', 'a new guide starts empty');
       assert.equal(first.body.defaultKey, '', 'and is not mistaken for a supplied one');
 
@@ -490,7 +490,7 @@ for (const kind of backends()) {
     });
 
     test('published takes a real boolean only: the string "false" is not accepted as true', async () => {
-      const g = (await admin(`/communities/${cid}/guides`, { method: 'POST', body: { title: 'Flag' } })).body;
+      const g = (await admin(`/communities/${cid}/guides`, { method: 'POST', body: { title: 'Flag', published: true } })).body;
       for (const published of ['false', 'no', 0, null, {}]) {
         const res = await admin(`/guides/${g.id}`, { method: 'PATCH', body: { published } });
         assert.equal(res.status, 400, JSON.stringify(published));
@@ -514,7 +514,7 @@ for (const kind of backends()) {
     });
 
     test('a guide address with a NUL or any odd character is a plain 404 and the server stays up', async () => {
-      const publish = (await admin(`/communities/${cid}/guides`, { method: 'POST', body: { title: 'Public one' } })).body;
+      const publish = (await admin(`/communities/${cid}/guides`, { method: 'POST', body: { title: 'Public one', published: true } })).body;
       assert.equal((await api(`/api/c/${cid}/guides/${publish.slug}`)).status, 200);
       for (const slug of ['a%00b', '%00', 'Has%20Space', 'UPPER', 'a_b', 'x'.repeat(101)]) {
         assert.equal((await api(`/api/c/${cid}/guides/${slug}`)).status, 404, slug);

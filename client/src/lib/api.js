@@ -24,8 +24,35 @@ export function onSessionRefused(fn) {
   };
 }
 
-async function request(path, { method = 'GET', body, token } = {}) {
+// The words for a request that never got an answer: no signal, a dropped connection, or a signal so weak the
+// request was given up on.
+const CONNECTION_FAILED = 'We couldn’t connect. Check your connection and try again.';
+
+function connectionError() {
+  const error = new Error(CONNECTION_FAILED);
+  // Marks "no answer came", as opposed to an answer that said no: a sign-in check that fails this way must
+  // not end the session, and a save that fails this way is worth trying again.
+  error.offline = true;
+  return error;
+}
+
+/**
+ * Whether a failed request says "the connection let us down" rather than "the server refused this": no answer at
+ * all, a server error (a restart during an update shows as a 502 or 503) or a request that timed out. Those are the
+ * failures a person can fix by waiting or moving, so they get the connection wording and a Retry button. A 400 or
+ * 403 carries the server's own plain sentence about what is wrong, and trying again would only repeat it.
+ */
+export function isConnectionError(error) {
+  return Boolean(error?.offline) || error?.status >= 500 || error?.status === 408;
+}
+
+async function request(path, { method = 'GET', body, token, timeoutMs = 0, keepalive = false } = {}) {
+  // A phone on a signal that has gone quiet can leave a request waiting for minutes with nothing to show for it,
+  // so a caller that has something to say about that (the sign-in check) gives the wait a limit.
+  const controller = timeoutMs ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : 0;
   let res;
+  let text;
   try {
     res = await fetch(path, {
       method,
@@ -34,14 +61,20 @@ async function request(path, { method = 'GET', body, token } = {}) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
+      // Lets a request finish after the page is closed or left, for a change that was held back to be undone.
+      ...(keepalive ? { keepalive: true } : {}),
+      ...(controller ? { signal: controller.signal } : {}),
     });
+    if (res.status !== 204) text = await res.text();
   } catch {
     // The browser's own text for this is "Failed to fetch" (Chrome), "Load failed"
-    // (Safari) or "NetworkError when attempting to fetch resource." (Firefox).
-    throw new Error('We couldn’t connect. Check your connection and try again.');
+    // (Safari) or "NetworkError when attempting to fetch resource." (Firefox). The connection can
+    // also drop part-way through the answer.
+    throw connectionError();
+  } finally {
+    clearTimeout(timer);
   }
   if (res.status === 204) return null;
-  const text = await res.text();
   let data = null;
   try {
     data = text ? JSON.parse(text) : null;
@@ -68,7 +101,7 @@ async function saveFile(path, token, { fallbackName, failure, type = '' }) {
   try {
     res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
   } catch {
-    throw new Error('We couldn’t connect. Check your connection and try again.');
+    throw connectionError();
   }
   if (!res.ok) {
     if (res.status === 401) sessionRefused?.(token);
@@ -91,7 +124,7 @@ async function saveFile(path, token, { fallbackName, failure, type = '' }) {
     blob = await res.blob();
   } catch {
     // The connection dropped part-way through the file.
-    throw new Error('We couldn’t connect. Check your connection and try again.');
+    throw connectionError();
   }
   const disposition = res.headers.get('Content-Disposition') || '';
   const name = /filename="([^"]+)"/.exec(disposition)?.[1] || fallbackName;
@@ -133,7 +166,8 @@ export const buyerApi = {
 export const adminApi = {
   login: (email, password) => request('/api/admin/login', { method: 'POST', body: { email, password } }),
   // { id, email, role }: role is 'owner' for the account ADMIN_EMAIL names and 'member' for anyone invited.
-  me: (token) => request('/api/admin/me', { token }),
+  // Given up on after 20 seconds, so a signal that has gone quiet shows the sign-in check's Retry rather than a spinner for good.
+  me: (token) => request('/api/admin/me', { token, timeoutMs: 20000 }),
   // The answer is the same whether or not the address has an account; the server says so in `message`.
   forgotPassword: (email) => request('/api/admin/password/forgot', { method: 'POST', body: { email } }),
   // Answers with a session ({ token, admin }) so the page can sign the owner straight in.
@@ -242,7 +276,10 @@ export const adminApi = {
     request(`/api/admin/resources/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
   deleteResource: (token, id) =>
     request(`/api/admin/resources/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
-  deletePhoto: (token, id) => request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // `keepalive` lets the delete finish after the page has been closed or left, for a photo whose removal was held
+  // back for a few seconds so it could be undone.
+  deletePhoto: (token, id, { keepalive = false } = {}) =>
+    request(`/api/admin/photos/${encodeURIComponent(id)}`, { method: 'DELETE', token, keepalive }),
   // ── realtors: up to MAX_AGENTS per community ────────────────────────────
   createAgent: (token, communityId, body) =>
     request(`/api/admin/communities/${encodeURIComponent(communityId)}/agents`, { method: 'POST', body, token }),

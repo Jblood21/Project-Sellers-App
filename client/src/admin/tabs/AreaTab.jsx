@@ -95,7 +95,7 @@ export default function AreaTab({ community, reload }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {highlights.length === 0 ? (
-        <p className="text-muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
+        <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.55 }}>
           Nothing here yet. Add the schools, parks, shops and drive times buyers ask about —
           they show up in the buyer app under <strong>Local Spots</strong>.
         </p>
@@ -103,7 +103,7 @@ export default function AreaTab({ community, reload }) {
 
       {grouped.map(([category, items]) => (
         <div key={category.k} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span className="text-muted" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+          <span className="text-muted" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
             {category.label}
           </span>
           {items.map((highlight) => (
@@ -112,7 +112,7 @@ export default function AreaTab({ community, reload }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <span className="card-title" style={{ fontSize: 17 }}>{highlight.name}</span>
                 {highlight.detail ? (
-                  <span className="text-muted" style={{ flex: 'none', fontSize: 12 }}>{highlight.detail}</span>
+                  <span className="text-muted" style={{ flex: 'none', fontSize: 14 }}>{highlight.detail}</span>
                 ) : null}
               </div>
               {highlight.description ? (
@@ -121,7 +121,7 @@ export default function AreaTab({ community, reload }) {
               {highlight.address ? (
                 <span
                   className="text-muted"
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 14 }}
                 >
                   <Pin />
                   {highlight.address}
@@ -130,7 +130,7 @@ export default function AreaTab({ community, reload }) {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                 <button
                   type="button" className="btn btn-ghost" onClick={() => openEdit(highlight)}
-                  style={{ minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
+                  style={{ minHeight: 44, padding: '0 14px', fontSize: 14 }}
                 >
                   Edit
                 </button>

@@ -8,6 +8,7 @@ import {
   isSafeEmail, isThemeKey, SLOT_TIMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
 } from '../../shared/domain.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
+import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, mailboxKey, reserve, tooMany } from '../lib/limits.js';
@@ -203,9 +204,18 @@ const flag = (value, fallback) => {
 const COMMUNITY_TEXT_MAX = 200;
 
 const str = (v, fallback = '') => (v === undefined || v === null ? fallback : noNul(String(v)).trim());
-const numOr = (v, fallback) => {
-  const n = Number.parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
-  return Number.isFinite(n) ? n : fallback;
+
+/**
+ * Whether a figure sent for a home is the one already stored. Only a plain number or a plain numeric string
+ * can be "the same": "475k" is a change even if it happens to match, and a blank count is the same as a stored
+ * 0 ("not given") but a blank price is never the same, since a price is required.
+ */
+const sameHomeNumber = (home, key, sent) => {
+  if (sent === null || (typeof sent === 'string' && !sent.trim())) return key !== 'price' && Number(home[key]) === 0;
+  if (typeof sent !== 'number' && typeof sent !== 'string') return false;
+  const text = String(sent).trim();
+  if (typeof sent === 'string' && !/^\d+(\.\d+)?$/.test(text)) return false;
+  return Number(text) === Number(home[key]);
 };
 
 /**
@@ -1185,6 +1195,20 @@ export function adminRouter() {
         if (key === 'reportEmail' && text && !isSafeEmail(text)) {
           return res.status(400).json({ error: 'The report email must be a single email address.' });
         }
+        if (key in SETTING_NUMBER_RULES) {
+          // The rates and costs the buyer's payment is worked out from. A value that is not a number in a range
+          // that makes sense is refused in words, where it used to be stored as typed and counted as 0 (so
+          // "six and a half" gave a 0% rate). A stray % or $ or comma is dropped. A value that is the one already
+          // saved goes through as it is, so an old figure the person did not touch can never make a save fail.
+          if (text === str(community.settings[key])) {
+            settings[key] = text;
+            continue;
+          }
+          const read = readSetting(key, text);
+          if (read.error) return res.status(400).json({ error: `Check ${SETTING_NUMBER_RULES[key].name}: ${read.error.charAt(0).toLowerCase()}${read.error.slice(1)}` });
+          settings[key] = read.text;
+          continue;
+        }
         if (CUSTOM_KEYS.includes(key)) {
           // A community's own colours: colour codes (or blank), and the base a set theme, so nothing else can
           // reach the style attribute the buyer app writes them into.
@@ -1210,6 +1234,13 @@ export function adminRouter() {
           const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive') || key.startsWith('team') || key.startsWith('home');
           settings[key] = capped ? text.slice(0, settingMaxLength(key)) : text;
         }
+      }
+      // The three cutoffs are read as ranges ("Good 700-739"), so they have to step down. Checked only when one of
+      // them is part of this save, for the same reason an untouched figure is never re-checked above.
+      const creditKeys = ['creditExcellentMin', 'creditGoodMin', 'creditFairMin'];
+      if (creditKeys.some((key) => settings[key] !== community.settings[key])) {
+        const problem = creditOrderProblem(settings);
+        if (problem) return res.status(400).json({ error: problem });
       }
       patch.settings = settings;
     }
@@ -1290,16 +1321,21 @@ export function adminRouter() {
   /**
    * "Check rate inbox" — in production Zapier posts the parsed lender email to
    * /api/communities/:id/rates. This stamps the timestamp so an admin can confirm
-   * the pipeline, and accepts manual rates in the same call.
+   * the pipeline. The date is stamped only when a rate inbox is connected: buyers read it beside their payment as
+   * "rates updated", so a press on a site with no automatic updates must not make old rates look fresh.
    */
   router.post('/communities/:id/rates/check', async (req, res) => {
     const store = await getStore();
     const community = await communityOf(req, res, store);
     if (!community) return;
-    const settings = { ...community.settings, ratesUpdatedAt: new Date().toISOString() };
-    const updated = await store.updateCommunity(community.id, { settings });
+    const webhookConfigured = Boolean(process.env.RATES_WEBHOOK_SECRET);
+    let settings = community.settings;
+    if (webhookConfigured) {
+      const updated = await store.updateCommunity(community.id, { settings: { ...community.settings, ratesUpdatedAt: new Date().toISOString() } });
+      settings = updated.settings;
+    }
     await recordActivity(store, req, { communityId: community.id, action: 'community.updated', subject: community.name, detail: 'Checked the rate inbox' });
-    res.json({ settings: updated.settings, webhookConfigured: Boolean(process.env.RATES_WEBHOOK_SECRET) });
+    res.json({ settings, webhookConfigured });
   });
 
   // ── homes ────────────────────────────────────────────────────────────────
@@ -1309,13 +1345,15 @@ export function adminRouter() {
     if (!community) return;
     const name = str(req.body?.name);
     if (!name) return res.status(400).json({ error: 'Give the home a name.' });
+    // A home goes live to buyers the moment it exists, so nothing is made up for a box left empty: the price is
+    // required and has to be a real one, and a blank bed, bath or square-foot count is kept as "not given" (0),
+    // which every buyer screen leaves out. (This used to fill in $450,000, 3 bed, 2 bath and 2,000 sq ft.)
+    const numbers = readHomeNumbers(req.body);
+    if (numbers.error) return res.status(400).json({ error: numbers.error });
     const home = await store.createHome(community.id, {
       name,
-      price: numOr(req.body?.price, 450000),
-      beds: numOr(req.body?.beds, 3),
-      baths: numOr(req.body?.baths, 2),
-      sqft: numOr(req.body?.sqft, 2000),
-      description: str(req.body?.description) || 'New home — add a description.',
+      ...numbers.data,
+      description: str(req.body?.description),
       availability: AVAILABILITY.includes(req.body?.availability) ? req.body.availability : 'Planning',
       lotNumber: str(req.body?.lotNumber),
       readyOn: readyDate(req.body?.readyOn),
@@ -1330,11 +1368,24 @@ export function adminRouter() {
     const home = await homeOf(req, res, store);
     if (!home) return;
     const patch = {};
-    if (req.body?.name !== undefined) patch.name = str(req.body.name) || home.name;
-    if (req.body?.price !== undefined) patch.price = numOr(req.body.price, home.price);
-    if (req.body?.beds !== undefined) patch.beds = numOr(req.body.beds, home.beds);
-    if (req.body?.baths !== undefined) patch.baths = numOr(req.body.baths, home.baths);
-    if (req.body?.sqft !== undefined) patch.sqft = numOr(req.body.sqft, home.sqft);
+    // A name or a price the request sends has to be a real one: a refusal says why and changes nothing, where
+    // it used to keep the old value and answer 200, so a box that closed looked saved and was not. Only what is
+    // sent is checked, so a home stored before these rules still saves when its other fields are edited.
+    if (req.body?.name !== undefined) {
+      patch.name = str(req.body.name);
+      if (!patch.name) return res.status(400).json({ error: 'Give the home a name.' });
+    }
+    // The edit form sends every box back, touched or not, and a home stored before these rules may hold a figure
+    // they would refuse (a price of $475 from a "475k" that lost its k, a bed count of 2.5). Judging a figure the
+    // person never touched would stop every other change to that home, so one equal to what is stored is left
+    // alone, and only a figure that moves is checked. The same rule the settings loop follows for the rates.
+    const sentNumbers = { ...req.body };
+    for (const key of Object.keys(HOME_NUMBER_RULES)) {
+      if (sentNumbers[key] !== undefined && sameHomeNumber(home, key, sentNumbers[key])) delete sentNumbers[key];
+    }
+    const numbers = readHomeNumbers(sentNumbers, { partial: true });
+    if (numbers.error) return res.status(400).json({ error: numbers.error });
+    Object.assign(patch, numbers.data);
     if (req.body?.description !== undefined) patch.description = str(req.body.description);
     if (req.body?.availability !== undefined && AVAILABILITY.includes(req.body.availability)) {
       patch.availability = req.body.availability;
@@ -1744,7 +1795,10 @@ export function adminRouter() {
     if (clean.error) return res.status(400).json({ error: clean.error });
     if (!clean.data.title) return res.status(400).json({ error: 'Give the guide a title.' });
 
-    const published = flag(req.body?.published, true);
+    // A guide a builder adds starts as a draft and goes to buyers only when they publish it: one with just a title
+    // used to be live at once, an empty page in the buyer's list. (The supplied guides are copied in by the stores,
+    // not through here, and stay published.)
+    const published = flag(req.body?.published, false);
     if (published === null) return res.status(400).json({ error: 'Published must be true or false.' });
 
     let taken = await slugsOf(store, community.id);
@@ -1829,6 +1883,15 @@ export function adminRouter() {
       const published = flag(req.body.published);
       if (published === null) return res.status(400).json({ error: 'Published must be true or false.' });
       patch.published = published;
+    }
+    // Turning a draft on is the moment an empty page would reach buyers, so it is held here and not only in the
+    // editor: the switch on the guide list sends the same request, and the list does not carry the text, so only
+    // the server can tell. A guide already live and empty is left alone, so it can still be edited.
+    if (patch.published === true && !guide.published) {
+      const text = 'body' in patch ? patch.body : guide.body;
+      if (!String(text ?? '').trim()) {
+        return res.status(400).json({ error: 'Write the guide text before you publish it.' });
+      }
     }
     if (Number.isInteger(req.body?.position) && req.body.position >= 0 && req.body.position <= 9999) {
       patch.position = req.body.position;

@@ -134,7 +134,7 @@ test('a huge body is refused before it is read, unless it is an admin uploading 
 
   // And the real thing still goes through: a ~24 MB file, signed in.
   const cid = (await api('/api/admin/communities', { method: 'POST', body: { name: 'Big Upload' } })).body.id;
-  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Fir', price: 1, beds: 1, baths: 1, sqft: 1 } })).body;
+  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Fir', price: 400000, beds: 1, baths: 1, sqft: 1 } })).body;
   const file = Buffer.alloc(24 * 1024 * 1024, 7);
   const put = await api(`/api/admin/homes/${home.id}/video`, { method: 'PUT', body: { dataUrl: dataUrl('video/mp4', file) } });
   assert.equal(put.status, 200);
@@ -143,7 +143,7 @@ test('a huge body is refused before it is read, unless it is an admin uploading 
 
 test('only the file\'s current version is cached for a year', async () => {
   const cid = (await api('/api/admin/communities', { method: 'POST', body: { name: 'Version Match' } })).body.id;
-  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Ash', price: 1, beds: 1, baths: 1, sqft: 1 } })).body;
+  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Ash', price: 400000, beds: 1, baths: 1, sqft: 1 } })).body;
   const put = (bytes) => api(`/api/admin/homes/${home.id}/video`, { method: 'PUT', body: { dataUrl: dataUrl('video/mp4', bytes) } });
   const old = (await put(Buffer.alloc(100, 1))).body.videoUrl;
   await tick();
@@ -174,7 +174,7 @@ test('a video is accepted for what it is, not for what it is called', async () =
 
 test('every route that takes a video takes a big one, signed in, however the path is written', async () => {
   const cid = (await api('/api/admin/communities', { method: 'POST', body: { name: 'Big Routes' } })).body.id;
-  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Pine', price: 1, beds: 1, baths: 1, sqft: 1 } })).body;
+  const home = (await api(`/api/admin/communities/${cid}/homes`, { method: 'POST', body: { name: 'The Pine', price: 400000, beds: 1, baths: 1, sqft: 1 } })).body;
   const big = Buffer.alloc(8 * 1024 * 1024, 3); // 11 MB once encoded: past the 6 MB parser, inside the 36 MB one
   const body = { dataUrl: dataUrl('video/mp4', big) };
 

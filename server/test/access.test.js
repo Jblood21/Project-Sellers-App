@@ -72,7 +72,7 @@ for (const kind of backends()) {
         assert.equal(res.status, status, `${path}: ${JSON.stringify(res.body)}`);
         return res.body;
       };
-      const home = await made(`/communities/${cid}/homes`, { name: 'The Fir' });
+      const home = await made(`/communities/${cid}/homes`, { name: 'The Fir', price: 450000 });
       const photo = await made(`/homes/${home.id}/photos`, { dataUrl: GIF });
       const highlight = await made(`/communities/${cid}/highlights`, { name: 'The Park' });
       const resource = await made(`/communities/${cid}/resources`, { kind: 'article', title: 'Welcome', body: 'Hello.' });
@@ -93,7 +93,7 @@ for (const kind of backends()) {
       ['GET', `/communities/${cid}`, undefined, 200],
       ['PATCH', `/communities/${cid}`, { location: 'Up the hill' }, 200],
       ['POST', `/communities/${cid}/rates/check`, {}, 200],
-      ['POST', `/communities/${cid}/homes`, { name: 'The Pine' }, 201],
+      ['POST', `/communities/${cid}/homes`, { name: 'The Pine', price: 450000 }, 201],
       ['PATCH', `/homes/${o.home.id}`, { price: 425000 }, 200],
       ['PUT', `/homes/${o.home.id}/photos/order`, { ids: [o.photo.id] }, 200],
       ['POST', `/homes/${o.home.id}/photos`, { dataUrl: GIF }, 201],
