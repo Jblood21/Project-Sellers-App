@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { MAX_AGENTS } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import { ErrorNote } from '../ui.jsx';
 import AgentEditor from './AgentEditor.jsx';
 
@@ -20,6 +21,8 @@ export default function RealtorsCard({ community, reload }) {
   const agents = community.agents ?? [];
   const full = agents.length >= MAX_AGENTS;
   const shown = Boolean(community.features?.agents);
+  // A listing has the listing agent (and a partner or two), not a team of realtors.
+  const listing = isListing(community);
 
   const show = async () => {
     setError('');
@@ -34,18 +37,20 @@ export default function RealtorsCard({ community, reload }) {
   return (
     <div className="card elev-sm" style={{ gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="card-kicker">Realtors</span>
+        <span className="card-kicker">{listing ? 'Agents' : 'Realtors'}</span>
         <span className="tag tag-neutral" aria-live="polite">{agents.length} of {MAX_AGENTS} added</span>
       </div>
       <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        Agents buyers can contact about homes here. They are listed on the home screen under “Schedule your tour.”, under every home, and on a Meet the agent page. Buyers can call, text or email them, and ask to tour.
+        {listing
+          ? 'The agents visitors can contact about this home. They are listed on the home screen under “Schedule your tour.”, under the home, and on a Meet the agent page. Visitors can call, text or email them, and ask to tour.'
+          : 'Agents buyers can contact about homes here. They are listed on the home screen under “Schedule your tour.”, under every home, and on a Meet the agent page. Buyers can call, text or email them, and ask to tour.'}{' '}
         Changes here save on their own, not with the Save settings button.
       </p>
 
       {agents.length && !shown ? (
         <div className="ax-callout">
           <span style={{ fontSize: 14, lineHeight: 1.45 }}>
-            Buyers are not seeing these realtors. <strong>Realtors</strong> is switched off under Tools.
+            Buyers are not seeing {listing ? 'these agents' : 'these realtors'}. <strong>{listing ? 'Agents' : 'Realtors'}</strong> is switched off under Tools.
           </span>
           <button type="button" className="btn btn-secondary" onClick={show} style={{ alignSelf: 'flex-start', minHeight: 44 }}>
             Show them
@@ -81,11 +86,11 @@ export default function RealtorsCard({ community, reload }) {
             }}
             style={{ minHeight: 46 }}
           >
-            ＋ Add a realtor
+            ＋ {listing ? 'Add an agent' : 'Add a realtor'}
           </button>
           {full ? (
             <span id="ax-agents-full" className="text-muted" style={{ fontSize: 14 }}>
-              {MAX_AGENTS} is the most a community can list. Remove one to add another.
+              {MAX_AGENTS} is the most {listing ? 'a listing' : 'a community'} can list. Remove one to add another.
             </span>
           ) : null}
         </>

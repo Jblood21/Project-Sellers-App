@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CUSTOM_KEYS } from '@shared/customTheme.js';
+import { isListing } from '@shared/listing.js';
 import { CUSTOM_THEME, TOOLS, normalizeLayout } from '@shared/domain.js';
 import { buyerApi } from '../lib/api.js';
 import { readJson, remove, writeJson } from '../lib/storage.js';
@@ -225,7 +226,9 @@ export function BuyerProvider({ communityId, preview = null, children }) {
           ? prev.savedHomeIds.filter((id) => id !== home.id)
           : [...prev.savedHomeIds, home.id],
       }));
-      showToast(wasSaved ? 'Removed from Homes I Like' : 'Saved — the team can follow up');
+      showToast(isListing(community)
+        ? (wasSaved ? 'Removed from your saved homes' : 'Saved — your agent can follow up')
+        : (wasSaved ? 'Removed from Homes I Like' : 'Saved — the team can follow up'));
       try {
         const result = await buyerApi.toggleSave(token, home.id);
         setLead((prev) => ({ ...prev, savedHomeIds: result.savedHomeIds }));
@@ -239,7 +242,7 @@ export function BuyerProvider({ communityId, preview = null, children }) {
         showToast(err.message);
       }
     },
-    [lead, showToast, token],
+    [community, lead, showToast, token],
   );
 
   /**
@@ -330,6 +333,8 @@ export function BuyerProvider({ communityId, preview = null, children }) {
       community: shown,
       homes: shown?.homes ?? [],
       settings: shown?.settings ?? {},
+      // A single home an agent is selling (see shared/listing.js). Every listing-only screen and wording asks this.
+      isListing: isListing(shown),
       // Resolved here so every screen and every layout reads the same answer:
       // an unknown key from an older payload falls back to the default layout.
       layout: normalizeLayout(shown?.layout),

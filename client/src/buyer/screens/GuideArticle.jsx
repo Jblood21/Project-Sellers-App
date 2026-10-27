@@ -15,7 +15,7 @@ import { GuideCard } from './Guides.jsx';
  * change it without editing the text.
  */
 export default function GuideArticle() {
-  const { community, guides, features, signedIn, track } = useBuyer();
+  const { community, guides, features, signedIn, track, isListing } = useBuyer();
   const { communityId, slug } = useParams();
   const navigate = useNavigate();
   const [state, setState] = useState({ slug: '', guide: null, status: 'loading' });
@@ -56,7 +56,7 @@ export default function GuideArticle() {
   const onInternalLink = useCallback((href) => navigate(href), [navigate]);
 
   if (!features.guides) {
-    return <Navigate to={signedIn ? `/c/${communityId}/tools` : `/c/${communityId}`} replace />;
+    return <Navigate to={signedIn ? `/c/${communityId}/${isListing ? 'home' : 'tools'}` : `/c/${communityId}`} replace />;
   }
 
   if (missing) {
@@ -109,15 +109,16 @@ export default function GuideArticle() {
             Ready to run your own numbers?
           </h2>
           <p style={{ margin: '6px 0 14px', color: 'var(--t-ink)', fontSize: 13.5, lineHeight: 1.55 }}>
-            The Homebuyer App shows what a home at {community?.name} would cost you each month, what you could
-            afford and whether down payment help applies. It’s free.
+            {isListing
+              ? `The payment tools show what ${community?.name} would cost you each month and what you could afford. They’re free.`
+              : `The Homebuyer App shows what a home at ${community?.name} would cost you each month, what you could afford and whether down payment help applies. It’s free.`}
           </p>
           <Link
-            to={signedIn ? `/c/${communityId}/explore` : `/c/${communityId}`}
+            to={signedIn ? `/c/${communityId}/${isListing ? 'home' : 'explore'}` : `/c/${communityId}`}
             className="b-btn"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
           >
-            {signedIn ? 'Explore Homes' : 'Sign in to explore homes'}
+            {signedIn ? (isListing ? 'See the home' : 'Explore Homes') : (isListing ? 'Sign in to see the home' : 'Sign in to explore homes')}
           </Link>
         </section>
       ) : null}

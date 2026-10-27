@@ -6,6 +6,7 @@ import {
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
   isSafeEmail, isThemeKey, SLOT_TIMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
+  LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
 } from '../../shared/domain.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
@@ -26,7 +27,7 @@ import {
   INVITE_TTL_MS, RESET_TTL_MS, forgetAdminSessions, hashPassword, hashResetToken, issueToken, newResetToken, passwordProblem,
   requireAdmin, unusablePasswordHash, verifyPassword,
 } from '../lib/auth.js';
-import { NO_ACCESS, canAccess, forgetAdminAccess, forgetAllAdminAccess, isOwner, requireOwner, roleOf } from '../lib/access.js';
+import { NO_ACCESS, OWNER_ONLY, canAccess, forgetAdminAccess, forgetAllAdminAccess, isOwner, requireOwner, roleOf } from '../lib/access.js';
 import { recordActivity } from '../lib/activity.js';
 import { sendAdminInvite, sendPasswordReset } from '../lib/notify.js';
 
@@ -1007,6 +1008,7 @@ export function adminRouter() {
           canCall: Boolean(lead.phone && lead.consent?.granted), when: describeTour(lead.tour, lender), overdue,
         });
       }
+      const listingHome = isListing(community) ? (await store.listHomes(community.id))[0] : null;
       const agreed = report.leads.filter(isReadyToCall);
       for (const lead of agreed) {
         ready.push({
@@ -1020,9 +1022,14 @@ export function adminRouter() {
         branchId: community.branchId, branchName: community.branchName,
         // The four colour settings, so Today names a community on its own colours "Custom colours" (themeView
         // needs them to tell a full palette from a half-finished one) without the rest of its settings.
-        settings: Object.fromEntries(CUSTOM_KEYS.map((key) => [key, community.settings?.[key] ?? ''])),
+        // A listing's card says what kind it is, its price and its open houses (the client picks the next one by
+        // the viewer's own date), so an agent's portfolio reads as homes and not as developments.
+        settings: Object.fromEntries([...CUSTOM_KEYS, 'siteKind', 'openHousesJson'].map((key) => [key, community.settings?.[key] ?? ''])),
+        kind: isListing(community) ? 'listing' : 'community',
+        price: listingHome?.price ?? null,
         // Only the address, flattened the way the public route flattens it: the card needs nothing else of the photo.
-        heroPhoto: heroes[0]?.url ?? null,
+        // A listing's pictures are its home's, so with no community cover the home's first photo stands in.
+        heroPhoto: heroes[0]?.url ?? listingHome?.photos?.[0]?.url ?? null,
         homesCount: row.homesCount, people: report.leads.length, unread: report.leads.filter(isUnread).length,
         waiting: report.comingUp.length + report.overdue.length, overdue: report.overdue.length,
         ready: agreed.length, readyNew: agreed.filter((lead) => lead.status !== 'contacted').length,
@@ -1057,7 +1064,61 @@ export function adminRouter() {
   });
 
   /** Making a community is the owner's: a member works inside the ones they are given and cannot add to the list. */
-  router.post('/communities', requireOwner, async (req, res) => {
+  /**
+   * A listing: one home an agent is selling, made as a community marked `siteKind: 'listing'` (shared/listing.js) with
+   * its one home beside it. The address is its name and the home's name. Everything is checked before anything is
+   * made, so a refusal leaves nothing half-built. A member may make listings (not communities), and is given
+   * access to what they make: it is their portfolio, given as a single insert so it cannot undo a list the owner
+   * saves at the same moment. If any step after the first fails, what was made is removed again, so a failed
+   * request never leaves a half-built listing reachable at a public address.
+   */
+  async function createListing(req, res) {
+    const address = str(req.body?.address ?? req.body?.name).slice(0, COMMUNITY_TEXT_MAX);
+    if (!address) return res.status(400).json({ error: 'Give the home an address.' });
+    const numbers = readHomeNumbers(req.body);
+    if (numbers.error) return res.status(400).json({ error: numbers.error });
+    const store = await getStore();
+    const made = await store.createCommunity({
+      name: address,
+      location: str(req.body?.city ?? req.body?.location).slice(0, COMMUNITY_TEXT_MAX),
+      status: LISTING_STATUSES.includes(req.body?.status) ? req.body.status : 'Active',
+      theme: isThemeKey(req.body?.theme) ? req.body.theme : DEFAULT_THEME,
+      // A listing's "builder" is the brokerage it is listed with: the footer and the consent wording read it.
+      builder: str(req.body?.brokerage).slice(0, COMMUNITY_TEXT_MAX),
+    });
+    let community;
+    let home;
+    try {
+      community = await store.updateCommunity(made.id, {
+        settings: { ...made.settings, ...LISTING_SETTINGS },
+        tools: { ...made.tools, ...LISTING_TOOLS },
+        features: { ...made.features, ...LISTING_FEATURES },
+        layout: LISTING_LAYOUT,
+      });
+      home = await store.createHome(community.id, {
+        name: address,
+        ...numbers.data,
+        description: str(req.body?.description),
+        availability: 'Move-in ready',
+        lotNumber: '',
+        readyOn: readyDate(null),
+        unitsAvailable: null,
+      });
+      if (!isOwner(req.access)) {
+        await store.addAdminCommunity(req.admin.sub, community.id);
+        forgetAdminAccess(req.admin.sub);
+      }
+    } catch (err) {
+      await store.deleteCommunity(made.id).catch(() => {});
+      throw err;
+    }
+    await recordActivity(store, req, { communityId: community.id, action: 'listing.created', subject: community.name });
+    return res.status(201).json({ ...community, homes: [home] });
+  }
+
+  router.post('/communities', async (req, res) => {
+    if (req.body?.kind === 'listing') return createListing(req, res);
+    if (!isOwner(req.access)) return res.status(403).json({ error: OWNER_ONLY });
     const name = str(req.body?.name).slice(0, COMMUNITY_TEXT_MAX);
     if (!name) return res.status(400).json({ error: 'Give the community a name.' });
     const store = await getStore();
@@ -1131,7 +1192,7 @@ export function adminRouter() {
         });
       }
     }
-    if (req.body?.status !== undefined && COMMUNITY_STATUSES.includes(req.body.status)) patch.status = req.body.status;
+    if (req.body?.status !== undefined && (isListing(community) ? LISTING_STATUSES : COMMUNITY_STATUSES).includes(req.body.status)) patch.status = req.body.status;
     if (req.body?.theme !== undefined && (isThemeKey(req.body.theme) || req.body.theme === CUSTOM_THEME)) patch.theme = req.body.theme;
     // An unknown layout is ignored like an unknown theme, never stored: the buyer
     // app would have no stylesheet for it.
@@ -1164,6 +1225,8 @@ export function adminRouter() {
         // The time the last report went is the server's to say: the Setup form sends back every setting it
         // loaded, and an old copy of this one would make the next report list people twice.
         if (key === 'reportLastSentAt') continue;
+        // What kind of site this is was set when it was made. A form (or a stale copy of one) cannot change it.
+        if (key === 'siteKind') continue;
         const value = req.body.settings[key];
         if (value === undefined) continue;
         // Text or a number (the rate fields arrive as numbers), or null to clear.
@@ -1222,6 +1285,13 @@ export function adminRouter() {
           }
           continue;
         }
+        if (key === 'openHousesJson') {
+          // The sessions people can come to see a listing: dates and times as typed, checked and put in order.
+          const sessions = normalizeOpenHouses(text);
+          if (sessions.error) return res.status(400).json({ error: sessions.error });
+          settings[key] = sessions.value;
+          continue;
+        }
         if (key === 'faqJson') {
           // A list, normalised: items trimmed, half-finished ones dropped, counts
           // capped. Anything that is not a list is refused rather than stored,
@@ -1231,7 +1301,8 @@ export function adminRouter() {
           settings[key] = faq;
         } else {
           // The incentive card and the home screen's heading are printed on the home screen like the compliance copy.
-          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive') || key.startsWith('team') || key.startsWith('home');
+          const capped = key in COMPLIANCE_DEFAULTS || key.startsWith('incentive') || key.startsWith('team') || key.startsWith('home')
+            || key.startsWith('listing') || key === 'agentLicense' || key === 'mlsNumber';
           settings[key] = capped ? text.slice(0, settingMaxLength(key)) : text;
         }
       }
@@ -1300,11 +1371,15 @@ export function adminRouter() {
     res.json(updated);
   });
 
-  /** Deleting a community is the owner's, like making one. Looked up first so the log can name what went. */
-  router.delete('/communities/:id', requireOwner, async (req, res) => {
+  /**
+   * Deleting a community is the owner's, like making one; a listing is the agent's own to delete, as they may make
+   * one. Looked up first so the log can name what went.
+   */
+  router.delete('/communities/:id', async (req, res) => {
     const store = await getStore();
-    const community = await store.getCommunity(req.params.id);
-    if (!community) return res.status(404).json({ error: 'Community not found' });
+    const community = await communityOf(req, res, store);
+    if (!community) return;
+    if (!isListing(community) && !isOwner(req.access)) return res.status(403).json({ error: OWNER_ONLY });
     // Who had it: their assignments go with the row, and their cached access should too, so the community is
     // gone for them at once rather than answering "not found" for up to 30 seconds (see forgetAdminAccess). One
     // in a branch was had by whoever is in that branch as well, which is the cache's question to avoid, so that
@@ -1314,7 +1389,7 @@ export function adminRouter() {
     if (community.branchId) forgetAllAdminAccess();
     else for (const { adminId } of holders) forgetAdminAccess(adminId);
     // No communityId: the row it would point at is gone, so the name goes in the subject, where it keeps reading.
-    await recordActivity(store, req, { action: 'community.deleted', subject: community.name, detail: community.location });
+    await recordActivity(store, req, { action: isListing(community) ? 'listing.deleted' : 'community.deleted', subject: community.name, detail: community.location });
     res.status(204).end();
   });
 
@@ -1343,6 +1418,10 @@ export function adminRouter() {
     const store = await getStore();
     const community = await communityOf(req, res, store);
     if (!community) return;
+    // A listing is one home, made with it. More would turn it back into a community.
+    if (isListing(community) && (await store.listHomes(community.id)).length) {
+      return res.status(400).json({ error: 'A listing has one home. Change it instead of adding another.' });
+    }
     const name = str(req.body?.name);
     if (!name) return res.status(400).json({ error: 'Give the home a name.' });
     // A home goes live to buyers the moment it exists, so nothing is made up for a box left empty: the price is
@@ -1374,6 +1453,8 @@ export function adminRouter() {
     if (req.body?.name !== undefined) {
       patch.name = str(req.body.name);
       if (!patch.name) return res.status(400).json({ error: 'Give the home a name.' });
+      // A listing's home is named like the listing, whose own name is capped: the two must stay equal.
+      if (isListing(await store.getCommunity(home.communityId))) patch.name = patch.name.slice(0, COMMUNITY_TEXT_MAX);
     }
     // The edit form sends every box back, touched or not, and a home stored before these rules may hold a figure
     // they would refuse (a price of $475 from a "475k" that lost its k, a bed count of 2.5). Judging a figure the
@@ -1424,6 +1505,9 @@ export function adminRouter() {
     const store = await getStore();
     const home = await homeOf(req, res, store);
     if (!home) return;
+    if (isListing(await store.getCommunity(home.communityId))) {
+      return res.status(400).json({ error: 'A listing keeps its home. Delete the whole listing instead.' });
+    }
     await store.deleteHome(home.id);
     await recordActivity(store, req, { communityId: home.communityId, action: 'home.deleted', subject: home.name });
     res.status(204).end();

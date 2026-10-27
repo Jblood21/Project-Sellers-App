@@ -10,13 +10,15 @@ import { useBuyer } from './BuyerContext.jsx';
  * Renders nothing when the agent has no phone and no email: a button that opens
  * an empty message to nobody is worse than no button.
  */
-export default function TourButton({ agent, homeName, label = 'Tour the homes', className = 'b-btn b-tour__btn' }) {
-  const { community, lead, track } = useBuyer();
+export default function TourButton({ agent, homeName, label, className = 'b-btn b-tour__btn' }) {
+  const { community, lead, track, isListing } = useBuyer();
   const mobile = useIsMobile();
   if (!agent) return null;
 
-  const body = tourMessage({ agentName: agent.name, community: community?.name, buyerName: lead?.name, homeName });
-  const subject = homeName ? `Tour ${modelPhrase(homeName)}` : `Tour the homes at ${community?.name ?? 'the community'}`;
+  const body = tourMessage({ agentName: agent.name, community: community?.name, buyerName: lead?.name, homeName, listing: isListing });
+  const subject = isListing
+    ? `Showing request — ${community?.name ?? 'the home'}`
+    : homeName ? `Tour ${modelPhrase(homeName)}` : `Tour the homes at ${community?.name ?? 'the community'}`;
   const link = messageLink({ phone: agent.phone, email: agent.email, subject, body, mobile });
   if (!link) return null;
 
@@ -24,9 +26,9 @@ export default function TourButton({ agent, homeName, label = 'Tour the homes', 
     <a
       className={className}
       href={link.href}
-      onClick={() => track(`Asked ${agent.name} to schedule a tour${homeName ? ` of ${homeName}` : ''}`)}
+      onClick={() => track(isListing ? `Asked ${agent.name} to schedule a showing` : `Asked ${agent.name} to schedule a tour${homeName ? ` of ${homeName}` : ''}`)}
     >
-      {label}
+      {label ?? (isListing ? 'Request a showing' : 'Tour the homes')}
     </a>
   );
 }

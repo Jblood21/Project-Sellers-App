@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useBuyer } from '../../BuyerContext.jsx';
+import { rootLabel, rootPath, talkLabel } from '../../listingNav.js';
 import CommunityMark from '../../CommunityMark.jsx';
 import { canTalkFinancing } from '../../reach.js';
 
@@ -26,24 +27,24 @@ import { canTalkFinancing } from '../../reach.js';
  * On the plan itself the plan link would only reload the page, so it is left out.
  */
 export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
-  const { community, features } = useBuyer();
+  const { community, features, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
 
-  const onHomeDetail = /\/homes\//.test(location.pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(location.pathname);
   const onGuide = /\/guides\/[^/]+$/.test(location.pathname);
-  const atTools = location.pathname.endsWith('/tools');
-  const onPlan = /\/plan\/?$/.test(location.pathname);
+  const atTools = isListing ? /\/home\/?$/.test(location.pathname) : location.pathname.endsWith('/tools');
+  const onPlan = isListing || /\/plan\/?$/.test(location.pathname);
   // A signed-out reader's "back" is the front door, not a tools screen they
   // cannot open.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'All Tools' : 'Back';
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? rootLabel(isListing) : 'Back';
   const backTo = onHomeDetail
     ? `/c/${communityId}/explore`
     : onGuide
       ? `/c/${communityId}/guides`
       : signedIn
-        ? `/c/${communityId}/tools`
+        ? rootPath(`/c/${communityId}`, isListing)
         : `/c/${communityId}`;
 
   const hasLogo = Boolean(community?.logo || community?.logoLight);
@@ -98,7 +99,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
         <nav className="fy-links" aria-label="Quick actions">
           {onTalk ? (
             <button type="button" className="fy-links__a" onClick={onTalk}>
-              Book a tour
+              {talkLabel(isListing)}
             </button>
           ) : null}
           {financing ? (

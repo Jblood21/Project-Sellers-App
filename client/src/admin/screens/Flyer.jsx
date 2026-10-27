@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { ChevronLeft } from '../../components/Icons.jsx';
+import { isListing } from '../listing.js';
 import { buyerUrl, useQrDataUrl } from './QrDialog.jsx';
 
 /** A print-ready sign for the development entrance or sales trailer. */
@@ -8,6 +9,7 @@ export default function Flyer({ community }) {
   const navigate = useNavigate();
   const { communityId } = useParams();
   const dataUrl = useQrDataUrl(community, 8);
+  const listing = isListing(community);
 
   return (
     <div className="a-shell">
@@ -18,7 +20,7 @@ export default function Flyer({ community }) {
         >
           <ChevronLeft size={18} />
         </button>
-        <h3 style={{ margin: 0, fontSize: 20, flex: 1 }}>QR sign</h3>
+        <h3 style={{ margin: 0, fontSize: 20, flex: 1 }}>{listing ? 'Open house sign' : 'QR sign'}</h3>
         <button type="button" className="btn btn-primary" onClick={() => window.print()}>Print</button>
       </div>
 
@@ -51,11 +53,13 @@ export default function Flyer({ community }) {
         </div>
         <span style={{ fontSize: 14, wordBreak: 'break-all' }}>{buyerUrl(community)}</span>
         <p className="text-muted" style={{ fontSize: 14, maxWidth: 420, lineHeight: 1.6, margin: '8px 0 0' }}>
-          Scan to explore every home, see what it would cost you and build your own home plan.
+          {listing
+            ? 'Scan to see the photos and details, work out what this home would cost you each month and ask about a tour.'
+            : 'Scan to explore every home, see what it would cost you and build your own home plan.'}
         </p>
       </div>
       <p className="text-muted no-print" style={{ fontSize: 14, textAlign: 'center', marginTop: 14 }}>
-        Print-ready — post it on the development sign or sales trailer.
+        {listing ? 'Print-ready — post it at the door or on the yard sign.' : 'Print-ready — post it on the development sign or sales trailer.'}
       </p>
     </div>
   );

@@ -411,3 +411,56 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 
 /* A button whose change is on its way: held still with aria-disabled rather than disabled, so the keyboard keeps its place. */
 .btn[aria-disabled='true'] { opacity: 0.55; cursor: default; }
+
+/* ── Listings: a single home an agent is selling (admin/listing.js, setup/OpenHousesCard.jsx and friends) ───────
+   Only listings use these. Communities keep every rule above exactly as it was. */
+
+/* Today: a section's heading with its buttons beside it (they wrap under it on a phone). */
+.as-sectionhead { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin: 0 0 10px; }
+.as-sectionhead__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* A listing's card: the place and the price on one line, then the next open house in the accent colour. */
+.as-listing__where { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 12px; flex-wrap: wrap; }
+.as-listing__price { font-family: var(--font-heading); font-size: 18px; color: var(--color-accent-700); font-variant-numeric: tabular-nums; }
+.as-listing__open { font-size: 15px; font-weight: 600; color: var(--color-accent-700); line-height: 1.35; overflow-wrap: anywhere; }
+/* No session on the calendar: a muted nudge that is also the way to add one (44px to tap, above the card's name link). */
+.as-listing__open--none {
+  position: relative; z-index: 2; display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; margin: -8px 0;
+  font-weight: 500; color: var(--color-neutral-600); text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
+.as-listing__open--none:hover { color: var(--color-accent-700); }
+.as-listing__open--none:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 6px; }
+
+/* The menu sheet's small headings when a switcher lists listings and communities apart. */
+.as-sheet__eyebrow { padding: 8px 10px 2px; }
+
+/* The home's next step: a callout with its button beside it, or under it where the room runs out. */
+.ax-nudge { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.ax-nudge > span { flex: 1 1 220px; min-width: 0; }
+.ax-nudge .btn { flex: none; }
+
+/* Open houses: one row per session, soonest first, the past ones muted. */
+.ax-oh__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ax-oh__row {
+  display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; padding: 8px 8px 8px 14px; min-height: 52px;
+  border: 1px solid var(--color-divider); border-radius: 12px; background: var(--color-neutral-100);
+}
+.ax-oh__when { display: flex; flex-direction: column; min-width: 0; flex: 0 1 auto; font-size: 15px; line-height: 1.3; }
+.ax-oh__when strong { font-weight: 700; color: var(--color-text); }
+.ax-oh__when span { color: var(--color-neutral-700); }
+.ax-oh__note { flex: 1 1 140px; min-width: 0; font-size: 14px; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.ax-oh__remove { margin-left: auto; min-height: 44px; padding: 0 12px; font-size: 14px; gap: 6px; }
+.ax-oh__row.is-past { background: transparent; border-style: dashed; }
+.ax-oh__row.is-past .ax-oh__when strong, .ax-oh__row.is-past .ax-oh__when span, .ax-oh__row.is-past .ax-oh__note { color: var(--color-neutral-600); font-weight: 500; }
+.ax-oh__pasthead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.ax-oh__none { margin: 0; padding: 14px; border: 1px dashed var(--color-neutral-400); border-radius: 12px; font-size: 14px; color: var(--color-neutral-600); text-align: center; }
+.ax-oh__form { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--color-divider); }
+.ax-oh__formtitle { font-family: var(--font-heading); font-weight: 600; font-size: 16px; color: var(--color-accent-700); }
+.ax-oh__boxes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 559px) {
+  .ax-oh__boxes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ax-oh__boxes > :first-child { grid-column: 1 / -1; }
+}
+
+/* The way out of a listing, quiet and last. */
+.ax-danger { border-color: rgba(168, 51, 43, 0.3); }

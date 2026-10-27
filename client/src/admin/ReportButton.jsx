@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { adminApi } from '../lib/api.js';
 import { useAdmin } from './AdminContext.jsx';
+import { isListing } from './listing.js';
 import { ErrorNote } from './ui.jsx';
 
 const sentOn = (iso) => {
@@ -33,6 +34,7 @@ export default function ReportButton({ community, reload, blocked = '', onOpenSe
   const address = String(community.settings?.reportEmail ?? '').trim();
   const lastSent = sentOn(community.settings?.reportLastSentAt);
   const emailOff = community.emailStatus && !community.emailStatus.ready;
+  const listing = isListing(community);
 
   // Pressing the button disables it, which drops keyboard focus to the page. Put it back when the answer is in,
   // and bring the answer into view: on the Setup tab the sticky save bar would otherwise cover it.
@@ -106,8 +108,8 @@ export default function ReportButton({ community, reload, blocked = '', onOpenSe
         {result ? (
           <p role="status" style={{ ...textStyle, margin: 0, fontWeight: 600 }}>
             Sent to {result.to}: {calls} scheduled call{calls === 1 ? '' : 's'},{' '}
-            {result.newPeople} new {result.newPeople === 1 ? 'person' : 'people'}, and a spreadsheet of{' '}
-            {result.everyone} {result.everyone === 1 ? 'person' : 'people'}.
+            {result.newPeople} new {result.newPeople === 1 ? (listing ? 'visitor' : 'person') : (listing ? 'visitors' : 'people')}, and a spreadsheet of{' '}
+            {result.everyone} {result.everyone === 1 ? (listing ? 'visitor' : 'person') : (listing ? 'visitors' : 'people')}.
             {result.notRecorded ? ' The time could not be saved, so the next report may list the same people again.' : ''}
           </p>
         ) : null}

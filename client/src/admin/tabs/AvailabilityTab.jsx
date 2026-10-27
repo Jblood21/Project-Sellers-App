@@ -5,6 +5,7 @@ import { complianceOf, SAFE_EMAIL_RE, telHref } from '@shared/compliance.js';
 import { Trash } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import { Dialog, ErrorNote, TextField, Toggle } from '../ui.jsx';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -33,6 +34,9 @@ function monthGrid(year, month) {
  */
 export default function AvailabilityTab({ community, reload }) {
   const { token } = useAdmin();
+  // For a listing the people who can be reached are "agents" and the fallback contact is the listing's own.
+  const listing = isListing(community);
+  const agentWord = listing ? 'agent' : 'realtor';
   const [slots, setSlots] = useState(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
@@ -129,7 +133,7 @@ export default function AvailabilityTab({ community, reload }) {
         {tourNobody || financeNothing ? (
           <p role="alert" style={{ fontSize: 14, margin: '2px 0 0', lineHeight: 1.5, fontWeight: 600, color: '#8a1c11' }}>
             {tourNobody
-              ? '“Book a tour” has nobody to send buyers to yet. Add a realtor with a phone or email, or a sales team phone or email below.'
+              ? `“Book a tour” has nobody to send buyers to yet. Add ${listing ? 'an' : 'a'} ${agentWord} with a phone or email, or ${listing ? 'a phone or email of your own' : 'a sales team phone or email'} below.`
               : ''}
             {tourNobody && financeNothing ? ' ' : ''}
             {financeNothing
@@ -139,17 +143,17 @@ export default function AvailabilityTab({ community, reload }) {
         ) : (
           <p className="text-muted" style={{ fontSize: 14, margin: '2px 0 0', lineHeight: 1.5 }}>
             {hasAgentContact
-              ? '“Book a tour” takes buyers to your realtors to call, text or email. They see the sales team contact below only when no realtor can be reached.'
-              : '“Book a tour” shows the sales team contact below, because no realtor can be reached yet. Add a realtor with a phone or email to send buyers to them.'}
+              ? `“Book a tour” takes buyers to your ${agentWord}s to call, text or email. They see ${listing ? 'the contact' : 'the sales team contact'} below only when no ${agentWord} can be reached.`
+              : `“Book a tour” shows ${listing ? 'the contact' : 'the sales team contact'} below, because no ${agentWord} can be reached yet. Add ${listing ? 'an' : 'a'} ${agentWord} with a phone or email to send buyers to them.`}
           </p>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
           <TextField
-            label="Sales team phone" value={team.teamPhone} inputMode="tel" placeholder="(801) 555-0100"
+            label={listing ? 'Your phone' : 'Sales team phone'} value={team.teamPhone} inputMode="tel" placeholder="(801) 555-0100"
             onChange={(teamPhone) => { setTeam((prev) => ({ ...prev, teamPhone })); setTeamSaved(false); }}
           />
           <TextField
-            label="Sales team email" value={team.teamEmail} inputMode="email" placeholder="sales@yourcommunity.com"
+            label={listing ? 'Your email' : 'Sales team email'} value={team.teamEmail} inputMode="email" placeholder={listing ? 'you@yourbrokerage.com' : 'sales@yourcommunity.com'}
             onChange={(teamEmail) => { setTeam((prev) => ({ ...prev, teamEmail })); setTeamSaved(false); }}
           />
         </div>

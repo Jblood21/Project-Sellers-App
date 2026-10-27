@@ -1,5 +1,7 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 
+import { useBuyer } from '../../BuyerContext.jsx';
+import { talkLabel } from '../../listingNav.js';
 import { ArrowRight, Calendar } from './icons.jsx';
 import { stopLink } from './trail.js';
 
@@ -22,10 +24,11 @@ import { stopLink } from './trail.js';
  */
 export default function StickyBar({ onTalk, onFinance, trail, model }) {
   const { communityId } = useParams();
+  const { isListing } = useBuyer();
   const { pathname } = useLocation();
   const base = `/c/${communityId}`;
-  const atHome = /\/tools\/?$/.test(pathname);
-  const onPlan = /\/plan\/?$/.test(pathname);
+  const atHome = !isListing && /\/tools\/?$/.test(pathname);
+  const onPlan = isListing || /\/plan\/?$/.test(pathname);
 
   if (atHome && trail.total) {
     const stop = trail.current;
@@ -52,7 +55,7 @@ export default function StickyBar({ onTalk, onFinance, trail, model }) {
         {onTalk ? (
           <button type="button" className="th-stick__btn th-stick__btn--tour" onClick={onTalk}>
             <Calendar />
-            Book a tour
+            {talkLabel(isListing)}
           </button>
         ) : null}
       </nav>
@@ -64,7 +67,7 @@ export default function StickyBar({ onTalk, onFinance, trail, model }) {
     <nav className="th-stick" aria-label="Quick actions">
       {onTalk ? (
         <button type="button" className="th-stick__btn th-stick__btn--go" onClick={onTalk}>
-          Book a tour
+          {talkLabel(isListing)}
         </button>
       ) : null}
       {onFinance ? (

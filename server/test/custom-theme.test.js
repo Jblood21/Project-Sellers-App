@@ -282,7 +282,7 @@ for (const kind of backends()) {
       const today = (await api('/api/admin/today', { token })).body;
       const entry = today.communities.find((item) => item.id === cid);
       assert.ok(entry, 'listed');
-      assert.deepEqual(Object.keys(entry.settings).sort(), [...CUSTOM_KEYS].sort(), 'the four colour settings, nothing else');
+      assert.deepEqual(Object.keys(entry.settings).sort(), [...CUSTOM_KEYS, 'openHousesJson', 'siteKind'].sort(), 'the four colour settings and the two a listing\'s card reads, nothing else');
       assert.equal(entry.settings.customButton, '#E07A8A');
       assert.equal(themeView(entry.theme, entry.settings).name, 'Custom colours');
       // A community on a set theme is named by it, with blank colour settings beside it.

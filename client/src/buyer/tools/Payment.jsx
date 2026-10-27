@@ -10,7 +10,7 @@ const DOWN_OPTIONS = [3.5, 5, 10, 20];
 
 /** "What would this home really cost each month?" */
 export default function Payment() {
-  const { homes, lead, settings, tools, setTool, track, savePlan } = useBuyer();
+  const { homes, lead, settings, tools, setTool, track, savePlan, isListing, community } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
 
@@ -19,7 +19,7 @@ export default function Payment() {
       <div className="b-shell" style={{ paddingTop: 20 }}>
         <ToolHeader title="See My Payment" subtitle="What would this home really cost each month?" />
         <p style={{ color: 'var(--t-mut)', fontSize: 13.5 }}>
-          We’re still adding homes to this community. Check back soon.
+          {isListing ? 'The home isn’t ready yet. Check back soon.' : 'We’re still adding homes to this community. Check back soon.'}
         </p>
       </div>
     );
@@ -57,7 +57,8 @@ export default function Payment() {
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <ToolHeader title="See My Payment" subtitle="What would this home really cost each month?" />
 
-      <div style={{ marginBottom: 12 }}>
+      {/* A listing is one home: nothing to pick between. */}
+      {isListing ? null : <div style={{ marginBottom: 12 }}>
         <Field label="Which home?">
           <PillGroup
             stack
@@ -67,7 +68,7 @@ export default function Payment() {
             options={homes.map((h) => ({ value: h.id, label: h.name, trailing: money(h.price) }))}
           />
         </Field>
-      </div>
+      </div>}
 
       <div style={{ marginBottom: 12 }}>
         <Field label="Loan type">
@@ -140,7 +141,7 @@ export default function Payment() {
         <ResultRow label="Property taxes" value={money(result.tax)} />
         <ResultRow label="Homeowners insurance" value={money(result.insurance)} />
         <ResultRow label="Mortgage insurance" value={result.mi ? money(result.mi) : 'None'} />
-        <ResultRow label="HOA &amp; community fees" value={money(result.hoa)} />
+        <ResultRow label={isListing ? 'HOA fees' : 'HOA & community fees'} value={money(result.hoa)} />
         <ResultRow
           label="Cash to close (down + about 2.5% closing costs)"
           value={`${money(cashToClose)}${state.dpaOn && dpaOffered ? ' (after help)' : ''}`}
@@ -154,14 +155,16 @@ export default function Payment() {
       </ResultCard>
 
       <SaveToPlan onSave={save} after={<LoanProcessLink style={{ marginTop: 8 }} />} />
-      <button
-        type="button"
-        className="b-btn b-btn-outline"
-        onClick={() => navigate(`/c/${communityId}/tool/compare`)}
-        style={{ marginTop: 8, minHeight: 44, fontSize: 13.5 }}
-      >
-        Compare My Options →
-      </button>
+      {isListing && !community?.tools?.compare ? null : (
+        <button
+          type="button"
+          className="b-btn b-btn-outline"
+          onClick={() => navigate(`/c/${communityId}/tool/compare`)}
+          style={{ marginTop: 8, minHeight: 44, fontSize: 13.5 }}
+        >
+          Compare My Options →
+        </button>
+      )}
     </div>
   );
 }

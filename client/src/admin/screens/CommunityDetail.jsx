@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { COMMUNITY_STATUSES, normalizeCommunitySlug } from '@shared/domain.js';
+import { COMMUNITY_STATUSES, LISTING_STATUSES, normalizeCommunitySlug } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing, renameListing } from '../listing.js';
 import PhotoPicker from '../PhotoPicker.jsx';
 import AdminShell from '../shell/AdminShell.jsx';
 import { SECTIONS, sectionOf } from '../shell/sections.js';
@@ -15,7 +16,8 @@ import LearnTab from '../tabs/LearnTab.jsx';
 import SetupTab from '../tabs/SetupTab.jsx';
 import StatsTab from '../tabs/StatsTab.jsx';
 import ToolsTab from '../tabs/ToolsTab.jsx';
-import { Dialog, ErrorNote, Field, LoadError, PillRow, Spinner, TextField } from '../ui.jsx';
+import { Dialog, ErrorNote, Field, LoadError, PillRow, SaveNote, Spinner, TextField, useSaving } from '../ui.jsx';
+import DeleteListingDialog from './DeleteListingDialog.jsx';
 import Flyer from './Flyer.jsx';
 import QrDialog from './QrDialog.jsx';
 
@@ -106,6 +108,8 @@ function CommunityPages({ community, leads, reload, markOpened }) {
   const rest = (useParams()['*'] ?? '').split('/').filter(Boolean);
   const [qrOpen, setQrOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const listing = isListing(community);
 
   // SetupTab keeps the first true while its form holds edits that are not saved yet; the person panel keeps the
   // second true while its notes box holds text that is not saved. Anything that leaves either page asks first.
@@ -117,7 +121,7 @@ function CommunityPages({ community, leads, reload, markOpened }) {
     return true;
   };
 
-  const section = sectionOf(rest[0]);
+  const section = sectionOf(rest[0], listing);
   const { hash } = useLocation();
   // A new section opens at its top, not wherever the last one was scrolled to. Keyed on the section only, so moving
   // between Setup's parts or picking a person beside the list does not jump the page. An address that names a place
@@ -138,7 +142,7 @@ function CommunityPages({ community, leads, reload, markOpened }) {
       onEdit={() => setEditOpen(true)}
       onQr={() => setQrOpen(true)}
     >
-      {section.key === 'homes' ? <HomesTab community={community} reload={reload} /> : null}
+      {section.key === 'homes' ? <HomesTab community={community} reload={reload} single={listing} /> : null}
       {section.key === 'area' ? <AreaTab community={community} reload={reload} /> : null}
       {section.key === 'learn' ? <LearnTab community={community} reload={reload} /> : null}
       {section.key === 'times' ? <AvailabilityTab community={community} reload={reload} /> : null}
@@ -152,7 +156,10 @@ function CommunityPages({ community, leads, reload, markOpened }) {
       ) : null}
       {section.key === 'stats' ? <StatsTab community={community} leads={leads} /> : null}
       {section.key === 'setup' ? (
-        <SetupTab community={community} reload={reload} dirtyRef={setupDirty} part={rest[1] ?? ''} />
+        <SetupTab
+          community={community} reload={reload} dirtyRef={setupDirty} part={rest[1] ?? ''}
+          visitors={leads?.length ?? null} onDeleteListing={() => setDeleteOpen(true)}
+        />
       ) : null}
 
       {qrOpen ? (
@@ -174,6 +181,10 @@ function CommunityPages({ community, leads, reload, markOpened }) {
           token={token}
           canDelete={isOwner}
           canMove={isOwner}
+          onDeleteListing={() => {
+            setEditOpen(false);
+            setDeleteOpen(true);
+          }}
           onClose={() => setEditOpen(false)}
           onSaved={async () => {
             setEditOpen(false);
@@ -182,12 +193,20 @@ function CommunityPages({ community, leads, reload, markOpened }) {
           onDeleted={() => navigate('/admin')}
         />
       ) : null}
+
+      {deleteOpen ? (
+        <DeleteListingDialog
+          listing={community} visitors={leads?.length ?? null}
+          onClose={() => setDeleteOpen(false)} onDeleted={() => navigate('/admin')}
+        />
+      ) : null}
     </AdminShell>
   );
 }
 
 /** The buyer link: the address on the sign, without the random letters the community's id carries. */
 function BuyerLinkField({ community, value, onChange }) {
+  const noun = isListing(community) ? 'listing' : 'community';
   const origin = community.siteOrigin || window.location.origin;
   const cleaned = normalizeCommunitySlug(value);
   const typed = value.trim().length > 0;
@@ -206,7 +225,7 @@ function BuyerLinkField({ community, value, onChange }) {
       <span id="buyer-link-note" className="field-hint">
         {!community.slug && suggestion ? (
           <>
-            This community is still on its original link ({community.id}).{' '}
+            This {noun} is still on its original link ({community.id}).{' '}
             <button type="button" className="btn btn-secondary" style={{ minHeight: 44, padding: '0 10px' }} onClick={() => onChange(suggestion)}>
               Use {suggestion}
             </button>{' '}
@@ -214,7 +233,7 @@ function BuyerLinkField({ community, value, onChange }) {
         ) : null}
         {typed && !cleaned
           ? 'Use 3 to 40 letters, numbers or hyphens. Words the site uses itself, like admin, are not allowed.'
-          : `${origin}/c/${cleaned || community.urlKey}. Every earlier link and printed code keeps working${community.formerSlugs?.length ? `, including /c/${[community.id, ...community.formerSlugs].join(', /c/')}` : `, including /c/${community.id}`}, and they cannot be turned off. Anyone who types any of them can open the community, so keep a community's details private until you are ready to share them.`}
+          : `${origin}/c/${cleaned || community.urlKey}. Every earlier link and printed code keeps working${community.formerSlugs?.length ? `, including /c/${[community.id, ...community.formerSlugs].join(', /c/')}` : `, including /c/${community.id}`}, and they cannot be turned off. Anyone who types any of them can open the ${noun}, so keep a ${noun}'s details private until you are ready to share them.`}
       </span>
     </div>
   );
@@ -225,7 +244,79 @@ function BuyerLinkField({ community, value, onChange }) {
  * (`canDelete`): a member edits, never removes. So is moving a community between branches (`canMove`): a member
  * sees no Branch field and sends no branchId, which the server would refuse.
  */
-function EditCommunityDialog({ community, token, canDelete, canMove = false, onClose, onSaved, onDeleted }) {
+function EditCommunityDialog({ community, token, canDelete, canMove = false, onDeleteListing, onClose, onSaved, onDeleted }) {
+  if (isListing(community)) {
+    return <EditListingDialog community={community} token={token} onDelete={onDeleteListing} onClose={onClose} onSaved={onSaved} />;
+  }
+  return <EditPlaceDialog community={community} token={token} canDelete={canDelete} canMove={canMove} onClose={onClose} onSaved={onSaved} onDeleted={onDeleted} />;
+}
+
+/**
+ * A listing's own edit pop-up: the address (which renames its one home too), the city, who it is listed with, where it
+ * stands and its buyer link. Anyone with the listing may delete it, so Delete is here for everyone (it opens the
+ * confirmation that says what goes with it).
+ */
+function EditListingDialog({ community, token, onDelete, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    address: community.name, city: community.location ?? '', brokerage: community.builder ?? '',
+    status: LISTING_STATUSES.includes(community.status) ? community.status : LISTING_STATUSES[1], slug: community.slug ?? '',
+  });
+  const saver = useSaving();
+  const [error, setError] = useState('');
+  const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const save = () => {
+    setError('');
+    if (!form.address.trim()) {
+      setError('Give the home an address.');
+      return Promise.resolve(false);
+    }
+    // A blank link is not a request to remove it: a listing always has an address people can type.
+    if (community.slug && !form.slug.trim()) {
+      setError('A listing always has a buyer link. Type the one you want, or put back the one it had.');
+      return Promise.resolve(false);
+    }
+    return saver.run(async () => {
+      const fields = { location: form.city.trim(), builder: form.brokerage.trim(), status: form.status };
+      await renameListing(token, community, form.address.trim(), form.slug.trim() ? { ...fields, slug: form.slug } : fields);
+      await onSaved();
+    });
+  };
+
+  return (
+    <Dialog
+      title="Edit listing"
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn btn-danger" onClick={onDelete} style={{ marginRight: 'auto' }}>Delete listing</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-primary" onClick={save} aria-disabled={saver.saving || undefined}>
+            {saver.saving ? 'Saving…' : 'Save'}
+          </button>
+        </>
+      }
+    >
+      <TextField label="Address" value={form.address} onChange={set('address')} />
+      <TextField label="City and state" value={form.city} onChange={set('city')} placeholder="e.g. Lehi, UT" />
+      <TextField label="Brokerage" value={form.brokerage} onChange={set('brokerage')} />
+      <BuyerLinkField community={community} value={form.slug} onChange={set('slug')} />
+      <div className="field">
+        <span>Status</span>
+        <PillRow
+          label="Listing status"
+          value={form.status}
+          onChange={set('status')}
+          options={LISTING_STATUSES.map((value) => ({ value, label: value }))}
+        />
+      </div>
+      <ErrorNote>{error}</ErrorNote>
+      <SaveNote saver={saver} />
+    </Dialog>
+  );
+}
+
+function EditPlaceDialog({ community, token, canDelete, canMove = false, onClose, onSaved, onDeleted }) {
   const [form, setForm] = useState({
     name: community.name,
     location: community.location,

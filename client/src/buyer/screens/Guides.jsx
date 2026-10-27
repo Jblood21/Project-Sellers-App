@@ -36,14 +36,14 @@ export function GuideCard({ guide, headingLevel = 3 }) {
  * fetched when one is opened.
  */
 export default function Guides() {
-  const { community, guides, features, signedIn } = useBuyer();
+  const { community, guides, features, signedIn, isListing } = useBuyer();
   const { communityId } = useParams();
   const [category, setCategory] = useState('');
 
   // A builder who turned guides off has no page here. Send a signed-in buyer to
   // the tools and everybody else to the front door, the same as an unknown address.
   if (!features.guides) {
-    return <Navigate to={signedIn ? `/c/${communityId}/tools` : `/c/${communityId}`} replace />;
+    return <Navigate to={signedIn ? `/c/${communityId}/${isListing ? 'home' : 'tools'}` : `/c/${communityId}`} replace />;
   }
 
   const categories = [...new Set(guides.map((guide) => guide.category).filter(Boolean))];
@@ -53,7 +53,9 @@ export default function Guides() {
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h1 className="b-head b-guides__title" style={{ margin: '0 0 4px', fontSize: 25 }}>Buyer guides</h1>
       <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
-        Plain-English answers to the questions people ask before buying a home at {community?.name}.
+        {isListing
+          ? 'Plain-English answers to the questions people ask before buying a home.'
+          : <>Plain-English answers to the questions people ask before buying a home at {community?.name}.</>}
       </p>
 
       {guides.length === 0 ? (

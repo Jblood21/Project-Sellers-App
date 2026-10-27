@@ -1,4 +1,5 @@
 import { PLAN_LABELS, isArchived, toolsUsedOf } from '@shared/domain.js';
+import { isListing } from '../listing.js';
 import PdfReportButton from '../PdfReportButton.jsx';
 import { Spinner } from '../ui.jsx';
 
@@ -21,8 +22,9 @@ export default function StatsTab({ community, leads: everyone }) {
   }
   const topToolEntry = Object.entries(toolCounts).sort((a, b) => b[1] - a[1])[0];
 
+  const listing = isListing(community);
   const cards = [
-    { label: 'Total leads', value: leads.length },
+    { label: listing ? 'Total visitors' : 'Total leads', value: leads.length },
     { label: 'New — to call', value: leads.filter((lead) => lead.status === 'new').length },
     { label: 'Booked calls', value: leads.filter((lead) => lead.tour).length },
     { label: 'Used a tool', value: leads.filter((lead) => toolsUsedOf(lead).length > 0).length },
@@ -39,10 +41,10 @@ export default function StatsTab({ community, leads: everyone }) {
         ))}
       </div>
       <div className="card">
-        <span className="card-kicker">Most saved home</span>
+        <span className="card-kicker">{listing ? 'Saves' : 'Most saved home'}</span>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontWeight: 600 }}>{topHome ? topHome.name : 'No saves yet'}</span>
-          <span className="text-muted">{topHomeEntry ? `${topHomeEntry[1]} ★` : '—'}</span>
+          <span style={{ fontWeight: 600 }}>{listing ? 'Visitors who saved the home' : topHome ? topHome.name : 'No saves yet'}</span>
+          <span className="text-muted">{topHomeEntry ? `${topHomeEntry[1]} ★` : listing ? 'None yet' : '—'}</span>
         </div>
       </div>
       <div className="card">
@@ -51,15 +53,15 @@ export default function StatsTab({ community, leads: everyone }) {
           <span style={{ fontWeight: 600 }}>
             {topToolEntry ? PLAN_LABELS[topToolEntry[0]] ?? 'Tool' : 'No tool use yet'}
           </span>
-          <span className="text-muted">{topToolEntry ? `${topToolEntry[1]} ${topToolEntry[1] === 1 ? 'person' : 'people'}` : '—'}</span>
+          <span className="text-muted">{topToolEntry ? `${topToolEntry[1]} ${topToolEntry[1] === 1 ? (listing ? 'visitor' : 'person') : (listing ? 'visitors' : 'people')}` : '—'}</span>
         </div>
       </div>
-      <p className="text-muted" style={{ fontSize: 14, margin: 0 }}>People you have closed are not counted.</p>
+      <p className="text-muted" style={{ fontSize: 14, margin: 0 }}>{listing ? 'Visitors' : 'People'} you have closed are not counted.</p>
       <div className="card">
         <PdfReportButton
           community={community}
-          title="Leads report (PDF)"
-          note="A summary, what people did, the calls waiting and everyone, as a file to keep or print."
+          title={listing ? 'Visitor report (PDF)' : 'Leads report (PDF)'}
+          note={listing ? 'A summary, what visitors did, the calls waiting and everyone, as a file to keep or print.' : 'A summary, what people did, the calls waiting and everyone, as a file to keep or print.'}
         />
       </div>
     </div>

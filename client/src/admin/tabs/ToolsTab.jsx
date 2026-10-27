@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FEATURES, TOOLS } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import { SaveNote, Toggle, useSaving } from '../ui.jsx';
 
 /**
@@ -61,21 +62,28 @@ function SwitchRow({ item, group, community, reload }) {
 }
 
 /** One switch per buyer tool. Turning one off hides it everywhere in the buyer app. */
+// What only makes sense for a development: lot numbers, the plat, the builder's own videos and articles, the incentive card.
+const COMMUNITY_ONLY = ['lotNumbers', 'siteMap', 'resources', 'incentive'];
+
 export default function ToolsTab({ community, reload }) {
+  const listing = isListing(community);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <p className="text-muted" style={{ fontSize: 14, margin: '0 0 4px' }}>
-        Choose which questions this community&apos;s buyers can answer for themselves.
+        Choose which questions {listing ? 'visitors to this listing' : "this community's buyers"} can answer for themselves.
       </p>
       {TOOLS.map((tool) => (
         <SwitchRow key={tool.k} item={tool} group="tools" community={community} reload={reload} />
       ))}
       <p className="text-muted" style={{ fontSize: 14, margin: '14px 0 4px' }}>
-        What buyers see on the homes themselves. Each one also stays hidden until you
+        What buyers see on {listing ? 'the home' : 'the homes'} themselves. Each one also stays hidden until you
         add something to it, so switching it on never shows an empty space.
       </p>
-      {FEATURES.filter((feature) => feature.k !== 'booking').map((feature) => (
-        <SwitchRow key={feature.k} item={feature} group="features" community={community} reload={reload} />
+      {FEATURES.filter((feature) => feature.k !== 'booking' && !(listing && COMMUNITY_ONLY.includes(feature.k))).map((feature) => (
+        <SwitchRow
+          key={feature.k} group="features" community={community} reload={reload}
+          item={listing && feature.k === 'agents' ? { ...feature, name: 'Agents', q: feature.q.replace('real estate agents', 'listing agents') } : feature}
+        />
       ))}
     </div>
   );

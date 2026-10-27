@@ -24,11 +24,16 @@ import LenderLogo, { EhlMark } from './LenderLogo.jsx';
  * a half-built one.
  */
 export default function ComplianceFooter({ print = false }) {
-  const { community, layout } = useBuyer();
+  const { community, layout, isListing } = useBuyer();
   if (!community) return null;
 
   const c = complianceOf(community.settings, { community, year: new Date().getFullYear() });
   const { lender, lo } = c;
+  // A listing prints who is selling it first: the brokerage and the agent's licence line, then the agent's
+  // own disclosure (Setup edits both; a blank one prints nothing). The lender block below is unchanged.
+  const brokerage = isListing ? String(community.builder ?? '').trim() : '';
+  const agentLicense = isListing ? String(community.settings?.agentLicense ?? '').trim() : '';
+  const listingDisclosure = isListing ? String(community.settings?.listingDisclosure ?? '').trim() : '';
   const dark = !print && layoutTraits(layout).footerTone === 'dark';
   const tone = print ? 'print' : dark ? 'dark' : 'light';
   // The NMLS link is printed inside the licence sentence, so the nav leaves it out.
@@ -43,6 +48,19 @@ export default function ComplianceFooter({ print = false }) {
       className={`b-footer b-footer--${dark ? 'dark' : 'light'}${print ? ' b-footer--print' : ''}`}
       aria-label="Lender licensing and disclosures"
     >
+      {brokerage || agentLicense || listingDisclosure ? (
+        <div className="b-footer__listing">
+          {brokerage || agentLicense ? (
+            <p className="b-footer__id">
+              {brokerage ? <strong>{brokerage}</strong> : null}
+              {brokerage && agentLicense ? ' · ' : null}
+              {agentLicense}
+            </p>
+          ) : null}
+          {listingDisclosure ? <p className="b-footer__fine b-footer__disclosure">{listingDisclosure}</p> : null}
+        </div>
+      ) : null}
+
       {lender.ready ? (
         <>
           <div className="b-footer__brand">

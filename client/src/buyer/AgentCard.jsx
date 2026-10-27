@@ -34,7 +34,7 @@ function websiteLabel(href) {
  */
 export default function AgentCard({ agent, headingLevel = 3, tour = true, homeName }) {
   const Heading = `h${headingLevel}`;
-  const { community, lead, track } = useBuyer();
+  const { community, lead, track, isListing } = useBuyer();
   const brokerage = String(agent.brokerage ?? '').trim();
   const license = agentLicenseLine(agent);
   const phoneHref = telHref(agent.phone);
@@ -42,8 +42,8 @@ export default function AgentCard({ agent, headingLevel = 3, tour = true, homeNa
   const website = safeHref(agent.website);
   const first = String(agent.name ?? '').trim().split(/\s+/)[0];
   // The builder sees who reached out to an agent, as for the people listed in the sheet.
-  const reached = (what) => track(`Reached out to book a tour (${what}): ${agent.name}`);
-  const greeting = `Hi${first ? ` ${first}` : ''},${lead?.name ? ` this is ${lead.name}.` : ''} I have a question about ${community?.name ?? 'the community'}.`;
+  const reached = (what) => track(`Reached out to ${isListing ? 'schedule a showing' : 'book a tour'} (${what}): ${agent.name}`);
+  const greeting = `Hi${first ? ` ${first}` : ''},${lead?.name ? ` this is ${lead.name}.` : ''} I have a question about ${community?.name ?? (isListing ? 'the home' : 'the community')}.`;
 
   return (
     <article className="b-agent">

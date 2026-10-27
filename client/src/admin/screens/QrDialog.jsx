@@ -3,6 +3,7 @@ import qrcode from 'qrcode-generator';
 
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import { Dialog, ErrorNote } from '../ui.jsx';
 
 /**
@@ -30,6 +31,7 @@ export function useQrDataUrl(community, cellSize = 6) {
 
 export default function QrDialog({ community, onClose, onOpenFlyer, onChanged }) {
   const { token, isOwner } = useAdmin();
+  const listing = isListing(community);
   const url = buyerUrl(community);
   const dataUrl = useQrDataUrl(community);
   // Opened on a Render address with no public address pinned: the link above is that Render address.
@@ -65,13 +67,13 @@ export default function QrDialog({ community, onClose, onOpenFlyer, onChanged })
 
   return (
     <Dialog
-      title={`${community.name} — buyer link`}
+      title={listing ? `${community.name} — open house link` : `${community.name} — buyer link`}
       onClose={onClose}
       actions={
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
           <button type="button" className="btn btn-primary" onClick={copy}>{copied ? 'Copied ✓' : 'Copy link'}</button>
-          <button type="button" className="btn btn-primary" onClick={onOpenFlyer}>Sign</button>
+          <button type="button" className="btn btn-primary" onClick={onOpenFlyer}>{listing ? 'Open house sign' : 'Sign'}</button>
         </>
       }
     >
@@ -85,7 +87,9 @@ export default function QrDialog({ community, onClose, onOpenFlyer, onChanged })
       </div>
       <span style={{ fontSize: 14, textAlign: 'center', wordBreak: 'break-all' }}>{url}</span>
       <p className="text-muted" style={{ fontSize: 14, margin: 0, textAlign: 'center' }}>
-        Unique to this community. Buyers scan it on site and land in the {community.name} app.
+        {listing
+          ? 'Unique to this listing. Visitors scan it at the open house and land on this home\u2019s page.'
+          : `Unique to this community. Buyers scan it on site and land in the ${community.name} app.`}{' '}
         A code printed from an older link keeps working.
       </p>
       {suggestion ? (

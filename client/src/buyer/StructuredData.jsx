@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { isListing } from '@shared/listing.js';
 import { pageJsonLd, pageMeta, serializeJsonLd } from '@shared/schema.js';
 import { useBuyer } from './BuyerContext.jsx';
 
@@ -33,7 +34,7 @@ const LOCATION_PLACEHOLDER = 'location tbd';
  * What the route (the part of the path after /c/:communityId) is. `page` is one
  * of the names shared/schema.js knows, or '' for a path this app does not have.
  */
-function routeOf(rest) {
+function routeOf(rest, listingHomeId = '') {
   const [first, second] = String(rest ?? '').split('/').filter(Boolean);
   switch (first) {
     case undefined: return { page: 'landing' };
@@ -44,6 +45,8 @@ function routeOf(rest) {
     case 'guides': return second ? { page: 'guide', slug: second } : { page: 'guides' };
     case 'homes': return second ? { page: 'home', homeId: second } : { page: '' };
     case 'tool': return second ? { page: 'tool', toolKey: second } : { page: '' };
+    // A listing's one home is shared/schema.js's home page (its canonical address is the homes/ one).
+    case 'home': return listingHomeId ? { page: 'home', homeId: listingHomeId } : { page: '' };
     default: return { page: '' };
   }
 }
@@ -138,8 +141,8 @@ export default function StructuredData() {
       // The server pins the site's one public address (PUBLIC_ORIGIN) into the page it renders;
       // writing the browser's own host over it would put a second canonical on the same page.
       const origin = community.siteOrigin || window.location.origin;
-      const route = routeOf(rest);
       const homes = Array.isArray(community.homes) ? community.homes : [];
+      const route = routeOf(rest, isListing(community) ? homes[0]?.id : '');
       const guides = Array.isArray(community.guides) ? community.guides : [];
       const published = String(community.location ?? '').trim().toLowerCase() === LOCATION_PLACEHOLDER
         ? { ...community, location: '' }

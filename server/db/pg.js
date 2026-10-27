@@ -449,6 +449,20 @@ export function createPostgresStore(connectionString) {
       return rows.map((r) => ({ adminId: r.admin_id, communityId: r.community_id }));
     },
     /**
+     * Gives one community to one admin and changes nothing else they hold: a single insert, so it cannot undo a
+     * list the owner is saving at the same moment (setAdminCommunities replaces the whole list from a copy).
+     */
+    async addAdminCommunity(adminId, communityId) {
+      const { rowCount } = await q(
+        `INSERT INTO admin_communities (admin_id, community_id)
+         SELECT $1, id FROM communities WHERE id = $2 ON CONFLICT DO NOTHING`,
+        [adminId, communityId],
+      );
+      if (rowCount) return true;
+      const { rows } = await q(`SELECT 1 FROM communities WHERE id = $1`, [communityId]);
+      return rows.length > 0;
+    },
+    /**
      * Makes `communityIds` the whole of what this admin may see: what was there goes, what is given comes, in
      * one transaction so a request in between never sees half a list. An id with no community row is ignored
      * rather than refused (the owner may have deleted it a moment ago), and the ids kept are returned.

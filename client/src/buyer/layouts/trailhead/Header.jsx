@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useBuyer } from '../../BuyerContext.jsx';
 import CommunityMark from '../../CommunityMark.jsx';
+import { rootLabel, rootPath, talkLabel } from '../../listingNav.js';
 import { canTalkFinancing } from '../../reach.js';
 import { useHomeModel } from '../../screens/AllTools.jsx';
 import { ArrowLeft, ArrowRight, Calendar, Check, ChevronLeft, Heart, Key, MenuLines, TrailGlyph } from './icons.jsx';
@@ -157,7 +158,7 @@ function useEndOfMain(anchorRef) {
  * (useHomeModel, trailOf), so the numbers here and there always agree.
  */
 export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
-  const { community, features, lead } = useBuyer();
+  const { community, features, lead, isListing } = useBuyer();
   const model = useHomeModel();
   const navigate = useNavigate();
   const location = useLocation();
@@ -185,14 +186,14 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
 
   const base = `/c/${communityId}`;
   const { pathname } = location;
-  const onHomeDetail = /\/homes\//.test(pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(pathname);
   const onGuide = /\/guides\/[^/]+$/.test(pathname);
-  const atTools = /\/tools\/?$/.test(pathname);
+  const atTools = (isListing ? /\/home\/?$/ : /\/tools\/?$/).test(pathname);
   const onPlan = /\/plan\/?$/.test(pathname);
   const onSaved = /\/saved\/?$/.test(pathname);
   // A signed-out reader's "back" is the front door, not a trail they cannot open.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'your trail' : 'Back';
-  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? `${base}/tools` : base;
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? (isListing ? rootLabel(isListing) : 'your trail') : 'Back';
+  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? rootPath(base, isListing) : base;
 
   const hasLogo = Boolean(community?.logo || community?.logoLight);
   // "Talk about financing" is offered only when there is a lender and something to do in the sheet it opens.
@@ -203,7 +204,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
   const trail = trailOf(model);
   const toolKey = pathname.match(/\/tool\/([^/]+)\/?$/)?.[1];
   const onExplore = /\/explore\/?$/.test(pathname);
-  const stop = !signedIn ? null : toolKey ? trail.find(toolKey) : onExplore ? trail.find(OVERLOOK) : null;
+  const stop = !signedIn || isListing ? null : toolKey ? trail.find(toolKey) : onExplore ? trail.find(OVERLOOK) : null;
 
   return (
     <>
@@ -240,7 +241,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
               {onTalk ? (
                 <button type="button" className="th-head__btn th-head__btn--tour" onClick={onTalk}>
                   <Calendar size={16} />
-                  Book a tour
+                  {talkLabel(isListing)}
                 </button>
               ) : null}
               {financing ? (
@@ -248,22 +249,24 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
                   Talk about financing
                 </button>
               ) : null}
-              {onPlan ? null : (
+              {onPlan || isListing ? null : (
                 <Link to={`${base}/plan`} className="th-head__btn th-head__btn--line">
                   My Home Plan
                 </Link>
               )}
-              <Link
-                to={`${base}/saved`}
-                className="th-head__saved"
-                aria-current={onSaved ? 'page' : undefined}
-                // The heart and the figure are the visible label; the name says what is counted, and ends with it.
-                aria-label={`Homes I Like: ${saved}`}
-              >
-                <Heart size={21} filled={saved > 0} />
-                <span className="th-head__savedword" aria-hidden="true">Homes I Like</span>
-                <span className="th-head__count">{saved}</span>
-              </Link>
+              {isListing ? null : (
+                <Link
+                  to={`${base}/saved`}
+                  className="th-head__saved"
+                  aria-current={onSaved ? 'page' : undefined}
+                  // The heart and the figure are the visible label; the name says what is counted, and ends with it.
+                  aria-label={`Homes I Like: ${saved}`}
+                >
+                  <Heart size={21} filled={saved > 0} />
+                  <span className="th-head__savedword" aria-hidden="true">Homes I Like</span>
+                  <span className="th-head__count">{saved}</span>
+                </Link>
+              )}
               <button type="button" className="th-head__icon th-head__menu" onClick={onOpenMenu} aria-label="Menu">
                 <MenuLines />
               </button>

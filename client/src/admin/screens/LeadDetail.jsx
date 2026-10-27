@@ -11,6 +11,7 @@ import { adminApi } from '../../lib/api.js';
 import { emailHref, textHref } from '../../lib/contact.js';
 import { money, shortDate } from '../../lib/format.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import { ErrorNote, LoadError, SaveNote, Spinner, useSaving } from '../ui.jsx';
 
 /**
@@ -381,7 +382,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
             aria-disabled={archiveSaver.saving || undefined}
             style={{ marginTop: 4, color: 'var(--color-neutral-700)', borderColor: 'var(--color-neutral-400)' }}
           >
-            {archiveSaver.saving ? 'Saving…' : 'Archive this lead'}
+            {archiveSaver.saving ? 'Saving…' : (isListing(community) ? 'Archive this visitor' : 'Archive this lead')}
           </button>
           <SaveNote saver={archiveSaver} />
         </>

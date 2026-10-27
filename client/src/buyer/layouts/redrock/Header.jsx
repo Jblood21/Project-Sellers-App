@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useBuyer } from '../../BuyerContext.jsx';
 import CommunityMark from '../../CommunityMark.jsx';
+import { rootLabel, rootPath, talkLabel } from '../../listingNav.js';
 import { canTalkFinancing } from '../../reach.js';
 import { ChevronLeft, Heart, MenuLines } from './icons.jsx';
 import StickyBar from './StickyBar.jsx';
@@ -25,7 +26,7 @@ import StickyBar from './StickyBar.jsx';
  * the plan itself: the same rules the menu and the other layouts follow.
  */
 export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
-  const { community, features, lead } = useBuyer();
+  const { community, features, lead, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
@@ -39,14 +40,14 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
   }, []);
 
   const base = `/c/${communityId}`;
-  const onHomeDetail = /\/homes\//.test(location.pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(location.pathname);
   const onGuide = /\/guides\/[^/]+$/.test(location.pathname);
-  const atTools = /\/tools\/?$/.test(location.pathname);
+  const atTools = (isListing ? /\/home\/?$/ : /\/tools\/?$/).test(location.pathname);
   const onPlan = /\/plan\/?$/.test(location.pathname);
   const onSaved = /\/saved\/?$/.test(location.pathname);
   // A signed-out reader's "back" is the front door, not a tools screen they cannot open.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'All Tools' : 'Back';
-  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? `${base}/tools` : base;
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? rootLabel(isListing) : 'Back';
+  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? rootPath(base, isListing) : base;
 
   const hasLogo = Boolean(community?.logo || community?.logoLight);
   // "Talk about financing" is offered only when there is a lender and something to do in the sheet it opens.
@@ -84,7 +85,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
             <>
               {onTalk ? (
                 <button type="button" className="rr-head__btn rr-head__btn--tour" onClick={onTalk}>
-                  Book a tour
+                  {talkLabel(isListing)}
                 </button>
               ) : null}
               {financing ? (
@@ -92,21 +93,23 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
                   Talk about financing
                 </button>
               ) : null}
-              {onPlan ? null : (
+              {onPlan || isListing ? null : (
                 <Link to={`${base}/plan`} className="rr-head__btn rr-head__btn--plan">
                   My Home Plan
                 </Link>
               )}
-              <Link
-                to={`${base}/saved`}
-                className="rr-head__saved"
-                aria-current={onSaved ? 'page' : undefined}
-                // The heart and the figure are the visible label; the name says what is counted, and ends with it.
-                aria-label={`Homes I Like: ${saved}`}
-              >
-                <Heart size={20} filled={saved > 0} />
-                <span className="rr-head__count">{saved}</span>
-              </Link>
+              {isListing ? null : (
+                <Link
+                  to={`${base}/saved`}
+                  className="rr-head__saved"
+                  aria-current={onSaved ? 'page' : undefined}
+                  // The heart and the figure are the visible label; the name says what is counted, and ends with it.
+                  aria-label={`Homes I Like: ${saved}`}
+                >
+                  <Heart size={20} filled={saved > 0} />
+                  <span className="rr-head__count">{saved}</span>
+                </Link>
+              )}
               <button type="button" className="rr-head__icon rr-head__menu" onClick={onOpenMenu} aria-label="Menu">
                 <MenuLines />
               </button>

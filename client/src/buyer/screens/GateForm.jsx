@@ -13,7 +13,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * box appears only once there is a number.
  */
 export default function GateForm({ onEntered }) {
-  const { community, enter } = useBuyer();
+  const { community, enter, isListing } = useBuyer();
   const navigate = useNavigate();
   const { communityId } = useParams();
   // Unchecked. A pre-ticked box is not agreement to anything, and under the
@@ -48,7 +48,7 @@ export default function GateForm({ onEntered }) {
         consent: hasPhone && form.consent,
       });
       onEntered?.(result);
-      navigate(`/c/${communityId}/tools`, { replace: true });
+      navigate(`/c/${communityId}/${isListing ? 'home' : 'tools'}`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -114,7 +114,7 @@ export default function GateForm({ onEntered }) {
 
       {error ? <p role="alert" style={{ color: 'var(--t-accT)', fontSize: 12.5, margin: '10px 0 0' }}>{error}</p> : null}
       <button type="submit" className="b-btn" disabled={busy} style={{ marginTop: 16, minHeight: 50 }}>
-        {busy ? 'One moment…' : `Start exploring ${community?.name}`}
+        {busy ? 'One moment…' : isListing ? 'See the home' : `Start exploring ${community?.name}`}
       </button>
     </form>
   );

@@ -9,6 +9,7 @@ import { emailHref, textHref } from '../../lib/contact.js';
 import { shortDate } from '../../lib/format.js';
 import PdfReportButton from '../PdfReportButton.jsx';
 import ReportButton from '../ReportButton.jsx';
+import { isListing } from '../listing.js';
 import LeadDetail from '../screens/LeadDetail.jsx';
 import NavIcon from '../shell/navIcons.jsx';
 import { Dialog, PillRow, Spinner } from '../ui.jsx';
@@ -24,6 +25,10 @@ export default function LeadsTab({
   community, leads, reload, onOpenSetup, leadId = '', onOpened, notesDirtyRef, leaveOk,
 }) {
   const [query, setQuery] = useState('');
+  // A listing's leads are its visitors: the words change, the addresses and data do not.
+  const listing = isListing(community);
+  const person = listing ? 'visitor' : 'person';
+  const people = listing ? 'visitors' : 'people';
   // A link from the Today page can say which people to show first (?show=ready or ?show=tour).
   const [params] = useSearchParams();
   const [chosen, setFilter] = useState(() => (['unread', 'tour', 'ready', 'closed'].includes(params.get('show')) ? params.get('show') : 'active'));
@@ -67,7 +72,7 @@ export default function LeadsTab({
 
   return (
     <div className={`as-leads${leadId ? ' has-detail' : ''}`}>
-      <section className="as-leads__list" aria-label="People">
+      <section className="as-leads__list" aria-label={listing ? 'Visitors' : 'People'}>
         <div className="as-bar">
           <div className="as-bar__row">
             <input
@@ -76,7 +81,7 @@ export default function LeadsTab({
               aria-label="Search by name, email or phone"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search leads"
+              placeholder={listing ? 'Search visitors' : 'Search leads'}
             />
             <button type="button" className="btn btn-secondary" onClick={() => setReportsOpen(true)} aria-haspopup="dialog">
               <NavIcon name="doc" size={16} /> Reports
@@ -105,14 +110,14 @@ export default function LeadsTab({
               ))}
             </select>
             <span className="as-count" role="status">
-              {rows.length} {rows.length === 1 ? 'person' : 'people'}
+              {rows.length} {rows.length === 1 ? person : people}
             </span>
           </div>
           {pendingTours > 0 ? (
             <button type="button" className="as-callbanner" onClick={() => setFilter('tour')}>
               <span aria-hidden="true">📞</span>
               <span style={{ flex: 1 }}>
-                {pendingTours === 1 ? '1 person is waiting for a call' : `${pendingTours} people are waiting for a call`}
+                {pendingTours === 1 ? `1 ${person} is waiting for a call` : `${pendingTours} ${people} are waiting for a call`}
               </span>
               <span style={{ fontWeight: 600, opacity: 0.8 }}>{filter === 'tour' ? 'Showing' : 'Show →'}</span>
             </button>
@@ -121,16 +126,20 @@ export default function LeadsTab({
 
         {leads.length === 0 ? (
           <div className="as-empty">
-            <strong>No leads yet</strong>
-            <span>Post the QR sign. Anyone who enters the app leaves their name, email and phone.</span>
+            <strong>{listing ? 'No visitors yet' : 'No leads yet'}</strong>
+            <span>
+              {listing
+                ? 'Put the QR sign out at the open house and at the door. Anyone who scans it leaves their name, email and phone.'
+                : 'Post the QR sign. Anyone who enters the app leaves their name, email and phone.'}
+            </span>
           </div>
         ) : null}
 
         {leads.length > 0 && rows.length === 0 ? (
           <p className="text-muted" style={{ fontSize: 14 }}>
             {filter === 'active' && archived === leads.length
-              ? 'Every lead is archived. Tap Closed to see them.'
-              : 'No leads match that search or filter.'}
+              ? `Every ${listing ? 'visitor' : 'lead'} is archived. Tap Closed to see them.`
+              : `No ${listing ? 'visitors' : 'leads'} match that search or filter.`}
           </p>
         ) : null}
 
@@ -235,7 +244,7 @@ export default function LeadsTab({
             <PdfReportButton community={community} title="PDF report" sort={sort} />
           </div>
           <p className="text-muted" style={{ fontSize: 14, margin: 0, lineHeight: 1.45 }}>
-            People you have closed are left out of every report.
+            {listing ? 'Visitors' : 'People'} you have closed are left out of every report.
           </p>
         </Dialog>
       ) : null}

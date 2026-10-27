@@ -2,17 +2,20 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
+import { money } from '@shared/domain.js';
 import { themeView } from '@shared/customTheme.js';
 import { photoImgProps } from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { emailHref } from '../../lib/contact.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { groupByBranch, headedGroups } from '../branches.js';
+import { isListing, localToday, nextOpenHouse, placeNoun, sessionLabel } from '../listing.js';
 import AdminShell from '../shell/AdminShell.jsx';
 import NavIcon from '../shell/navIcons.jsx';
 import { LoadError, Spinner } from '../ui.jsx';
 import ActivityRows from './ActivityRows.jsx';
 import NewCommunityDialog from './NewCommunityDialog.jsx';
+import NewListingDialog from './NewListingDialog.jsx';
 import ReadyToCall from './ReadyToCall.jsx';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -56,6 +59,7 @@ function initialsOf(name) {
  */
 function CommunityCover({ community }) {
   const url = community.heroPhoto;
+  const listing = isListing(community);
   const [failed, setFailed] = useState(null);
   const [loaded, setLoaded] = useState(null);
   const { colors } = themeView(community.theme, community.settings);
@@ -68,7 +72,7 @@ function CommunityCover({ community }) {
           className={`as-cover__img${loaded === url ? ' is-loaded' : ''}`}
           // About 290 to 360 px wide in the grid, nearer 570 in one column on a small tablet.
           {...photoImgProps(url, '(min-width: 640px) 400px, 100vw')}
-          alt={`${community.name} community photo`}
+          alt={listing ? `Photo of ${community.name}` : `${community.name} community photo`}
           loading="lazy"
           decoding="async"
           onLoad={() => setLoaded(url)}
@@ -82,9 +86,9 @@ function CommunityCover({ community }) {
   return (
     <div className="as-cover as-cover--empty" style={style}>
       <span className="as-cover__mark" aria-hidden="true">{initials || <NavIcon name="homes" size={26} />}</span>
-      <Link className="as-cover__add" to={`/admin/communities/${community.id}/setup/look#artwork`}>
-        <NavIcon name={url ? 'edit' : 'plus'} size={14} />
-        {url ? 'Check the photo in Setup' : 'Add a photo in Setup'}
+      <Link className="as-cover__add" to={listing ? `/admin/communities/${community.id}/homes` : `/admin/communities/${community.id}/setup/look#artwork`}>
+        <NavIcon name={url || listing ? 'edit' : 'plus'} size={14} />
+        {listing ? 'Photos of the home' : url ? 'Check the photo in Setup' : 'Add a photo in Setup'}
         <span className="as-sr"> for {community.name}</span>
       </Link>
     </div>
@@ -121,6 +125,50 @@ function CommunityCard({ community }) {
 }
 
 /**
+ * One listing's card: the address (the link to its Visitors), picture, city and price, where it stands, the next
+ * open house (or a nudge to schedule one) and what needs a person. A listing is a single home, so there is no home
+ * count, theme name or branch here.
+ */
+function ListingCard({ listing, today }) {
+  const next = nextOpenHouse(listing, today);
+  const base = `/admin/communities/${listing.id}`;
+  return (
+    <article className="card elev-sm as-community as-listing">
+      <div className="as-community__head">
+        <Link className="card-title as-community__name" to={`${base}/leads`} style={{ color: 'inherit', textDecoration: 'none' }}>
+          {listing.name}
+        </Link>
+        <span className="tag tag-accent-2">{listing.status}</span>
+      </div>
+      <CommunityCover community={listing} />
+      <div className="as-listing__where">
+        <span className="text-muted" style={{ fontSize: 14 }}>{listing.location || 'City not added'}</span>
+        {listing.price ? <strong className="as-listing__price">{money(listing.price)}</strong> : null}
+      </div>
+      {next ? (
+        <span className="as-listing__open">Open house {sessionLabel(next)}</span>
+      ) : (
+        <Link className="as-listing__open as-listing__open--none" to={`${base}/setup/listing#open-houses`}>
+          No open house scheduled
+          <span className="as-sr"> for {listing.name}. Add one</span>
+        </Link>
+      )}
+      <div className="as-community__stats">
+        {listing.waiting ? <span className={`as-chip ${listing.overdue ? 'as-chip--late' : 'as-chip--call'}`}>{plural(listing.waiting, 'visitor')} waiting for a call{listing.overdue ? ` · ${listing.overdue} late` : ''}</span> : null}
+        {listing.unread ? <span className="as-chip as-chip--soft">{listing.unread} new</span> : null}
+        {!listing.waiting && !listing.unread ? <span className="as-chip">All caught up</span> : null}
+      </div>
+      <div className="card-meta">{plural(listing.people, 'visitor')}</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+        <Link className="btn btn-primary" to={`${base}/leads`}>Visitors</Link>
+        <Link className="btn btn-ghost" to={`${base}/homes`}>The home</Link>
+        <Link className="btn btn-link" to={`${base}/setup`}>Setup</Link>
+      </div>
+    </article>
+  );
+}
+
+/**
  * Where the admin opens: the counts that need a person today, the communities, and under them the calls waiting and
  * the people who agreed to calls without booking one, across every community this person has. The server answers
  * with the owner's every community, or the ones a member was given, so the page shows what it is sent; what is the
@@ -141,6 +189,8 @@ export default function Today() {
   // The last few things the team changed, for the owner's card; null until they have arrived.
   const [activity, setActivity] = useState(null);
   const creating = params.get('new') === '1' && isOwner;
+  // The address opens the New listing pop-up (the menu and the buttons link to it), for owners and agents alike.
+  const creatingListing = params.get('new') === 'listing';
 
   useEffect(() => {
     let cancelled = false;
@@ -172,15 +222,34 @@ export default function Today() {
 
   const closeNew = () => setParams({}, { replace: true });
   const totals = data?.totals;
-  const groups = data ? groupByBranch(data.communities, data.branches) : [];
+  // Listings (single homes an agent is selling) are presented apart from communities. Branch grouping is for
+  // communities only. The listing with the soonest open house comes first, those with none last.
+  const today = localToday();
+  const listings = data
+    ? data.communities.filter(isListing)
+      .map((listing, index) => ({ listing, index, next: nextOpenHouse(listing, today) }))
+      .sort((a, b) => (a.next ? 0 : 1) - (b.next ? 0 : 1)
+        || (a.next && b.next ? (a.next.date + a.next.start).localeCompare(b.next.date + b.next.start) : 0)
+        || a.index - b.index)
+      .map((item) => item.listing)
+    : [];
+  const places = data ? data.communities.filter((community) => !isListing(community)) : [];
+  const groups = data ? groupByBranch(places, data.branches) : [];
   const headed = headedGroups(groups, isOwner);
+  // A fresh account, or an agent with nothing yet, starts on the listings; an owner with communities and no listings
+  // keeps the page they had, with the New listing button beside New community.
+  const showListings = listings.length > 0 || (!isOwner && places.length === 0);
+  const showCommunities = places.length > 0 || (isOwner && listings.length === 0);
+  const noun = placeNoun(listings.length > 0, places.length > 0);
+  // Nothing of the account is a community: the page speaks of listings alone (an agent with nothing yet included).
+  const onlyListings = !showCommunities;
 
   return (
     <AdminShell
       communities={data?.communities ?? []}
       branches={data?.branches ?? []}
       title="Today"
-      blurb="What needs a person right now, across every community."
+      blurb={`What needs a person right now, across every ${data ? (onlyListings ? 'listing' : listings.length ? 'listing and community' : 'community') : 'community'}.`}
     >
       {!data ? <LoadError error={error} onRetry={() => setAttempt((n) => n + 1)} retrying={retrying} /> : null}
       {!data && !error ? <Spinner /> : null}
@@ -206,39 +275,68 @@ export default function Today() {
             </div>
             <div className="as-tile">
               <strong>{totals.people}</strong>
-              <span>people in {plural(totals.communities, 'community', 'communities')}</span>
+              <span>
+                {onlyListings
+                  ? `visitors across ${plural(listings.length, 'listing')}`
+                  : listings.length
+                    ? `people across ${plural(listings.length, 'listing')} and ${plural(places.length, 'community', 'communities')}`
+                    : `people in ${plural(totals.communities, 'community', 'communities')}`}
+              </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '0 0 10px' }}>
-            <h2 className="as-section-title" style={{ margin: 0 }}>Your communities</h2>
-            {isOwner ? <Link className="btn btn-primary" to="/admin?new=1"><NavIcon name="plus" size={16} /> New community</Link> : null}
-          </div>
-          {data.communities.length === 0 ? (
-            <div className="as-empty">
-              {isOwner ? (
-                <>
+          {showListings ? (
+            <section aria-labelledby="today-listings">
+              <div className="as-sectionhead">
+                <h2 className="as-section-title" id="today-listings" style={{ margin: 0 }}>Your listings</h2>
+                <span className="as-sectionhead__actions">
+                  <Link className="btn btn-primary" to="/admin?new=listing"><NavIcon name="plus" size={16} /> New listing</Link>
+                  {/* An owner with only listings still has a way to make a community; it is a quiet link, not a section. */}
+                  {isOwner && !showCommunities ? <Link className="btn btn-link" to="/admin?new=1">New community</Link> : null}
+                </span>
+              </div>
+              {listings.length === 0 ? (
+                <div className="as-empty">
+                  <strong>No listings yet.</strong>
+                  <span>Add the first home you are selling to get its QR code, open house sign and visitor list.</span>
+                </div>
+              ) : (
+                <div className="as-cards">
+                  {listings.map((listing) => <ListingCard key={listing.id} listing={listing} today={today} />)}
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {showCommunities ? (
+            <section aria-labelledby="today-communities" style={showListings ? { marginTop: 28 } : undefined}>
+              <div className="as-sectionhead">
+                <h2 className="as-section-title" id="today-communities" style={{ margin: 0 }}>Your communities</h2>
+                {isOwner ? (
+                  <span className="as-sectionhead__actions">
+                    <Link className="btn btn-primary" to="/admin?new=1"><NavIcon name="plus" size={16} /> New community</Link>
+                    {!showListings ? <Link className="btn btn-secondary" to="/admin?new=listing"><NavIcon name="plus" size={16} /> New listing</Link> : null}
+                  </span>
+                ) : null}
+              </div>
+              {places.length === 0 ? (
+                <div className="as-empty">
                   <strong>No communities yet.</strong>
                   <span>Create your first one to get its QR code, buyer app and lead list.</span>
-                </>
-              ) : (
-                <>
-                  <strong>No communities have been shared with you yet.</strong>
-                  <span>When the owner gives you one, it shows up here.</span>
-                </>
-              )}
-            </div>
-          ) : groups.map((group) => (
-            <section
-              key={group.id ?? ''} className="as-branchgroup"
-              aria-labelledby={headed ? `today-branch-${group.id ?? 'none'}` : undefined}
-            >
-              {headed ? <h3 className="as-branchgroup__title" id={`today-branch-${group.id ?? 'none'}`}>{group.name}</h3> : null}
-              <div className="as-cards">
-                {group.communities.map((community) => <CommunityCard key={community.id} community={community} />)}
-              </div>
+                </div>
+              ) : groups.map((group) => (
+                <section
+                  key={group.id ?? ''} className="as-branchgroup"
+                  aria-labelledby={headed ? `today-branch-${group.id ?? 'none'}` : undefined}
+                >
+                  {headed ? <h3 className="as-branchgroup__title" id={`today-branch-${group.id ?? 'none'}`}>{group.name}</h3> : null}
+                  <div className="as-cards">
+                    {group.communities.map((community) => <CommunityCard key={community.id} community={community} />)}
+                  </div>
+                </section>
+              ))}
             </section>
-          ))}
+          ) : null}
 
           {isOwner && activity?.length ? (
             <section className="card elev-sm as-activity" aria-labelledby="team-activity">
@@ -284,20 +382,21 @@ export default function Today() {
           )}
           {totals.waiting > data.calls.length ? (
             <p className="text-muted" style={{ fontSize: 14 }}>
-              Showing the first {data.calls.length} of {totals.waiting}. Open a community to see the rest.
+              Showing the first {data.calls.length} of {totals.waiting}. Open a {noun} to see the rest.
             </p>
           ) : null}
 
           <h2 className="as-section-title" id="ready">Agreed to calls, no call booked</h2>
           <p className="text-muted" style={{ fontSize: 14, margin: '-4px 0 10px' }}>
-            They said yes to calls and texts and gave a number, but have not asked for a time. Open one to see them in
-            their community&apos;s Leads.
+            They said yes to calls and texts and gave a number, but have not asked for a time. Open one to see them in{' '}
+            {onlyListings ? 'the listing\u2019s Visitors' : listings.length ? 'the Visitors or Leads page of its listing or community' : 'their community\u2019s Leads'}.
           </p>
           <ReadyToCall people={data.ready} total={totals.ready} totalNew={totals.readyNew} communities={data.communities} />
         </>
       ) : null}
 
       {creating ? <NewCommunityDialog onClose={closeNew} /> : null}
+      {creatingListing ? <NewListingDialog onClose={closeNew} /> : null}
     </AdminShell>
   );
 }

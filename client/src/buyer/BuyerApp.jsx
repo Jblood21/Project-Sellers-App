@@ -7,6 +7,7 @@ import { AddToPhoneDialog, BuyerHeader, MenuDrawer, Toast, TourDialog, TutorialS
 import { BuyerProvider, useBuyer } from './BuyerContext.jsx';
 import ComplianceFooter from './ComplianceFooter.jsx';
 import { layoutFor } from './layouts/index.js';
+import { rootSlug } from './listingNav.js';
 import { canBookTour, canReachAgents } from './reach.js';
 import StructuredData from './StructuredData.jsx';
 import AllTools from './screens/AllTools.jsx';
@@ -16,6 +17,7 @@ import GuideArticle from './screens/GuideArticle.jsx';
 import Guides from './screens/Guides.jsx';
 import HomeDetail from './screens/HomeDetail.jsx';
 import Landing from './screens/Landing.jsx';
+import ListingTools from './screens/ListingTools.jsx';
 import Plan from './screens/Plan.jsx';
 import PlanPrint from './screens/PlanPrint.jsx';
 import Preview, { PREVIEW_PATH_RE } from './screens/Preview.jsx';
@@ -62,7 +64,7 @@ function Centered({ children }) {
 }
 
 function BuyerShell() {
-  const { community, layout, loading, loadError, signedIn, track, features, agents, settings } = useBuyer();
+  const { community, layout, loading, loadError, signedIn, track, features, agents, settings, isListing } = useBuyer();
   const { communityId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -120,7 +122,7 @@ function BuyerShell() {
   // Recorded like Explore's "Schedule a Tour", so the builder sees who wanted a tour: no booking is made.
   const realtorsPath = `/c/${communityId}/realtors`;
   const bookTour = () => {
-    track('Asked to schedule a tour');
+    track(isListing ? 'Asked to schedule a showing' : 'Asked to schedule a tour');
     if (!canReachAgents(features, agents)) setTourTopic('community');
     // Already there: another navigation would only stack a history entry and show nothing, so bring the
     // agents back into view instead.
@@ -128,7 +130,8 @@ function BuyerShell() {
     else navigate(realtorsPath);
   };
   // Offered only when there is someone to send the buyer to (an agent, or the sales team's phone or email).
-  const tourPossible = canBookTour(features, agents, settings);
+  // A sold listing has no showing to ask for.
+  const tourPossible = canBookTour(features, agents, settings) && !(isListing && community.status === 'Sold');
   // Recorded like every other way into the lender sheet, so the builder sees who looked at financing.
   const talkFinancing = () => {
     track(`Tapped ${complianceOf(community?.settings, { community }).lender.name || 'the lender'}`);
@@ -153,21 +156,36 @@ function BuyerShell() {
       <main id="b-main" tabIndex={-1} className="b-main">
         <Routes>
           {/* The one way in: the landing page holds the sign-in. An older link to /start (a printed code, a bookmark, an old button) goes there too. */}
-          <Route index element={<Landing onEntered={(result) => !result.returning && setTutorialOpen(true)} />} />
-          <Route path="start" element={<Navigate to={signedIn ? `/c/${communityId}/tools` : `/c/${communityId}`} replace />} />
-          <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
-          <Route path="explore" element={guard(<Explore onOpenTour={() => setTourTopic('community')} onOpenLender={() => setTourTopic('lender')} />)} />
-          <Route path="area" element={guard(<Area />)} />
-          <Route path="map" element={guard(<SiteMap />)} />
-          <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} />)} />
+          <Route index element={<Landing onEntered={(result) => !result.returning && !isListing && setTutorialOpen(true)} />} />
+          <Route path="start" element={<Navigate to={signedIn ? `/c/${communityId}/${rootSlug(isListing)}` : `/c/${communityId}`} replace />} />
+          {isListing ? (
+            <>
+              {/* A listing is one home: its page is the home screen, and the pages that browse many homes lead back to it. */}
+              <Route path="home" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} onRequestShowing={tourPossible ? bookTour : null} />)} />
+              <Route path="tools" element={guard(<ListingTools onOpenLender={() => setTourTopic('lender')} />)} />
+              <Route path="explore" element={<Navigate to={`/c/${communityId}/home`} replace />} />
+              <Route path="saved" element={<Navigate to={`/c/${communityId}/home`} replace />} />
+              <Route path="map" element={<Navigate to={`/c/${communityId}/home`} replace />} />
+              <Route path="area" element={community.highlights?.length ? guard(<Area />) : <Navigate to={`/c/${communityId}/home`} replace />} />
+              <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} onRequestShowing={tourPossible ? bookTour : null} />)} />
+            </>
+          ) : (
+            <>
+              <Route path="tools" element={guard(<AllTools onOpenLender={() => setTourTopic('lender')} />)} />
+              <Route path="explore" element={guard(<Explore onOpenTour={() => setTourTopic('community')} onOpenLender={() => setTourTopic('lender')} />)} />
+              <Route path="area" element={guard(<Area />)} />
+              <Route path="map" element={guard(<SiteMap />)} />
+              <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} />)} />
+              <Route path="saved" element={guard(<Saved />)} />
+            </>
+          )}
           <Route path="tool/:toolKey" element={guard(<ToolScreen />)} />
-          <Route path="saved" element={guard(<Saved />)} />
           <Route path="plan" element={guard(<Plan onOpenTour={tourPossible ? bookTour : null} onOpenLender={talkFinancing} />)} />
           <Route path="plan/print" element={guard(<PlanPrint />)} />
           <Route path="guides" element={<Guides />} />
           <Route path="guides/:slug" element={<GuideArticle />} />
           <Route path="realtors" element={guard(<Realtors />)} />
-          <Route path="*" element={<Navigate to={`/c/${communityId}`} replace />} />
+          <Route path="*" element={<Navigate to={isListing ? `/c/${communityId}/home` : `/c/${communityId}`} replace />} />
         </Routes>
       </main>
 

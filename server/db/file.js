@@ -327,6 +327,15 @@ export function createFileStore(path) {
         .sort((a, b) => order.get(a.communityId) - order.get(b.communityId))
         .map((r) => ({ adminId: r.adminId, communityId: r.communityId }));
     },
+    /** Gives one community to one admin without touching what else they hold (see the Postgres store). */
+    async addAdminCommunity(adminId, communityId) {
+      if (!db.communities.some((c) => c.id === communityId)) return false;
+      if (!db.adminCommunities.some((r) => r.adminId === adminId && r.communityId === communityId)) {
+        db.adminCommunities.push({ adminId, communityId, createdAt: now() });
+        save();
+      }
+      return true;
+    },
     /** Replaces the whole list; an id with no community is dropped. Returns the ids kept. See the Postgres store. */
     async setAdminCommunities(adminId, communityIds) {
       const known = new Set(db.communities.map((c) => c.id));

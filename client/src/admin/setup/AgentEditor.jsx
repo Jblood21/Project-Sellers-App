@@ -5,6 +5,7 @@ import { photoImgProps } from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
 import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import { ErrorNote, TextField } from '../ui.jsx';
 import ImageSlot from './ImageSlot.jsx';
 import { logoToDataUrl } from './readImage.js';
@@ -34,6 +35,7 @@ const initials = (name) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?
 export default function AgentEditor({ agent, index, community, reload, onClose, onCreated }) {
   const { token } = useAdmin();
   const draft = !agent;
+  const who = isListing(community) ? 'agent' : 'realtor';
   const [open, setOpen] = useState(draft);
   const [form, setForm] = useState(() => textOf(agent));
   const [pending, setPending] = useState({ photo: null, logo: null });
@@ -58,7 +60,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
   };
 
   const validate = () => {
-    if (!form.name.trim()) return 'Add the realtor’s name.';
+    if (!form.name.trim()) return `Add the ${who}’s name.`;
     if (form.email.trim() && !form.email.includes('@')) return 'That email address needs an @ in it.';
     return '';
   };
@@ -123,9 +125,9 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
     await reload();
   };
 
-  const title = draft ? 'New realtor' : agent.name;
+  const title = draft ? `New ${who}` : agent.name;
   const license = draft ? '' : agentLicenseLine(agent);
-  const label = draft ? 'New realtor' : `Realtor ${index + 1}: ${agent.name}`;
+  const label = draft ? `New ${who}` : `${who === 'agent' ? 'Agent' : 'Realtor'} ${index + 1}: ${agent.name}`;
 
   return (
     <div className="card elev-sm" role="group" aria-label={label} style={{ gap: 12, background: '#fff' }}>
@@ -216,9 +218,9 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             <button
               type="button" className="btn btn-primary" onClick={save}
               disabled={Boolean(busy) || (!draft && !dirty)}
-              aria-label={draft ? 'Add this realtor' : `Save ${agent.name}`}
+              aria-label={draft ? `Add this ${who}` : `Save ${agent.name}`}
             >
-              {busy === 'save' ? 'Saving…' : draft ? 'Add realtor' : 'Save realtor'}
+              {busy === 'save' ? 'Saving…' : draft ? `Add ${who}` : `Save ${who}`}
             </button>
           </div>
         </>

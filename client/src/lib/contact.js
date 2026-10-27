@@ -85,11 +85,14 @@ export const modelPhrase = (homeName) => `the ${String(homeName ?? '').trim().re
  * What a buyer's message to an agent says. The buyer's name goes in because an
  * agent reading a text from a number they do not know needs to know who it is.
  */
-export function tourMessage({ agentName, community, buyerName, homeName }) {
+export function tourMessage({ agentName, community, buyerName, homeName, listing = false }) {
   const first = String(agentName ?? '').trim().split(/\s+/)[0];
   const who = String(buyerName ?? '').trim();
   const place = String(community ?? '').trim();
-  const what = homeName
+  // A listing is one home, named by its address: a showing of it, not a tour of the homes.
+  const what = listing
+    ? `schedule a showing of ${place || 'the home'}`
+    : homeName
     ? `tour ${modelPhrase(homeName)}${place ? ` at ${place}` : ''}`
     : `tour the homes${place ? ` at ${place}` : ''}`;
   return `Hi${first ? ` ${first}` : ''},${who ? ` this is ${who}.` : ''} I'd like to ${what}. What times work for you?`;
