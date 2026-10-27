@@ -6,6 +6,7 @@ import { TOOLS } from '@shared/domain.js';
 import { firstName } from '../../../lib/format.js';
 import { useBuyer } from '../../BuyerContext.jsx';
 import CommunityMark from '../../CommunityMark.jsx';
+import { rootPath, talkLabel } from '../../listingNav.js';
 import { canTalkFinancing } from '../../reach.js';
 import {
   BookGlyph, ChevronLeft, DashGlyph, Heart, HouseGlyph, ListGlyph, MenuLines, SliderGlyph,
@@ -36,7 +37,7 @@ import StickyBar from './StickyBar.jsx';
  * layouts follow.
  */
 export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
-  const { community, features, guides, lead } = useBuyer();
+  const { community, features, guides, lead, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
@@ -51,15 +52,15 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
 
   const base = `/c/${communityId}`;
   const { pathname } = location;
-  const onHomeDetail = /\/homes\//.test(pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(pathname);
   const onGuide = /\/guides\/[^/]+$/.test(pathname);
-  const atTools = /\/tools\/?$/.test(pathname);
+  const atTools = (isListing ? /\/home\/?$/ : /\/tools\/?$/).test(pathname);
   const onPlan = /\/plan\/?$/.test(pathname);
   const onSaved = /\/saved\/?$/.test(pathname);
   // A signed-out reader's "back" is the front door, not a tools screen they cannot open. The home screen is
   // called the Dashboard here, as the rail and the title call it, so the back button uses the same name for it.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'Dashboard' : 'Back';
-  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? `${base}/tools` : base;
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? (isListing ? 'The home' : 'Dashboard') : 'Back';
+  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? rootPath(base, isListing) : base;
 
   const hasLogo = Boolean(community?.logo || community?.logoLight);
   // "Talk about financing" is offered only when there is a lender and something to do in the sheet it opens.
@@ -67,19 +68,28 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
   const saved = lead?.savedHomeIds?.length ?? 0;
   const first = firstName(lead?.name);
   // A visitor reading the public guides is not on a dashboard of their own, so the line says where they are.
-  const title = signedIn ? (first ? `${first}’s dashboard` : 'Your dashboard') : 'Buyer guides';
+  const title = signedIn
+    ? (isListing ? 'The home' : first ? `${first}’s dashboard` : 'Your dashboard')
+    : 'Buyer guides';
   const hasTools = TOOLS.some((tool) => community?.tools?.[tool.k]);
   const hasGuides = Boolean(features.guides && guides.length);
 
   // The rail's places, each with the routes it counts as. Tools and Learn are left out when there are none.
   const rail = [
-    { label: 'Dashboard', to: `${base}/tools`, icon: <DashGlyph />, here: atTools },
-    { label: 'Homes', to: `${base}/explore`, icon: <HouseGlyph />, here: /\/(explore|homes)(\/|$)/.test(pathname) },
+    isListing
+      ? { label: 'The home', to: `${base}/home`, icon: <HouseGlyph />, here: atTools }
+      : { label: 'Dashboard', to: `${base}/tools`, icon: <DashGlyph />, here: atTools },
+    isListing ? null : { label: 'Homes', to: `${base}/explore`, icon: <HouseGlyph />, here: /\/(explore|homes)(\/|$)/.test(pathname) },
     hasTools
-      ? { label: 'Tools', to: { pathname: `${base}/tools`, hash: `#${TOOLS_ANCHOR}` }, icon: <SliderGlyph />, here: /\/tool\//.test(pathname) }
+      ? {
+        label: isListing ? 'Payment' : 'Tools',
+        to: isListing ? `${base}/tools` : { pathname: `${base}/tools`, hash: `#${TOOLS_ANCHOR}` },
+        icon: <SliderGlyph />,
+        here: isListing ? /\/tools?(\/|$)/.test(pathname) : /\/tool\//.test(pathname),
+      }
       : null,
     hasGuides ? { label: 'Learn', to: `${base}/guides`, icon: <BookGlyph />, here: /\/guides(\/|$)/.test(pathname) } : null,
-    { label: 'My Home Plan', to: `${base}/plan`, icon: <ListGlyph />, here: onPlan },
+    isListing ? null : { label: 'My Home Plan', to: `${base}/plan`, icon: <ListGlyph />, here: onPlan },
   ].filter(Boolean);
 
   return (
@@ -138,16 +148,18 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
 
           {signedIn ? (
             <>
-              <Link
-                to={`${base}/saved`}
-                className="lg-head__saved"
-                aria-current={onSaved ? 'page' : undefined}
-                // The heart and the figure are the visible label; the name says what is counted.
-                aria-label={`Homes I Like, ${saved} saved`}
-              >
-                <Heart size={20} filled={saved > 0} />
-                <span className="lg-head__count">{saved}</span>
-              </Link>
+              {isListing ? null : (
+                <Link
+                  to={`${base}/saved`}
+                  className="lg-head__saved"
+                  aria-current={onSaved ? 'page' : undefined}
+                  // The heart and the figure are the visible label; the name says what is counted.
+                  aria-label={`Homes I Like, ${saved} saved`}
+                >
+                  <Heart size={20} filled={saved > 0} />
+                  <span className="lg-head__count">{saved}</span>
+                </Link>
+              )}
               {financing ? (
                 <button type="button" className="lg-head__btn lg-head__btn--finance" onClick={financing}>
                   Talk about financing
@@ -155,10 +167,10 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
               ) : null}
               {onTalk ? (
                 <button type="button" className="lg-head__btn lg-head__btn--tour" onClick={onTalk}>
-                  Book a tour
+                  {talkLabel(isListing)}
                 </button>
               ) : null}
-              {onPlan ? null : (
+              {onPlan || isListing ? null : (
                 <Link to={`${base}/plan`} className="lg-head__btn lg-head__btn--plan">
                   My Home Plan
                 </Link>

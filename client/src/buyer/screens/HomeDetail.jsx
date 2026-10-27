@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import Photo from '../../components/Photo.jsx';
@@ -9,22 +9,58 @@ import { layoutTraits } from '../layouts/index.js';
 import { canTalkFinancing } from '../reach.js';
 import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
+import OpenHouseCard from '../OpenHouseCard.jsx';
+import { useOpenHouses } from '../openHouse.js';
 import AgentCard from '../AgentCard.jsx';
 import VideoViewer from '../VideoViewer.jsx';
 
-export default function HomeDetail({ onOpenLender }) {
+/**
+ * One home's page. For a community it is reached from Explore (`homes/:homeId`). A listing is one home, so its
+ * `home` route passes no id and the page shows that home, with what a buyer of a single house wants first: where
+ * it stands, its facts, the open houses and a way to ask for a showing (`onRequestShowing`, null when there is
+ * nobody to send the buyer to).
+ */
+export default function HomeDetail({ onOpenLender, onRequestShowing = null }) {
   // Which plan the viewer is showing; null means closed.
   const [planIndex, setPlanIndex] = useState(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   // Which of the home's photos the viewer is showing; null means closed. And the video tour player.
   const [photoIndex, setPhotoIndex] = useState(null);
   const [videoOpen, setVideoOpen] = useState(false);
-  const { community, homes, lead, toggleSave, track, setTool, agents, features, layout } = useBuyer();
+  const { community, homes, lead, toggleSave, track, setTool, agents, features, layout, isListing } = useBuyer();
   const { communityId, homeId } = useParams();
   const navigate = useNavigate();
+  const { today, time, sessions } = useOpenHouses(community?.settings);
 
-  const home = homes.find((h) => h.id === homeId);
-  if (!home) return <Navigate to={`/c/${communityId}/explore`} replace />;
+  // A listing's one home is the first (the only) one; a community's is the one the address names.
+  const home = isListing ? homes[0] : homes.find((h) => h.id === homeId);
+
+  // The agent sees that the buyer looked at the home, as Explore records it for a community.
+  const viewed = useRef(null);
+  useEffect(() => {
+    if (!isListing || !home || viewed.current === home.id) return;
+    viewed.current = home.id;
+    track(`Viewed ${home.name} (${home.photos.length} photos)`);
+  }, [isListing, home, track]);
+
+  if (!home) {
+    if (isListing) {
+      return (
+        <div className="b-shell" style={{ paddingTop: 24 }}>
+          <p style={{ color: 'var(--t-mut)', fontSize: 14 }}>This home isn&apos;t ready to view yet. Check back soon.</p>
+        </div>
+      );
+    }
+    return <Navigate to={`/c/${communityId}/explore`} replace />;
+  }
+  const status = isListing ? community?.status : null;
+  const sold = status === 'Sold';
+  const settings = community?.settings ?? {};
+  const mls = isListing ? String(settings.mlsNumber ?? '').trim() : '';
+  const brokerage = isListing ? String(community?.builder ?? '').trim() : '';
+  const listingFacts = isListing
+    ? [homeMeta(home), mls ? `MLS #${mls}` : '', brokerage ? `Listed with ${brokerage}` : ''].filter(Boolean)
+    : [];
 
   const saved = lead?.savedHomeIds?.includes(home.id);
   // The first photo is the hero; the rest are tiles under the floor plans. The builder chooses the order.
@@ -80,17 +116,36 @@ export default function HomeDetail({ onOpenLender }) {
 
       <div className="b-hd__title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
         <h1 className="b-head" style={{ fontSize: 24 }} data-punct={/[.?!]$/.test(home.name ?? '') || undefined}>{home.name}</h1>
-        <span style={{ fontWeight: 700, fontSize: 19 }}>{money(home.price)}</span>
+        {isListing && !(Number(home.price) > 0) ? null : <span style={{ fontWeight: 700, fontSize: 19 }}>{money(home.price)}</span>}
       </div>
-      <span className="b-hd__meta" style={{ fontSize: 13, color: 'var(--t-mut)' }}>
-        {[homeMeta(home), home.availability, home.lotNumber].filter(Boolean).join(' · ')}
-      </span>
+      {isListing ? (
+        <>
+          {community?.location ? <span className="b-ls-city">{community.location}</span> : null}
+          {status && status !== 'Active' ? (
+            <p className="b-ls-banner" data-status={status} role="status">
+              {status === 'Coming soon' ? 'Coming soon. This home is not on the market yet.' : null}
+              {status === 'Under contract' ? 'Under contract. This home has an accepted offer.' : null}
+              {status === 'Sold' ? 'Sold. This home is no longer available.' : null}
+            </p>
+          ) : null}
+          {listingFacts.length ? (
+            <ul className="b-ls-facts" aria-label="Facts about the home">
+              {listingFacts.map((fact) => <li key={fact}>{fact}</li>)}
+            </ul>
+          ) : null}
+          {sold ? null : <OpenHouseCard sessions={sessions} today={today} time={time} />}
+        </>
+      ) : (
+        <span className="b-hd__meta" style={{ fontSize: 13, color: 'var(--t-mut)' }}>
+          {[homeMeta(home), home.availability, home.lotNumber].filter(Boolean).join(' · ')}
+        </span>
+      )}
       {/*
         Its own line rather than another item in the grey run above: how many
         are left is the one fact here that changes a buyer's mind about waiting,
         and sold is not something to find at the end of a list of measurements.
       */}
-      {unitsLabel(home) ? (
+      {!isListing && unitsLabel(home) ? (
         // A block wrapper, not alignSelf: .b-shell is not a flex container, so
         // the badge would otherwise run straight on from the line above and
         // read "Move-in ready4 available".
@@ -182,10 +237,16 @@ export default function HomeDetail({ onOpenLender }) {
             take to own it. It opens the day-then-time picker for a conversation about financing
             with the lender; a tour is asked for below, through the agents.
           */}
+          {/* A listing's main ask: to see the home. It goes where "Book a tour" goes, and the agent is told. */}
+          {isListing && !sold && onRequestShowing ? (
+            <button type="button" className="b-btn" style={{ minHeight: 50 }} onClick={onRequestShowing}>
+              Request a showing
+            </button>
+          ) : null}
           {canTalkFinancing(community, features) ? (
             <button
               type="button"
-              className="b-btn"
+              className={isListing && !sold && onRequestShowing ? 'b-btn b-btn-outline' : 'b-btn'}
               style={{ minHeight: 50 }}
               onClick={() => {
                 track(`Asked about financing for ${home.name}`);
@@ -216,11 +277,13 @@ export default function HomeDetail({ onOpenLender }) {
             onClick={() => toggleSave(home)}
             style={saved ? { background: 'var(--t-acc)', color: 'var(--t-onacc)' } : undefined}
           >
-            {saved ? '★ Saved to My Home Plan' : '☆ Save to My Home Plan'}
+            {isListing ? (saved ? '★ Saved' : '☆ Save this home') : (saved ? '★ Saved to My Home Plan' : '☆ Save to My Home Plan')}
           </button>
         </div>
         <p style={{ fontSize: 11.5, color: 'var(--t-mut)', textAlign: 'center', margin: '10px 0 0' }}>
-          Saving a home adds it to My Home Plan and tells the team you&apos;re interested.
+          {isListing
+            ? 'Saving the home lets your agent know you\u2019re interested.'
+            : 'Saving a home adds it to My Home Plan and tells the team you\u2019re interested.'}
         </p>
       </div>
 
@@ -232,9 +295,11 @@ export default function HomeDetail({ onOpenLender }) {
       {features.agents && agents.length ? (
         <section className="b-hd__agents" style={{ marginTop: 26 }} aria-labelledby="home-agents">
           <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />
-          <h2 id="home-agents" className="b-head" style={{ margin: '0 0 6px', fontSize: 24 }}>Want a Tour?</h2>
+          <h2 id="home-agents" className="b-head" style={{ margin: '0 0 6px', fontSize: 24 }}>{isListing ? 'Want a showing?' : 'Want a Tour?'}</h2>
           <span className="b-lbl" style={{ display: 'block', margin: '0 0 12px', color: 'var(--t-accT)' }}>
-            {agents.length > 1 ? 'Meet the agents.' : 'Meet the agent.'}
+            {isListing
+              ? (agents.length > 1 ? 'Meet your agents.' : 'Meet your agent.')
+              : (agents.length > 1 ? 'Meet the agents.' : 'Meet the agent.')}
           </span>
           <div className="b-stack" style={{ gap: 12 }}>
             {agents.map((agent) => (

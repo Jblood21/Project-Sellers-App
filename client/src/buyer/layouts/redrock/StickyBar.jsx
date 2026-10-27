@@ -1,5 +1,8 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 
+import { useBuyer } from '../../BuyerContext.jsx';
+import { talkLabel } from '../../listingNav.js';
+
 /**
  * The bar pinned to the foot of a phone: book a tour, talk about financing, and the buyer's plan, as the
  * board's two buttons (rust, then the light one) with the plan beside them.
@@ -16,15 +19,16 @@ import { Link, useLocation, useParams } from 'react-router-dom';
  */
 export default function StickyBar({ onTalk, onFinance }) {
   const { communityId } = useParams();
+  const { isListing } = useBuyer();
   const { pathname } = useLocation();
-  const onPlan = /\/plan\/?$/.test(pathname);
+  const onPlan = isListing || /\/plan\/?$/.test(pathname);
   if (!onTalk && !onFinance && onPlan) return null;
 
   return (
     <nav className="rr-stick" aria-label="Quick actions">
       {onTalk ? (
         <button type="button" className="rr-stick__btn rr-stick__btn--tour" onClick={onTalk}>
-          Book a tour
+          {talkLabel(isListing)}
         </button>
       ) : null}
       {onFinance ? (

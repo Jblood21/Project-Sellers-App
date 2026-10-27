@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { Menu } from '../../../components/Icons.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
+import { rootLabel, rootPath, talkLabel } from '../../listingNav.js';
 import CommunityMark from '../../CommunityMark.jsx';
 
 /** The chevron on the back button: 2.2px stroke, round caps, as the design draws it. */
@@ -32,7 +33,7 @@ function BackChevron() {
  * the right-hand side is the one useful thing there, the way into the app.
  */
 export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
-  const { community } = useBuyer();
+  const { community, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
@@ -47,18 +48,18 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const onHomeDetail = /\/homes\//.test(location.pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(location.pathname);
   const onGuide = /\/guides\/[^/]+$/.test(location.pathname);
-  const atTools = location.pathname.endsWith('/tools');
+  const atTools = isListing ? /\/home\/?$/.test(location.pathname) : location.pathname.endsWith('/tools');
   // A signed-out reader's "back" is the front door, not a tools screen they
   // cannot open.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'All Tools' : 'Back';
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? rootLabel(isListing) : 'Back';
   const backTo = onHomeDetail
     ? `/c/${communityId}/explore`
     : onGuide
       ? `/c/${communityId}/guides`
       : signedIn
-        ? `/c/${communityId}/tools`
+        ? rootPath(`/c/${communityId}`, isListing)
         : `/c/${communityId}`;
 
   const hasLogo = Boolean(community?.logo || community?.logoLight);
@@ -97,9 +98,9 @@ export default function Header({ onOpenMenu, onTalk, signedIn = true }) {
               tap than the rest of the app asks of a thumb.
             */}
             {onTalk ? (
-              <button type="button" className="cp-topbar__cta" onClick={onTalk} aria-label="Book a tour">
+              <button type="button" className="cp-topbar__cta" onClick={onTalk} aria-label={talkLabel(isListing)}>
                 <span className="cp-btn cp-btn--primary cp-btn--sm">
-                  Book<span className="cp-topbar__long"> a tour</span>
+                  {isListing ? <>Request<span className="cp-topbar__long"> a showing</span></> : <>Book<span className="cp-topbar__long"> a tour</span></>}
                 </span>
               </button>
             ) : null}

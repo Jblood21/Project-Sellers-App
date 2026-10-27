@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { complianceOf } from '@shared/compliance.js';
 import { ChevronLeft, Menu } from '../../../components/Icons.jsx';
 import { useBuyer } from '../../BuyerContext.jsx';
+import { rootLabel, rootPath, talkLabel } from '../../listingNav.js';
 import CommunityMark from '../../CommunityMark.jsx';
 import { canTalkFinancing } from '../../reach.js';
 import LenderLogo from '../../LenderLogo.jsx';
@@ -28,7 +29,7 @@ import useMedia from './useMedia.js';
  * screen.
  */
 export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
-  const { community, features } = useBuyer();
+  const { community, features, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
@@ -49,19 +50,19 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
     setShell(headRef.current?.closest('.b-app') ?? null);
   }, []);
 
-  const onHomeDetail = /\/homes\//.test(location.pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(location.pathname);
   const onGuide = /\/guides\/[^/]+$/.test(location.pathname);
-  const atTools = location.pathname.endsWith('/tools');
+  const atTools = isListing ? /\/home\/?$/.test(location.pathname) : location.pathname.endsWith('/tools');
   const onPlan = /\/plan\/?$/.test(location.pathname);
   // A signed-out reader's "back" is the front door, not a tools screen they
   // cannot open.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'All Tools' : 'Back';
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? rootLabel(isListing) : 'Back';
   const backTo = onHomeDetail
     ? `/c/${communityId}/explore`
     : onGuide
       ? `/c/${communityId}/guides`
       : signedIn
-        ? `/c/${communityId}/tools`
+        ? rootPath(`/c/${communityId}`, isListing)
         : `/c/${communityId}`;
 
   const { lender } = complianceOf(community?.settings, { community });
@@ -107,7 +108,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
           <>
             {onTalk ? (
               <button type="button" className="sg-head__talk" onClick={onTalk}>
-                Book a tour
+                {talkLabel(isListing)}
               </button>
             ) : null}
             {financing ? (
@@ -115,7 +116,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
                 Talk about financing
               </button>
             ) : null}
-            {onPlan ? null : (
+            {onPlan || isListing ? null : (
               <Link to={`/c/${communityId}/plan`} className="sg-head__plan">
                 My Home Plan
               </Link>

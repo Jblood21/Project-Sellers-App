@@ -14,11 +14,11 @@ import { BookGlyph, CalcGlyph, HouseGlyph, ListGlyph } from './icons.jsx';
  * exception: Homes on the home screen scrolls back up to the carousel, which is what a buyer tapping it
  * there wants. My numbers is a button, because it opens a sheet over the page rather than going anywhere.
  */
-export default function Sections({ variant, base, path, hasGuides, onHomes, onNumbers }) {
+export default function Sections({ variant, base, path, hasGuides, onHomes, onNumbers, isListing = false }) {
   const tabs = variant === 'tabs';
   const cls = tabs ? 'sc-tab' : 'sc-nav__a';
-  const atHome = path === `${base}/tools`;
-  const underHomes = path === `${base}/explore` || path.startsWith(`${base}/homes/`);
+  const atHome = path === `${base}/${isListing ? 'home' : 'tools'}`;
+  const underHomes = !isListing && (path === `${base}/explore` || path.startsWith(`${base}/homes/`));
   const onPlan = path === `${base}/plan`;
   const onGuides = path === `${base}/guides`;
   const underGuides = path.startsWith(`${base}/guides/`);
@@ -36,13 +36,13 @@ export default function Sections({ variant, base, path, hasGuides, onHomes, onNu
     <ul className={tabs ? 'sc-tabs__list' : 'sc-nav__list'} role="list">
       <li>
         <Link
-          to={`${base}/tools`}
+          to={`${base}/${isListing ? 'home' : 'tools'}`}
           className={cls}
           aria-current={atHome ? 'page' : underHomes ? 'true' : undefined}
           onClick={homes}
         >
           {icon(<HouseGlyph />)}
-          <span className="sc-tab__word">Homes</span>
+          <span className="sc-tab__word">{isListing ? 'The home' : 'Homes'}</span>
         </Link>
       </li>
       <li>
@@ -51,6 +51,7 @@ export default function Sections({ variant, base, path, hasGuides, onHomes, onNu
           <span className="sc-tab__word">My numbers</span>
         </button>
       </li>
+      {isListing ? null : (
       <li>
         {onPlan ? (
           <span className={cls} aria-current="page">
@@ -64,6 +65,7 @@ export default function Sections({ variant, base, path, hasGuides, onHomes, onNu
           </Link>
         )}
       </li>
+      )}
       {hasGuides ? (
         <li>
           {onGuides ? (

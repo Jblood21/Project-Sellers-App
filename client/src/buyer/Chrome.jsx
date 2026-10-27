@@ -9,6 +9,7 @@ import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
 import { photoImgProps } from '../components/Photo.jsx';
 import { useBuyer } from './BuyerContext.jsx';
 import CommunityMark from './CommunityMark.jsx';
+import { rootLabel, rootPath } from './listingNav.js';
 import { canTalkFinancing } from './reach.js';
 import TextAction from './TextAction.jsx';
 import useDialog, { closeOnBackdrop } from './useDialog.js';
@@ -50,23 +51,23 @@ const TUTORIAL = [
  *               one thing that is useful there: the way into the app.
  */
 export function BuyerHeader({ onOpenMenu, signedIn = true }) {
-  const { community } = useBuyer();
+  const { community, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
 
-  const onHomeDetail = /\/homes\//.test(location.pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(location.pathname);
   const onGuide = /\/guides\/[^/]+$/.test(location.pathname);
-  const atTools = location.pathname.endsWith('/tools');
+  const atTools = isListing ? /\/home\/?$/.test(location.pathname) : location.pathname.endsWith('/tools');
   // A signed-out reader's "back" is the front door, not a tools screen they
   // cannot open.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'All Tools' : 'Back';
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? rootLabel(isListing) : 'Back';
   const backTo = onHomeDetail
     ? `/c/${communityId}/explore`
     : onGuide
       ? `/c/${communityId}/guides`
       : signedIn
-        ? `/c/${communityId}/tools`
+        ? rootPath(`/c/${communityId}`, isListing)
         : `/c/${communityId}`;
   const goBack = () => navigate(backTo);
 
@@ -148,7 +149,7 @@ export function BuyerHeader({ onOpenMenu, signedIn = true }) {
 }
 
 export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone, onFinance }) {
-  const { community, lead, features, guides, agents } = useBuyer();
+  const { community, lead, features, guides, agents, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
@@ -158,7 +159,17 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone, onFina
   if (!open) return null;
 
   const enabled = TOOLS.filter((tool) => community?.tools?.[tool.k]);
-  const items = [
+  // A listing is one home: no Explore, saved homes, plan or site map. The home, the payment tools, the
+  // neighbourhood, the guides, the agent and the lender are what a buyer of one home can use.
+  const listingItems = [
+    { label: 'The home', to: `/c/${communityId}/home` },
+    ...(enabled.length ? [{ label: 'Payment tools', to: `/c/${communityId}/tools` }] : []),
+    ...(community?.highlights?.length ? [{ label: 'Neighborhood', to: `/c/${communityId}/area` }] : []),
+    ...(features.guides && guides.length ? [{ label: 'Buyer guides', to: `/c/${communityId}/guides` }] : []),
+    ...(features.agents && agents.length ? [{ label: agents.length > 1 ? 'Meet your agents' : 'Meet your agent', to: `/c/${communityId}/realtors` }] : []),
+    ...(onFinance && canTalkFinancing(community, features) ? [{ label: 'Talk about financing', action: onFinance }] : []),
+  ];
+  const items = isListing ? listingItems : [
     { label: 'All Tools', to: `/c/${communityId}/tools` },
     { label: 'Explore Homes', to: `/c/${communityId}/explore` },
     ...(community?.highlights?.length ? [{ label: 'Local Spots', to: `/c/${communityId}/area` }] : []),
@@ -233,16 +244,18 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone, onFina
           </button>
         ))}
         <div style={{ height: 1, background: 'var(--t-line)', margin: '10px 12px' }} />
-        <button
-          type="button"
-          onClick={() => {
-            onClose();
-            onShowTutorial();
-          }}
-          style={menuSecondary}
-        >
-          Show Me Around
-        </button>
+        {isListing ? null : (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onShowTutorial();
+            }}
+            style={menuSecondary}
+          >
+            Show Me Around
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -251,11 +264,11 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone, onFina
           }}
           style={menuSecondary}
         >
-          Add to My Phone
+          {isListing ? 'Add to home screen' : 'Add to My Phone'}
         </button>
         {website ? (
           <a href={website} target="_blank" rel="noopener noreferrer" style={{ ...menuSecondary, display: 'flex', alignItems: 'center' }}>
-            Community website
+            {isListing ? 'Listing website' : 'Community website'}
           </a>
         ) : null}
       </div>
@@ -377,7 +390,7 @@ function ReachRow({ contact, message, subject, onAct }) {
 export function TourDialog({ topic, onClose }) {
   const open = Boolean(topic);
   const lender = topic === 'lender';
-  const { community, communityId, requestTour, lead, features, agents, settings, track } = useBuyer();
+  const { community, communityId, requestTour, lead, features, agents, settings, track, isListing } = useBuyer();
   // The lender is whoever Setup says it is, the same name the footer and the
   // Financing card print, so the sheet cannot contradict them.
   const lenderInfo = complianceOf(community?.settings, { community }).lender;
@@ -456,11 +469,11 @@ export function TourDialog({ topic, onClose }) {
   const days = moreDays || dayIsHidden ? byDate : byDate.slice(0, DAYS_SHOWN);
   const times = byDate.find(([date]) => date === day)?.[1] ?? [];
 
-  const title = lender ? 'Talk about financing' : 'Book a tour';
+  const title = lender ? 'Talk about financing' : isListing ? 'Request a showing' : 'Book a tour';
   const reach = lender
     ? [{ name: lenderName, detail: '', phone: lenderInfo.phone, email: lenderInfo.email, isTeam: true }]
     : [
-      { name: `${community?.name ?? 'The'} team`, detail: '', phone: settings?.teamPhone, email: settings?.teamEmail, isTeam: true },
+      { name: isListing ? (community?.builder || 'The listing office') : `${community?.name ?? 'The'} team`, detail: '', phone: settings?.teamPhone, email: settings?.teamEmail, isTeam: true },
       ...(features?.agents ? agents : []).map((agent) => ({
         name: agent.name, detail: agent.brokerage, phone: agent.phone, email: agent.email, isTeam: false,
       })),
@@ -468,14 +481,16 @@ export function TourDialog({ topic, onClose }) {
   const people = reach.filter((person) => telHref(person.phone) || emailHref(person.email, 'x', 'x'));
   const messageFor = (person) => (lender
     ? financingMessage({ lenderName: person.name, community: community?.name, buyerName: lead?.name })
-    : tourMessage({ agentName: person.isTeam ? '' : person.name, community: community?.name, buyerName: lead?.name }));
-  const subject = lender ? `Talk about financing — ${community?.name}` : `Book a tour at ${community?.name}`;
+    : tourMessage({ agentName: person.isTeam ? '' : person.name, community: community?.name, buyerName: lead?.name, listing: isListing }));
+  const subject = lender
+    ? `Talk about financing — ${community?.name}`
+    : isListing ? `Showing request — ${community?.name}` : `Book a tour at ${community?.name}`;
   // What the sheet says above the list. "Call, text or email" is only said when there is someone to do it
   // with, and what is missing is said as it is: no times posted, or booking switched off.
   const intro = [
     lender
       ? (people.length ? `Call, text or email ${lenderName} to talk about financing.` : '')
-      : (people.length ? 'Call, text or email to set up your tour.' : ''),
+      : (people.length ? `Call, text or email to set up your ${isListing ? 'showing' : 'tour'}.` : ''),
   ].filter(Boolean).join(' ');
 
   const send = async () => {
@@ -516,7 +531,7 @@ export function TourDialog({ topic, onClose }) {
                     contact={person}
                     message={messageFor(person)}
                     subject={subject}
-                    onAct={(what) => track(`${lender ? 'Reached out about financing' : 'Reached out to book a tour'} (${what}): ${person.name}`)}
+                    onAct={(what) => track(`${lender ? 'Reached out about financing' : isListing ? 'Reached out to schedule a showing' : 'Reached out to book a tour'} (${what}): ${person.name}`)}
                   />
                 ))}
               </div>
@@ -542,7 +557,9 @@ export function TourDialog({ topic, onClose }) {
               </span>
             ) : null}
             <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>
-              Pick a day, then a time, and the {community?.name} team will set you up with {lenderName}.
+              {isListing
+                ? `Pick a day, then a time, and the agent will set you up with ${lenderName}.`
+                : `Pick a day, then a time, and the ${community?.name} team will set you up with ${lenderName}.`}
             </span>
 
             <span className="b-lbl" style={{ marginTop: 10 }}>Pick a day</span>
@@ -686,7 +703,7 @@ export function TourDialog({ topic, onClose }) {
 }
 
 export function AddToPhoneDialog({ open, onClose }) {
-  const { community } = useBuyer();
+  const { community, isListing } = useBuyer();
   const dialogRef = useRef(null);
   useDialog(open, onClose, dialogRef);
   if (!open) return null;
@@ -709,7 +726,7 @@ export function AddToPhoneDialog({ open, onClose }) {
         </div>
         <span className="b-head" style={{ fontSize: 19 }}>Keep {community?.name} on your phone</span>
         <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.55 }}>
-          It shows up as an icon on your home screen, so one tap brings you right back to this community.
+          It shows up as an icon on your home screen, so one tap brings you right back to this {isListing ? 'home' : 'community'}.
           On iPhone, tap Share <ArrowUp size={13} /> and choose “Add to Home Screen”. On Android, tap “Install app”.
         </span>
         <button type="button" className="b-btn" onClick={onClose} style={{ marginTop: 6 }}>

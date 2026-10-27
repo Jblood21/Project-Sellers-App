@@ -1,5 +1,8 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 
+import { useBuyer } from '../../BuyerContext.jsx';
+import { talkLabel } from '../../listingNav.js';
+
 /**
  * The bar pinned to the foot of a phone: book a tour, talk about financing, and
  * the buyer's plan. "Book a tour" goes to the Meet the agents page (it books no
@@ -20,13 +23,14 @@ import { Link, useLocation, useParams } from 'react-router-dom';
  */
 export default function StickyBar({ onTalk, onFinance }) {
   const { communityId } = useParams();
+  const { isListing } = useBuyer();
   const { pathname } = useLocation();
   const onPlan = /\/plan\/?$/.test(pathname);
   return (
     <nav className="sg-stick" aria-label="Quick actions">
       {onTalk ? (
         <button type="button" className="sg-stick__talk" onClick={onTalk}>
-          Book a tour
+          {talkLabel(isListing)}
         </button>
       ) : null}
       {onFinance ? (
@@ -34,7 +38,7 @@ export default function StickyBar({ onTalk, onFinance }) {
           Talk about financing
         </button>
       ) : null}
-      {onPlan ? null : (
+      {onPlan || isListing ? null : (
         <Link className="sg-stick__plan" to={`/c/${communityId}/plan`}>
           My Home Plan
         </Link>

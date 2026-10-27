@@ -11,20 +11,22 @@ import { useBuyer } from '../BuyerContext.jsx';
  * the tools rather than shown an empty page.
  */
 export default function Realtors() {
-  const { community, agents, features } = useBuyer();
+  const { community, agents, features, isListing } = useBuyer();
   const { communityId } = useParams();
 
-  if (!features.agents) return <Navigate to={`/c/${communityId}/tools`} replace />;
+  if (!features.agents) return <Navigate to={`/c/${communityId}/${isListing ? 'home' : 'tools'}`} replace />;
 
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <h1 className="b-head" style={{ margin: '0 0 4px', fontSize: 25 }}>
-        {agents.length > 1 ? 'Meet the agents' : 'Meet the agent'}
+        {isListing ? (agents.length > 1 ? 'Meet your agents' : 'Meet your agent') : (agents.length > 1 ? 'Meet the agents' : 'Meet the agent')}
       </h1>
       <p style={{ margin: '0 0 14px', color: 'var(--t-mut)', fontSize: 13, lineHeight: 1.5 }}>
         {agents.length
-          ? `Call, text or email to schedule your tour of ${community?.name}.`
-          : 'No agents have been listed yet — ask the team who to talk to.'}
+          ? (isListing
+            ? `Call, text or email to schedule a showing of ${community?.name}.`
+            : `Call, text or email to schedule your tour of ${community?.name}.`)
+          : (isListing ? 'No agent has been listed yet.' : 'No agents have been listed yet — ask the team who to talk to.')}
       </p>
 
       <div className="b-stack" style={{ gap: 12 }}>

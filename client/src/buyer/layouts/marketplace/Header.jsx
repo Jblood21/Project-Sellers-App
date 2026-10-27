@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useBuyer } from '../../BuyerContext.jsx';
 import CommunityMark from '../../CommunityMark.jsx';
+import { rootLabel, rootPath, talkLabel } from '../../listingNav.js';
 import { canTalkFinancing } from '../../reach.js';
 import { ChevronLeft, Heart, MenuLines } from './icons.jsx';
 
@@ -34,23 +35,23 @@ function currentOf(slug, within, pathname) {
  * (no lender set up), the rule the menu and the other layouts follow.
  */
 export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true }) {
-  const { community, features, guides, lead } = useBuyer();
+  const { community, features, guides, lead, isListing } = useBuyer();
   const navigate = useNavigate();
   const location = useLocation();
   const { communityId } = useParams();
   const base = `/c/${communityId}`;
 
-  const onHomeDetail = /\/homes\//.test(location.pathname);
+  const onHomeDetail = !isListing && /\/homes\//.test(location.pathname);
   const onGuide = /\/guides\/[^/]+$/.test(location.pathname);
-  const atTools = /\/tools\/?$/.test(location.pathname);
+  const atTools = (isListing ? /\/home\/?$/ : /\/tools\/?$/).test(location.pathname);
   // A signed-out reader's "back" is the front door, not a tools screen they cannot open.
-  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? 'All Tools' : 'Back';
-  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? `${base}/tools` : base;
+  const backLabel = onHomeDetail ? 'Homes' : onGuide ? 'Guides' : signedIn ? rootLabel(isListing) : 'Back';
+  const backTo = onHomeDetail ? `${base}/explore` : onGuide ? `${base}/guides` : signedIn ? rootPath(base, isListing) : base;
 
   // "Talk about financing" is offered only when there is a lender and something to do in the sheet it opens.
   const financing = onFinance && canTalkFinancing(community, features) ? onFinance : null;
   // The same two conditions the menu uses, so the nav never offers a page the menu would not.
-  const hasMap = Boolean(community?.features?.siteMap && community?.siteMap);
+  const hasMap = !isListing && Boolean(community?.features?.siteMap && community?.siteMap);
   const hasGuides = Boolean(features.guides && guides.length);
   const saved = lead?.savedHomeIds?.length ?? 0;
   const path = location.pathname;
@@ -71,7 +72,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
         )}
 
         <Link
-          to={signedIn ? `${base}/tools` : base}
+          to={signedIn ? rootPath(base, isListing) : base}
           className="mk-bar__id"
           aria-current={atTools ? 'page' : undefined}
           // The logo's own alt says whose it is; the link says where it goes.
@@ -85,12 +86,29 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
             <ul className="mk-nav__list">
               {signedIn ? (
                 <li>
-                  <Link
-                    to={`${base}/explore`}
-                    className="mk-nav__a"
-                    aria-current={currentOf('explore', /^\/c\/[^/]+\/homes\/[^/]+$/, path)}
-                  >
-                    Homes
+                  {isListing ? (
+                    <Link
+                      to={`${base}/home`}
+                      className="mk-nav__a"
+                      aria-current={currentOf('home', /^\/c\/[^/]+\/homes\/[^/]+$/, path)}
+                    >
+                      The home
+                    </Link>
+                  ) : (
+                    <Link
+                      to={`${base}/explore`}
+                      className="mk-nav__a"
+                      aria-current={currentOf('explore', /^\/c\/[^/]+\/homes\/[^/]+$/, path)}
+                    >
+                      Homes
+                    </Link>
+                  )}
+                </li>
+              ) : null}
+              {signedIn && isListing && community?.tools?.payment ? (
+                <li>
+                  <Link to={`${base}/tools`} className="mk-nav__a" aria-current={currentOf('tools', /^$/, path)}>
+                    Payment tools
                   </Link>
                 </li>
               ) : null}
@@ -135,19 +153,21 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
 
         {signedIn ? (
           <>
-            <Link
-              to={`${base}/saved`}
-              className="mk-bar__saved"
-              aria-current={currentOf('saved', /^$/, path)}
-              aria-label={`Saved homes: ${saved}`}
-            >
-              <Heart size={20} filled={saved > 0} />
-              <span className="mk-bar__saved-word">Saved</span>
-              <span className="mk-bar__count">{saved}</span>
-            </Link>
+            {isListing ? null : (
+              <Link
+                to={`${base}/saved`}
+                className="mk-bar__saved"
+                aria-current={currentOf('saved', /^$/, path)}
+                aria-label={`Saved homes: ${saved}`}
+              >
+                <Heart size={20} filled={saved > 0} />
+                <span className="mk-bar__saved-word">Saved</span>
+                <span className="mk-bar__count">{saved}</span>
+              </Link>
+            )}
             {onTalk ? (
               <button type="button" className="mk-bar__tour" onClick={onTalk}>
-                Book a tour
+                {talkLabel(isListing)}
               </button>
             ) : null}
             <button type="button" className="mk-bar__icon mk-bar__menu" onClick={onOpenMenu} aria-label="Menu">

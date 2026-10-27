@@ -8,7 +8,7 @@ import {
 
 /** "What price range fits my income?" */
 export default function Afford() {
-  const { homes, settings, tools, setTool, savePlan } = useBuyer();
+  const { homes, settings, tools, setTool, savePlan, isListing } = useBuyer();
   const state = tools.aff;
   const ranges = creditRanges(settings);
   const hasIncome = num(state.income) > 0;
@@ -111,7 +111,7 @@ export default function Afford() {
 
           {homes.length ? (
             <div className="b-card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-              <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>How the homes here fit</span>
+              <span className="b-lbl" style={{ color: 'var(--t-accT)' }}>{isListing ? 'How this home fits' : 'How the homes here fit'}</span>
               {homes.map((home) => {
                 const inRange = home.price <= result.comfortable.price;
                 const close = !inRange && home.price <= result.lenderMax.price;
