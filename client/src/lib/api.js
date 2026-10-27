@@ -221,6 +221,9 @@ export const adminApi = {
   today: (token) => request('/api/admin/today', { token }),
   community: (token, id) => request(`/api/admin/communities/${encodeURIComponent(id)}`, { token }),
   createCommunity: (token, body) => request('/api/admin/communities', { method: 'POST', body, token }),
+  // A listing: one home an agent is selling, made with its home in one step. Answers the community with `homes: [home]`.
+  // Members as well as the owner may make one; ordinary community creation stays the owner's.
+  createListing: (token, body) => request('/api/admin/communities', { method: 'POST', body: { ...body, kind: 'listing' }, token }),
   updateCommunity: (token, id, body) =>
     request(`/api/admin/communities/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
   deleteCommunity: (token, id) =>

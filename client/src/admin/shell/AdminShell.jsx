@@ -1,16 +1,17 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 
-import { COMMUNITY_STATUSES, isArchived, isTourPending, isUnread } from '@shared/domain.js';
+import { COMMUNITY_STATUSES, LISTING_STATUSES, isArchived, isTourPending, isUnread } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { groupByBranch, headedGroups } from '../branches.js';
+import { isListing } from '../listing.js';
 import Wordmark from '../Wordmark.jsx';
 import ChangePasswordDialog from '../screens/ChangePasswordDialog.jsx';
 import { buyerUrl } from '../screens/QrDialog.jsx';
 import { Dialog, ErrorNote, Spinner } from '../ui.jsx';
 import NavIcon from './navIcons.jsx';
-import { BOTTOM_KEYS, GROUPS, SECTIONS, sectionOf } from './sections.js';
+import { BOTTOM_KEYS, GROUPS, sectionOf, sectionsFor } from './sections.js';
 
 import '../../styles/admin-shell.css';
 
@@ -50,7 +51,10 @@ export default function AdminShell({
   const [switchOpen, setSwitchOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
-  const current = sectionOf(section);
+  // A listing (one home an agent is selling) has the same sections with its own words: Visitors, The home, Neighborhood.
+  const listing = isListing(community);
+  const sections = sectionsFor(listing);
+  const current = sectionOf(section, listing);
   const attention = attentionCount(leads);
   const guard = (after) => (event) => {
     if (!leaveOk()) {
@@ -65,8 +69,17 @@ export default function AdminShell({
   const base = community ? `/admin/communities/${community.id}` : '';
   const countFor = (key) => (key === 'leads' ? attention : 0);
   const url = community ? buyerUrl(community) : '';
-  const groups = groupByBranch(communities ?? [], branches ?? []);
+  // The menu on Today-like pages lists listings apart from communities: under "Listings" and "Communities" when an
+  // account has both, and under the one heading it has otherwise. Branches group communities only.
+  const listings = (communities ?? []).filter(isListing);
+  const places = (communities ?? []).filter((item) => !isListing(item));
+  const groups = groupByBranch(places, branches ?? []);
   const headed = headedGroups(groups, isOwner);
+  // An agent (a member) can make listings and nothing else, so with nothing yet they get the Listings heading and
+  // its "New listing". The owner with only communities keeps the heading they always had.
+  const showListings = listings.length > 0 || (!isOwner && places.length === 0);
+  const showCommunities = places.length > 0 || (isOwner && listings.length === 0);
+  const noun = listing ? 'listing' : 'community';
 
   const sectionLink = (item, { onNavigate, className = 'as-link', first = false } = {}) => (
     <NavLink
@@ -86,18 +99,20 @@ export default function AdminShell({
           <Wordmark size={22} />
         </Link>
 
-        <nav aria-label={community ? 'Community sections' : 'Communities'} className="as-side__nav">
+        <nav aria-label={community ? (listing ? 'Listing sections' : 'Community sections') : (showListings && !showCommunities ? 'Listings' : 'Communities')} className="as-side__nav">
           <NavLink to="/admin" end className="as-link" onClick={guard()}>
             <NavIcon name="today" />
             <span className="as-link__label">Today</span>
-            <span className="as-link__hint">all communities</span>
+            <span className="as-link__hint">
+              {community ? (listing ? 'all listings' : 'all communities') : showListings && !showCommunities ? 'all listings' : showListings ? 'everything' : 'all communities'}
+            </span>
           </NavLink>
 
           {community ? (
             <>
               <button type="button" className="as-switch" onClick={() => setSwitchOpen(true)} aria-haspopup="dialog">
                 <span className="as-switch__text">
-                  <span className="as-eyebrow">Community</span>
+                  <span className="as-eyebrow">{listing ? 'Listing' : 'Community'}</span>
                   <strong>{community.name}</strong>
                   <span className="as-switch__loc">{community.location || 'Location TBD'}</span>
                 </span>
@@ -106,32 +121,58 @@ export default function AdminShell({
               {GROUPS.map((group) => (
                 <div key={group} className="as-group">
                   <span className="as-eyebrow">{group}</span>
-                  {SECTIONS.filter((item) => item.group === group).map((item) => sectionLink(item))}
+                  {sections.filter((item) => item.group === group).map((item) => sectionLink(item))}
                 </div>
               ))}
             </>
           ) : (
-            <div className="as-group">
-              <span className="as-eyebrow">Communities</span>
-              {groups.map((group) => (
-                <Fragment key={group.id ?? ''}>
-                  {headed ? <span className="as-subhead">{group.name}</span> : null}
-                  {group.communities.map((item) => (
+            <>
+              {showListings ? (
+                <div className="as-group">
+                  <span className="as-eyebrow">Listings</span>
+                  {listings.map((item) => (
                     <NavLink key={item.id} to={`/admin/communities/${item.id}`} className="as-link" onClick={guard()}>
                       <NavIcon name="homes" />
                       <span className="as-link__label">{item.name}</span>
                       <Badge count={item.waiting} />
                     </NavLink>
                   ))}
-                </Fragment>
-              ))}
-              {isOwner ? (
-                <Link to="/admin?new=1" className="as-link as-link--add" onClick={guard()}>
-                  <NavIcon name="plus" />
-                  <span className="as-link__label">New community</span>
-                </Link>
+                  <Link to="/admin?new=listing" className="as-link as-link--add" onClick={guard()}>
+                    <NavIcon name="plus" />
+                    <span className="as-link__label">New listing</span>
+                  </Link>
+                </div>
               ) : null}
-            </div>
+              {showCommunities ? (
+                <div className="as-group">
+                  <span className="as-eyebrow">Communities</span>
+                  {groups.map((group) => (
+                    <Fragment key={group.id ?? ''}>
+                      {headed ? <span className="as-subhead">{group.name}</span> : null}
+                      {group.communities.map((item) => (
+                        <NavLink key={item.id} to={`/admin/communities/${item.id}`} className="as-link" onClick={guard()}>
+                          <NavIcon name="homes" />
+                          <span className="as-link__label">{item.name}</span>
+                          <Badge count={item.waiting} />
+                        </NavLink>
+                      ))}
+                    </Fragment>
+                  ))}
+                  {isOwner ? (
+                    <Link to="/admin?new=1" className="as-link as-link--add" onClick={guard()}>
+                      <NavIcon name="plus" />
+                      <span className="as-link__label">New community</span>
+                    </Link>
+                  ) : null}
+                  {!showListings ? (
+                    <Link to="/admin?new=listing" className="as-link as-link--add" onClick={guard()}>
+                      <NavIcon name="plus" />
+                      <span className="as-link__label">New listing</span>
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
+            </>
           )}
         </nav>
 
@@ -167,17 +208,17 @@ export default function AdminShell({
       <div className="as-main">
         {community ? (
           <header className="as-top">
-            <Link to="/admin" className="as-top__icon" aria-label="Today, all communities" onClick={guard()}>
+            <Link to="/admin" className="as-top__icon" aria-label={listing ? 'Today, all listings' : 'Today, all communities'} onClick={guard()}>
               <NavIcon name="today" />
             </Link>
             <button type="button" className="as-top__name" onClick={() => setSwitchOpen(true)} aria-haspopup="dialog">
               <strong>{community.name}</strong>
               <span>{community.location || 'Location TBD'} · switch</span>
             </button>
-            <button type="button" className="as-top__icon" aria-label="Edit community" onClick={onEdit}>
+            <button type="button" className="as-top__icon" aria-label={`Edit ${noun}`} onClick={onEdit}>
               <NavIcon name="edit" />
             </button>
-            <button type="button" className="as-top__icon" aria-label="QR code and flyer" onClick={onQr}>
+            <button type="button" className="as-top__icon" aria-label={listing ? 'QR code and open house sign' : 'QR code and flyer'} onClick={onQr}>
               <NavIcon name="qr" />
             </button>
           </header>
@@ -217,7 +258,7 @@ export default function AdminShell({
                   <>
                     {community.name}
                     {community.location ? ` · ${community.location}` : ''}
-                    {COMMUNITY_STATUSES.includes(community.status) ? <span className="tag tag-accent-2">{community.status}</span> : null}
+                    {(listing ? LISTING_STATUSES : COMMUNITY_STATUSES).includes(community.status) ? <span className="tag tag-accent-2">{community.status}</span> : null}
                   </>
                 ) : (blurb)}
               </p>
@@ -226,13 +267,13 @@ export default function AdminShell({
             {community ? (
               <div className="as-head__actions">
                 <a className="btn btn-secondary" href={url} target="_blank" rel="noopener noreferrer">
-                  <NavIcon name="open" size={16} /> Open buyer app
+                  <NavIcon name="open" size={16} /> {listing ? 'See what visitors see' : 'Open buyer app'}
                 </a>
                 <button type="button" className="btn btn-secondary" onClick={onQr}>
-                  <NavIcon name="qr" size={16} /> QR code &amp; flyer
+                  <NavIcon name="qr" size={16} /> {listing ? 'QR code & open house sign' : 'QR code & flyer'}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={onEdit}>
-                  <NavIcon name="edit" size={16} /> Edit community
+                  <NavIcon name="edit" size={16} /> Edit {noun}
                 </button>
               </div>
             ) : null}
@@ -242,7 +283,7 @@ export default function AdminShell({
 
         {community ? (
           <nav className="as-bottom" aria-label="Sections">
-            {BOTTOM_KEYS.map((key) => sectionLink(sectionOf(key), { className: 'as-tab' }))}
+            {BOTTOM_KEYS.map((key) => sectionLink(sectionOf(key, listing), { className: 'as-tab' }))}
             <button
               type="button"
               className={`as-tab${BOTTOM_KEYS.includes(section) ? '' : ' is-active'}`}
@@ -263,24 +304,24 @@ export default function AdminShell({
           actions={<button type="button" className="btn btn-secondary" onClick={() => setMoreOpen(false)}>Close</button>}
         >
           <div className="as-sheet">
-            {SECTIONS.filter((item) => !BOTTOM_KEYS.includes(item.key)).map((item, index) => sectionLink(item, {
+            {sections.filter((item) => !BOTTOM_KEYS.includes(item.key)).map((item, index) => sectionLink(item, {
               className: 'as-sheet__row', onNavigate: () => setMoreOpen(false), first: index === 0,
             }))}
             <hr className="as-sheet__rule" />
             <a className="as-sheet__row" href={url} target="_blank" rel="noopener noreferrer" onClick={() => setMoreOpen(false)}>
-              <NavIcon name="open" /><span className="as-link__label">Open buyer app</span>
+              <NavIcon name="open" /><span className="as-link__label">{listing ? 'See what visitors see' : 'Open buyer app'}</span>
             </a>
             <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); onQr?.(); }}>
-              <NavIcon name="qr" /><span className="as-link__label">QR code &amp; flyer</span>
+              <NavIcon name="qr" /><span className="as-link__label">{listing ? 'QR code & open house sign' : 'QR code & flyer'}</span>
             </button>
             <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); onEdit?.(); }}>
-              <NavIcon name="edit" /><span className="as-link__label">Edit community</span>
+              <NavIcon name="edit" /><span className="as-link__label">Edit {noun}</span>
             </button>
             <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); setSwitchOpen(true); }}>
-              <NavIcon name="switch" /><span className="as-link__label">Switch community</span>
+              <NavIcon name="switch" /><span className="as-link__label">Switch {noun}</span>
             </button>
             <Link to="/admin" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
-              <NavIcon name="today" /><span className="as-link__label">Today, all communities</span>
+              <NavIcon name="today" /><span className="as-link__label">{listing ? 'Today, all listings' : 'Today, all communities'}</span>
             </Link>
             {isOwner ? (
               <>
@@ -345,39 +386,57 @@ function SwitchDialog({ current, leaveOk, onClose }) {
     onClose();
   };
 
+  // A list of one kind is named for it; a mix is two short lists under their own words, listings first.
+  const listings = (list ?? []).filter(isListing);
+  const places = (list ?? []).filter((item) => !isListing(item));
+  const mixed = listings.length > 0 && places.length > 0;
+  const currentIsListing = isListing(current);
+  const title = mixed ? 'Switch listing or community' : listings.length || (list === null && currentIsListing) ? 'Switch listing' : 'Switch community';
+  const showNewListing = listings.length > 0 || !isOwner || currentIsListing;
+
+  const row = (item) => (
+    <Link
+      key={item.id}
+      to={`/admin/communities/${item.id}/leads`}
+      className="as-sheet__row"
+      aria-current={item.id === current.id ? 'true' : undefined}
+      onClick={guard}
+    >
+      <NavIcon name="homes" />
+      <span className="as-link__label">
+        {item.name}
+        <span className="as-hint">{item.location || 'Location TBD'}</span>
+      </span>
+      {item.pendingTours > 0 ? <span className="as-badge" title="Waiting for a call">{item.pendingTours}</span> : null}
+    </Link>
+  );
+
   return (
     <Dialog
-      title="Switch community"
+      title={title}
       onClose={onClose}
       actions={<button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>}
     >
       <ErrorNote>{error}</ErrorNote>
       {list === null && !error ? <Spinner /> : null}
       <div className="as-sheet" ref={sheet}>
-        {(list ?? []).map((item) => (
-          <Link
-            key={item.id}
-            to={`/admin/communities/${item.id}/leads`}
-            className="as-sheet__row"
-            aria-current={item.id === current.id ? 'true' : undefined}
-            onClick={guard}
-          >
-            <NavIcon name="homes" />
-            <span className="as-link__label">
-              {item.name}
-              <span className="as-hint">{item.location || 'Location TBD'}</span>
-            </span>
-            {item.pendingTours > 0 ? <span className="as-badge" title="Waiting for a call">{item.pendingTours}</span> : null}
-          </Link>
-        ))}
+        {mixed ? <span className="as-eyebrow as-sheet__eyebrow">Listings</span> : null}
+        {listings.map(row)}
+        {mixed ? <span className="as-eyebrow as-sheet__eyebrow">Communities</span> : null}
+        {places.map(row)}
         <hr className="as-sheet__rule" />
-        {isOwner ? (
+        {showNewListing ? (
+          <Link to="/admin?new=listing" className="as-sheet__row" onClick={guard}>
+            <NavIcon name="plus" /><span className="as-link__label">New listing</span>
+          </Link>
+        ) : null}
+        {isOwner && !(currentIsListing && !places.length) ? (
           <Link to="/admin?new=1" className="as-sheet__row" onClick={guard}>
             <NavIcon name="plus" /><span className="as-link__label">New community</span>
           </Link>
         ) : null}
         <Link to="/admin" className="as-sheet__row" onClick={guard}>
-          <NavIcon name="today" /><span className="as-link__label">Today, all communities</span>
+          <NavIcon name="today" /><span className="as-link__label">{mixed ? 'Today' : listings.length ? 'Today, all listings' : 'Today, all communities'}</span>
         </Link>
       </div>
     </Dialog>

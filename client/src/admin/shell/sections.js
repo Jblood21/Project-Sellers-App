@@ -22,7 +22,27 @@ export const GROUPS = ['Sales', 'Content', 'Buyer app'];
 /** What the phone's bottom bar shows; everything else is under More. */
 export const BOTTOM_KEYS = ['leads', 'homes', 'times', 'stats'];
 
-export const sectionOf = (key) => SECTIONS.find((section) => section.key === key);
+/**
+ * The same sections for a listing (one home an agent is selling): the same addresses, so no route changes, with
+ * words that suit one home and its visitors. `learn` keeps only the guides (a listing has no videos and articles of
+ * its own, see LearnTab). Everything not named here reads as it does for a community.
+ */
+const LISTING_WORDS = {
+  leads: { label: 'Visitors', blurb: 'Everyone who scanned the sign and signed in, newest first.' },
+  stats: { blurb: 'What visitors are doing on the home\u2019s page.' },
+  homes: { label: 'The home', blurb: 'The photos, floor plan, video and facts visitors see.' },
+  area: { label: 'Neighborhood', blurb: 'What is nearby that visitors can explore.' },
+  learn: { blurb: 'The guides visitors can read.' },
+  times: { blurb: 'When visitors can book a call about financing.' },
+  setup: { blurb: 'Listing details, open houses, look, agents, rates and rules.' },
+};
+
+export const LISTING_SECTIONS = SECTIONS.map((section) => ({ ...section, ...(LISTING_WORDS[section.key] ?? {}) }));
+
+/** The sections of a community, or of a listing when `listing` is true. */
+export const sectionsFor = (listing) => (listing ? LISTING_SECTIONS : SECTIONS);
+
+export const sectionOf = (key, listing = false) => sectionsFor(listing).find((section) => section.key === key);
 
 /** The Setup page is split into parts, each its own address. */
 export const SETUP_PARTS = [
@@ -32,3 +52,7 @@ export const SETUP_PARTS = [
   { key: 'rules', label: 'Rates & rules' },
 ];
 export const DEFAULT_SETUP_PART = SETUP_PARTS[0].key;
+
+/** A listing's Setup opens on its own part (the details and the open houses) and then has the same four. */
+export const LISTING_SETUP_PARTS = [{ key: 'listing', label: 'Listing' }, ...SETUP_PARTS];
+export const DEFAULT_LISTING_SETUP_PART = LISTING_SETUP_PARTS[0].key;

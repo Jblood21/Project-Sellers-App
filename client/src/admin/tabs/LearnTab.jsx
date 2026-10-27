@@ -6,6 +6,7 @@ import { adminApi } from '../../lib/api.js';
 import { videoToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import GuidesSection from '../learn/GuidesSection.jsx';
+import { isListing } from '../listing.js';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
 const BLANK_ARTICLE = { kind: 'article', title: '', body: '' };
@@ -159,6 +160,15 @@ export default function LearnTab({ community, reload }) {
       </div>
     </div>
   );
+
+  // A listing has the buyer guides and none of a development's own videos and articles.
+  if (isListing(community)) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <GuidesSection community={community} reload={reload} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

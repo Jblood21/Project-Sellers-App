@@ -268,6 +268,7 @@ for (const kind of backends()) {
       const card = today.communities.find((c) => c.id === id);
       assert.equal(card.kind, 'listing');
       assert.equal(card.price, 475000);
+      assert.equal(card.heroPhoto, null, 'no photo yet');
       assert.equal(card.settings.siteKind, 'listing');
       assert.ok(today.communities.some((c) => c.kind === 'community') || today.communities.length > 0);
     });

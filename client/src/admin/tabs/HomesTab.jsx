@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 import {
   AVAILABILITY, isSold, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, megabytes, money, unitsLabel, videoEmbed,
@@ -12,8 +13,9 @@ import { preparePhoto, videoToDataUrl } from '../../lib/photos.js';
 import { LowResNote, rowNote, useLowRes, useLowResRow } from '../lowRes.jsx';
 import { useAdmin } from '../AdminContext.jsx';
 import { RemovalNotes, useRemovals } from '../homes/removals.jsx';
+import { upcomingOf } from '../listing.js';
 import CheckedField, { PROBLEM_RED } from '../setup/CheckedField.jsx';
-import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
+import { Dialog, ErrorNote, Field, SaveNote, TextField, useSaving } from '../ui.jsx';
 
 const BLANK = {
   name: '', price: '', beds: '', baths: '', sqft: '', description: '',
@@ -53,7 +55,15 @@ function homeProblems(form, base) {
   return problems;
 }
 
-export default function HomesTab({ community, reload }) {
+/**
+ * The homes. A community lists as many as it has, each added and edited in a pop-up; a listing (`single`) is one home,
+ * so its page is that home's editor open in place, with no Add and no Delete.
+ */
+export default function HomesTab({ single = false, ...props }) {
+  return single ? <SingleHome {...props} /> : <ManyHomes {...props} />;
+}
+
+function ManyHomes({ community, reload }) {
   const { token } = useAdmin();
   const [dialog, setDialog] = useState(null); // { mode: 'new' | 'edit', home }
   const [form, setForm] = useState(BLANK);
@@ -295,6 +305,161 @@ export default function HomesTab({ community, reload }) {
           <ErrorNote>{error}</ErrorNote>
         </Dialog>
       ) : null}
+    </div>
+  );
+}
+
+const seedOf = (home) => ({
+  name: home.name,
+  price: String(home.price),
+  // 0 is how a box left blank is kept ("not given"), so it comes back as a blank box, not as a figure.
+  beds: home.beds ? String(home.beds) : '',
+  baths: home.baths ? String(home.baths) : '',
+  sqft: home.sqft ? String(home.sqft) : '',
+  description: home.description ?? '',
+});
+
+/**
+ * A listing's one home, open for editing in place: its photos, floor plans and video above, and under them the
+ * address, price, facts and description. The address is the listing's name too, so saving it renames both. Beds,
+ * baths and square feet are optional, as for any home. There is no availability, lot number or count here: a
+ * listing's stage is its status (Setup), and it is one home.
+ */
+function SingleHome({ community, reload }) {
+  const { token } = useAdmin();
+  const home = community.homes[0];
+  const removals = useRemovals(reload);
+  const saver = useSaving();
+  const { state } = useLocation();
+  const [form, setForm] = useState(() => (home ? seedOf(home) : null));
+  const [tried, setTried] = useState(false);
+  const [left, setLeft] = useState({});
+  if (!home || !form) {
+    return <p className="text-muted" style={{ fontSize: 14 }}>This listing has no home yet. Reload the page to try again.</p>;
+  }
+
+  const base = seedOf(home);
+  const problems = homeProblems(form, base);
+  if (problems.name) problems.name = 'Give the home an address.';
+  const problemOf = (key) => (tried || left[key] ? problems[key] ?? '' : '');
+  const leave = (key) => setLeft((prev) => ({ ...prev, [key]: true }));
+  const priceRead = readNumber(form.price, HOME_NUMBER_RULES.price);
+  const countProblemKey = COUNT_FIELDS.find((key) => problemOf(key));
+  const dirty = form.name.trim() !== base.name || form.description !== base.description
+    || NUMBER_FIELDS.some((key) => changedBox(form, base, key));
+  const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const save = () => {
+    setTried(true);
+    const first = Object.keys(problems)[0];
+    if (first) {
+      document.getElementById(`home-${first}`)?.focus();
+      return Promise.resolve(false);
+    }
+    return saver.run(async () => {
+      const body = { name: form.name.trim(), description: form.description };
+      for (const key of NUMBER_FIELDS) {
+        if (changedBox(form, base, key)) body[key] = readNumber(form[key], HOME_NUMBER_RULES[key]).value ?? '';
+      }
+      await adminApi.updateHome(token, home.id, body);
+      // The address is the listing's name as well. If this second step fails, Retry repeats both: the same change twice.
+      if (community.name !== body.name) await adminApi.updateCommunity(token, community.id, { name: body.name });
+      const fresh = await reload();
+      if (fresh?.homes?.[0]) setForm(seedOf(fresh.homes[0]));
+      setTried(false);
+      setLeft({});
+    });
+  };
+
+  const sessionsToCome = upcomingOf(community).length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {state?.notice ? <p className="ax-callout" role="status" style={{ margin: 0, fontSize: 14 }}>{state.notice}</p> : null}
+
+      <div className="card elev-sm" style={{ gap: 8 }}>
+        <span className="card-kicker">Photos, floor plans and video</span>
+        <PhotoStrip home={home} communityId={community.id} reload={reload} removals={removals} />
+        <span className="text-muted" style={{ fontSize: 13 }}>
+          The first photo is the one visitors see first. Use the ★ to move another to the front.
+        </span>
+        <FloorPlanStrip home={home} reload={reload} removals={removals} />
+        <WalkthroughRow home={home} reload={reload} />
+      </div>
+
+      <div className="card elev-sm" style={{ gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span className="card-kicker">Address, price and facts</span>
+          {dirty ? <span className="tag tag-accent">Unsaved changes</span> : null}
+        </div>
+        <CheckedField
+          id="home-name" label="Address" value={form.name} placeholder="e.g. 123 Maple Street"
+          onChange={set('name')} onBlur={() => leave('name')} error={problemOf('name')} autoComplete="off"
+        />
+        <CheckedField
+          id="home-price" label="Price" value={form.price} placeholder="e.g. 475000 or 475k"
+          onChange={set('price')}
+          onBlur={() => {
+            leave('price');
+            if (!priceRead.error) setForm((f) => ({ ...f, price: money(priceRead.value) }));
+          }}
+          error={problemOf('price')}
+          preview={!priceRead.error && form.price.trim() ? `Buyers will see ${money(priceRead.value)}` : ''}
+          hint="In dollars. You can type 475000, 475,000, $475,000, 475k or 1.2m."
+          autoComplete="off"
+        />
+        <div className="grid-3">
+          <CheckedField
+            id="home-beds" label="Beds" value={form.beds} inputMode="numeric" invalid={Boolean(problemOf('beds'))}
+            onChange={set('beds')} onBlur={() => leave('beds')}
+          />
+          <CheckedField
+            id="home-baths" label="Baths" value={form.baths} inputMode="decimal" invalid={Boolean(problemOf('baths'))}
+            onChange={set('baths')} onBlur={() => leave('baths')}
+          />
+          <CheckedField
+            id="home-sqft" label="Sq ft" value={form.sqft} inputMode="numeric" invalid={Boolean(problemOf('sqft'))}
+            onChange={set('sqft')} onBlur={() => leave('sqft')}
+          />
+        </div>
+        {countProblemKey ? (
+          <span role="alert" style={{ color: PROBLEM_RED, fontSize: 14, lineHeight: 1.4 }}>{problems[countProblemKey]}</span>
+        ) : (
+          <span className="field-hint">
+            Beds, baths and sq ft are optional. Leave one blank if you do not know it: visitors see nothing for it, and
+            nothing is filled in for you.
+          </span>
+        )}
+        <Field label="Description">
+          <textarea
+            className="input" rows={5} value={form.description}
+            onChange={(event) => set('description')(event.target.value)}
+          />
+        </Field>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button" className="btn btn-primary" onClick={save}
+            disabled={!dirty} aria-disabled={saver.saving || undefined} style={{ minHeight: 46 }}
+          >
+            {saver.saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+        <SaveNote saver={saver} />
+      </div>
+
+      {sessionsToCome === 0 ? (
+        <div className="ax-callout ax-nudge">
+          <span style={{ fontSize: 14, lineHeight: 1.45 }}>
+            <strong>Next: add your open house times.</strong> Visitors see them on the home&apos;s page, and the sign
+            points them there.
+          </span>
+          <Link className="btn btn-secondary" to={`/admin/communities/${community.id}/setup/listing#open-houses`}>
+            Add an open house
+          </Link>
+        </div>
+      ) : null}
+
+      <RemovalNotes removals={removals} />
     </div>
   );
 }

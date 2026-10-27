@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { DEFAULT_LEAD_SORT, LEAD_SORTS } from '@shared/domain.js';
 import { adminApi } from '../lib/api.js';
 import { useAdmin } from './AdminContext.jsx';
+import { isListing } from './listing.js';
 import { ErrorNote } from './ui.jsx';
 
 /** The periods the leads report can cover; the keys are the ones the server accepts. */
@@ -73,7 +74,9 @@ export default function PdfReportButton({ community, title = '', note = '', sort
           onChange={(event) => { setPeriod(event.target.value); setSaved(''); setError(''); }}
           style={{ width: 'auto', maxWidth: '100%', flex: '0 1 auto' }}
         >
-          {PERIODS.map((option) => <option key={option.k} value={option.k}>{option.label}</option>)}
+          {PERIODS.map((option) => (
+            <option key={option.k} value={option.k}>{isListing(community) ? option.label.replace('Everyone', 'All visitors') : option.label}</option>
+          ))}
         </select>
         <button ref={button} type="button" className="btn btn-secondary" onClick={download} disabled={busy}>
           {busy ? 'Building…' : 'Download PDF'}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { num } from '@shared/domain.js';
@@ -9,7 +9,13 @@ import { fullDate } from '../../lib/format.js';
 import { preparePhoto } from '../../lib/photos.js';
 import { LowResNote, useLowRes } from '../lowRes.jsx';
 import { useAdmin } from '../AdminContext.jsx';
-import { DEFAULT_SETUP_PART, SETUP_PARTS } from '../shell/sections.js';
+import { isListing } from '../listing.js';
+import DeleteListingCard from '../setup/DeleteListingCard.jsx';
+import ListingDetailsCard from '../setup/ListingDetailsCard.jsx';
+import OpenHousesCard from '../setup/OpenHousesCard.jsx';
+import {
+  DEFAULT_LISTING_SETUP_PART, DEFAULT_SETUP_PART, LISTING_SETUP_PARTS, SETUP_PARTS,
+} from '../shell/sections.js';
 import CheckedField, { PROBLEM_RED } from '../setup/CheckedField.jsx';
 import ComplianceCard from '../setup/ComplianceCard.jsx';
 import FaqCard from '../setup/FaqCard.jsx';
@@ -40,9 +46,13 @@ const orDash = (value) => (withoutPercent(value) || '–');
 const BOXES = { gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' };
 
 /** Every value on this tab flows straight into the buyer tools. */
-export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
+export default function SetupTab({ community, reload, dirtyRef, part = '', visitors = null, onDeleteListing }) {
   const { token, isOwner } = useAdmin();
-  const active = SETUP_PARTS.some((item) => item.key === part) ? part : DEFAULT_SETUP_PART;
+  // A listing (one home an agent is selling) opens on its own part, Listing, ahead of the four a community has, and
+  // leaves out what only makes sense for a development (the builder incentive, the site map).
+  const listing = isListing(community);
+  const parts = listing ? LISTING_SETUP_PARTS : SETUP_PARTS;
+  const active = parts.some((item) => item.key === part) ? part : (listing ? DEFAULT_LISTING_SETUP_PART : DEFAULT_SETUP_PART);
   const [settings, setSettings] = useState(community.settings);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -110,10 +120,27 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
     />
   );
 
+  // The listing cards (details, open houses) save on their own and keep their own unsaved edits; they tell this page
+  // so a tab switch asks before throwing them away, the way it does for the form below.
+  const formDirty = useRef(false);
+  const cardsDirty = useRef({});
+  const syncDirty = useCallback(() => {
+    if (dirtyRef) dirtyRef.current = formDirty.current || Object.values(cardsDirty.current).some(Boolean);
+  }, [dirtyRef]);
+  const trackDetails = useCallback((value) => {
+    cardsDirty.current.details = value;
+    syncDirty();
+  }, [syncDirty]);
+  const trackOpenHouses = useCallback((value) => {
+    cardsDirty.current.openHouses = value;
+    syncDirty();
+  }, [syncDirty]);
+
   // CommunityDetail reads this to ask before a tab switch throws the edits away,
   // and the browser is asked to do the same before the page is closed or reloaded.
   useEffect(() => {
-    if (dirtyRef) dirtyRef.current = dirty;
+    formDirty.current = dirty;
+    syncDirty();
     if (!dirty) return undefined;
     const warn = (event) => {
       event.preventDefault();
@@ -122,7 +149,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
     };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty, dirtyRef]);
+  }, [dirty, syncDirty]);
   useEffect(() => () => {
     if (dirtyRef) dirtyRef.current = false;
   }, [dirtyRef]);
@@ -198,7 +225,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
           what is typed in any card (a FAQ row, a realtor's form) is still there when you come back, and one Save
           settings saves them all. */}
       <nav className="as-parts" aria-label="Setup parts">
-        {SETUP_PARTS.map((item) => (
+        {parts.map((item) => (
           <Link
             key={item.key}
             to={`/admin/communities/${community.id}/setup/${item.key}`}
@@ -209,6 +236,14 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
           </Link>
         ))}
       </nav>
+
+      {listing ? (
+        <div className="as-part-body" hidden={active !== 'listing'}>
+          <ListingDetailsCard community={community} reload={reload} onDirty={trackDetails} />
+          <OpenHousesCard community={community} reload={reload} onDirty={trackOpenHouses} />
+          <DeleteListingCard listing={community} visitors={visitors} onDelete={onDeleteListing} />
+        </div>
+      ) : null}
 
       <div className="as-part-body ax-look" hidden={active !== 'look'}>
       <LayoutCard community={community} reload={reload} />
@@ -243,7 +278,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
 
       {/* Its own card: the address is saved with the rest, and the button sends to the SAVED address. */}
       <div className="card elev-sm" style={{ gap: 10 }}>
-        <span className="card-kicker">Lead report</span>
+        <span className="card-kicker">{listing ? 'Visitor report' : 'Lead report'}</span>
         <TextField
           label="Send lead reports to"
           value={settings.reportEmail}
@@ -252,9 +287,9 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
           placeholder="sales@yourcompany.com"
         />
         <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
-          One address. The report lists the scheduled calls still waiting and the people who signed up since the
-          last report. The spreadsheet attached has everyone, with their phone numbers (including people who said
-          no to calls and texts), your notes and status. People you have closed are left out. It is sent only when you press the button,
+          One address. The report lists the scheduled calls still waiting and the {listing ? 'visitors' : 'people'} who signed up since the
+          last report. The spreadsheet attached has everyone, with their phone numbers (including {listing ? 'visitors' : 'people'} who said
+          no to calls and texts), your notes and status. {listing ? 'Visitors' : 'People'} you have closed are left out. It is sent only when you press the button,
           never on its own, and changing the address does not change who counts as new.
         </span>
         <ReportButton
@@ -267,7 +302,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
 
       <div className="as-part-body" hidden={active !== 'home'}>
       <HomeHeadingCard community={community} settings={settings} setSettings={setSettings} />
-      <IncentiveCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
+      {listing ? null : <IncentiveCard community={community} settings={settings} setSettings={setSettings} reload={reload} />}
       <FaqCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
       </div>
 
@@ -315,7 +350,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
       <Disclosure
         title="Down payment assistance rules"
         summary={[
-          String(settings.dpaProgram ?? '').trim() || 'Community assistance program',
+          String(settings.dpaProgram ?? '').trim() || (listing ? 'Assistance program' : 'Community assistance program'),
           String(settings.dpaAmount ?? '').trim() ? `$${String(settings.dpaAmount).trim()}` : String(settings.dpaPct ?? '').trim() ? `${withoutPercent(settings.dpaPct)}% of loan` : 'no amount set',
           String(settings.dpaPriceCap ?? '').trim() ? `price cap $${String(settings.dpaPriceCap).trim()}` : null,
           settings.dpaAsOf ? `checked ${fullDate(`${settings.dpaAsOf}T00:00:00`)}` : null,
@@ -372,7 +407,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
       </div>
 
       {/* Sticky: the lender and compliance fields sit mid-page, a long way above the foot. Look & feel saves as you go, so it only needs the bar once something is waiting. */}
-      {dirty || error || refusal || active !== 'look' ? (
+      {dirty || error || refusal || (active !== 'look' && active !== 'listing') ? (
       <div className={`ax-savebar${error || refusal ? ' ax-savebar--note' : ''}`}>
         <ErrorNote>{error || refusal}</ErrorNote>
         <button
@@ -389,6 +424,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '' }) {
 
 function CommunityArtwork({ community, reload }) {
   const { token } = useAdmin();
+  const listing = isListing(community);
   const { hash } = useLocation();
   const card = useRef(null);
   const heroInput = useRef(null);
@@ -449,12 +485,18 @@ function CommunityArtwork({ community, reload }) {
 
   return (
     <div className="card elev-sm" id="artwork" ref={card} style={{ gap: 12 }}>
-      <span className="card-kicker">Community artwork</span>
-      {slot('hero', 'Hero photo (QR landing)', 'Tap to upload the community photo', heroInput, community.heroPhoto, 140)}
+      <span className="card-kicker">{listing ? 'Listing artwork' : 'Community artwork'}</span>
+      {slot('hero', 'Hero photo (QR landing)', listing ? 'Tap to upload a cover photo' : 'Tap to upload the community photo', heroInput, community.heroPhoto, 140)}
       {slot('icon', 'App icon (Add to Home Screen)', 'Tap to upload a square icon', iconInput, community.iconPhoto, 90)}
-      <span className="text-muted" style={{ fontSize: 14 }}>
-        The site map lives with the homes it places, on the Homes tab.
-      </span>
+      {listing ? (
+        <span className="text-muted" style={{ fontSize: 14 }}>
+          The home&apos;s own photos, floor plans and video are on The home tab.
+        </span>
+      ) : (
+        <span className="text-muted" style={{ fontSize: 14 }}>
+          The site map lives with the homes it places, on the Homes tab.
+        </span>
+      )}
       <ErrorNote>{error}</ErrorNote>
     </div>
   );

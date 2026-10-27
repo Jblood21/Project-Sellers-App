@@ -1008,6 +1008,7 @@ export function adminRouter() {
           canCall: Boolean(lead.phone && lead.consent?.granted), when: describeTour(lead.tour, lender), overdue,
         });
       }
+      const listingHome = isListing(community) ? (await store.listHomes(community.id))[0] : null;
       const agreed = report.leads.filter(isReadyToCall);
       for (const lead of agreed) {
         ready.push({
@@ -1025,9 +1026,10 @@ export function adminRouter() {
         // the viewer's own date), so an agent's portfolio reads as homes and not as developments.
         settings: Object.fromEntries([...CUSTOM_KEYS, 'siteKind', 'openHousesJson'].map((key) => [key, community.settings?.[key] ?? ''])),
         kind: isListing(community) ? 'listing' : 'community',
-        price: isListing(community) ? ((await store.listHomes(community.id))[0]?.price ?? null) : null,
+        price: listingHome?.price ?? null,
         // Only the address, flattened the way the public route flattens it: the card needs nothing else of the photo.
-        heroPhoto: heroes[0]?.url ?? null,
+        // A listing's pictures are its home's, so with no community cover the home's first photo stands in.
+        heroPhoto: heroes[0]?.url ?? listingHome?.photos?.[0]?.url ?? null,
         homesCount: row.homesCount, people: report.leads.length, unread: report.leads.filter(isUnread).length,
         waiting: report.comingUp.length + report.overdue.length, overdue: report.overdue.length,
         ready: agreed.length, readyNew: agreed.filter((lead) => lead.status !== 'contacted').length,
