@@ -770,6 +770,32 @@ starts so an idle one is awake for the 6 seconds. If the browser is killed in th
 picture is still there afterwards: the safe way to be wrong.
 The delete and move buttons are 44 px and sit under the picture, with space between them, not on it.
 
+## Listings: one home, for an agent
+
+A **listing** is a single home an agent is selling, with its open houses. It is the same app (same tables, leads, themes, layouts,
+reports and tools) pointed at one purchase instead of a development of many homes, so an agent keeps a portfolio of them.
+
+- **What it is.** A community with the server-owned setting `siteKind: 'listing'` (`shared/listing.js`) and exactly one home. The
+  mark is set when the listing is made (`POST /api/admin/communities` with `kind: 'listing'`) and no save changes it. The address is
+  the community's name and the home's name, `location` is "City, ST", and `builder` is the **brokerage** (the footer and the
+  consent line read it). Its status is one of `Coming soon`, `Active`, `Under contract`, `Sold` (a community keeps `Pre-sale`,
+  `Now selling`, `Sold out`; each kind ignores the other's).
+- **Made whole or not at all.** The address and a real price are checked before anything is created. The home is made with it;
+  a second home, or deleting the one home on its own, is refused in words. Deleting the whole listing is the way out.
+- **Who can.** Members (agents) may make and delete **listings**, and are given access to what they make (their portfolio);
+  making or deleting a **community** stays owner-only. Two listings made at once by one agent are both kept.
+- **Starting figures for one purchase.** No new-construction assistance program or price cap, no HOA until the agent types the
+  home's (blank reads as none), the tools that compare many homes or plan a build (`compare`, `dpa`, `movein`) off, no builder
+  incentive, lot numbers or site map, and the listing-style layout (`marketplace`) first. Rates, tax and insurance start from the
+  usual defaults and are the agent's to set in Setup.
+- **Open houses** are `settings.openHousesJson`: up to 8 sessions of `{ date: 'YYYY-MM-DD', start: 'HH:MM', end?, note }`, literal
+  dates and times (1 pm means 1 pm at the home, whoever reads it), checked and sorted on save (`normalizeOpenHouses`). A buyer is
+  shown the sessions that are today or later by their own clock (`upcomingOpenHouses`).
+- **Also kept for a listing:** `agentLicense`, `mlsNumber` and `listingDisclosure` (printed in the footer above the lender block;
+  clearing the disclosure removes the line). The page title and description say it is one home for sale, with the price while
+  it is for sale (`shared/schema.js`, `listingTitle`/`describeListing`).
+- **Today** tells a listing from a community (`kind`, `price`, and the open house list on each card).
+
 ## Layouts
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are

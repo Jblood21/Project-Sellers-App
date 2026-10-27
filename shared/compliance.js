@@ -102,7 +102,7 @@ export const COMPLIANCE_DEFAULTS = {
 export const LONG_SETTING_KEYS = [
   'complianceEhl', 'complianceNotOffer', 'complianceNotAgent', 'complianceDisclaimer',
   'complianceRates', 'complianceAba', 'lenderLicense',
-  'incentiveBody', 'incentiveFinePrint',
+  'incentiveBody', 'incentiveFinePrint', 'listingDisclosure', 'openHousesJson',
 ];
 export const SHORT_SETTING_MAX = 300;
 export const LONG_SETTING_MAX = 4000;

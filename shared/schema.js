@@ -25,6 +25,7 @@
  * of finding a new one on every page.
  */
 import { parseFaq } from './faq.js';
+import { isListing } from './listing.js';
 import { isOwnPhoto, photoAtWidth } from './photoSizes.js';
 import {
   EHL_MARKS, HIGHLIGHT_CATEGORIES, LENDER_LOGOS, PLAN_LABELS, TOOLS, complianceOf, isSold, mapsUrl,
@@ -418,6 +419,36 @@ function describeLanding(ctx) {
   return `${lead}${count}${more}`;
 }
 
+/**
+ * A listing's page is one home for sale, so its title and description say so: the address, where it stands, the
+ * price while it is for sale, the facts, and who it is listed with. Nothing here depends on today's date, so the
+ * server's page and the browser's agree whenever each is built.
+ */
+const LISTING_STATE = { 'Coming soon': 'Coming soon', Active: 'For sale', 'Under contract': 'Under contract', Sold: 'Sold' };
+
+function listingTitle(ctx) {
+  const home = homesOf(ctx.community)[0];
+  const state = LISTING_STATE[ctx.community.status] ?? 'For sale';
+  const price = state === 'For sale' && home && positive(home.price) ? ` ${money(home.price)}` : '';
+  return `${ctx.name}${ctx.location ? `, ${ctx.location}` : ''} | ${state}${price}`;
+}
+
+function describeListing(ctx) {
+  const home = homesOf(ctx.community)[0];
+  const state = LISTING_STATE[ctx.community.status] ?? 'For sale';
+  const facts = home
+    ? [
+      positive(home.beds) ? `${positive(home.beds)} bed` : '',
+      positive(home.baths) ? `${positive(home.baths)} bath` : '',
+      positive(home.sqft) ? `${positive(home.sqft).toLocaleString('en-US')} sq ft` : '',
+    ].filter(Boolean).join(', ')
+    : '';
+  const price = home && positive(home.price) && state !== 'Sold' ? ` ${money(home.price)}.` : '';
+  const by = ctx.builder ? ` Listed with ${ctx.builder}.` : '';
+  const extras = state === 'Sold' ? '' : ' See the photos, open house times and your estimated monthly payment.';
+  return `${ctx.name}${ctx.location ? `, ${ctx.location}` : ''}: ${state.toLowerCase()}.${price}${facts ? ` ${facts}.` : ''}${by}${extras}`;
+}
+
 function describeHome(ctx, home) {
   const own = plain(home.description);
   if (own) return own;
@@ -453,6 +484,11 @@ function metaOf(ctx, view, canonical, primaryImage) {
 
   switch (view.page) {
     case 'landing':
+      if (isListing(community)) {
+        title = listingTitle(ctx);
+        description = describeListing(ctx);
+        break;
+      }
       title = ctx.location ? `${name} | New homes${where}` : `${name}${ctx.builder ? ` | ${ctx.builder}` : ''}`;
       description = describeLanding(ctx);
       break;

@@ -1,6 +1,12 @@
 import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE, fillTokens, isSafeEmail } from './compliance.js';
 import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
+import { LISTING_DEFAULTS } from './listing.js';
 import { SETTING_NUMBER_RULES, readNumber } from './numberInput.js';
+
+export {
+  LISTING_DEFAULTS, LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, OPEN_HOUSE_MAX,
+  isListing, normalizeOpenHouses, readOpenHouses, upcomingOpenHouses,
+} from './listing.js';
 
 export {
   DEFAULT_FAQ, DEFAULT_FAQ_JSON, FAQ_ANSWER_MAX, FAQ_JSON_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, normalizeFaqJson,
@@ -746,6 +752,9 @@ export const DEFAULT_SETTINGS = {
   customButton: '',
   customPage: '',
   customBase: '',
+
+  // ── a single-home listing (shared/listing.js): the kind mark, the open houses, the licence line, the disclosure ───────
+  ...LISTING_DEFAULTS,
 };
 
 /**

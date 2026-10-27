@@ -12,6 +12,8 @@ export const ACTIONS = Object.freeze({
   'community.created': 'Created community {subject}',
   'community.updated': 'Changed setup for {subject}',
   'community.deleted': 'Deleted community {subject}',
+  'listing.created': 'Created listing {subject}',
+  'listing.deleted': 'Deleted listing {subject}',
   'home.added': 'Added home {subject}',
   'home.updated': 'Changed home {subject}',
   'home.deleted': 'Removed home {subject}',
