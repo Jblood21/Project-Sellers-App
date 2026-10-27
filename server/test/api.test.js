@@ -1643,7 +1643,7 @@ test('a home can carry how many are left, and zero means sold', async () => {
   // Nonsense clears rather than being stored: a home showing "-3 available" or
   // "2.5 available" is worse than one showing nothing.
   for (const bad of [-3, 2.5, 'lots', {}]) {
-    const r = await mk({ name: `Bad ${JSON.stringify(bad)}`, unitsAvailable: bad });
+    const r = await mk({ name: `Bad ${JSON.stringify(bad)}`, price: 500000, unitsAvailable: bad });
     assert.equal(r.body.unitsAvailable, null, `${JSON.stringify(bad)} does not become a count`);
   }
 
@@ -1801,7 +1801,7 @@ test('a switched-off incentive or FAQ is not served, and the builder\'s alert ad
   const { token, cid } = await signedInCommunity('Draft Privacy Test');
   const patch = (body) => api(`/api/admin/communities/${cid}`, { method: 'PATCH', token, body });
   await patch({ settings: {
-    notifyEmail: 'owner@builder.example', incentiveTitle: 'SECRET DRAFT $9,999 credit',
+    notifyEmail: 'owner@builder.example', incentiveTitle: 'SECRET DRAFT $9,999 credit', incentiveBody: 'Details of the draft.',
     faqJson: JSON.stringify([{ q: 'Draft question?', a: 'Draft answer.' }]),
   } });
 

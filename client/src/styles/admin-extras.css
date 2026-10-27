@@ -31,7 +31,7 @@
 .ax-choice:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .ax-choice-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ax-choice-name { font-family: var(--font-heading); font-weight: 600; font-size: 16px; color: var(--color-accent-700); }
-.ax-choice-note { font-size: 12px; line-height: 1.45; color: var(--color-neutral-700); }
+.ax-choice-note { font-size: 14px; line-height: 1.45; color: var(--color-neutral-700); }
 .ax-wire { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--color-divider); }
 
 /* ── one image slot: preview plate on the left, actions on the right ───────── */
@@ -49,19 +49,19 @@
 .ax-plate--square { width: 84px; }
 .ax-plate img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
 .ax-plate--cover img { width: 100%; height: 100%; object-fit: cover; }
-.ax-plate-empty { font-size: 11.5px; color: var(--color-neutral-600); text-align: center; padding: 6px; line-height: 1.35; }
+.ax-plate-empty { font-size: 13px; color: var(--color-neutral-600); text-align: center; padding: 6px; line-height: 1.35; }
 .ax-plate--dark .ax-plate-empty { color: #B4C7CF; }
 .ax-slot-body { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
 .ax-slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .ax-slot-actions .btn { min-height: 44px; }
-.ax-status { font-size: 12px; color: var(--color-neutral-700); }
+.ax-status { font-size: 14px; color: var(--color-neutral-700); }
 
 /* A picture smaller than the place it is used: said once, beside it, without alarm.
    The badge marks which one in a row of thumbnails the note under the row is about. */
-.ax-lowres { margin: 0; font-size: 12px; line-height: 1.45; color: #6b4a00; }
+.ax-lowres { margin: 0; font-size: 14px; line-height: 1.45; color: #6b4a00; }
 .ax-lowres-badge {
   position: absolute; right: 6px; bottom: 6px; padding: 2px 7px; border-radius: 999px;
-  font-size: 10.5px; font-weight: 700; background: rgba(77, 53, 0, 0.82); color: #fff; pointer-events: none;
+  font-size: 12px; font-weight: 700; background: rgba(77, 53, 0, 0.82); color: #fff; pointer-events: none;
 }
 
 /* ── the pre-launch checklist and other call-outs ────────────────────────── */
@@ -74,7 +74,7 @@
 .ax-callout ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
 .ax-callout li button {
   background: none; border: 0; padding: 0 0 0 0; min-height: 44px; color: inherit; cursor: pointer;
-  text-align: left; font-size: 13px; text-decoration: underline; text-underline-offset: 3px;
+  text-align: left; font-size: 14px; text-decoration: underline; text-underline-offset: 3px;
 }
 .ax-callout li button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
@@ -92,7 +92,7 @@
 .ax-fold__toggle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .ax-fold__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ax-fold__gtitle { font-family: var(--font-heading); font-size: 15px; font-weight: 600; color: var(--color-accent-700); }
-.ax-fold__summary { font-size: 13px; line-height: 1.4; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.ax-fold__summary { font-size: 14px; line-height: 1.4; color: var(--color-neutral-700); overflow-wrap: anywhere; }
 .ax-fold__chev {
   flex: none; width: 8px; height: 8px; margin: 0 6px 0 4px;
   border-right: 2px solid var(--color-neutral-600); border-bottom: 2px solid var(--color-neutral-600);
@@ -107,7 +107,7 @@
 .ax-group-head h5 { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 15px; color: var(--color-accent-700); }
 .ax-preview {
   margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--color-bg); border: 1px solid var(--color-divider);
-  font-size: 12px; line-height: 1.55; color: var(--color-neutral-700);
+  font-size: 14px; line-height: 1.55; color: var(--color-neutral-700);
   display: flex; flex-direction: column; gap: 8px;
 }
 .ax-preview p { margin: 0; }
@@ -120,6 +120,10 @@
   background: linear-gradient(to bottom, rgba(244, 248, 250, 0), var(--color-bg) 28%);
   display: flex; flex-direction: column; gap: 4px;
 }
+
+/* With a message in it the bar is solid: the fade above is clear at its top, and a red line printed there ran over
+   the text of the page behind. */
+.ax-savebar--note { background: var(--color-bg); box-shadow: 0 -1px 0 rgba(14, 34, 40, 0.12); }
 
 /* The bar covers the foot of the viewport, so when Tab scrolls a field into view
    it must stop short of the bar rather than land underneath it. scroll-padding
@@ -149,7 +153,7 @@
 .ax-guide-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .ax-guide-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ax-guide-controls .btn { min-height: 44px; }
-.ax-guide-toggle { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; font-size: 12.5px; }
+.ax-guide-toggle { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; font-size: 14px; }
 .ax-editor { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .ax-editor-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 @media (min-width: 900px) { .ax-editor { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
@@ -232,7 +236,7 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 /* The In use tag is the same ice as a pressed row; on one it turns white so it still reads as a tag. */
 .ax-try[aria-pressed='true'] .tag-accent { background: #fff; }
 .ax-tag-on { background: var(--color-accent); color: #fff; }
-.ax-studio__none { margin: 4px 2px 8px; font-size: 13.5px; color: var(--color-neutral-700); }
+.ax-studio__none { margin: 4px 2px 8px; font-size: 14px; color: var(--color-neutral-700); }
 
 /* Three overlapping dots: the dark colour, the button colour and the page. A set theme's dots wear the theme's
    own class and read its colours from base.css, as the buyer app does; Your own colours sets them inline. */
@@ -251,7 +255,7 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 /* The heading over the preview: what is being tried on, its note, and the Phone / Computer / Both switch. */
 .ax-studio__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ax-studio__heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
-.ax-studio__kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-neutral-600); }
+.ax-studio__kicker { font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-neutral-600); }
 .ax-studio__name { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 22px; line-height: 1.2; color: var(--color-accent-700); }
 .ax-studio__note { margin: 0; font-size: 14px; line-height: 1.45; color: var(--color-neutral-600); }
 .ax-views { display: flex; flex: none; }
@@ -285,7 +289,7 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 .ax-read .ax-own__icon { stroke: currentColor; }
 .ax-studio__actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .ax-studio__now { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-neutral-700); }
-.ax-studio__hint { margin: 0; font-size: 13px; color: var(--color-neutral-600); text-align: right; }
+.ax-studio__hint { margin: 0; font-size: 14px; color: var(--color-neutral-600); text-align: right; }
 .ax-studio__saved { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-accent-700); }
 .ax-studio__saved:empty { display: none; }
 @container (max-width: 759px) {
@@ -299,8 +303,8 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 .ax-own__back { align-self: flex-start; margin-left: -12px; }
 .ax-own__title { margin: 0; font-family: var(--font-heading); font-weight: 600; font-size: 20px; color: var(--color-accent-700); }
 .ax-own__lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--color-neutral-700); }
-.ax-own__small { font-size: 12.5px; line-height: 1.45; color: var(--color-neutral-600); margin: 0; }
-.ax-own__error { font-size: 12.5px; line-height: 1.45; color: #a8332b; font-weight: 600; }
+.ax-own__small { font-size: 14px; line-height: 1.45; color: var(--color-neutral-600); margin: 0; }
+.ax-own__error { font-size: 14px; line-height: 1.45; color: #a8332b; font-weight: 600; }
 .ax-own__start { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--color-accent-700); }
 .ax-own__start select { flex: 1; min-width: 0; width: auto; }
 .ax-own__start select:focus-visible { outline: 2px solid var(--color-accent-2); outline-offset: 1px; }
@@ -318,8 +322,8 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 .ax-own__slot-top { display: flex; align-items: center; gap: 8px; }
 .ax-own__chip { flex: none; width: 24px; height: 24px; border-radius: 999px; border: 1px solid rgba(14, 34, 40, 0.3); }
 .ax-own__slot-name { font-weight: 700; font-size: 14px; line-height: 1.25; }
-.ax-own__slot-desc { font-size: 12.5px; line-height: 1.35; color: var(--color-neutral-600); }
-.ax-own__slot-hex { font-size: 12.5px; font-weight: 600; color: var(--color-neutral-700); font-variant-numeric: tabular-nums; }
+.ax-own__slot-desc { font-size: 14px; line-height: 1.35; color: var(--color-neutral-600); }
+.ax-own__slot-hex { font-size: 14px; font-weight: 600; color: var(--color-neutral-700); font-variant-numeric: tabular-nums; }
 
 /* The wheel beside its other controls; the controls drop under it on a narrow studio. */
 .ax-own__pick { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
@@ -358,7 +362,7 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 .ax-own__checks li.is-fixed { background: #FFF7E0; border-color: #e3c36b; }
 .ax-own__checks li > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ax-own__checks strong { font-size: 14px; color: var(--color-text); }
-.ax-own__checks li > span > span { font-size: 13px; line-height: 1.4; color: var(--color-neutral-700); overflow-wrap: anywhere; }
+.ax-own__checks li > span > span { font-size: 14px; line-height: 1.4; color: var(--color-neutral-700); overflow-wrap: anywhere; }
 .ax-own__icon { flex: none; margin-top: 1px; fill: none; stroke: var(--color-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Where the keyboard is sent when what it was on goes away (the list swapped for the colour tools, Keep or Use
@@ -372,7 +376,7 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 .ax-own__wheelrow .ax-own__wheel { width: 100%; height: auto; aspect-ratio: 1; }
 .ax-own__wheelrow .ax-own__hint { text-align: left; }
 .ax-own__see { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.ax-own__see > span { font-size: 12.5px; font-weight: 600; color: var(--color-neutral-700); }
+.ax-own__see > span { font-size: 14px; font-weight: 600; color: var(--color-neutral-700); }
 .ax-stage--beside { padding: 8px; gap: 8px; min-height: 0; border-radius: 14px; }
 .ax-stage--beside .ax-frame--phone { border-radius: 16px; }
 
@@ -381,3 +385,29 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 @container (max-width: 399px) {
   .ax-studio__list { max-height: 236px; }
 }
+
+/* ── a change that did not save, or a page that did not load (ui.jsx SaveNote, LoadError) ───────────────────
+   The sentence, then Retry beside it, or under it where the room runs out. Dark red words on a pale red ground
+   (8.4:1), a line round it, and the words in full size and weight, since this is the one thing on the screen
+   somebody on a call has to read. */
+.ax-fail {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 6px 0 0; padding: 10px 12px;
+  border-radius: 12px; border: 1px solid rgba(168, 51, 43, 0.4); background: #FDF1EF; color: #8a1c11;
+  font-size: 14px; line-height: 1.4;
+}
+.ax-fail__text { flex: 1 1 180px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.ax-fail .btn { flex: none; }
+.ax-fail--page { flex-direction: column; align-items: flex-start; margin-top: 8px; padding: 16px; font-size: 15px; }
+.ax-fail--page .ax-fail__text { flex: none; }
+.ax-fail__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── the Tools page's rows: the words, the switch, and under them whatever the last change said ─────────────
+   "Saving…" sits over the switch rather than in the row's flow, so the row never changes height (and the next
+   switch never moves out from under a thumb) while a tap is on its way to the server. */
+.ax-switchrow { position: relative; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.ax-switchrow__text { flex: 1 1 0; min-width: 0; }
+.ax-switchrow__state { position: absolute; top: 5px; right: 16px; font-size: 13px; line-height: 1.2; font-weight: 600; color: var(--color-accent-700); }
+.ax-switchrow .ax-fail { flex: 1 1 100%; margin-top: 0; }
+
+/* A button whose change is on its way: held still with aria-disabled rather than disabled, so the keyboard keeps its place. */
+.btn[aria-disabled='true'] { opacity: 0.55; cursor: default; }

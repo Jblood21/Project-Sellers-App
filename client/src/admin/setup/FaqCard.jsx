@@ -82,14 +82,14 @@ export default function FaqCard({ community, settings, setSettings, reload }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Toggle on={on} onChange={flip} label="Show the FAQ to buyers" />
-        <span style={{ fontSize: 13 }}>
+        <span style={{ fontSize: 14 }}>
           <strong>{on ? 'Shown on the home screen' : 'Hidden'}</strong>
           <span className="text-muted">{busy ? ' · saving…' : ' · the section only appears once it has a question and an answer'}</span>
         </span>
       </div>
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
-      <p className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
+      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
         A new community starts with a set of starter questions; change them, reorder them or remove any you do not
         want. Up to {FAQ_MAX_ITEMS} questions. Answers are plain text; a line break stays a line break. The switch
         saves at once; the questions go live when you press <strong>Save settings</strong>.

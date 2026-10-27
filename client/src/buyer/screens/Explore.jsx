@@ -96,8 +96,7 @@ export default function Explore({ onOpenTour, onOpenLender }) {
                   <span style={{ fontWeight: 700, fontSize: 15 }}>{money(home.price)}</span>
                 </div>
                 <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>
-                  {homeMeta(home)} · {home.availability}
-                  {home.lotNumber ? ` · ${home.lotNumber}` : ''}
+                  {[homeMeta(home), home.availability, home.lotNumber].filter(Boolean).join(' · ')}
                 </span>
                 {home.photos.length > 1 ? (
                   <span style={{ fontSize: 11, color: 'var(--t-mut)' }}>{home.photos.length} photos</span>

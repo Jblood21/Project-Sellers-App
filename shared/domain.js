@@ -1,5 +1,6 @@
 import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE, fillTokens, isSafeEmail } from './compliance.js';
 import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
+import { SETTING_NUMBER_RULES, readNumber } from './numberInput.js';
 
 export {
   DEFAULT_FAQ, DEFAULT_FAQ_JSON, FAQ_ANSWER_MAX, FAQ_JSON_MAX, FAQ_MAX_ITEMS, FAQ_QUESTION_MAX, normalizeFaqJson,
@@ -711,8 +712,11 @@ export const DEFAULT_SETTINGS = {
   // ── the builder incentive card (shown when features.incentive is on) ───────
   // No amount or terms are assumed: those are the builder's to state, and an
   // incentive advertised with wrong terms is worse than none.
-  incentiveTitle: 'Preferred lender incentive',
-  incentiveBody: 'Buy a home at {community} with our preferred lender and ask what you could save.',
+  // The headline and the details start blank, and the card is not shown to buyers until both are written
+  // (incentiveWritten, below). They used to start as "Preferred lender incentive" and "...ask what you could save",
+  // which switching the card on published as if it were a claim the builder had made.
+  incentiveTitle: '',
+  incentiveBody: '',
   incentiveFinePrint: '',
   incentiveButton: 'Find out if you qualify',
   // Who the buyer reaches. A blank phone falls back to the lender's; a blank
@@ -751,8 +755,22 @@ export const DEFAULT_SETTINGS = {
  */
 export const REPLACED_DEFAULTS = {
   incentiveButton: ['Find out if I qualify'],
+  // The wording the incentive started with, now blank. A community that saved Setup while it was the default holds it
+  // as if it were its own; read back exactly, it is blank again, because nobody wrote it and a vague promise of
+  // savings is not one to leave in front of buyers.
+  incentiveTitle: ['Preferred lender incentive'],
+  incentiveBody: ['Buy a home at {community} with our preferred lender and ask what you could save.'],
   faqJson: PREVIOUS_DEFAULT_FAQ_JSONS,
 };
+
+/**
+ * Whether the builder has written the incentive: a headline AND the details. Switching the card on is not
+ * enough to show it, because a card with nothing of the builder's in it is a promise nobody made. Setup says
+ * "Not showing to buyers yet" while this is false, and the buyer app is served nothing of the incentive.
+ */
+export function incentiveWritten(settings) {
+  return Boolean(String(settings?.incentiveTitle ?? '').trim() && String(settings?.incentiveBody ?? '').trim());
+}
 
 /**
  * Appointment slots.
@@ -929,11 +947,24 @@ export function amountFor(payment, ratePct) {
   return (num(payment) * (1 - Math.pow(1 + r, -360))) / r;
 }
 
+/**
+ * A rate or cost for the payment maths. A saved value that is not a number in the range its box allows (an old
+ * "six and a half", which `num` would count as 0 and so give a 0% payment, or a stray "-3") is not used: the
+ * starting figure stands in until the builder types a real one. A box that may be blank (the HOA) reads blank as
+ * 0, which is what "none" means. The Setup page and the server now refuse such values, so this is only for what
+ * was saved before they did.
+ */
+function settingFrom(saved, key) {
+  const read = readNumber(saved, SETTING_NUMBER_RULES[key]);
+  if (read.error) return num(DEFAULT_SETTINGS[key]);
+  return read.value ?? 0;
+}
+
 export function ratesOf(settings) {
   return {
-    conv: num(settings.rateConv),
-    fha: num(settings.rateFha),
-    va: num(settings.rateVa),
+    conv: settingFrom(settings.rateConv, 'rateConv'),
+    fha: settingFrom(settings.rateFha, 'rateFha'),
+    va: settingFrom(settings.rateVa, 'rateVa'),
   };
 }
 
@@ -961,15 +992,15 @@ export function calcPayment({ price, program, downPct, settings }) {
   const loan = p - down;
   const rate = ratesOf(settings)[program] ?? 0;
   const pi = pay30(loan, rate);
-  const tax = (p * num(settings.taxPctYr)) / 100 / 12;
-  const insurance = num(settings.insuranceYr) / 12;
+  const tax = (p * settingFrom(settings.taxPctYr, 'taxPctYr')) / 100 / 12;
+  const insurance = settingFrom(settings.insuranceYr, 'insuranceYr') / 12;
   const mi =
     program === 'fha'
       ? (loan * fhaAnnualMip(loan, p)) / 12
       : program === 'conv' && num(downPct) < 20
         ? (loan * 0.005) / 12
         : 0;
-  const hoa = num(settings.hoaMo);
+  const hoa = settingFrom(settings.hoaMo, 'hoaMo');
   return {
     price: p, down, loan, rate, pi, tax, insurance, mi, hoa,
     total: pi + tax + insurance + mi + hoa,

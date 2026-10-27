@@ -36,7 +36,7 @@ for (const kind of backends()) {
       const set = await api(`/api/admin/communities/${cid}`, {
         method: 'PATCH',
         token,
-        body: { features: { incentive: true }, settings: { incentiveTitle: 'Up to $20,000', incentiveEmail: 'sales@mail.test' } },
+        body: { features: { incentive: true }, settings: { incentiveTitle: 'Up to $20,000', incentiveBody: 'Toward closing costs.', incentiveEmail: 'sales@mail.test' } },
       });
       assert.equal(set.status, 200, JSON.stringify(set.body));
     });

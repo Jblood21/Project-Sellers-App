@@ -129,7 +129,7 @@ export default function LearnTab({ community, reload }) {
     <div key={resource.id} className="card elev-sm" style={{ gap: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         <span className="card-title" style={{ fontSize: 16 }}>{resource.title}</span>
-        <span className="text-muted" style={{ flex: 'none', fontSize: 11.5 }}>
+        <span className="text-muted" style={{ flex: 'none', fontSize: 14 }}>
           {resource.kind === 'video' ? 'Video' : 'Article'}
         </span>
       </div>
@@ -137,7 +137,7 @@ export default function LearnTab({ community, reload }) {
         <p className="card-body" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{resource.body}</p>
       ) : null}
       {resource.kind === 'video' ? (
-        <span className="text-muted" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+        <span className="text-muted" style={{ fontSize: 14, wordBreak: 'break-all' }}>
           {resource.videoUrl
             ? `Uploaded file · ${megabytes(resource.sizeBytes)}`
             : resource.url}
@@ -146,7 +146,7 @@ export default function LearnTab({ community, reload }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
         <button
           type="button" className="btn btn-ghost" onClick={() => openEdit(resource)}
-          style={{ minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
+          style={{ minHeight: 44, padding: '0 14px', fontSize: 14 }}
         >
           Edit
         </button>
@@ -167,7 +167,7 @@ export default function LearnTab({ community, reload }) {
       <hr style={{ width: '100%', border: 0, borderTop: '1px solid var(--color-divider)', margin: '8px 0' }} />
 
       <h4 style={{ margin: 0, fontSize: 17 }}>Your own articles and videos</h4>
-      <p className="text-muted" style={{ fontSize: 13, lineHeight: 1.55, margin: 0 }}>
+      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.55, margin: 0 }}>
         Anything you want buyers to read or watch — how your build process works, what to
         expect at closing, a walkthrough. It shows <strong>below the tools</strong> in the
         buyer app, so it never gets in the way of the questions they came to answer.
@@ -184,12 +184,12 @@ export default function LearnTab({ community, reload }) {
             borderRadius: 10, background: 'var(--color-neutral-200)',
           }}
         >
-          <span style={{ flex: 1, fontSize: 12.5, lineHeight: 1.45 }}>
+          <span style={{ flex: 1, fontSize: 14, lineHeight: 1.45 }}>
             Buyers are not seeing this — <strong>Videos &amp; articles</strong> is switched off under Tools.
           </span>
           <button
             type="button" className="btn btn-secondary" onClick={show}
-            style={{ flex: 'none', minHeight: 44, padding: '0 14px', fontSize: 12.5 }}
+            style={{ flex: 'none', minHeight: 44, padding: '0 14px', fontSize: 14 }}
           >
             Show it
           </button>
@@ -197,14 +197,14 @@ export default function LearnTab({ community, reload }) {
       ) : null}
 
       {resources.length === 0 ? (
-        <p className="text-muted" style={{ fontSize: 13, lineHeight: 1.55, margin: 0 }}>
+        <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.55, margin: 0 }}>
           Nothing here yet.
         </p>
       ) : null}
 
       {articles.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span className="text-muted" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+          <span className="text-muted" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
             Articles
           </span>
           {articles.map(row)}
@@ -213,7 +213,7 @@ export default function LearnTab({ community, reload }) {
 
       {videos.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span className="text-muted" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+          <span className="text-muted" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
             Videos · {videos.length} of {MAX_VIDEOS}
           </span>
           {videos.map(row)}
@@ -274,10 +274,10 @@ export default function LearnTab({ community, reload }) {
                     justifyContent: 'center', gap: 4, color: 'var(--color-ink)',
                   }}
                 >
-                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>
                     {reading ? 'Reading…' : form.fileName || 'Choose a video from this device'}
                   </span>
-                  <span className="text-muted" style={{ fontSize: 11.5 }}>
+                  <span className="text-muted" style={{ fontSize: 14 }}>
                     {form.fileName ? 'Tap to pick a different one' : `MP4, WebM or MOV · up to ${megabytes(MAX_VIDEO_BYTES)}`}
                   </span>
                 </button>
@@ -298,7 +298,7 @@ export default function LearnTab({ community, reload }) {
                 </Field>
               ) : (
                 <>
-                  <span className="text-muted" style={{ fontSize: 12, textAlign: 'center' }}>
+                  <span className="text-muted" style={{ fontSize: 14, textAlign: 'center' }}>
                     — or, for anything longer —
                   </span>
                   <TextField

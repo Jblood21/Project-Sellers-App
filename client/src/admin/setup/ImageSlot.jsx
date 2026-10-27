@@ -94,7 +94,7 @@ export default function ImageSlot({
           )}
         </div>
         <div className="ax-slot-body">
-          <span style={{ fontSize: 13, fontWeight: 700 }}>{label}</span>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{label}</span>
           <span className="ax-status" role="status" aria-live="polite">{status}</span>
           <div className="ax-slot-actions">
             <button

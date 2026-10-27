@@ -34,7 +34,7 @@ export default function StatsTab({ community, leads: everyone }) {
         {cards.map((card) => (
           <div key={card.label} className="card elev-sm" style={{ gap: 2 }}>
             <span style={{ fontFamily: 'var(--font-heading)', fontSize: 30, fontWeight: 700, color: 'var(--color-accent-700)' }}>{card.value}</span>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>{card.label}</span>
+            <span className="text-muted" style={{ fontSize: 14 }}>{card.label}</span>
           </div>
         ))}
       </div>
@@ -54,7 +54,7 @@ export default function StatsTab({ community, leads: everyone }) {
           <span className="text-muted">{topToolEntry ? `${topToolEntry[1]} ${topToolEntry[1] === 1 ? 'person' : 'people'}` : '—'}</span>
         </div>
       </div>
-      <p className="text-muted" style={{ fontSize: 12.5, margin: 0 }}>People you have closed are not counted.</p>
+      <p className="text-muted" style={{ fontSize: 14, margin: 0 }}>People you have closed are not counted.</p>
       <div className="card">
         <PdfReportButton
           community={community}

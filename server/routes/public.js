@@ -1,12 +1,13 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, isSafeEmail,
+  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, incentiveWritten, isSafeEmail,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
   PLAN_LABELS, TOOL_KEYS,
 } from '../../shared/domain.js';
+import { RATE_RANGE } from '../../shared/numberInput.js';
 import { getStore } from '../db/index.js';
 import { issueLeadToken, requireLead } from '../lib/auth.js';
 import { clientKey, createLimiter, limitRequests, mailboxKey, reserve, tooMany } from '../lib/limits.js';
@@ -145,10 +146,12 @@ const publicGuideSummary = (guide) => ({
  * address call requests are emailed to, which is the builder's, not a buyer's.
  */
 const INCENTIVE_KEYS = Object.keys(DEFAULT_SETTINGS).filter((key) => key.startsWith('incentive'));
+/** The card is for buyers only when it is switched on AND the builder has written a headline and details. */
+const incentiveShown = (community) => Boolean(community.features.incentive) && incentiveWritten(community.settings);
 function publicSettings(community) {
   // The addresses the builder is mailed at, and when the last report went, are the builder's, not a buyer's.
   const { notifyEmail: _alerts, reportEmail: _report, reportLastSentAt: _sent, ...settings } = community.settings;
-  if (!community.features.incentive) for (const key of INCENTIVE_KEYS) delete settings[key];
+  if (!incentiveShown(community)) for (const key of INCENTIVE_KEYS) delete settings[key];
   if (!community.features.faq) settings.faqJson = '[]';
   return settings;
 }
@@ -177,7 +180,8 @@ const publicCommunity = (
   websiteUrl: community.websiteUrl,
   settings: publicSettings(community),
   tools: community.tools,
-  features: community.features,
+  // The incentive reads as off until it has been written, in every place the buyer app looks (see incentiveShown).
+  features: { ...community.features, incentive: incentiveShown(community) },
   heroPhoto: heroPhoto?.url ?? null,
   iconPhoto: iconPhoto?.url ?? null,
   siteMap: community.features.siteMap ? (siteMap?.url ?? null) : null,
@@ -543,7 +547,7 @@ export function publicRouter() {
     const lead = await store.getLead(req.leadId);
     if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
     const community = await store.getCommunity(lead.communityId);
-    if (!community || !community.features.incentive) {
+    if (!community || !incentiveShown(community)) {
       return res.status(404).json({ error: 'This isn’t available right now.' });
     }
     const recipient = incentiveRecipient(community.settings, { community });
@@ -822,7 +826,8 @@ export function ratesRouter() {
       const value = req.body?.[field] ?? req.body?.[key];
       if (value === undefined || value === null || value === '') continue;
       const parsed = Number.parseFloat(String(value).replace('%', ''));
-      if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 25) {
+      // The same range the Setup page holds a rate to, so the two doors into a community's rates agree.
+      if (!Number.isFinite(parsed) || parsed < RATE_RANGE.min || parsed > RATE_RANGE.max) {
         return res.status(400).json({ error: `Rate "${field}" is out of range` });
       }
       settings[key] = parsed.toFixed(2);

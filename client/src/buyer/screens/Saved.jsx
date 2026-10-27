@@ -31,7 +31,7 @@ export default function Saved() {
           >
             <span className="b-stack">
               <span className="b-head" style={{ fontSize: 16 }}>★ {home.name}</span>
-              <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>{homeMeta(home)}</span>
+              {homeMeta(home) ? <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>{homeMeta(home)}</span> : null}
             </span>
             <span style={{ fontWeight: 700, fontSize: 15 }}>{money(home.price)}</span>
           </button>

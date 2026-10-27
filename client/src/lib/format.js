@@ -2,9 +2,20 @@ import { money, num } from '@shared/domain.js';
 
 export { money, num };
 
+/**
+ * "3 bd · 2 ba · 1,850 sq ft", leaving out whichever of the three the builder did not give. A blank box is stored
+ * as 0, meaning "not given" rather than none, and printing it would put "0 bd" or "0 sq ft" in front of a buyer
+ * for a plan that simply has not been measured yet. Empty when none were given.
+ */
 export function homeMeta(home) {
-  const sqft = Number(home.sqft || 0).toLocaleString('en-US');
-  return `${home.beds} bd · ${home.baths} ba · ${sqft} sq ft`;
+  const beds = Number(home.beds) || 0;
+  const baths = Number(home.baths) || 0;
+  const sqft = Number(home.sqft) || 0;
+  return [
+    beds > 0 ? `${beds} bd` : '',
+    baths > 0 ? `${baths} ba` : '',
+    sqft > 0 ? `${sqft.toLocaleString('en-US')} sq ft` : '',
+  ].filter(Boolean).join(' · ');
 }
 
 export function shortDate(value) {

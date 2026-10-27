@@ -6,6 +6,7 @@ import Branches from './screens/Branches.jsx';
 import CommunityDetail from './screens/CommunityDetail.jsx';
 import ForgotPassword from './screens/ForgotPassword.jsx';
 import Login from './screens/Login.jsx';
+import AuthCard from './screens/AuthCard.jsx';
 import ResetPassword from './screens/ResetPassword.jsx';
 import Team from './screens/Team.jsx';
 import Today from './screens/Today.jsx';
@@ -30,10 +31,34 @@ function OwnerOnly({ children }) {
   return children;
 }
 
-function AdminRoutes() {
-  const { token, checking } = useAdmin();
+/**
+ * What shows while the app asks the server who is signed in. When the server cannot be reached (no signal, a restart
+ * during an update) the person is not signed out and the sign-in form does not appear: this says so and offers Retry,
+ * and the app also asks again by itself when the browser comes back online and on a short backoff.
+ */
+function SessionCheck() {
+  const { checking, unreachable, retryCheck } = useAdmin();
+  if (!unreachable) return <div className="a-shell"><Spinner label="Checking your sign-in…" /></div>;
+  return (
+    <AuthCard
+      title="Can't reach the site."
+      blurb="You are still signed in. This page tries again by itself when your signal is back."
+      focusTitle
+    >
+      <button
+        type="button" className="btn btn-primary btn-block" onClick={() => !checking && retryCheck()}
+        aria-disabled={checking || undefined} style={{ minHeight: 46 }}
+      >
+        {checking ? 'Trying…' : 'Retry'}
+      </button>
+    </AuthCard>
+  );
+}
 
-  if (checking) return <div className="a-shell"><Spinner /></div>;
+function AdminRoutes() {
+  const { token, checking, unreachable } = useAdmin();
+
+  if (checking || unreachable) return <SessionCheck />;
   // The reset link from the email has to work whoever is signed in on this browser (the owner may well
   // be, on a phone whose session has not ended yet), so it and the form that asks for a new one are
   // routed on both sides of the sign-in.

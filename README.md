@@ -258,7 +258,8 @@ x-webhook-secret: <RATES_WEBHOOK_SECRET>
 { "conv": "7.40", "fha": "7.02", "va": "7.04" }
 ```
 
-Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**.
+Send any subset of the three. Admins can also edit rates by hand under **Setup → Live rates**. The webhook holds a rate to the
+same 0.5 to 20 range as that box (see [What the admin will not save](#what-the-admin-will-not-save)).
 
 ## Photos
 
@@ -383,6 +384,22 @@ Inside a community every section has its own address, `/admin/communities/<id>/<
 Stats, and **More** opens Area, Learn, Tools, Setup, the buyer app, the QR code and flyer, Edit community,
 Switch community, Today and Sign out. The Leads badge counts people who are unread or waiting for a call. Older
 links of the form `/admin/communities/<id>?tab=setup` still land on the right section.
+
+**A weak signal never signs anyone out, and a change says whether it saved.** Only the server answering 401 to the
+sign-in check (the password changed, access was removed, two weeks passed) puts a device back on the sign-in form. When
+the check cannot get an answer (no signal, a 5xx during an update, a hotel Wi-Fi page in the way, or nothing for 20
+seconds) the token is kept and the page says **Can't reach the site** with a **Retry** button; it asks again by itself
+when the browser comes back online and then after 2, 4, 8 and 15 seconds and every 30 after that
+(`client/src/admin/AdminContext.jsx`). A button that sends a change (Mark handled, Mark contacted, Archive, Save notes)
+reads **Saving…** and cannot be tapped twice. A switch on Tools moves at once and goes back if the change did not save.
+A failure with no answer, or a 5xx, reads **Not saved. Check your connection.** with a **Retry** button; a refusal (a 400
+or 403) keeps the server's own sentence and has no Retry, since sending it again would only be refused again. A page that
+could not load (Today, a community, a person) shows the reason with Retry. The pieces are `useSaving`, `SaveNote` and
+`LoadError` in `client/src/admin/ui.jsx` and `isConnectionError` in `client/src/lib/api.js`. Tools' switches ask for the
+community again without its leads, which a switch cannot change and which is most of that answer. Body and secondary
+text in the admin is 14 px or more; the small capital labels, tags, field help, chips and the bottom bar's words are 13
+px and the number in a badge 12. The chips that say when somebody wants the call (and the do-not-call chip) are 14 px,
+and the time of a call and a phone number are 15.
 
 The admin has one look for every community, **Alpine Clear** (the `:root` palette at the top of
 `client/src/styles/base.css`): Outfit for headings and figures, Figtree for the rest, a deep teal side menu, deep teal
@@ -696,10 +713,62 @@ Setup is a long page, so the sections that are mostly read and seldom changed ar
 them: the **FAQ**, the **Statements printed in the footer** (inside Lender & compliance), **Live rates**,
 **Monthly cost assumptions** and **Down payment assistance rules**. A folded section still shows its name, a
 one-line summary of what is in it (for example *Conv 7.40% · FHA 7.02% · VA 7.04% · updated Oct 19, 2026*), an
-**Unsaved changes** mark if you have edited it, and, for Live rates, the **Check rate inbox** button. Opening one
+**Unsaved changes** mark if you have edited it, and, for Live rates, the **Check rate inbox** button (**Check for new
+rates** for a member, who is told *Automatic rate updates are not set up. Type the rates below, or ask the account owner.*
+where the owner is told which secret to set and where Zapier posts). Opening one
 does not change anything; what you type stays on the form when you fold it, and the page's **Save settings**
 button saves every section whether it is open or not. Choosing an item in *Needs your attention before launch*
 opens the section it is in. Sections start folded each time the page is opened.
+
+## What the admin will not save
+
+Three things went live to buyers with nothing checked, and the admin now refuses them in words, under the box, with the
+same rules on the server (a request that skips the form gets the same plain 400 sentence). The rules for reading a typed
+number are one module, `shared/numberInput.js`, used by the admin's boxes and by the routes.
+
+- **A home needs a name and a price.** The price takes `475000`, `475,000`, `$475,000`, `475k` and `1.2m`, and is shown
+  as *Buyers will see $475,000* while it is typed. Letters, a minus sign, and anything under $10,000 (a typed `475` is
+  the lost *k* of `475k`) or over $100 million are refused, and the box stays open. Beds, baths and square feet are
+  **optional**: a blank one is saved as 0, which means *not given*, and the buyer app leaves it out (the home cards in
+  Marketplace, Red Rock and Showcase, the home page, Explore, Saved) rather than printing "0 bd" or a made-up
+  3 bd, 2 ba, 2,000 sq ft, which is what an empty box used to become. The description is no longer filled with a stand-in
+  line either. (The choice was between requiring the three and allowing them blank: blank was the smaller change, since
+  every buyer screen already treated 0 as unknown for square feet and the price, and a member who does not know a plan's
+  square footage should not have to invent it.) A home stored before these rules is left as it is: an edit judges only
+  the figures it changes, so a home saved at $475 can still have its availability changed (the form sends back only the
+  boxes that were touched, and the server skips a figure equal to the stored one).
+- **Rates and costs must be numbers in a range that fits what they are.** A stray `%`, `$` or comma is dropped
+  (`7.5%` is saved as `7.5`); words, a minus sign and anything out of range are refused with the reason.
+
+  | Box | Allowed |
+  |---|---|
+  | Conventional, FHA, VA rate | 0.5 to 20 (%), required |
+  | Property tax | 0 to 5 (% of the price a year), required |
+  | Insurance | $0 to $50,000 a year, required |
+  | HOA | $0 to $5,000 a month, or blank for none |
+  | Income limit | $10,000 to $1,000,000, or blank |
+  | Minimum credit score | 300 to 850, or blank |
+  | Price cap | $10,000 to $100 million, or blank for no cap |
+  | Assistance amount | $0 to $1,000,000, or blank |
+  | Assistance % of loan | 0 to 50, or blank |
+  | Credit cutoffs | 300 to 850 each, and Excellent above Good above Fair |
+
+  A figure the person did not touch is never checked, so an old saved value can never make an unrelated save fail. And
+  a saved rate, tax, insurance or HOA that is not a number (an old *six and a half*, which the payment maths would count
+  as 0%) is not used: the starting figure stands in until a real one is typed (`settingFrom` in `shared/domain.js`),
+  and a blank HOA still means none.
+- **Nothing unfinished goes live.** A new guide is a draft, the builder incentive is hidden until it is written (see
+  above), and a home cannot be added without its price.
+
+Taking a photo or a floor plan off a home has a way back. The picture leaves the strip at once and a note says
+*Photo removed. Undo* for 6 seconds; the delete request is only **sent** when the 6 seconds are up, so Undo is simply
+not sending it and nothing can be lost to a slow connection. Leaving the Homes page sends it at once, and closing or
+leaving the site sends it with `keepalive` (the `pagehide` event), so what was seen to be removed is removed. A browser
+drops a `keepalive` request from a page a service worker controls, which is every visit after the first, so
+`client/public/sw.js` sends any `keepalive` request to `/api/` itself, and the page messages the worker when a removal
+starts so an idle one is awake for the 6 seconds. If the browser is killed in the background before any of these, the
+picture is still there afterwards: the safe way to be wrong.
+The delete and move buttons are 44 px and sit under the picture, with space between them, not on it.
 
 ## Layouts
 
@@ -958,7 +1027,11 @@ Under **Setup → Home screen**:
   (`homeGreeting` in `shared/domain.js`), and a preview shows how it reads. It goes live with Save settings.
 - **Builder incentive.** A switch and the words (headline, details, terms, button label) for an incentive card
   shown **above Explore Homes**. Nothing is filled in for you: the amount and terms are the builder's to state, and
-  they are typed in Setup, so write dollar amounts in full with the dollar sign (`$20,000`).
+  they are typed in Setup, so write dollar amounts in full with the dollar sign (`$20,000`). The headline and the
+  details start **blank**, and the card is not shown to buyers until both are written and saved: until then Setup says
+  *Not showing to buyers yet: write a headline and details*, and the buyer app is served the incentive as off, with
+  none of its words (the two old starter sentences, *Preferred lender incentive* and *ask what you could save*, read
+  back as blank wherever a community saved them unchanged).
   *Find out if you qualify* opens a sheet with **Call** and **Text** on a phone and a **message form**: the buyer's
   name and email are filled in, the message is editable, and Touradoor sends it to the incentive email (else the loan team
   email) with the buyer as the reply-to, so it works without a mail program. It needs `RESEND_API_KEY` and `EMAIL_FROM`; without
@@ -1032,7 +1105,10 @@ a shared link can reach them; the header on those pages offers **Sign in** inste
 
 Each community gets its own copy, edited under **Learn → Buyer guides**: title, category, byline,
 note, summary, address (slug), a markdown body with a live preview, and a
-Published switch. Guides have **no pictures**: buyers see words only. **Add a guide** writes a new one. Deleting a guide deletes it for good: the supplied
+Published switch. Guides have **no pictures**: buyers see words only. **Add a guide** writes a new one, as a **draft**
+that buyers cannot see until its Published switch is on (the server refuses to publish a draft with no text, whether the
+request comes from the editor or from the switch on the list; a guide that is already live is not affected); the supplied
+thirteen stay live, and a community with any draft is shown *Check your guides before launch*. Deleting a guide deletes it for good: the supplied
 set is copied into a community **once**, so a deleted guide does not come back on restart. **Restore the
 supplied guides** brings back any that are missing, matched by where they came from, and never touches
 one you have edited. Markdown is rendered to elements, never to raw HTML, and a link or image
@@ -1070,6 +1146,7 @@ buyer: a buyer's token is no longer accepted by any admin route.
 ```
 shared/domain.js     tokens, tool definitions, and every calculator (single source of truth)
 shared/compliance.js the lender block, the disclosure wording and what is still missing (footer, email, JSON-LD)
+shared/numberInput.js how a typed number is read (475k, 7.5%, a range per box), for the admin's boxes and the routes behind them
 shared/moveInPrint.js the whole move-in plan as the printed page and the plan email show it
 shared/markdown.js   the guides' markdown parser (no raw HTML, safe links only)
 shared/schema.js     schema.org JSON-LD and page meta, used by the server and the browser
@@ -1094,6 +1171,7 @@ client/src/
                      both the buyer-tool and display-feature switches
   admin/shell/       the frame: side menu, phone top and bottom bars, the section list (sections.js)
   admin/setup/       the Setup cards: layout, development logo, lender & compliance, realtors, builder incentive, FAQ
+  admin/homes/       taking a home's photo or plan off, with Undo (removals.jsx)
   admin/learn/       the buyer-guide list and editor
   lib/               API client, formatting, photo reading and sizing, storage
 ```

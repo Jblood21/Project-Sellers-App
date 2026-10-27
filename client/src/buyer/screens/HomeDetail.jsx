@@ -83,8 +83,7 @@ export default function HomeDetail({ onOpenLender }) {
         <span style={{ fontWeight: 700, fontSize: 19 }}>{money(home.price)}</span>
       </div>
       <span className="b-hd__meta" style={{ fontSize: 13, color: 'var(--t-mut)' }}>
-        {homeMeta(home)} · {home.availability}
-        {home.lotNumber ? ` · ${home.lotNumber}` : ''}
+        {[homeMeta(home), home.availability, home.lotNumber].filter(Boolean).join(' · ')}
       </span>
       {/*
         Its own line rather than another item in the grey run above: how many
@@ -109,7 +108,10 @@ export default function HomeDetail({ onOpenLender }) {
           </span>
         </div>
       ) : null}
-      <p className="b-hd__desc" style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
+      {/* A home added without a description has none to show: no stand-in line is written for it. */}
+      {home.description ? (
+        <p className="b-hd__desc" style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
+      ) : null}
 
       {/*
         Under the description: a buyer scanning photos is not yet deciding to stop and watch. A button, not an

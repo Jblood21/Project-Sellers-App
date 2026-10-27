@@ -49,12 +49,12 @@ export default function Flyer({ community }) {
             />
           ) : null}
         </div>
-        <span style={{ fontSize: 13, wordBreak: 'break-all' }}>{buyerUrl(community)}</span>
+        <span style={{ fontSize: 14, wordBreak: 'break-all' }}>{buyerUrl(community)}</span>
         <p className="text-muted" style={{ fontSize: 14, maxWidth: 420, lineHeight: 1.6, margin: '8px 0 0' }}>
           Scan to explore every home, see what it would cost you and build your own home plan.
         </p>
       </div>
-      <p className="text-muted no-print" style={{ fontSize: 12.5, textAlign: 'center', marginTop: 14 }}>
+      <p className="text-muted no-print" style={{ fontSize: 14, textAlign: 'center', marginTop: 14 }}>
         Print-ready — post it on the development sign or sales trailer.
       </p>
     </div>

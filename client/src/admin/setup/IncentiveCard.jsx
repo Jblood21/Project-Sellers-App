@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { DEFAULT_SETTINGS, complianceOf, fillTokens, settingMaxLength } from '@shared/domain.js';
+import { DEFAULT_SETTINGS, complianceOf, fillTokens, incentiveWritten, settingMaxLength } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { ErrorNote, TextAreaField, TextField, Toggle } from '../ui.jsx';
@@ -15,6 +15,9 @@ const grouped = (n) => n.toLocaleString('en-US');
  * The switch saves the moment it is flipped, like the logo and layout cards; the
  * words go live together with the rest of the page's Save settings button, so
  * a half-written headline never reaches a buyer.
+ *
+ * Switching it on shows buyers nothing until a headline and the details have been written
+ * and saved: nothing is filled in for them, and the card says so while that is true.
  */
 export default function IncentiveCard({ community, settings, setSettings, reload }) {
   const { token } = useAdmin();
@@ -22,6 +25,8 @@ export default function IncentiveCard({ community, settings, setSettings, reload
   const [busy, setBusy] = useState(false);
   const on = Boolean(community.features?.incentive);
   const saved = community.settings;
+  // What buyers get is decided by what is SAVED, so this line follows the saved words, not the ones being typed.
+  const empty = on && !incentiveWritten(saved);
   const unsaved = KEYS.some((key) => (settings[key] ?? '') !== (saved[key] ?? ''));
 
   const flip = async (next) => {
@@ -80,14 +85,21 @@ export default function IncentiveCard({ community, settings, setSettings, reload
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Toggle on={on} onChange={flip} label="Show the builder incentive to buyers" />
-        <span style={{ fontSize: 13 }}>
-          <strong>{on ? 'Shown above Explore Homes' : 'Not shown'}</strong>
-          <span className="text-muted">{busy ? ' · saving…' : on ? ' · buyers see it on their home screen' : ' · turn on to show it'}</span>
+        <span style={{ fontSize: 14 }}>
+          <strong>{on ? (empty ? 'Switched on, not showing yet' : 'Shown above Explore Homes') : 'Not shown'}</strong>
+          <span className="text-muted">
+            {busy ? ' · saving…' : on ? (empty ? '' : ' · buyers see it on their home screen') : ' · turn on to show it'}
+          </span>
         </span>
       </div>
       {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {empty ? (
+        <p className="ax-callout" role="status" style={{ margin: 0, fontSize: 14, lineHeight: 1.45 }}>
+          <span><strong>Not showing to buyers yet:</strong> write a headline and details below, then press Save settings.</span>
+        </p>
+      ) : null}
 
-      <p className="text-muted" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>
+      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
         Write exactly what the incentive is and its terms: nothing is filled in for you, because an
         incentive advertised with the wrong terms is worse than none. Use {'{community}'} for the
         development name. The switch saves at once; the words go live when you press{' '}

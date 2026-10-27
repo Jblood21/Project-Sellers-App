@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
@@ -11,7 +11,7 @@ import { adminApi } from '../../lib/api.js';
 import { emailHref, textHref } from '../../lib/contact.js';
 import { money, shortDate } from '../../lib/format.js';
 import { useAdmin } from '../AdminContext.jsx';
-import { ErrorNote, Spinner } from '../ui.jsx';
+import { ErrorNote, LoadError, SaveNote, Spinner, useSaving } from '../ui.jsx';
 
 /**
  * One person. `embedded` is the panel beside the Leads list on a computer: no page frame of its own, and a
@@ -28,7 +28,17 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
   const [lead, setLead] = useState(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  // The error the person's load ended in, kept whole so a bad signal gets a Retry and a refusal does not.
+  const [loadError, setLoadError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [notesSaved, setNotesSaved] = useState(false);
+  // One saver for each change that goes to the server by a button, so each says "Saving…" on its own button and,
+  // when it fails, says so under that button with Retry.
+  const handledSaver = useSaving();
+  const statusSaver = useSaving();
+  const archiveSaver = useSaving();
+  const notesSaver = useSaving();
   const [downloading, setDownloading] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
@@ -60,16 +70,24 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
   };
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     adminApi
       .lead(token, leadId)
       .then((data) => {
+        if (cancelled) return;
+        setLoadError(null);
         setLead(data);
         setNotes(data.notes);
         // Reading a person is what marks them read; the list was loaded before that happened.
         if (data.openedAt) onOpened?.(data);
       })
-      .catch((err) => setError(err.message));
-  }, [leadId, token]);
+      .catch((err) => !cancelled && setLoadError(err))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId, token, attempt]);
 
   // Typed notes are not saved until the button is pressed. Say so before they are lost: leaving the page asks (the
   // browser does, here) and CommunityDetail asks before a click on another person or a section.
@@ -88,7 +106,15 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
     if (dirtyRef) dirtyRef.current = false;
   }, [dirtyRef]);
 
-  if (error && !lead) return <div className={frame}><ErrorNote>{error}</ErrorNote></div>;
+  if (loadError && !lead) {
+    return (
+      <div className={frame}>
+        <LoadError error={loadError} onRetry={() => setAttempt((n) => n + 1)} retrying={loading}>
+          <Link className="btn btn-secondary" to={`/admin/communities/${community.id}/leads`}>Back to the list</Link>
+        </LoadError>
+      </div>
+    );
+  }
   if (!lead) return <div className={frame}><Spinner /></div>;
 
   const canReach = Boolean(lead.phone && lead.consent?.granted);
@@ -103,30 +129,44 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
    * from. That list is loaded once by CommunityDetail, so without this you mark
    * somebody contacted, go back, and they still look untouched — the save
    * worked, the list was just showing a snapshot.
+   *
+   * The person is not shown as changed until the server has said so: on a call, a button that claims "handled"
+   * when it was not saved is worse than one that says "Saving…" for a moment. Refreshing the list comes after the
+   * save and is not part of it, so a signal that drops between the two does not make a saved change read as not
+   * saved (and invite a second tap on a button that would then undo it).
    */
   const apply = async (patch) => {
     setLead(await adminApi.updateLead(token, lead.id, patch));
-    await reload?.();
+    try {
+      await reload?.();
+    } catch {
+      // The change is saved; the list catches up the next time it is read.
+    }
   };
 
-  const toggleTourHandled = () => apply({ tourHandled: !lead.tour?.handledAt });
+  const toggleTourHandled = () => handledSaver.run(() => apply({ tourHandled: !lead.tour?.handledAt }));
 
-  const toggleStatus = () => apply({ status: lead.status === 'new' ? 'contacted' : 'new' });
+  const toggleStatus = () => statusSaver.run(() => apply({ status: lead.status === 'new' ? 'contacted' : 'new' }));
 
-  const toggleArchived = async () => {
+  const toggleArchived = () => {
+    if (archiveSaver.saving) return;
     if (!lead.archivedAt && !window.confirm(`Archive ${lead.name}? They leave your active list but nothing is deleted.`)) return;
-    await apply({ archived: !lead.archivedAt });
+    archiveSaver.run(() => apply({ archived: !lead.archivedAt }));
   };
 
   const saveNotes = async () => {
     setError('');
-    try {
+    const saved = await notesSaver.run(async () => {
       setLead(await adminApi.updateLead(token, lead.id, { notes }));
-      await reload?.();
+      try {
+        await reload?.();
+      } catch {
+        // Saved; see apply.
+      }
+    });
+    if (saved) {
       setNotesSaved(true);
       window.setTimeout(() => setNotesSaved(false), 1800);
-    } catch (err) {
-      setError(err.message);
     }
   };
 
@@ -141,7 +181,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: 21 }}>{lead.name}</h3>
-          <span className="text-muted" style={{ fontSize: 12 }}>
+          <span className="text-muted" style={{ fontSize: 14 }}>
             First visit {shortDate(lead.firstVisitAt)} · {toolsUsed.length} {toolsUsed.length === 1 ? 'tool' : 'tools'} used
           </span>
         </div>
@@ -164,19 +204,21 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
           </span>
           <span style={{ fontWeight: 600 }}>{describeTour(lead.tour, lenderNameOf(community))}</span>
           {lead.tour.requestedAt ? (
-            <span className="text-muted" style={{ fontSize: 12 }}>Asked {shortDate(lead.tour.requestedAt)}</span>
+            <span className="text-muted" style={{ fontSize: 14 }}>Asked {shortDate(lead.tour.requestedAt)}</span>
           ) : null}
           {lead.tour.handledAt ? (
-            <span className="text-muted" style={{ fontSize: 12 }}>Handled {shortDate(lead.tour.handledAt)}</span>
+            <span className="text-muted" style={{ fontSize: 14 }}>Handled {shortDate(lead.tour.handledAt)}</span>
           ) : null}
           <button
             type="button"
             className={isTourPending(lead) ? 'btn btn-primary' : 'btn btn-ghost'}
             onClick={toggleTourHandled}
+            aria-disabled={handledSaver.saving || undefined}
             style={{ alignSelf: 'flex-start', marginTop: 4 }}
           >
-            {isTourPending(lead) ? 'Mark handled' : 'Reopen request'}
+            {handledSaver.saving ? 'Saving…' : isTourPending(lead) ? 'Mark handled' : 'Reopen request'}
           </button>
+          <SaveNote saver={handledSaver} />
         </div>
       ) : null}
 
@@ -186,13 +228,17 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
           style={{ gap: 6, marginBottom: 12, borderColor: 'var(--color-divider)' }}
         >
           <span className="card-kicker">Archived</span>
-          <span className="text-muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
             Filed away {shortDate(lead.archivedAt)}. They are out of your active list and no longer
             counted as waiting for a call. Nothing has been deleted.
           </span>
-          <button type="button" className="btn btn-primary" onClick={toggleArchived} style={{ alignSelf: 'flex-start' }}>
-            Bring back to active
+          <button
+            type="button" className="btn btn-primary" onClick={toggleArchived}
+            aria-disabled={archiveSaver.saving || undefined} style={{ alignSelf: 'flex-start' }}
+          >
+            {archiveSaver.saving ? 'Saving…' : 'Bring back to active'}
           </button>
+          <SaveNote saver={archiveSaver} />
         </div>
       ) : null}
 
@@ -201,17 +247,17 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         <div style={{ fontSize: 14 }}>{lead.email}</div>
         {(lead.extraEmails ?? []).map((address) => (
           <div key={address} style={{ fontSize: 14 }}>
-            {address} <span className="text-muted" style={{ fontSize: 12.5 }}>· second email they added</span>
+            {address} <span className="text-muted" style={{ fontSize: 14 }}>· second email they added</span>
           </div>
         ))}
         {lead.phone ? (
           <div style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span>{lead.phone}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{lead.phone}</span>
             {/* Beside the number, where the eye goes before the dial; the box below says why. */}
             {canReach ? null : <span className="as-chip as-chip--stop">Do not call · {lead.consent ? 'declined' : 'never asked'}</span>}
           </div>
         ) : (
-          <div className="text-muted" style={{ fontSize: 13 }}>No cell number yet. They signed up with just an email.</div>
+          <div className="text-muted" style={{ fontSize: 14 }}>No cell number yet. They signed up with just an email.</div>
         )}
         <ConsentNote consent={lead.consent} hasPhone={Boolean(lead.phone)} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
@@ -223,16 +269,20 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
           {(lead.extraEmails ?? []).filter((address) => emailHref(address)).map((address) => (
             <a key={address} className="btn btn-secondary" href={emailHref(address)}>Email 2nd address</a>
           ))}
-          <button type="button" className="btn btn-ghost" onClick={toggleStatus}>
-            {lead.status === 'new' ? 'Mark contacted' : 'Mark not contacted'}
+          <button
+            type="button" className="btn btn-ghost" onClick={toggleStatus}
+            aria-disabled={statusSaver.saving || undefined}
+          >
+            {statusSaver.saving ? 'Saving…' : lead.status === 'new' ? 'Mark contacted' : 'Mark not contacted'}
           </button>
         </div>
+        <SaveNote saver={statusSaver} />
       </div>
 
       <div className="card" style={{ gap: 8, marginBottom: 12 }}>
         <span className="card-kicker">Homes they like</span>
         {savedHomes.length === 0 ? (
-          <span className="text-muted" style={{ fontSize: 13 }}>No homes saved yet.</span>
+          <span className="text-muted" style={{ fontSize: 14 }}>No homes saved yet.</span>
         ) : null}
         {savedHomes.map((home) => (
           <div key={home.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 14 }}>
@@ -245,12 +295,12 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
       <div className="card" style={{ gap: 10, marginBottom: 12 }}>
         <span className="card-kicker">Tools they used</span>
         {toolsUsed.length === 0 ? (
-          <span className="text-muted" style={{ fontSize: 13 }}>Hasn&apos;t used any tools yet.</span>
+          <span className="text-muted" style={{ fontSize: 14 }}>Hasn&apos;t used any tools yet.</span>
         ) : null}
         {toolsUsed.map((item) => (
           <div key={item.key}>
-            <div style={{ fontSize: 13.5, fontWeight: 700 }}>{PLAN_LABELS[item.key]}</div>
-            <div className="text-muted" style={{ fontSize: 13 }}>{item.summary || 'Used. Nothing saved.'}</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{PLAN_LABELS[item.key]}</div>
+            <div className="text-muted" style={{ fontSize: 14 }}>{item.summary || 'Used. Nothing saved.'}</div>
           </div>
         ))}
       </div>
@@ -260,15 +310,15 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
       <div className="card" style={{ gap: 8, marginBottom: 12 }}>
         <span className="card-kicker">Activity log</span>
         {lead.activity.length === 0 ? (
-          <span className="text-muted" style={{ fontSize: 13 }}>No activity yet.</span>
+          <span className="text-muted" style={{ fontSize: 14 }}>No activity yet.</span>
         ) : null}
         {lead.activity.slice(0, 10).map((entry, index) => (
-          <div key={`${entry.createdAt}-${index}`} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 13 }}>
+          <div key={`${entry.createdAt}-${index}`} style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 14 }}>
             <span
               style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent)', flex: 'none' }}
             />
             <span style={{ flex: 1 }}>{entry.text}</span>
-            <span className="text-muted" style={{ fontSize: 11.5, flex: 'none' }}>{shortDate(entry.createdAt)}</span>
+            <span className="text-muted" style={{ fontSize: 14, flex: 'none' }}>{shortDate(entry.createdAt)}</span>
           </div>
         ))}
       </div>
@@ -282,10 +332,12 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         <ErrorNote>{error}</ErrorNote>
         <button
           type="button" className="btn btn-secondary" onClick={saveNotes}
-          disabled={notes === lead.notes} style={{ alignSelf: 'flex-start' }}
+          disabled={notes === lead.notes} aria-disabled={notesSaver.saving || undefined}
+          style={{ alignSelf: 'flex-start' }}
         >
-          {notesSaved ? 'Saved ✓' : 'Save notes'}
+          {notesSaver.saving ? 'Saving…' : notesSaved ? 'Saved ✓' : 'Save notes'}
         </button>
+        <SaveNote saver={notesSaver} />
       </div>
       <div className="card elev-sm" style={{ gap: 8 }}>
         <span className="card-kicker">Report for this person</span>
@@ -302,7 +354,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         <span role="status" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
           {pdfSaved ? `Download started: ${pdfSaved}` : ''}
         </span>
-        {pdfSaved ? <p style={{ fontSize: 12.5, fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>Download started: {pdfSaved}</p> : null}
+        {pdfSaved ? <p style={{ fontSize: 14, fontWeight: 600, margin: 0, overflowWrap: 'anywhere' }}>Download started: {pdfSaved}</p> : null}
         <ErrorNote>{pdfError}</ErrorNote>
       </div>
       <div className="card elev-sm" style={{ gap: 8 }}>
@@ -321,14 +373,18 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
       </div>
 
     {!lead.archivedAt ? (
-        <button
-          type="button"
-          className="btn btn-ghost btn-block"
-          onClick={toggleArchived}
-          style={{ marginTop: 4, color: 'var(--color-neutral-700)', borderColor: 'var(--color-neutral-400)' }}
-        >
-          Archive this lead
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn btn-ghost btn-block"
+            onClick={toggleArchived}
+            aria-disabled={archiveSaver.saving || undefined}
+            style={{ marginTop: 4, color: 'var(--color-neutral-700)', borderColor: 'var(--color-neutral-400)' }}
+          >
+            {archiveSaver.saving ? 'Saving…' : 'Archive this lead'}
+          </button>
+          <SaveNote saver={archiveSaver} />
+        </>
       ) : null}
     </div>
   );
@@ -360,28 +416,28 @@ function MoveInCard({ lead, homes }) {
         </div>
       ) : null}
       {timeline.keys && !timeline.feasible ? (
-        <div style={{ fontSize: 13, fontWeight: 700 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>
           That is earlier than this home can close — earliest is {formatSlotDate(timeline.earliest)}.
         </div>
       ) : null}
       {overlap && overlap.kind !== 'same' ? (
-        <div className="text-muted" style={{ fontSize: 13 }}>
+        <div className="text-muted" style={{ fontSize: 14 }}>
           Lease ends {formatSlotDate(plan.leaseEnd)} — {Math.abs(overlap.days)} days{' '}
           {overlap.kind === 'overlap' ? 'of overlap' : 'short'}.
         </div>
       ) : null}
       {drivers.length ? (
-        <div className="text-muted" style={{ fontSize: 13 }}>
+        <div className="text-muted" style={{ fontSize: 14 }}>
           Driving it: {drivers.map((d) => d.label).join(', ')}
         </div>
       ) : null}
       {plan.ownSteps?.length ? (
-        <div className="text-muted" style={{ fontSize: 13 }}>
+        <div className="text-muted" style={{ fontSize: 14 }}>
           Added themselves: {plan.ownSteps.map((s) => s.label).join(', ')}
         </div>
       ) : null}
       {timeline.items.length ? (
-        <div className="text-muted" style={{ fontSize: 13 }}>
+        <div className="text-muted" style={{ fontSize: 14 }}>
           {done} of {timeline.items.length} steps ticked off.
         </div>
       ) : null}
@@ -406,7 +462,7 @@ function ConsentNote({ consent, hasPhone = true }) {
   // No number, so no calls or texts to agree to. Not the same as a "no": nobody was asked.
   if (!hasPhone && !consent) {
     return (
-      <div style={{ padding: '9px 11px', borderRadius: 8, background: 'var(--color-neutral-200)', color: 'var(--color-neutral-700)', fontSize: 12.5, lineHeight: 1.45 }}>
+      <div style={{ padding: '9px 11px', borderRadius: 8, background: 'var(--color-neutral-200)', color: 'var(--color-neutral-700)', fontSize: 14, lineHeight: 1.45 }}>
         Nobody has asked about calls and texts yet, because there is no number. They are asked when they give one to book a time.
       </div>
     );
@@ -417,7 +473,7 @@ function ConsentNote({ consent, hasPhone = true }) {
       <div
         style={{
           padding: '9px 11px', borderRadius: 8, background: '#fdecea', color: '#8a1c11',
-          fontSize: 12.5, lineHeight: 1.45,
+          fontSize: 14, lineHeight: 1.45,
         }}
       >
         <strong>Do not call or text.</strong>{' '}
@@ -433,7 +489,7 @@ function ConsentNote({ consent, hasPhone = true }) {
     <div
       style={{
         padding: '9px 11px', borderRadius: 8, background: '#e9f7ef', color: '#1b5e37',
-        fontSize: 12.5, lineHeight: 1.45,
+        fontSize: 14, lineHeight: 1.45,
       }}
     >
       <strong>Agreed to calls and texts</strong> on {stamp}.{' '}
@@ -448,7 +504,7 @@ function ConsentNote({ consent, hasPhone = true }) {
         {open ? 'Hide' : 'Show'} what they agreed to
       </button>
       {open ? (
-        <p style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.5, fontStyle: 'italic' }}>
+        <p style={{ margin: '8px 0 0', fontSize: 14, lineHeight: 1.5, fontStyle: 'italic' }}>
           &ldquo;{consent.text}&rdquo;
           <br />
           <span style={{ fontStyle: 'normal', opacity: 0.8 }}>

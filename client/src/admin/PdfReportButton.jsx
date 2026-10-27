@@ -13,7 +13,7 @@ const PERIODS = [
   { k: '90', label: 'Signed up in the last 90 days' },
 ];
 
-const textStyle = { fontSize: 12.5, lineHeight: 1.45, overflowWrap: 'anywhere' };
+const textStyle = { fontSize: 14, lineHeight: 1.45, overflowWrap: 'anywhere' };
 const hidden = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 
 /**

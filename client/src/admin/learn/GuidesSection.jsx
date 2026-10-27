@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 
 import { Trash } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -24,20 +24,26 @@ export default function GuidesSection({ community, reload }) {
   // first would still see `working` as false. The ref closes that gap.
   const creating = useRef(false);
   const [error, setError] = useState('');
+  // Which row the error belongs to, so a refusal shows under the guide that was tapped and not at the foot of a
+  // list of thirteen where a phone would never show it.
+  const [errorId, setErrorId] = useState('');
   const [dialogError, setDialogError] = useState('');
   const [restoreNote, setRestoreNote] = useState('');
 
   const guides = community.guides ?? [];
   const live = guides.filter((guide) => guide.published).length;
+  const drafts = guides.length - live;
   const shown = Boolean(community.features?.guides);
 
   const guard = async (id, work) => {
     setBusyId(id);
     setError('');
+    setErrorId('');
     try {
       await work();
     } catch (err) {
       setError(err.message);
+      setErrorId(id);
     } finally {
       setBusyId('');
     }
@@ -109,17 +115,29 @@ export default function GuidesSection({ community, reload }) {
     <section aria-labelledby="learn-guides" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
         <h4 id="learn-guides" style={{ margin: 0, fontSize: 17 }}>Buyer guides</h4>
-        <p className="text-muted" style={{ fontSize: 13, lineHeight: 1.55, margin: '4px 0 0' }}>
+        <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.55, margin: '4px 0 0' }}>
           Long-form articles buyers can read before they share their details, such as what a mortgage
           costs or what closing involves. {guides.length
-            ? `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'}, ${live} published.`
+            ? `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'}, ${live} published${drafts ? ` and ${drafts} ${drafts === 1 ? 'draft' : 'drafts'}` : ''}.`
             : 'None yet.'}
         </p>
       </div>
 
+      {/* A guide a member adds starts as a draft, and a community's supplied set is worth a read before buyers rely on it. */}
+      {drafts ? (
+        <div className="ax-callout" role="status">
+          <h5>Check your guides before launch</h5>
+          <span style={{ fontSize: 14, lineHeight: 1.45 }}>
+            {drafts === 1 ? '1 guide is a draft' : `${drafts} guides are drafts`}, so buyers cannot see
+            {drafts === 1 ? ' it' : ' them'} yet. Open {drafts === 1 ? 'it' : 'each one'}, read it, and switch it to
+            Published when it is ready.
+          </span>
+        </div>
+      ) : null}
+
       {guides.length && !shown ? (
         <div className="ax-callout">
-          <span style={{ fontSize: 12.5, lineHeight: 1.45 }}>
+          <span style={{ fontSize: 14, lineHeight: 1.45 }}>
             Buyers are not seeing these guides. <strong>Buyer guides</strong> is switched off under Tools.
           </span>
           <button type="button" className="btn btn-secondary" onClick={show} style={{ alignSelf: 'flex-start', minHeight: 44 }}>
@@ -129,37 +147,40 @@ export default function GuidesSection({ community, reload }) {
       ) : null}
 
       {guides.map((guide) => (
-        <div key={guide.id} className="card elev-sm ax-guide-row">
-          <div className="ax-guide-main">
-            <span className="card-title" style={{ fontSize: 15.5, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{guide.title}</span>
-            <span className="text-muted" style={{ fontSize: 12 }}>
-              {guide.category}
-              {guide.published ? '' : ' · Hidden from buyers'}
-            </span>
+        <Fragment key={guide.id}>
+          <div className="card elev-sm ax-guide-row">
+            <div className="ax-guide-main">
+              <span className="card-title" style={{ fontSize: 15.5, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{guide.title}</span>
+              <span className="text-muted" style={{ fontSize: 14 }}>
+                {guide.category}
+                {guide.published ? '' : ' · Hidden from buyers'}
+              </span>
+            </div>
+            <div className="ax-guide-controls">
+              <span className="ax-guide-toggle">
+                <Toggle
+                  on={guide.published}
+                  label={`${guide.title} published`}
+                  onChange={(next) => busyId !== guide.id && togglePublished(guide, next)}
+                />
+                <span>{guide.published ? 'Published' : 'Draft'}</span>
+              </span>
+              <button
+                type="button" className="btn btn-ghost" onClick={() => setEditing(guide.id)}
+                aria-label={`Edit ${guide.title}`} disabled={busyId === guide.id}
+              >
+                Edit
+              </button>
+              <button
+                type="button" className="btn btn-danger" aria-label={`Delete ${guide.title}`}
+                onClick={() => remove(guide)} disabled={busyId === guide.id}
+              >
+                <Trash />
+              </button>
+            </div>
           </div>
-          <div className="ax-guide-controls">
-            <span className="ax-guide-toggle">
-              <Toggle
-                on={guide.published}
-                label={`${guide.title} published`}
-                onChange={(next) => busyId !== guide.id && togglePublished(guide, next)}
-              />
-              <span>{guide.published ? 'Published' : 'Draft'}</span>
-            </span>
-            <button
-              type="button" className="btn btn-ghost" onClick={() => setEditing(guide.id)}
-              aria-label={`Edit ${guide.title}`} disabled={busyId === guide.id}
-            >
-              Edit
-            </button>
-            <button
-              type="button" className="btn btn-danger" aria-label={`Delete ${guide.title}`}
-              onClick={() => remove(guide)} disabled={busyId === guide.id}
-            >
-              <Trash />
-            </button>
-          </div>
-        </div>
+          {errorId === guide.id ? <ErrorNote>{error}</ErrorNote> : null}
+        </Fragment>
       ))}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -180,7 +201,7 @@ export default function GuidesSection({ community, reload }) {
         </button>
       </div>
       {restoreNote ? <p className="ax-status" role="status" style={{ margin: 0 }}>{restoreNote}</p> : null}
-      <ErrorNote>{error}</ErrorNote>
+      {errorId ? null : <ErrorNote>{error}</ErrorNote>}
 
       {adding ? (
         <Dialog
@@ -198,7 +219,7 @@ export default function GuidesSection({ community, reload }) {
           <TextField
             label="Title" value={title} onChange={setTitle} maxLength={140}
             placeholder="e.g. What to expect at your final walkthrough"
-            hint="You will write the text, add a picture and publish it in the next step."
+            hint="It starts as a draft that buyers cannot see. You will write the text in the next step and publish it when it is ready."
             onKeyDown={(event) => event.key === 'Enter' && !event.repeat && create()}
           />
           <ErrorNote>{dialogError}</ErrorNote>

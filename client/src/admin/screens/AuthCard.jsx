@@ -33,7 +33,7 @@ export default function AuthCard({ title, blurb, onSubmit, focusTitle = false, c
         >
           {title}
         </h2>
-        {blurb ? <p id={blurbId} className="text-muted" style={{ fontSize: 13, margin: '0 0 6px' }}>{blurb}</p> : null}
+        {blurb ? <p id={blurbId} className="text-muted" style={{ fontSize: 14, margin: '0 0 6px' }}>{blurb}</p> : null}
         {children}
       </Tag>
     </div>
