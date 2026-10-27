@@ -105,7 +105,7 @@ export default function Header({ onOpenMenu, onTalk, onFinance, signedIn = true 
                   )}
                 </li>
               ) : null}
-              {signedIn && isListing && community?.tools?.payment ? (
+              {signedIn && isListing && Object.values(community?.tools ?? {}).some(Boolean) ? (
                 <li>
                   <Link to={`${base}/tools`} className="mk-nav__a" aria-current={currentOf('tools', /^$/, path)}>
                     Payment tools

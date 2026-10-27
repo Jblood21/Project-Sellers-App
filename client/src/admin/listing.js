@@ -1,4 +1,5 @@
-import { isListing, upcomingOpenHouses, readOpenHouses } from '@shared/listing.js';
+import { isListing, readOpenHouses } from '@shared/listing.js';
+import { comingOpenHouses, localNow } from '../buyer/openHouse.js';
 
 import { adminApi } from '../lib/api.js';
 
@@ -42,8 +43,9 @@ export function sessionTimes(session) {
 export const sessionLabel = (session) => `${sessionDate(session.date)}, ${sessionTimes(session)}`;
 
 /** The sessions of a listing (the community, or a Today card with its settings) that are still to come. */
-export function upcomingOf(listing, today = localToday()) {
-  return upcomingOpenHouses(readOpenHouses(listing?.settings?.openHousesJson), today);
+export function upcomingOf(listing, today = localToday(), time = localNow().time) {
+  // The same rule the buyer app follows: today's session that has already finished is over.
+  return comingOpenHouses(readOpenHouses(listing?.settings?.openHousesJson), today, time);
 }
 
 /** The next one: the first whose date is today or later. */

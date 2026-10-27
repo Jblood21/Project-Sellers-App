@@ -27,7 +27,7 @@ export default function StickyBar({ onTalk, onFinance, trail, model }) {
   const { isListing } = useBuyer();
   const { pathname } = useLocation();
   const base = `/c/${communityId}`;
-  const atHome = /\/tools\/?$/.test(pathname);
+  const atHome = !isListing && /\/tools\/?$/.test(pathname);
   const onPlan = isListing || /\/plan\/?$/.test(pathname);
 
   if (atHome && trail.total) {

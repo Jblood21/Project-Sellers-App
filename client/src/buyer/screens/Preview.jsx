@@ -10,6 +10,7 @@ import ComplianceFooter from '../ComplianceFooter.jsx';
 import { layoutFor } from '../layouts/index.js';
 import { canBookTour } from '../reach.js';
 import AllTools from './AllTools.jsx';
+import HomeDetail from './HomeDetail.jsx';
 
 /**
  * The address of the preview, /c/<id>/preview. BuyerApp sends it here instead of to the buyer app's own
@@ -116,7 +117,7 @@ function Status({ children }) {
  * have (Book a tour only when there is someone to book with), but none of them does anything here.
  */
 function PreviewShell() {
-  const { community, layout, loading, loadError, features, agents, settings } = useBuyer();
+  const { community, layout, loading, loadError, features, agents, settings, isListing } = useBuyer();
   const rootRef = useRef(null);
   usePreviewHead(community?.name);
   useReadOnly(rootRef);
@@ -133,7 +134,7 @@ function PreviewShell() {
       <a className="b-skip" href="#b-main">Skip to the page</a>
       <Header onOpenMenu={nothing} onTalk={canBookTour(features, agents, settings) ? nothing : null} onFinance={nothing} signedIn />
       <main id="b-main" tabIndex={-1} className="b-main">
-        <AllTools onOpenLender={nothing} />
+        {isListing ? <HomeDetail onOpenLender={nothing} onRequestShowing={null} /> : <AllTools onOpenLender={nothing} />}
       </main>
       <ComplianceFooter />
     </div>
@@ -151,17 +152,26 @@ function PreviewShell() {
  * screen's own address (a Routes with its own location), so every header and home screen that asks "am I on
  * the home screen?" answers yes, as it does for a buyer.
  */
+/** A listing's home screen is its one home (/home), a community's is the tools page (/tools); see listingNav. */
+function PreviewRoutes({ pathname }) {
+  const { isListing } = useBuyer();
+  const home = pathname.replace(/\/preview\/*$/i, isListing ? '/home' : '/tools');
+  return (
+    <Routes location={home}>
+      <Route path="tools" element={<PreviewShell />} />
+      <Route path="home" element={<PreviewShell />} />
+    </Routes>
+  );
+}
+
 export default function Preview() {
   const { communityId } = useParams();
   const location = useLocation();
   const look = useLookFromSetup(location.search);
-  const home = location.pathname.replace(/\/preview\/*$/i, '/tools');
 
   return (
     <BuyerProvider communityId={communityId} preview={look}>
-      <Routes location={home}>
-        <Route path="tools" element={<PreviewShell />} />
-      </Routes>
+      <PreviewRoutes pathname={location.pathname} />
     </BuyerProvider>
   );
 }

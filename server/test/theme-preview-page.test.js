@@ -111,7 +111,8 @@ describe('the preview page in the browser (its source, as JSX does not run in No
       assert.ok(!re.test(path), path);
     }
     // And the home screen it draws is worked out from the same address, in any case.
-    assert.match(preview, /replace\(\/\\\/preview\\\/\*\$\/i, '\/tools'\)/);
+    // A community's is the tools page; a listing's (one home) is /home.
+    assert.match(preview, /replace\(\/\\\/preview\\\/\*\$\/i, isListing \? '\/home' : '\/tools'\)/);
   });
 
   test('only a message from its own parent, at its own origin, of its own type, is listened to', () => {

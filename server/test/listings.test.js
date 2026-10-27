@@ -253,6 +253,25 @@ for (const kind of backends()) {
       assert.equal((await asOwner(`/communities/${mine.body.id}`)).status, 404);
     });
 
+    test('giving an agent a listing adds one row and never undoes what the owner saved', async () => {
+      const a = (await asOwner('/communities', { method: 'POST', body: { name: 'Held Hollow' } })).body.id;
+      const mine = await asMember('/communities', { method: 'POST', body: { ...listing, address: '88 Added Ave' } });
+      // The owner saves a list made before the listing existed, as an open access dialog would.
+      await store.setAdminCommunities(memberId, [a]);
+      assert.equal(await store.addAdminCommunity(memberId, mine.body.id), true);
+      assert.equal(await store.addAdminCommunity(memberId, mine.body.id), true, 'adding twice is fine');
+      assert.equal(await store.addAdminCommunity(memberId, 'no-such-community'), false);
+      assert.deepEqual((await store.listAdminCommunities(memberId)).sort(), [a, mine.body.id].sort());
+    });
+
+    test('a listing\'s home name is capped like its address, so the two stay equal', async () => {
+      const made = (await asOwner('/communities', { method: 'POST', body: listing })).body;
+      const long = 'A'.repeat(260);
+      const res = await asOwner(`/homes/${made.homes[0].id}`, { method: 'PATCH', body: { name: long } });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.name.length, 200);
+    });
+
     test('two listings made at once by one agent are both kept', async () => {
       const before = (await asMember('/communities')).body.length;
       const made = await Promise.all([1, 2, 3].map((n) => asMember('/communities', { method: 'POST', body: { ...listing, address: `${n}0 Quick Court` } })));

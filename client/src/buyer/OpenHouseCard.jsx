@@ -48,7 +48,7 @@ export default function OpenHouseCard({ sessions, today, time }) {
                       `open-house-${session.date}.ics`,
                     );
                   }}
-                  aria-label={`Add the ${dayLabel(session.date)} open house to your calendar`}
+                  aria-label={`Add to calendar: the ${dayLabel(session.date)} open house`}
                 >
                   Add to calendar
                 </button>

@@ -1068,16 +1068,10 @@ export function adminRouter() {
    * A listing: one home an agent is selling, made as a community marked `siteKind: 'listing'` (shared/listing.js) with
    * its one home beside it. The address is its name and the home's name. Everything is checked before anything is
    * made, so a refusal leaves nothing half-built. A member may make listings (not communities), and is given
-   * access to what they make: it is their portfolio. Two made at once by the same person are taken one at a time,
-   * so the second assignment is built on the first and neither is lost.
+   * access to what they make: it is their portfolio, given as a single insert so it cannot undo a list the owner
+   * saves at the same moment. If any step after the first fails, what was made is removed again, so a failed
+   * request never leaves a half-built listing reachable at a public address.
    */
-  const assigning = new Map();
-  const serially = (key, work) => {
-    const run = (assigning.get(key) ?? Promise.resolve()).catch(() => {}).then(work);
-    assigning.set(key, run);
-    run.finally(() => { if (assigning.get(key) === run) assigning.delete(key); }).catch(() => {});
-    return run;
-  };
   async function createListing(req, res) {
     const address = str(req.body?.address ?? req.body?.name).slice(0, COMMUNITY_TEXT_MAX);
     if (!address) return res.status(400).json({ error: 'Give the home an address.' });
@@ -1092,27 +1086,31 @@ export function adminRouter() {
       // A listing's "builder" is the brokerage it is listed with: the footer and the consent wording read it.
       builder: str(req.body?.brokerage).slice(0, COMMUNITY_TEXT_MAX),
     });
-    const community = await store.updateCommunity(made.id, {
-      settings: { ...made.settings, ...LISTING_SETTINGS },
-      tools: { ...made.tools, ...LISTING_TOOLS },
-      features: { ...made.features, ...LISTING_FEATURES },
-      layout: LISTING_LAYOUT,
-    });
-    const home = await store.createHome(community.id, {
-      name: address,
-      ...numbers.data,
-      description: str(req.body?.description),
-      availability: 'Move-in ready',
-      lotNumber: '',
-      readyOn: readyDate(null),
-      unitsAvailable: null,
-    });
-    if (!isOwner(req.access)) {
-      await serially(req.admin.sub, async () => {
-        const mine = await store.listAdminCommunities(req.admin.sub);
-        await store.setAdminCommunities(req.admin.sub, [...mine, community.id]);
+    let community;
+    let home;
+    try {
+      community = await store.updateCommunity(made.id, {
+        settings: { ...made.settings, ...LISTING_SETTINGS },
+        tools: { ...made.tools, ...LISTING_TOOLS },
+        features: { ...made.features, ...LISTING_FEATURES },
+        layout: LISTING_LAYOUT,
       });
-      forgetAdminAccess(req.admin.sub);
+      home = await store.createHome(community.id, {
+        name: address,
+        ...numbers.data,
+        description: str(req.body?.description),
+        availability: 'Move-in ready',
+        lotNumber: '',
+        readyOn: readyDate(null),
+        unitsAvailable: null,
+      });
+      if (!isOwner(req.access)) {
+        await store.addAdminCommunity(req.admin.sub, community.id);
+        forgetAdminAccess(req.admin.sub);
+      }
+    } catch (err) {
+      await store.deleteCommunity(made.id).catch(() => {});
+      throw err;
     }
     await recordActivity(store, req, { communityId: community.id, action: 'listing.created', subject: community.name });
     return res.status(201).json({ ...community, homes: [home] });
@@ -1455,6 +1453,8 @@ export function adminRouter() {
     if (req.body?.name !== undefined) {
       patch.name = str(req.body.name);
       if (!patch.name) return res.status(400).json({ error: 'Give the home a name.' });
+      // A listing's home is named like the listing, whose own name is capped: the two must stay equal.
+      if (isListing(await store.getCommunity(home.communityId))) patch.name = patch.name.slice(0, COMMUNITY_TEXT_MAX);
     }
     // The edit form sends every box back, touched or not, and a home stored before these rules may hold a figure
     // they would refuse (a price of $475 from a "475k" that lost its k, a bed count of 2.5). Judging a figure the
