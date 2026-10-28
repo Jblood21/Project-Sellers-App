@@ -73,7 +73,7 @@ export default function QrDialog({ community, onClose, onOpenFlyer, onChanged })
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
           <button type="button" className="btn btn-primary" onClick={copy}>{copied ? 'Copied ✓' : 'Copy link'}</button>
-          <button type="button" className="btn btn-primary" onClick={onOpenFlyer}>{listing ? 'Open house sign' : 'Sign'}</button>
+          <button type="button" className="btn btn-primary" onClick={onOpenFlyer}>{listing ? 'Printable flyer' : 'Sign'}</button>
         </>
       }
     >

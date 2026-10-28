@@ -2,10 +2,17 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { isListing } from '../listing.js';
+import ListingFlyer from './ListingFlyer.jsx';
 import { buyerUrl, useQrDataUrl } from './QrDialog.jsx';
 
 /** A print-ready sign for the development entrance or sales trailer. */
-export default function Flyer({ community }) {
+export default function Flyer({ community, reload }) {
+  // A listing prints a two-sided flyer; a community prints its sign.
+  if (isListing(community)) return <ListingFlyer community={community} reload={reload} />;
+  return <CommunitySign community={community} />;
+}
+
+function CommunitySign({ community }) {
   const navigate = useNavigate();
   const { communityId } = useParams();
   const dataUrl = useQrDataUrl(community, 8);
