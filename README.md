@@ -88,6 +88,7 @@ See [`.env.example`](.env.example).
 |---|---|
 | `DATABASE_URL` | Postgres connection string. Omit for the local JSON store. |
 | `SESSION_SECRET` | Signs admin and buyer session tokens. **Set this in production.** |
+| `AGENT_SIGNUP_CODE` | Opens agent sign-up at `/admin/signup` (and a "Real estate agent? Create your account" button on the sign-in page). An agent needs this code to make an account; they become members with nothing shared and see only the listings they make. Unset, sign-up is closed. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Bootstraps (or resets) the admin account on boot. That account is the owner: it sees every community, runs the Team page and reads the activity log (see *Roles and access* under *The admin layout*). |
 | `RATES_WEBHOOK_SECRET` | Shared secret for the inbound rate webhook. |
 | `RESEND_API_KEY` | Enables outbound email. Omit and the app sends nothing, breaking nothing. |

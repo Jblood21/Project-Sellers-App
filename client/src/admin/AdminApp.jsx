@@ -6,6 +6,7 @@ import Branches from './screens/Branches.jsx';
 import CommunityDetail from './screens/CommunityDetail.jsx';
 import ForgotPassword from './screens/ForgotPassword.jsx';
 import Login from './screens/Login.jsx';
+import AgentSignup from './screens/AgentSignup.jsx';
 import AuthCard from './screens/AuthCard.jsx';
 import ResetPassword from './screens/ResetPassword.jsx';
 import Team from './screens/Team.jsx';
@@ -65,6 +66,7 @@ function AdminRoutes() {
   if (!token) {
     return (
       <Routes>
+        <Route path="signup" element={<AgentSignup />} />
         <Route path="forgot" element={<ForgotPassword />} />
         <Route path="reset" element={<ResetPassword />} />
         <Route path="*" element={<Login />} />

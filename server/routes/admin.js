@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { Router } from 'express';
 
 import {
@@ -408,6 +409,48 @@ export function adminRouter() {
     attempt.release();
     failuresPerPerson.reset(personKey);
     res.json({ token: issueToken(admin), admin: sessionAdmin(admin) });
+  });
+
+  // ── agent sign-up ────────────────────────────────────────────────────────
+  // A real estate agent makes their own account to keep their own listings. The account is a member with nothing
+  // shared: they see only what they make (see createListing). Sign-up is open only while AGENT_SIGNUP_CODE is set,
+  // and needs that code, so a stranger who finds the page cannot make accounts on the site; the owner gives the
+  // code to the agents they want. Unset, it is closed. Attempts are limited per visitor before anything is checked,
+  // like a sign-in. An address that already has an account is refused, never reset: createAdmin would replace
+  // an existing account's password, so the check comes first.
+  const signupPerIp = createLimiter({ windowMs: 60 * 60 * 1000, max: 12 });
+  const signupCodeOk = (given) => {
+    const wanted = String(process.env.AGENT_SIGNUP_CODE ?? '').trim();
+    if (!wanted) return false;
+    const a = createHash('sha256').update(String(given ?? '').trim()).digest();
+    const b = createHash('sha256').update(wanted).digest();
+    return timingSafeEqual(a, b);
+  };
+  /** Whether the sign-up page should be offered: a fact about the server, not a secret. */
+  router.get('/signup', (_req, res) => {
+    res.json({ open: Boolean(String(process.env.AGENT_SIGNUP_CODE ?? '').trim()) });
+  });
+  router.post('/signup', async (req, res) => {
+    if (!String(process.env.AGENT_SIGNUP_CODE ?? '').trim()) {
+      return res.status(403).json({ error: 'Agent sign-up is not open right now. Ask the person who invited you.' });
+    }
+    const attempt = reserve([[signupPerIp, clientKey(req)]]);
+    if (attempt.wait) {
+      res.set('Retry-After', String(attempt.wait));
+      return res.status(429).json({ error: tooMany('sign-up attempts', attempt.wait) });
+    }
+    if (!signupCodeOk(req.body?.code)) return res.status(403).json({ error: 'That access code is not right.' });
+    const email = str(req.body?.email).toLowerCase().slice(0, 254);
+    if (!email || !isSafeEmail(email)) return res.status(400).json({ error: 'Type a real email address.' });
+    const password = String(req.body?.password ?? '');
+    const problem = passwordProblem(password);
+    if (problem) return res.status(400).json({ error: problem });
+    const store = await getStore();
+    if (await store.getAdminByEmail(email)) {
+      return res.status(409).json({ error: 'That email already has an account. Sign in instead.' });
+    }
+    const admin = await store.createAdmin({ email, passwordHash: hashPassword(password), role: 'member' });
+    res.status(201).json({ token: issueToken(admin), admin: sessionAdmin(admin) });
   });
 
   /** Who is signed in. The role comes from the row (through requireAdmin's cache), never from the token: a token outlives a role. */
