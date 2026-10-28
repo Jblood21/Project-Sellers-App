@@ -23,6 +23,8 @@ import trailhead from './trailhead/index.js';
  *           of a home page's hero photo, below)
  *   Header  replaces the sticky header; props { onOpenMenu, onTalk, onFinance }
  *   Home    replaces the tools home screen; props { model } (see useHomeModel)
+ *   Listing the page of a listing (one home for sale); props { model } (see listing/useListingModel). A layout
+ *           without one shows the shared home page.
  *
  * What a layout may not do is change what a tool does. It decides where the
  * buttons go and what they look like, and nothing else.

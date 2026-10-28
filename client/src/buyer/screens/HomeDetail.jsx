@@ -6,6 +6,7 @@ import { isSold, unitsLabel, videoEmbed } from '@shared/domain.js';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { layoutTraits } from '../layouts/index.js';
+import ListingPage, { listingPageFor } from '../listing/ListingPage.jsx';
 import { canTalkFinancing } from '../reach.js';
 import { ToolSheet } from '../tools/index.jsx';
 import ImageViewer from '../ImageViewer.jsx';
@@ -22,7 +23,15 @@ import VideoViewer from '../VideoViewer.jsx';
  * it stands, its facts, the open houses and a way to ask for a showing (`onRequestShowing`, null when there is
  * nobody to send the buyer to).
  */
-export default function HomeDetail({ onOpenLender, onRequestShowing = null }) {
+export default function HomeDetail(props) {
+  const { layout, isListing } = useBuyer();
+  // A listing is drawn by the layout the agent chose, when that layout has its own page for one home.
+  const Page = isListing ? listingPageFor(layout) : null;
+  if (Page) return <ListingPage Page={Page} onOpenLender={props.onOpenLender} onRequestShowing={props.onRequestShowing ?? null} />;
+  return <SharedHomeDetail {...props} />;
+}
+
+function SharedHomeDetail({ onOpenLender, onRequestShowing = null }) {
   // Which plan the viewer is showing; null means closed.
   const [planIndex, setPlanIndex] = useState(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
