@@ -7,7 +7,7 @@ import {
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
   isSafeEmail, isThemeKey, SLOT_TIMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
-  AGENT_TOP_STYLES, LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
+  LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
 } from '../../shared/domain.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
@@ -1339,12 +1339,6 @@ export function adminRouter() {
             if (hex === null) return res.status(400).json({ error: 'Colours must be colour codes like #5A1E33.' });
             settings[key] = hex;
           }
-          continue;
-        }
-        if (key === 'agentTop') {
-          // How the agent shows above the photos: one of the two styles, nothing else is stored.
-          if (!AGENT_TOP_STYLES.includes(text)) return res.status(400).json({ error: 'Choose Compact or Featured.' });
-          settings[key] = text;
           continue;
         }
         if (key === 'openHousesJson') {

@@ -1004,7 +1004,7 @@ textarea.input { min-height: auto; resize: vertical; }
   .b-ls-guides__list { grid-template-columns: 1fr 1fr; }
 }
 
-/* Listing mode: the listing agent above the home's pictures (ListingAgentTop). Two styles: compact and featured. */
+/* Listing mode: the listing agent above the home's pictures (ListingAgentTop). */
 .b-lat { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 10px 12px; text-align: left;
   border: 1px solid var(--t-line); border-radius: var(--t-radlg); background: var(--t-tint); }
 .b-lat__face { flex: none; display: block; width: 60px; height: 60px; border-radius: 50%; object-fit: cover; background: var(--t-line); }
@@ -1016,15 +1016,4 @@ textarea.input { min-height: auto; resize: vertical; }
 .b-lat__act { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 64px; padding: 0 14px;
   border: 1px solid var(--t-accT); border-radius: var(--t-rad); color: var(--t-accT); background: transparent; font-weight: 700; font-size: 14px; text-decoration: none; cursor: pointer; }
 .b-lat__act:first-child { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-acc); }
-@media (max-width: 420px) { .b-lat--compact { flex-wrap: wrap; } .b-lat--compact .b-lat__actions { width: 100%; } .b-lat--compact .b-lat__act { flex: 1; } }
-
-.b-lat--featured { flex-wrap: wrap; align-items: flex-start; gap: 14px 16px; padding: 16px; background: var(--t-card, #fff); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-.b-lat--featured .b-lat__face { width: 112px; height: 112px; border-radius: var(--t-radlg); }
-.b-lat--featured .b-lat__who { gap: 3px; }
-.b-lat--featured .b-lat__eyebrow { color: var(--t-accT); }
-.b-lat--featured .b-lat__name { font-size: 24px; }
-.b-lat--featured .b-lat__logo { max-height: 26px; max-width: 140px; margin: 4px 0 2px; object-fit: contain; align-self: flex-start; }
-.b-lat__contact { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; font-size: 14px; }
-.b-lat__contact a { color: var(--t-accT); text-decoration: none; word-break: break-word; }
-.b-lat--featured .b-lat__actions { width: 100%; }
-.b-lat--featured .b-lat__act { flex: 1; }
+@media (max-width: 420px) { .b-lat { flex-wrap: wrap; } .b-lat__actions { width: 100%; } .b-lat__act { flex: 1; } }
