@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 
 import {
   communitySlugCandidates, DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME,
-  DEFAULT_TOOLS_ENABLED, isoDate, isSameLead, toolOfActivity,
+  DEFAULT_TOOLS_ENABLED, isoDate, isSameLead, LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_TOOLS, toolOfActivity,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
 import { FIGURES_REFRESH, needsRefresh, refreshedSettings } from './refresh.js';
@@ -136,13 +136,15 @@ export function createFileStore(path) {
   // Copies each supplied guide the community does not have, matched by defaultKey
   // so a retitled or re-slugged guide still counts as present. Never touches an
   // existing row. The same algorithm as the Postgres store's addMissingDefaults.
-  const addMissingDefaults = (communityId) => {
+  const addMissingDefaults = (communityId, kind) => {
+    // Which set: a listing's own (buying a single-family home) or a community's. Asked of the row when not said.
+    kind ??= db.communities.find((c) => c.id === communityId)?.settings?.siteKind === 'listing' ? 'listing' : 'community';
     const have = db.guides.filter((g) => g.communityId === communityId);
     const taken = new Set(have.map((g) => g.slug));
     const keys = new Set(have.map((g) => g.defaultKey).filter(Boolean));
     let position = have.reduce((max, g) => Math.max(max, g.position), -1) + 1;
     const added = [];
-    for (const def of loadDefaultGuides()) {
+    for (const def of loadDefaultGuides(kind)) {
       if (keys.has(def.defaultKey)) continue;
       const slug = uniqueSlug(def.slug, taken);
       taken.add(slug);
@@ -525,8 +527,10 @@ export function createFileStore(path) {
       return { ok: true };
     },
 
-    async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '' }) {
+    async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '', kind = 'community' }) {
       const id = slugId(name);
+      // A listing starts on its own settings, tools, features, layout and guides (shared/listing.js).
+      const listing = kind === 'listing';
       let slug = null;
       for (const candidate of communitySlugCandidates(name)) {
         if (db.communities.some((c) => c.id.toLowerCase() === candidate)) continue;
@@ -539,17 +543,17 @@ export function createFileStore(path) {
         id, slug, name, location, status, theme, builder,
         websiteUrl: null,
         branchId: null,
-        settings: { ...DEFAULT_SETTINGS },
-        tools: { ...DEFAULT_TOOLS_ENABLED },
-        features: { ...DEFAULT_FEATURES },
-        layout: DEFAULT_LAYOUT,
+        settings: listing ? { ...DEFAULT_SETTINGS, ...LISTING_SETTINGS } : { ...DEFAULT_SETTINGS },
+        tools: listing ? { ...DEFAULT_TOOLS_ENABLED, ...LISTING_TOOLS } : { ...DEFAULT_TOOLS_ENABLED },
+        features: listing ? { ...DEFAULT_FEATURES, ...LISTING_FEATURES } : { ...DEFAULT_FEATURES },
+        layout: listing ? LISTING_LAYOUT : DEFAULT_LAYOUT,
         guidesSeeded: true,
         // Created on the current defaults, so the figures refresh that wrote them is already done for it.
         figuresVersion: FIGURES_REFRESH.version,
         createdAt: now(), updatedAt: now(),
       };
       db.communities.push(row);
-      addMissingDefaults(row.id);
+      addMissingDefaults(row.id, listing ? 'listing' : 'community');
       save();
       return shapeCommunity(row);
     },

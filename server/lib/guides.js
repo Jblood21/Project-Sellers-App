@@ -13,6 +13,8 @@ import { parseGuideMarkdown } from '../../shared/markdown.js';
  */
 
 const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'content', 'guides');
+/** The guides a listing (one single-family home an agent is selling) starts with: buying a detached home, not a community. */
+const LISTING_CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'content', 'guides-listing');
 
 /**
  * The order a first-time buyer would want to read them in: can I afford it,
@@ -41,22 +43,38 @@ export const DEFAULT_GUIDE_ORDER = [
   '16-questions-to-ask-before-buying-a-new-construction-townhome-in-utah',
 ];
 
+/** The order a buyer at a single-family open house would want them: the visit, the steps, the money, the offer, owning it. */
+export const LISTING_GUIDE_ORDER = [
+  'what-to-expect-at-an-open-house',
+  'how-buying-a-single-family-home-works',
+  'get-pre-approved-before-you-make-an-offer',
+  'how-much-house-can-you-afford',
+  'what-a-monthly-payment-includes',
+  'down-payment-options-for-a-first-home',
+  'making-an-offer-that-works',
+  'home-inspection-and-appraisal',
+  'closing-costs-and-cash-to-close',
+  'the-hidden-costs-of-owning-a-detached-home',
+  'does-this-home-have-an-hoa',
+  'questions-to-ask-the-listing-agent',
+];
+
 /** Listed slugs first, in the listed order; the rest alphabetically. Pure. */
-export function orderGuideSlugs(slugs) {
+export function orderGuideSlugs(slugs, order = DEFAULT_GUIDE_ORDER) {
   const present = new Set(slugs);
-  const known = DEFAULT_GUIDE_ORDER.filter((slug) => present.has(slug));
-  const listed = new Set(DEFAULT_GUIDE_ORDER);
+  const known = order.filter((slug) => present.has(slug));
+  const listed = new Set(order);
   const unknown = slugs.filter((slug) => !listed.has(slug)).sort();
   return [...known, ...unknown];
 }
 
 /** Read and parse every guide in a folder, in the fixed order. Uncached. */
-export function readGuidesFrom(dir) {
+export function readGuidesFrom(dir, order = DEFAULT_GUIDE_ORDER) {
   const files = new Map();
   for (const name of readdirSync(dir)) {
     if (name.toLowerCase().endsWith('.md')) files.set(name.slice(0, -3), name);
   }
-  return orderGuideSlugs([...files.keys()]).map((slug) => {
+  return orderGuideSlugs([...files.keys()], order).map((slug) => {
     const parsed = parseGuideMarkdown(readFileSync(join(dir, files.get(slug)), 'utf8'), files.get(slug));
     return {
       defaultKey: slug,
@@ -73,6 +91,7 @@ export function readGuidesFrom(dir) {
 }
 
 let cache = null;
+let listingCache = null;
 
 /**
  * The supplied guides, parsed once per process. Synchronous so the stores can
@@ -80,7 +99,11 @@ let cache = null;
  * back fresh objects, so a caller that edits one cannot change what the next
  * community is seeded with.
  */
-export function loadDefaultGuides() {
+export function loadDefaultGuides(kind = 'community') {
+  if (kind === 'listing') {
+    if (!listingCache) listingCache = readGuidesFrom(LISTING_CONTENT_DIR, LISTING_GUIDE_ORDER);
+    return listingCache.map((guide) => ({ ...guide }));
+  }
   if (!cache) cache = readGuidesFrom(CONTENT_DIR);
   return cache.map((guide) => ({ ...guide }));
 }

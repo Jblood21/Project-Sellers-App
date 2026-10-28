@@ -23,6 +23,7 @@ import HomeHeadingCard from '../setup/HomeHeadingCard.jsx';
 import IncentiveCard from '../setup/IncentiveCard.jsx';
 import LayoutCard from '../setup/LayoutCard.jsx';
 import LogoCard from '../setup/LogoCard.jsx';
+import ListingAgentCard from '../setup/ListingAgentCard.jsx';
 import RealtorsCard from '../setup/RealtorsCard.jsx';
 import ThemeStudio from '../setup/ThemeStudio.jsx';
 import { Disclosure, ErrorNote, Field, TextField } from '../ui.jsx';
@@ -258,20 +259,22 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
       </div>
 
       <div className="as-part-body" hidden={active !== 'team'}>
-      <RealtorsCard community={community} reload={reload} />
+      {listing ? <ListingAgentCard community={community} reload={reload} /> : <RealtorsCard community={community} reload={reload} />}
 
       <div className="card elev-sm" style={{ gap: 10 }}>
-        <span className="card-kicker">Call request alerts</span>
+        <span className="card-kicker">{listing ? 'Showing request alerts' : 'Call request alerts'}</span>
         <TextField
-          label="Send call requests to"
+          label={listing ? 'Send showing requests to' : 'Send call requests to'}
           value={settings.notifyEmail}
           onChange={set('notifyEmail')}
           inputMode="email"
-          placeholder="sales@yourcompany.com"
+          placeholder={listing ? 'you@yourbrokerage.com' : 'sales@yourcompany.com'}
         />
         <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
-          Leave blank to use the account you sign in with. A buyer asking for a call is
-          time-sensitive, so this is the one thing the app will email you about.
+          Leave blank to use the account you sign in with.{' '}
+          {listing
+            ? 'A visitor asking for a showing is time-sensitive, so this is the one thing the app will email you about.'
+            : 'A buyer asking for a call is time-sensitive, so this is the one thing the app will email you about.'}
         </span>
         <EmailStatus status={community.emailStatus} />
       </div>
@@ -280,15 +283,14 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
       <div className="card elev-sm" style={{ gap: 10 }}>
         <span className="card-kicker">{listing ? 'Visitor report' : 'Lead report'}</span>
         <TextField
-          label="Send lead reports to"
+          label={listing ? 'Send visitor reports to' : 'Send lead reports to'}
           value={settings.reportEmail}
           onChange={set('reportEmail')}
           inputMode="email"
-          placeholder="sales@yourcompany.com"
+          placeholder={listing ? 'you@yourbrokerage.com' : 'sales@yourcompany.com'}
         />
         <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
-          One address. The report lists the scheduled calls still waiting and the {listing ? 'visitors' : 'people'} who signed up since the
-          last report. The spreadsheet attached has everyone, with their phone numbers (including {listing ? 'visitors' : 'people'} who said
+          One address. The report lists {listing ? 'the visitors who signed up since the last report' : 'the scheduled calls still waiting and the people who signed up since the last report'}. The spreadsheet attached has everyone, with their phone numbers (including {listing ? 'visitors' : 'people'} who said
           no to calls and texts), your notes and status. {listing ? 'Visitors' : 'People'} you have closed are left out. It is sent only when you press the button,
           never on its own, and changing the address does not change who counts as new.
         </span>
@@ -309,6 +311,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
       <div className="as-part-body" hidden={active !== 'rules'}>
       <ComplianceCard community={community} settings={settings} setSettings={setSettings} reload={reload} />
 
+      {listing ? null : (
       <Disclosure
         title="Live rates"
         summary={`Conv ${orDash(settings.rateConv)}% · FHA ${orDash(settings.rateFha)}% · VA ${orDash(settings.rateVa)}% · updated ${settings.ratesUpdatedAt ? fullDate(settings.ratesUpdatedAt) : 'never'}`}
@@ -332,6 +335,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
           {isOwner ? ' · a Zapier email parser can post new rates to this community automatically.' : '.'}
         </span>
       </Disclosure>
+      )}
 
       <Disclosure
         title="Monthly cost assumptions"
@@ -343,10 +347,12 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
         <div className="grid-3" style={BOXES}>
           {numberField('taxPctYr', 'Tax %/yr', { placeholder: '0.55' })}
           {numberField('insuranceYr', 'Insurance $/yr', { placeholder: '1400' })}
-          {numberField('hoaMo', 'HOA $/mo', { placeholder: '45', hint: 'Blank if there is no HOA.' })}
+          {numberField('hoaMo', listing ? 'HOA dues per month, if this home has one' : 'HOA $/mo', { placeholder: '45', hint: listing ? 'Leave blank if there is none.' : 'Blank if there is no HOA.' })}
         </div>
       </Disclosure>
 
+      {listing ? null : (
+        <>
       <Disclosure
         title="Down payment assistance rules"
         summary={[
@@ -404,6 +410,8 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
           Buyers see these as ranges, e.g. &ldquo;Good {settings.creditGoodMin}–{num(settings.creditExcellentMin) - 1}&rdquo;.
         </span>
       </div>
+        </>
+      )}
       </div>
 
       {/* Sticky: the lender and compliance fields sit mid-page, a long way above the foot. Look & feel saves as you go, so it only needs the bar once something is waiting. */}

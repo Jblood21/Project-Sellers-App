@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 import {
-  communitySlugCandidates, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead, toolOfActivity,
+  communitySlugCandidates, DEFAULT_FEATURES, DEFAULT_LAYOUT, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, isSameLead,
+  LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_TOOLS, toolOfActivity,
 } from '../../shared/domain.js';
 import { loadDefaultGuides } from '../lib/guides.js';
 import { FIGURES_REFRESH, refreshedSettings } from './refresh.js';
@@ -167,7 +168,12 @@ export function createPostgresStore(connectionString) {
    * present. Never touches an existing row. Takes a client so callers can run it
    * inside the transaction that also sets, or relies on, `guides_seeded`.
    */
-  const addMissingDefaults = async (db, communityId) => {
+  const addMissingDefaults = async (db, communityId, kind) => {
+    // Which set: a listing's own (buying a single-family home) or a community's. Asked of the row when not said.
+    if (!kind) {
+      const { rows: [row] } = await db.query(`SELECT settings->>'siteKind' AS kind FROM communities WHERE id = $1`, [communityId]);
+      kind = row?.kind === 'listing' ? 'listing' : 'community';
+    }
     const { rows: have } = await db.query(
       `SELECT slug, default_key, position FROM guides WHERE community_id = $1`, [communityId],
     );
@@ -175,7 +181,7 @@ export function createPostgresStore(connectionString) {
     const keys = new Set(have.map((r) => r.default_key).filter(Boolean));
     let position = have.reduce((max, r) => Math.max(max, r.position), -1) + 1;
     const added = [];
-    for (const def of loadDefaultGuides()) {
+    for (const def of loadDefaultGuides(kind)) {
       if (keys.has(def.defaultKey)) continue;
       // A slug the builder has since given to a different guide is theirs, so the
       // restored one takes a suffixed address instead of colliding with it.
@@ -767,18 +773,26 @@ export function createPostgresStore(connectionString) {
       });
     },
 
-    async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '' }) {
+    async createCommunity({ name, location = '', status = 'Pre-sale', theme = DEFAULT_THEME, builder = '', kind = 'community' }) {
       const id = slugId(name);
+      // A listing starts on its own settings, tools, features, layout and guides (shared/listing.js), in the same insert.
+      const listing = kind === 'listing';
+      const settings = listing ? { ...DEFAULT_SETTINGS, ...LISTING_SETTINGS } : DEFAULT_SETTINGS;
+      const tools = listing ? { ...DEFAULT_TOOLS_ENABLED, ...LISTING_TOOLS } : DEFAULT_TOOLS_ENABLED;
       // The community and its guides land together or not at all, with the flag
       // already set: a new community must not be seen as "never seeded" by the
       // next boot and get a second copy.
       const row = await inTransaction(async (db) => {
         const { rows } = await db.query(
-          `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools, guides_seeded, figures_version)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,$9) RETURNING *`,
-          [id, name, location, status, theme, builder, DEFAULT_SETTINGS, DEFAULT_TOOLS_ENABLED, FIGURES_REFRESH.version],
+          `INSERT INTO communities (id, name, location, status, theme, builder, settings, tools, features, layout, guides_seeded, figures_version)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,$11) RETURNING *`,
+          [
+            id, name, location, status, theme, builder, settings, tools,
+            listing ? { ...DEFAULT_FEATURES, ...LISTING_FEATURES } : {}, listing ? LISTING_LAYOUT : DEFAULT_LAYOUT,
+            FIGURES_REFRESH.version,
+          ],
         );
-        await addMissingDefaults(db, id);
+        await addMissingDefaults(db, id, listing ? 'listing' : 'community');
         // A clean address from the name, or the next free variation of it. The id stays as it is.
         let slug = null;
         for (const candidate of communitySlugCandidates(name)) {

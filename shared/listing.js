@@ -10,6 +10,8 @@
  * Nothing here imports from domain.js: domain.js imports THIS, to fold the starting values into DEFAULT_SETTINGS.
  */
 
+import { DEFAULT_LISTING_FAQ_JSON } from './faq.js';
+
 export const SITE_KINDS = ['community', 'listing'];
 
 /** Where a listing stands. Stored in the same column a community's status uses. */
@@ -33,9 +35,31 @@ export const LISTING_SETTINGS = {
   dpaPriceCap: '',
   dpaProgram: '',
   dpaAsOf: '',
+  // An agent's listing does not carry a lender's name, licence or disclosures: those are the lender's, and a
+  // lender the agent works with is theirs to add in Setup (Preferred lender). Blank hides "Talk about financing", the
+  // loan links and the lender block in the footer, and leaves the footer to the listing's own disclosure.
+  lenderName: '',
+  lenderNmls: '',
+  lenderAddress: '',
+  lenderPhone: '',
+  lenderWebsite: '',
+  lenderEmail: '',
+  lenderTagline: '',
+  lenderLicense: '',
+  lenderNmlsUrl: '',
+  loanApplicationUrl: '',
+  complianceEhl: '',
+  complianceNotOffer: '',
+  complianceNotAgent: '',
+  complianceDisclaimer: '',
+  complianceRates: '',
+  complianceAba: '',
+  // The questions on the home screen: about one home, its open houses and its agent.
+  faqJson: DEFAULT_LISTING_FAQ_JSON,
 };
 export const LISTING_TOOLS = { compare: false, dpa: false, movein: false };
-export const LISTING_FEATURES = { lotNumbers: false, siteMap: false, resources: false, incentive: false };
+// No booking times: those are a lender's call times. A listing's showing is asked of its agent.
+export const LISTING_FEATURES = { lotNumbers: false, siteMap: false, resources: false, incentive: false, booking: false };
 
 /** The layout a new listing starts on: the one built like a listing page. The agent can pick another. */
 export const LISTING_LAYOUT = 'marketplace';
@@ -52,7 +76,8 @@ export const LISTING_DEFAULTS = {
   // Printed above the lender block in the footer of a listing. Editable; clearing it removes the line.
   listingDisclosure:
     'Equal Housing Opportunity. Square footage, room counts and other facts are provided by the seller or '
-    + 'taken from public records and are not guaranteed. Buyers should verify everything that matters to them.',
+    + 'taken from public records and are not guaranteed. Buyers should verify everything that matters to them. '
+    + 'Payment figures on this page are estimates for illustration only, not a loan offer or a pre-approval.',
 };
 
 export const OPEN_HOUSE_MAX = 8;

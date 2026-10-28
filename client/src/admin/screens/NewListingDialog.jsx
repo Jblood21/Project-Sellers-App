@@ -12,11 +12,20 @@ import { Dialog, SaveNote, TextField, useSaving } from '../ui.jsx';
 
 // The brokerage an agent used last, so the second listing does not ask again. Kept on this device only.
 const BROKERAGE_KEY = 'psa:lastBrokerage';
+// The agent's own details, kept the same way, so the next listing starts with them filled in.
+const AGENT_KEY = 'psa:lastListingAgent';
+const AGENT_FIELDS = ['agentName', 'agentPhone', 'agentEmail', 'license'];
 const COUNT_FIELDS = ['beds', 'baths', 'sqft'];
 
 const rememberedBrokerage = () => {
   const saved = readJson(BROKERAGE_KEY);
   return typeof saved === 'string' ? saved : '';
+};
+
+const rememberedAgent = () => {
+  const saved = readJson(AGENT_KEY);
+  if (!saved || typeof saved !== 'object') return {};
+  return Object.fromEntries(AGENT_FIELDS.map((key) => [key, typeof saved[key] === 'string' ? saved[key] : '']));
 };
 
 /**
@@ -31,7 +40,7 @@ const rememberedBrokerage = () => {
 export default function NewListingDialog({ onClose }) {
   const { token } = useAdmin();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ address: '', city: '', price: '', beds: '', baths: '', sqft: '', brokerage: rememberedBrokerage() });
+  const [form, setForm] = useState({ address: '', city: '', price: '', beds: '', baths: '', sqft: '', brokerage: rememberedBrokerage(), agentName: '', agentPhone: '', agentEmail: '', license: '', ...rememberedAgent() });
   const [photo, setPhoto] = useState(null);
   const [tried, setTried] = useState(false);
   const [left, setLeft] = useState({});
@@ -53,6 +62,7 @@ export default function NewListingDialog({ onClose }) {
   // Only an address and a real price are needed; beds, baths and square feet may be blank (buyers see nothing for them).
   const problems = {};
   if (!form.address.trim()) problems.address = 'Give the home an address.';
+  if (form.agentEmail.trim() && !form.agentEmail.includes('@')) problems.agentEmail = 'That email address needs an @ in it.';
   for (const key of ['price', ...COUNT_FIELDS]) {
     const { error } = readNumber(form[key], HOME_NUMBER_RULES[key]);
     if (error) problems[key] = error;
@@ -64,7 +74,7 @@ export default function NewListingDialog({ onClose }) {
 
   const create = () => {
     setTried(true);
-    const first = ['address', 'price', ...COUNT_FIELDS].find((key) => problems[key]);
+    const first = ['address', 'price', ...COUNT_FIELDS, 'agentEmail'].find((key) => problems[key]);
     if (first) {
       document.getElementById(`listing-${first}`)?.focus();
       return Promise.resolve(false);
@@ -73,8 +83,10 @@ export default function NewListingDialog({ onClose }) {
       if (!created.current) {
         const body = { address: form.address.trim(), city: form.city.trim(), brokerage: form.brokerage.trim() };
         for (const key of ['price', ...COUNT_FIELDS]) body[key] = readNumber(form[key], HOME_NUMBER_RULES[key]).value ?? '';
+        for (const key of AGENT_FIELDS) body[key] = form[key].trim();
         created.current = await adminApi.createListing(token, body);
         writeJson(BROKERAGE_KEY, form.brokerage.trim());
+        writeJson(AGENT_KEY, Object.fromEntries(AGENT_FIELDS.map((key) => [key, form[key].trim()])));
       }
       const listing = created.current;
       let notice = '';
@@ -149,6 +161,25 @@ export default function NewListingDialog({ onClose }) {
         label="Brokerage" value={form.brokerage} onChange={set('brokerage')} placeholder="e.g. Summit Realty"
         hint="Printed with the listing. Remembered for your next one." autoComplete="organization"
       />
+      <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <legend className="card-kicker" style={{ padding: 0, marginBottom: 8 }}>You, the listing agent</legend>
+        <TextField
+          label="Your name" value={form.agentName} onChange={set('agentName')} placeholder="e.g. Maren Whitcombe"
+          autoComplete="name"
+        />
+        <TextField
+          label="Your phone" value={form.agentPhone} onChange={set('agentPhone')} inputMode="tel" placeholder="e.g. 801-555-0111"
+          hint="Buyers call or text this number to ask for a showing." autoComplete="tel"
+        />
+        <CheckedField
+          id="listing-agentEmail" label="Your email" value={form.agentEmail} inputMode="email"
+          onChange={set('agentEmail')} onBlur={() => leave('agentEmail')} error={problemOf('agentEmail')} autoComplete="email"
+        />
+        <TextField
+          label="License number or line" value={form.license} onChange={set('license')} placeholder="e.g. Lic. #12345"
+          hint="Printed under the home. Optional. Remembered for your next listing." autoComplete="off"
+        />
+      </fieldset>
       <PhotoPicker
         label="First photo"
         hint="Tap to upload — visitors see this first when they scan the sign"

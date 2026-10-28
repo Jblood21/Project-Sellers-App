@@ -145,7 +145,7 @@ function CommunityPages({ community, leads, reload, markOpened }) {
       {section.key === 'homes' ? <HomesTab community={community} reload={reload} single={listing} /> : null}
       {section.key === 'area' ? <AreaTab community={community} reload={reload} /> : null}
       {section.key === 'learn' ? <LearnTab community={community} reload={reload} /> : null}
-      {section.key === 'times' ? <AvailabilityTab community={community} reload={reload} /> : null}
+      {section.key === 'times' && !listing ? <AvailabilityTab community={community} reload={reload} /> : null}
       {section.key === 'tools' ? <ToolsTab community={community} reload={reload} /> : null}
       {section.key === 'leads' ? (
         <LeadsTab

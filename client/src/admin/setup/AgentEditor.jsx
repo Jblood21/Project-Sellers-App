@@ -32,11 +32,12 @@ const initials = (name) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?
  * uploading. A draft has no id to attach pictures to yet, so it holds them and
  * sends them right after the realtor is created.
  */
-export default function AgentEditor({ agent, index, community, reload, onClose, onCreated }) {
+export default function AgentEditor({ agent, index, community, reload, onClose, onCreated, single = false }) {
   const { token } = useAdmin();
   const draft = !agent;
   const who = isListing(community) ? 'agent' : 'realtor';
-  const [open, setOpen] = useState(draft);
+  // `single`: a listing's one agent. Always open, never removed, and the draft is a plain form with no Cancel.
+  const [open, setOpen] = useState(draft || single);
   const [form, setForm] = useState(() => textOf(agent));
   const [pending, setPending] = useState({ photo: null, logo: null });
   const [error, setError] = useState('');
@@ -88,7 +89,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
           }
         }
         await reload();
-        onCreated(failed.length
+        onCreated?.(failed.length
           ? `${created.name} was added, but ${failed.join(' and ')} did not upload. Open Edit to try again.`
           : '');
       } else {
@@ -140,11 +141,11 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
         <div className="ax-agent-meta">
           <span className="card-title" style={{ fontSize: 15 }}>{title}</span>
           <span className="text-muted" style={{ fontSize: 14 }}>
-            {draft ? 'Fill this in, then add them.' : [agent.brokerage, license].filter(Boolean).join(' · ') || 'No brokerage yet'}
+            {draft ? (single ? 'Visitors call, text or email you from the page.' : 'Fill this in, then add them.') : [agent.brokerage, license].filter(Boolean).join(' · ') || 'No brokerage yet'}
           </span>
         </div>
         {!draft && dirty ? <span className="tag tag-accent">Unsaved</span> : null}
-        {!draft ? (
+        {!draft && !single ? (
           <button
             type="button" className="btn btn-secondary" aria-expanded={open} onClick={() => setOpen(!open)}
             aria-label={`${open ? 'Close' : 'Edit'} ${agent.name}`} style={{ minHeight: 44 }}
@@ -189,7 +190,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             read={readPortrait}
             use="portrait"
           />
-          <ImageSlot
+          {single ? null : <ImageSlot
             label="Agent logo"
             image={draft ? pending.logo : agent.logo?.url ?? null}
             alt={draft ? 'Agent logo ready to upload' : `${agent.name} logo as saved`}
@@ -200,11 +201,11 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             onRemove={draft ? async () => setPending((p) => ({ ...p, logo: null })) : discard(agent.logo ?? {})}
             removeWarning={draft ? 'Remove the picked logo?' : `Remove ${agent?.name}’s logo?`}
             hint="Their own or their brokerage's logo. PNG, WebP, JPEG or GIF up to 3 MB; no SVG."
-          />
+          />}
 
           <ErrorNote>{error}</ErrorNote>
           <div className="ax-actions">
-            {draft ? (
+            {single ? null : draft ? (
               <button type="button" className="btn btn-secondary" onClick={onClose} disabled={Boolean(busy)}>Cancel</button>
             ) : (
               <button
@@ -220,7 +221,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
               disabled={Boolean(busy) || (!draft && !dirty)}
               aria-label={draft ? `Add this ${who}` : `Save ${agent.name}`}
             >
-              {busy === 'save' ? 'Saving…' : draft ? `Add ${who}` : `Save ${who}`}
+              {busy === 'save' ? 'Saving…' : single ? 'Save my details' : draft ? `Add ${who}` : `Save ${who}`}
             </button>
           </div>
         </>

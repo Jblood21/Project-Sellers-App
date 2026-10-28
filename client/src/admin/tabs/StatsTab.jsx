@@ -25,8 +25,9 @@ export default function StatsTab({ community, leads: everyone }) {
   const listing = isListing(community);
   const cards = [
     { label: listing ? 'Total visitors' : 'Total leads', value: leads.length },
-    { label: 'New — to call', value: leads.filter((lead) => lead.status === 'new').length },
-    { label: 'Booked calls', value: leads.filter((lead) => lead.tour).length },
+    { label: listing ? 'New — not yet contacted' : 'New — to call', value: leads.filter((lead) => lead.status === 'new').length },
+    // A listing books no call times (the visitor asks the agent for a showing), so there is nothing to count here.
+    ...(listing ? [] : [{ label: 'Booked calls', value: leads.filter((lead) => lead.tour).length }]),
     { label: 'Used a tool', value: leads.filter((lead) => toolsUsedOf(lead).length > 0).length },
   ];
 
