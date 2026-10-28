@@ -186,7 +186,7 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             onPick={draft ? async (dataUrl) => setPending((p) => ({ ...p, photo: dataUrl })) : upload(adminApi.setAgentPhoto)}
             onRemove={draft ? async () => setPending((p) => ({ ...p, photo: null })) : discard(agent.photo ?? {})}
             removeWarning={draft ? 'Remove the picked photo?' : `Remove ${agent?.name}’s photo?`}
-            hint="A head-and-shoulders portrait. It is cropped to fill a square."
+            hint={single ? "A clear head-and-shoulders photo of your face: visitors see it above the home's pictures. It is cropped to fill a square." : "A head-and-shoulders portrait. It is cropped to fill a square."}
             read={readPortrait}
             use="portrait"
           />

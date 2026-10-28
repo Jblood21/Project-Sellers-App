@@ -70,6 +70,8 @@ export const LISTING_DEFAULTS = {
   siteKind: 'community',
   // The sessions people can come to see the home: a JSON list, edited in Setup (normalizeOpenHouses).
   openHousesJson: '[]',
+  // How the agent shows above the photos (AGENT_TOP_STYLES).
+  agentTop: 'compact',
   // The listing agent's licence line and the MLS number, printed under the home and in the footer. Blank hides each.
   agentLicense: '',
   mlsNumber: '',
@@ -79,6 +81,12 @@ export const LISTING_DEFAULTS = {
     + 'taken from public records and are not guaranteed. Buyers should verify everything that matters to them. '
     + 'Payment figures on this page are estimates for illustration only, not a loan offer or a pre-approval.',
 };
+
+/** How the listing agent is shown above the home's pictures: one slim row, or a card with a big portrait. */
+export const AGENT_TOP_STYLES = ['compact', 'featured'];
+export const DEFAULT_AGENT_TOP = 'compact';
+/** The style for a stored value; anything else is the default. */
+export const normalizeAgentTop = (value) => (AGENT_TOP_STYLES.includes(value) ? value : DEFAULT_AGENT_TOP);
 
 export const OPEN_HOUSE_MAX = 8;
 export const OPEN_HOUSE_NOTE_MAX = 120;

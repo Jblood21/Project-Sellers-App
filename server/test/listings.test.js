@@ -190,6 +190,22 @@ for (const kind of backends()) {
       assert.equal((await asOwner(`/communities/${made.id}`)).body.guides.length, LISTING_GUIDE_ORDER.length);
     });
 
+    test('the agent is shown above the photos in one of two styles, compact by default, and nothing else is stored', async () => {
+      const made = (await asOwner('/communities', { method: 'POST', body: { ...listing, agentName: 'Ada Agent', agentPhone: '801-555-0100' } })).body;
+      assert.equal(made.settings.agentTop, 'compact');
+      assert.equal(made.agents.length, 1, 'the create answer carries the agent');
+      assert.equal(made.agents[0].name, 'Ada Agent');
+      const featured = await asOwner(`/communities/${made.id}`, { method: 'PATCH', body: { settings: { agentTop: 'featured' } } });
+      assert.equal(featured.body.settings.agentTop, 'featured');
+      for (const bad of ['huge', '', 'FEATURED', null]) {
+        const res = await asOwner(`/communities/${made.id}`, { method: 'PATCH', body: { settings: { agentTop: bad } } });
+        assert.equal(res.status, 400, String(bad));
+        assert.match(res.body.error, /Compact or Featured/);
+      }
+      assert.equal((await asOwner(`/communities/${made.id}`)).body.settings.agentTop, 'featured', 'a refused value changed nothing');
+      assert.equal((await api(`/api/c/${made.id}`)).body.settings.agentTop, 'featured', 'buyers are served it');
+    });
+
     test('nothing is made when the address or the price is missing or wrong', async () => {
       const before = (await asOwner('/communities')).body.length;
       for (const [body, pattern] of [

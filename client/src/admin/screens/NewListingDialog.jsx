@@ -42,6 +42,9 @@ export default function NewListingDialog({ onClose }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({ address: '', city: '', price: '', beds: '', baths: '', sqft: '', brokerage: rememberedBrokerage(), agentName: '', agentPhone: '', agentEmail: '', license: '', ...rememberedAgent() });
   const [photo, setPhoto] = useState(null);
+  // The agent's own face, shown to visitors above the home's pictures. Optional here; Setup > You can add or change it.
+  const [face, setFace] = useState(null);
+  const faceDone = useRef(false);
   const [tried, setTried] = useState(false);
   const [left, setLeft] = useState({});
   const saver = useSaving();
@@ -96,6 +99,14 @@ export default function NewListingDialog({ onClose }) {
           photoDone.current = true;
         } catch (photoError) {
           notice = `${listing.name} was created, but the photo did not upload: ${photoError.message} Add it here.`;
+        }
+      }
+      if (face && !faceDone.current && listing.agents?.[0]?.id) {
+        try {
+          await adminApi.setAgentPhoto(token, listing.agents[0].id, { dataUrl: face });
+          faceDone.current = true;
+        } catch (faceError) {
+          notice = `${notice ? `${notice} ` : ''}Your photo did not upload: ${faceError.message} Add it under Setup, Listing agent.`;
         }
       }
       onClose();
@@ -181,7 +192,13 @@ export default function NewListingDialog({ onClose }) {
         />
       </fieldset>
       <PhotoPicker
-        label="First photo"
+        label="Your photo (your face)"
+        hint="Visitors see you above the home's pictures. A clear head-and-shoulders photo works best."
+        pendingDataUrl={face}
+        onPick={setFace}
+      />
+      <PhotoPicker
+        label="First photo of the home"
         hint="Tap to upload — visitors see this first when they scan the sign"
         pendingDataUrl={photo}
         onPick={setPhoto}

@@ -7,7 +7,7 @@ import {
   LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
   isSafeEmail, isThemeKey, SLOT_TIMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
-  LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
+  AGENT_TOP_STYLES, LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
 } from '../../shared/domain.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
@@ -1133,6 +1133,7 @@ export function adminRouter() {
     });
     let community = made;
     let home;
+    let agent = null;
     try {
       // The licence line the footer prints, when the agent gave one.
       // Typed as "12345", "#12345" or "Lic. #12345": the number is kept on its own for the agent's card, and the line
@@ -1145,7 +1146,7 @@ export function adminRouter() {
       if (agentName) {
         const phone = str(req.body?.agentPhone).slice(0, AGENT_TEXT_MAX.phone);
         const email = str(req.body?.agentEmail).slice(0, AGENT_TEXT_MAX.email);
-        await store.createAgent(made.id, {
+        agent = await store.createAgent(made.id, {
           name: agentName, brokerage: community.builder, licenseNo, phone,
           email: email && isSafeEmail(email) ? email : '',
         });
@@ -1168,7 +1169,7 @@ export function adminRouter() {
       throw err;
     }
     await recordActivity(store, req, { communityId: community.id, action: 'listing.created', subject: community.name });
-    return res.status(201).json({ ...community, homes: [home] });
+    return res.status(201).json({ ...community, homes: [home], agents: agent ? [agent] : [] });
   }
 
   router.post('/communities', async (req, res) => {
@@ -1338,6 +1339,12 @@ export function adminRouter() {
             if (hex === null) return res.status(400).json({ error: 'Colours must be colour codes like #5A1E33.' });
             settings[key] = hex;
           }
+          continue;
+        }
+        if (key === 'agentTop') {
+          // How the agent shows above the photos: one of the two styles, nothing else is stored.
+          if (!AGENT_TOP_STYLES.includes(text)) return res.status(400).json({ error: 'Choose Compact or Featured.' });
+          settings[key] = text;
           continue;
         }
         if (key === 'openHousesJson') {
