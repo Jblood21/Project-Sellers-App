@@ -1709,3 +1709,202 @@
    it is done, so the step goes to full opacity in the muted ink instead. */
 .b-app.l-trailhead .b-main .b-shell [style*='opacity: 0.55'] { opacity: 1 !important; }
 .b-app.l-trailhead .b-main .b-shell [style*='line-through'] { color: var(--t-mut) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Listing page: "A guided walk"
+   A trail of numbered stops (See it, Know it, Tour it, Finance it, Meet your
+   guide), each a card on one dotted line with a round node, a progress rail
+   pinned under the header, and a big Next button ending every stop.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.b-app.l-trailhead .ls-trailhead-page {
+  --lt-trail: 34px;          /* width of the trail column (node centre at half) */
+  max-width: 760px;
+  padding: 18px var(--th-gutter) 48px;
+  overflow-x: clip;
+}
+@media (max-width: 899px) {
+  .b-app.l-trailhead .ls-trailhead-page { padding-bottom: 110px; }
+}
+@media (min-width: 900px) {
+  .b-app.l-trailhead .ls-trailhead-page { --lt-trail: 84px; max-width: 920px; }
+}
+
+.b-app.l-trailhead .ls-trailhead-intro { padding: 6px 2px 14px; }
+.b-app.l-trailhead .ls-trailhead-kicker {
+  margin: 0 0 4px; font: 700 12.5px/1.3 var(--t-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--t-accT);
+}
+.b-app.l-trailhead .ls-trailhead-title {
+  margin: 0; font: var(--t-headwt) clamp(27px, 7.4vw, 40px)/1.1 var(--t-head); color: var(--th-ink); text-wrap: balance;
+}
+.b-app.l-trailhead .ls-trailhead-city { margin: 6px 0 0; color: var(--th-mut); font-size: 16px; }
+.b-app.l-trailhead .ls-trailhead-status {
+  margin: 12px 0 0; padding: 10px 14px; border-radius: var(--t-rad); background: var(--t-tint); color: var(--th-ink);
+  border: 1px solid var(--t-line); font-weight: 600; font-size: 15px;
+}
+
+/* progress rail */
+.b-app.l-trailhead .ls-trailhead-rail {
+  position: sticky;
+  top: calc(var(--th-bar-h, 56px) + env(safe-area-inset-top));
+  z-index: 20;
+  margin: 0 calc(var(--th-gutter) * -1) 20px;
+  padding: 10px var(--th-gutter) 12px;
+  background: var(--t-bg);
+  border-bottom: 1px solid var(--t-line);
+}
+.b-app.l-trailhead .ls-trailhead-rail__row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
+.b-app.l-trailhead .ls-trailhead-rail__step { font: 700 13px/1.2 var(--t-font); letter-spacing: 0.06em; text-transform: uppercase; color: var(--t-accT); }
+.b-app.l-trailhead .ls-trailhead-rail__name { font: 700 15px/1.2 var(--t-head); color: var(--th-ink); text-align: right; }
+.b-app.l-trailhead .ls-trailhead-rail__bar { height: 8px; border-radius: 99px; background: var(--th-bed); border: 1px solid var(--t-line); overflow: hidden; }
+.b-app.l-trailhead .ls-trailhead-rail__bar > span { display: block; height: 100%; background: var(--t-acc2); border-radius: 99px; transition: width 0.45s ease; }
+
+/* the trail */
+.b-app.l-trailhead .ls-trailhead-trail { list-style: none; margin: 0; padding: 0; position: relative; }
+.b-app.l-trailhead .ls-trailhead-trail::before {
+  content: ''; position: absolute; top: 18px; bottom: 18px; left: calc(var(--lt-trail) / 2 - 20px + 18px - 1.5px);
+  border-left: 3px dotted var(--th-ctl); opacity: 0.7;
+}
+.b-app.l-trailhead .ls-trailhead-stop { position: relative; padding-left: calc(var(--lt-trail) + 4px); margin-bottom: 22px; }
+.b-app.l-trailhead .ls-trailhead-node {
+  position: absolute; left: calc(var(--lt-trail) / 2 - 20px); top: 10px; z-index: 1;
+  width: 36px; height: 36px; box-sizing: border-box; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 700 15px/1 var(--t-head); background: var(--t-sur); color: var(--t-mut); border: 2px solid var(--th-ctl);
+  box-shadow: 0 0 0 4px var(--t-bg); transition: background 0.3s, transform 0.3s;
+}
+.b-app.l-trailhead .ls-trailhead-stop[data-state='done'] .ls-trailhead-node { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-accT); }
+.b-app.l-trailhead .ls-trailhead-stop[data-state='here'] .ls-trailhead-node {
+  background: var(--t-acc2); color: var(--t-onacc2); border: 3px solid var(--t-sur);
+  box-shadow: 0 0 0 2px var(--t-acc2), 0 0 0 6px var(--t-bg); transform: scale(1.1);
+}
+@media (min-width: 900px) {
+  .b-app.l-trailhead .ls-trailhead-node { width: 44px; height: 44px; font-size: 18px; left: calc(var(--lt-trail) / 2 - 24px); top: 14px; }
+  .b-app.l-trailhead .ls-trailhead-trail::before { left: calc(var(--lt-trail) / 2 - 1.5px); }
+  .b-app.l-trailhead .ls-trailhead-stop { margin-bottom: 30px; padding-left: calc(var(--lt-trail) + 12px); }
+}
+@media (max-width: 899px) {
+  .b-app.l-trailhead .ls-trailhead-trail::before { left: 16.5px; }
+  .b-app.l-trailhead .ls-trailhead-node { left: 0; width: 32px; height: 32px; font-size: 14px; top: 12px; }
+  .b-app.l-trailhead .ls-trailhead-stop { padding-left: 42px; }
+}
+
+.b-app.l-trailhead .ls-trailhead-card {
+  background: var(--t-sur); border: 1px solid var(--t-line); border-radius: var(--t-radlg);
+  padding: 16px 14px 16px; box-shadow: none; min-width: 0;
+  transition: box-shadow 0.3s, transform 0.3s, border-color 0.3s;
+  scroll-margin-top: calc(var(--th-bar-h, 56px) + 96px);
+}
+@media (min-width: 900px) { .b-app.l-trailhead .ls-trailhead-card { padding: 24px 26px 26px; } }
+.b-app.l-trailhead .ls-trailhead-stop[data-state='here'] .ls-trailhead-card {
+  box-shadow: var(--th-shadow-hi); border-color: var(--th-ctl);
+}
+@media (min-width: 900px) {
+  .b-app.l-trailhead .ls-trailhead-stop[data-state='here'] .ls-trailhead-card { transform: translateY(-3px); }
+}
+.b-app.l-trailhead .ls-trailhead-stoplbl { margin: 0; font: 700 12px/1.3 var(--t-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--t-accT); }
+.b-app.l-trailhead .ls-trailhead-stoplbl span { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--th-mut); margin-left: 6px; }
+.b-app.l-trailhead .ls-trailhead-h2 { margin: 2px 0 14px; font: var(--t-headwt) 25px/1.15 var(--t-head); color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-h2:focus { outline: none; }
+.b-app.l-trailhead .ls-trailhead-h2:focus-visible { outline: 2px solid var(--t-accT); outline-offset: 4px; }
+.b-app.l-trailhead .ls-trailhead-sub { margin: 14px 0 8px; font-weight: 700; font-size: 14px; color: var(--th-ink); }
+
+/* buttons */
+.b-app.l-trailhead .ls-trailhead-btn,
+.b-app.l-trailhead .ls-trailhead-next {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box;
+  min-height: 48px; padding: 0 20px; border-radius: var(--t-radbtn); border: 2px solid transparent;
+  font: 700 16px/1.2 var(--t-font); cursor: pointer; text-decoration: none; text-align: center;
+}
+.b-app.l-trailhead .ls-trailhead-btn--go { background: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-trailhead .ls-trailhead-btn--go:hover { filter: brightness(1.12); }
+.b-app.l-trailhead .ls-trailhead-btn--line { background: var(--t-sur); color: var(--t-acc2); border-color: var(--t-acc2); }
+.b-app.l-trailhead .ls-trailhead-btn--line:hover { background: var(--t-tint); }
+.b-app.l-trailhead .ls-trailhead-next {
+  width: 100%; margin-top: 18px; min-height: 54px; justify-content: space-between; padding: 0 18px;
+  background: var(--t-tint); color: var(--th-ink); border-color: var(--th-ctl); font-size: 17px; font-family: var(--t-head);
+}
+.b-app.l-trailhead .ls-trailhead-next:hover { background: var(--t-acc2); color: var(--t-onacc2); border-color: var(--t-acc2); }
+
+/* stop 1: carousel */
+.b-app.l-trailhead .ls-trailhead-carousel { position: relative; border-radius: var(--t-rad); overflow: hidden; background: var(--t-tint); }
+.b-app.l-trailhead .ls-trailhead-slides {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.b-app.l-trailhead .ls-trailhead-slides::-webkit-scrollbar { display: none; }
+.b-app.l-trailhead .ls-trailhead-slide { flex: 0 0 100%; scroll-snap-align: center; aspect-ratio: 4 / 3; }
+@media (min-width: 900px) { .b-app.l-trailhead .ls-trailhead-slide { aspect-ratio: 3 / 2; } }
+.b-app.l-trailhead .ls-trailhead-slide__btn { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.b-app.l-trailhead .ls-trailhead-slide__btn .photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b-app.l-trailhead .ls-trailhead-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--t-sur);
+  background: var(--t-acc2); color: var(--t-onacc2); cursor: pointer; padding: 0;
+}
+.b-app.l-trailhead .ls-trailhead-arrow--prev { left: 8px; }
+.b-app.l-trailhead .ls-trailhead-arrow--next { right: 8px; }
+.b-app.l-trailhead .ls-trailhead-arrow:disabled { opacity: 0.35; cursor: default; }
+.b-app.l-trailhead .ls-trailhead-count {
+  position: absolute; right: 10px; bottom: 10px; padding: 4px 10px; border-radius: 99px; font: 700 13px/1.2 var(--t-font);
+  background: var(--t-acc2); color: var(--t-onacc2);
+}
+.b-app.l-trailhead .ls-trailhead-thumbs { list-style: none; margin: 10px 0 0; padding: 4px 2px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; }
+.b-app.l-trailhead .ls-trailhead-thumbs li { flex: none; }
+.b-app.l-trailhead .ls-trailhead-thumb {
+  display: block; width: 72px; height: 54px; padding: 0; border-radius: 8px; overflow: hidden; cursor: pointer;
+  border: 2px solid var(--t-line); background: var(--t-tint); opacity: 0.8;
+}
+.b-app.l-trailhead .ls-trailhead-thumb[data-on] { border-color: var(--t-acc2); opacity: 1; box-shadow: 0 0 0 2px var(--t-sur), 0 0 0 4px var(--t-acc2); }
+.b-app.l-trailhead .ls-trailhead-thumb .photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (min-width: 900px) { .b-app.l-trailhead .ls-trailhead-thumb { width: 92px; height: 66px; } }
+.b-app.l-trailhead .ls-trailhead-extras { margin-top: 14px; }
+.b-app.l-trailhead .ls-trailhead-plans { display: flex; gap: 8px; flex-wrap: wrap; }
+.b-app.l-trailhead .ls-trailhead-plans .ls-plan {
+  width: 96px; height: 72px; padding: 0; border-radius: 8px; overflow: hidden; border: 2px solid var(--t-line); background: var(--t-sur); cursor: pointer;
+}
+
+/* stop 2: know it */
+.b-app.l-trailhead .ls-trailhead-price { margin: 0; font: var(--t-headwt) clamp(32px, 9vw, 44px)/1.05 var(--t-head); color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-est { margin: 6px 0 0; font-size: 15px; color: var(--th-mut); }
+.b-app.l-trailhead .ls-trailhead-est strong { color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-chips { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.b-app.l-trailhead .ls-trailhead-chips li {
+  padding: 8px 14px; border-radius: 99px; background: var(--t-tint); color: var(--th-ink); border: 1px solid var(--t-line); font-size: 15px;
+}
+.b-app.l-trailhead .ls-trailhead-chips strong { font-family: var(--t-head); font-size: 17px; }
+.b-app.l-trailhead .ls-trailhead-facts { margin: 12px 0 0; font-size: 14px; color: var(--th-mut); }
+.b-app.l-trailhead .ls-trailhead-desc { margin: 14px 0 16px; font-size: 16.5px; line-height: 1.65; color: var(--th-ink); white-space: pre-line; max-width: 62ch; }
+.b-app.l-trailhead .ls-trailhead-facts + .ls-trailhead-btn,
+.b-app.l-trailhead .ls-trailhead-chips + .ls-trailhead-btn { margin-top: 16px; }
+
+/* stop 3: tour it (restyles the shared open-house card inside the trail) */
+.b-app.l-trailhead .ls-trailhead-card .b-ls-oh { margin: 0 0 14px; padding: 0; border: 0; background: none; }
+.b-app.l-trailhead .ls-trailhead-card .b-ls-oh__title { font: 700 16px/1.2 var(--t-head); color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-card .b-ls-oh__item { background: var(--t-tint); border-color: var(--t-line); border-radius: var(--t-rad); }
+.b-app.l-trailhead .ls-trailhead-card .b-ls-oh__note { color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-card .b-ls-oh__act {
+  min-height: 44px; display: inline-flex; align-items: center; border-radius: var(--t-radbtn); border: 2px solid var(--t-acc2);
+  background: var(--t-sur); color: var(--t-acc2); font-weight: 700; padding: 0 14px; text-decoration: none; cursor: pointer;
+}
+.b-app.l-trailhead .ls-trailhead-note { margin: 0 0 14px; color: var(--th-mut); }
+
+/* stop 4: finance it */
+.b-app.l-trailhead .ls-trailhead-fin { padding: 14px; border-radius: var(--t-rad); background: var(--t-tint); border: 1px solid var(--t-line); margin-bottom: 14px; }
+.b-app.l-trailhead .ls-trailhead-fin__big { margin: 0; font: var(--t-headwt) 34px/1.1 var(--t-head); color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-fin__big small { font: 500 15px var(--t-font); margin-left: 4px; color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-fin__list { margin: 12px 0 0; }
+.b-app.l-trailhead .ls-trailhead-fin__list > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px dashed var(--th-ctl); font-size: 15px; }
+.b-app.l-trailhead .ls-trailhead-fin__list dt { color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-fin__list dd { margin: 0; font-weight: 700; color: var(--th-ink); text-align: right; }
+.b-app.l-trailhead .ls-trailhead-fine { margin: 8px 0 0; font-size: 12.5px; color: var(--th-ink); }
+.b-app.l-trailhead .ls-trailhead-acts { display: flex; flex-wrap: wrap; gap: 10px; }
+.b-app.l-trailhead .ls-trailhead-acts > .ls-trailhead-btn { flex: 1 1 200px; }
+
+/* stop 5: guide */
+.b-app.l-trailhead .ls-trailhead-guide { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; }
+.b-app.l-trailhead .ls-trailhead-face { border-radius: 50%; object-fit: cover; display: inline-flex; align-items: center; justify-content: center; background: var(--t-acc2); color: var(--t-onacc2); font-size: 28px; border: 3px solid var(--t-sur); box-shadow: 0 0 0 2px var(--t-acc2); }
+.b-app.l-trailhead .ls-trailhead-guide__who { display: flex; flex-direction: column; min-width: 0; }
+.b-app.l-trailhead .ls-trailhead-guide .ls-agent__name { font: var(--t-headwt) 20px/1.2 var(--t-head); color: var(--th-ink); overflow-wrap: anywhere; }
+.b-app.l-trailhead .ls-trailhead-guide .ls-agent__brokerage,
+.b-app.l-trailhead .ls-trailhead-guide .ls-agent__license { font-size: 14px; color: var(--th-mut); }
+.b-app.l-trailhead .ls-trailhead-guide__acts { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.b-app.l-trailhead .ls-trailhead-guide__acts > * { flex: 1 1 120px; }

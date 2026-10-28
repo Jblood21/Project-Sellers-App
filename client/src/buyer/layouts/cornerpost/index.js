@@ -1,6 +1,7 @@
 import '../../../styles/layouts/cornerpost.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Cornerpost Default: one phone-width column of soft, rounded, bordered tiles
@@ -20,4 +21,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };
