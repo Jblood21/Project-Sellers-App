@@ -34,10 +34,17 @@ const LISTING_WORDS = {
   area: { label: 'Neighborhood', blurb: 'What is nearby that visitors can explore.' },
   learn: { blurb: 'The guides visitors can read.' },
   times: { blurb: 'When visitors can book a call about financing.' },
-  setup: { blurb: 'Listing details, open houses, look, agents, rates and rules.' },
+  tools: { blurb: 'Which calculators visitors see.' },
+  setup: { blurb: 'Listing details, open houses, look, your details, lender and costs.' },
 };
 
-export const LISTING_SECTIONS = SECTIONS.map((section) => ({ ...section, ...(LISTING_WORDS[section.key] ?? {}) }));
+// A lender's financing call times: a listing has none (the agent is asked for a showing instead), so no Times section.
+export const LISTING_SECTIONS = SECTIONS.filter((section) => section.key !== 'times')
+  .map((section) => ({ ...section, ...(LISTING_WORDS[section.key] ?? {}) }));
+
+/** The phone's bottom bar for a listing: it has no Times. */
+export const LISTING_BOTTOM_KEYS = ['leads', 'homes', 'stats'];
+export const bottomKeysFor = (listing) => (listing ? LISTING_BOTTOM_KEYS : BOTTOM_KEYS);
 
 /** The sections of a community, or of a listing when `listing` is true. */
 export const sectionsFor = (listing) => (listing ? LISTING_SECTIONS : SECTIONS);
@@ -54,5 +61,9 @@ export const SETUP_PARTS = [
 export const DEFAULT_SETUP_PART = SETUP_PARTS[0].key;
 
 /** A listing's Setup opens on its own part (the details and the open houses) and then has the same four. */
-export const LISTING_SETUP_PARTS = [{ key: 'listing', label: 'Listing' }, ...SETUP_PARTS];
+const LISTING_PART_LABELS = { team: 'You & alerts', rules: 'Lender & costs' };
+export const LISTING_SETUP_PARTS = [
+  { key: 'listing', label: 'Listing' },
+  ...SETUP_PARTS.map((part) => ({ ...part, label: LISTING_PART_LABELS[part.key] ?? part.label })),
+];
 export const DEFAULT_LISTING_SETUP_PART = LISTING_SETUP_PARTS[0].key;

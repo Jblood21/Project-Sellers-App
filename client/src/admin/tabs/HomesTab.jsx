@@ -404,7 +404,7 @@ function SingleHome({ community, reload }) {
             if (!priceRead.error) setForm((f) => ({ ...f, price: money(priceRead.value) }));
           }}
           error={problemOf('price')}
-          preview={!priceRead.error && form.price.trim() ? `Buyers will see ${money(priceRead.value)}` : ''}
+          preview={!priceRead.error && form.price.trim() ? `Visitors will see ${money(priceRead.value)}` : ''}
           hint="In dollars. You can type 475000, 475,000, $475,000, 475k or 1.2m."
           autoComplete="off"
         />

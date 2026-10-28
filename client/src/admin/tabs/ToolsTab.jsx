@@ -63,6 +63,8 @@ function SwitchRow({ item, group, community, reload }) {
 
 /** One switch per buyer tool. Turning one off hides it everywhere in the buyer app. */
 // What only makes sense for a development: lot numbers, the plat, the builder's own videos and articles, the incentive card.
+// A listing is one home: nothing to compare, no community assistance program, no build to plan a move-in around.
+const LISTING_TOOLS = ['payment', 'afford', 'loans', 'savings'];
 const COMMUNITY_ONLY = ['lotNumbers', 'siteMap', 'resources', 'incentive'];
 
 export default function ToolsTab({ community, reload }) {
@@ -72,17 +74,17 @@ export default function ToolsTab({ community, reload }) {
       <p className="text-muted" style={{ fontSize: 14, margin: '0 0 4px' }}>
         Choose which questions {listing ? 'visitors to this listing' : "this community's buyers"} can answer for themselves.
       </p>
-      {TOOLS.map((tool) => (
+      {TOOLS.filter((tool) => !listing || LISTING_TOOLS.includes(tool.k)).map((tool) => (
         <SwitchRow key={tool.k} item={tool} group="tools" community={community} reload={reload} />
       ))}
       <p className="text-muted" style={{ fontSize: 14, margin: '14px 0 4px' }}>
-        What buyers see on {listing ? 'the home' : 'the homes'} themselves. Each one also stays hidden until you
+        What {listing ? 'visitors' : 'buyers'} see on {listing ? 'the home' : 'the homes'} themselves. Each one also stays hidden until you
         add something to it, so switching it on never shows an empty space.
       </p>
       {FEATURES.filter((feature) => feature.k !== 'booking' && !(listing && COMMUNITY_ONLY.includes(feature.k))).map((feature) => (
         <SwitchRow
           key={feature.k} group="features" community={community} reload={reload}
-          item={listing && feature.k === 'agents' ? { ...feature, name: 'Agents', q: feature.q.replace('real estate agents', 'listing agents') } : feature}
+          item={listing && feature.k === 'agents' ? { ...feature, name: 'Meet your agent', q: 'Show your name, photo and contact details on the page, under the home and for a showing request' } : feature}
         />
       ))}
     </div>

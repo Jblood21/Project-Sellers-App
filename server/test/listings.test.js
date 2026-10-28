@@ -176,6 +176,7 @@ for (const kind of backends()) {
       }
       assert.equal(full.features.booking, false);
       assert.equal(full.settings.agentLicense, 'Lic. #LP-1');
+      assert.equal(full.agents[0].licenseNo, 'LP-1', 'the number alone on the agent\'s card');
       assert.match(full.settings.listingDisclosure, /Equal Housing Opportunity/);
       const faq = parseFaq(full.settings.faqJson);
       assert.equal(faq.length, 6);

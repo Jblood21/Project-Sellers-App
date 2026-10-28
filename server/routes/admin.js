@@ -1135,8 +1135,10 @@ export function adminRouter() {
     let home;
     try {
       // The licence line the footer prints, when the agent gave one.
-      const license = str(req.body?.license).slice(0, 120);
-      if (license) community = await store.updateCommunity(made.id, { settings: { ...made.settings, agentLicense: license } });
+      // Typed as "12345", "#12345" or "Lic. #12345": the number is kept on its own for the agent's card, and the line
+      // the footer prints is always written the same way.
+      const licenseNo = str(req.body?.license).replace(/^\s*lic(?:ense|\.)?\s*(?:no\.?|number)?\s*#?\s*/i, '').replace(/^#\s*/, '').trim().slice(0, AGENT_TEXT_MAX.licenseNo);
+      if (licenseNo) community = await store.updateCommunity(made.id, { settings: { ...made.settings, agentLicense: `Lic. #${licenseNo}` } });
       // The listing agent is the person making it: their name and number are what a buyer is shown to call. One
       // agent, edited in Setup; a listing never asks for a team of them.
       const agentName = str(req.body?.agentName).slice(0, AGENT_TEXT_MAX.name);
@@ -1144,7 +1146,7 @@ export function adminRouter() {
         const phone = str(req.body?.agentPhone).slice(0, AGENT_TEXT_MAX.phone);
         const email = str(req.body?.agentEmail).slice(0, AGENT_TEXT_MAX.email);
         await store.createAgent(made.id, {
-          name: agentName, brokerage: community.builder, licenseNo: license, phone,
+          name: agentName, brokerage: community.builder, licenseNo, phone,
           email: email && isSafeEmail(email) ? email : '',
         });
       }

@@ -6,6 +6,7 @@ import {
 } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import { Disclosure, TextAreaField, TextField } from '../ui.jsx';
 import ImageSlot from './ImageSlot.jsx';
 import { logoToDataUrl } from './readImage.js';
@@ -107,6 +108,19 @@ const GROUPS = [
 /** The fields inside the folded group, so a jump to one of them can open it first. */
 const FOLDED_KEYS = GROUPS.filter((group) => group.fold).flatMap((group) => group.fields.map((field) => field.key));
 
+// A listing's preferred lender is only who they are and where to apply: no licence sentence, statements or footer links.
+const LISTING_LENDER_KEYS = ['lenderName', 'lenderNmls', 'lenderPhone', 'lenderEmail', 'lenderWebsite', 'lenderAddress', 'loanApplicationUrl'];
+const LISTING_GROUPS = [{
+  ...GROUPS[0],
+  title: 'Lender',
+  fields: LISTING_LENDER_KEYS.map((key) => {
+    const field = GROUPS[0].fields.find((f) => f.key === key);
+    if (key === 'lenderEmail') return { ...field, label: 'Lender email', hint: 'Blank means no email button.' };
+    if (key === 'loanApplicationUrl') return { ...field, hint: 'Where “Start my loan process” goes. Blank hides those links.' };
+    return field;
+  }),
+}];
+
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 // The rest of this page, like the product, uses the American spelling.
 const shownAs = (label) => capital(label.replace('licence', 'license'));
@@ -120,6 +134,8 @@ const grouped = (n) => n.toLocaleString('en-US');
  */
 export default function ComplianceCard({ community, settings, setSettings, reload }) {
   const { token } = useAdmin();
+  const listing = isListing(community);
+  const groups = listing ? LISTING_GROUPS : GROUPS;
   const [restored, setRestored] = useState('');
   const [foldOpen, setFoldOpen] = useState(false);
 
@@ -195,20 +211,26 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
   return (
     <div className="card elev-sm" style={{ gap: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span className="card-kicker">Lender &amp; compliance</span>
+        <span className="card-kicker">{listing ? 'Preferred lender (optional)' : 'Lender & compliance'}</span>
         {unsaved ? <span className="tag tag-accent">Unsaved changes</span> : null}
       </div>
 
-      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+      {listing ? (
+        <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+          Add a lender you work with and visitors get a &ldquo;Talk about financing&rdquo; button and loan links. Leave this
+          empty and no lender or loan links appear on the page. Press <strong>Save settings</strong> to make a change live.
+        </p>
+      ) : null}
+      {listing ? null : <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
         This is printed at the foot of every buyer page, on the printed plan and in the plan email. The
         wording starts from Summit Home Loans&apos; and has not been reviewed by counsel, so have your
         compliance team read it before launch. The small labels in the footer itself (Loan officer, Verify
         our licensing at NMLS Consumer Access, Privacy Policy, Terms of Use and Accessibility) are fixed
         and cannot be edited here. Nothing changes for buyers until you press{' '}
         <strong>Save settings</strong>.
-      </p>
+      </p>}
 
-      {result.missing.length ? (
+      {listing ? null : result.missing.length ? (
         <section className="ax-callout" aria-labelledby="ax-attention">
           <h5 id="ax-attention">Needs your attention before launch ({result.missing.length})</h5>
           <ul>
@@ -227,11 +249,11 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
         </section>
       )}
 
-      {GROUPS.map((group) => {
+      {groups.map((group) => {
         const keys = group.fields.filter((f) => !f.keep).map((f) => f.key);
         const atDefaults = keys.every((key) => (settings[key] ?? '') === COMPLIANCE_DEFAULTS[key]);
         const groupUnsaved = keys.some((key) => (settings[key] ?? '') !== (saved[key] ?? ''));
-        const restoreButton = (
+        const restoreButton = listing ? null : (
           <button
             type="button" className="btn btn-ghost" disabled={atDefaults} onClick={() => restore(group)}
             aria-label={`${group.restore} for ${group.title.toLowerCase()}`}
@@ -260,14 +282,14 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
               <ImageSlot
                 label="Lender logo"
                 image={community.lenderLogo?.url ?? null}
-                fallback={{ url: LENDER_LOGOS.color, note: logoNote }}
-                alt={community.lenderLogo ? 'Lender logo as saved' : `${defaultName} logo (supplied default)`}
+                fallback={listing ? undefined : { url: LENDER_LOGOS.color, note: logoNote }}
+                alt={community.lenderLogo ? 'Lender logo as saved' : listing ? 'Lender logo' : `${defaultName} logo (supplied default)`}
                 read={logoToDataUrl}
                 onPick={uploadLogo}
                 use="lenderlogo"
                 onRemove={community.lenderLogo ? removeLogo : undefined}
-                removeWarning="Remove your lender logo and go back to the supplied Summit Home Loans logo?"
-                hint="Saves as soon as it uploads. Leave it alone to keep the supplied Summit logo. PNG, WebP, JPEG or GIF up to 3 MB, shown at least 30 pixels tall. It also goes on the lead reports when it is a PNG or JPEG; otherwise they show the lender's name."
+                removeWarning={listing ? 'Remove the lender logo?' : 'Remove your lender logo and go back to the supplied Summit Home Loans logo?'}
+                hint={listing ? 'Saves as soon as it uploads. PNG, WebP, JPEG or GIF up to 3 MB.' : "Saves as soon as it uploads. Leave it alone to keep the supplied Summit logo. PNG, WebP, JPEG or GIF up to 3 MB, shown at least 30 pixels tall. It also goes on the lead reports when it is a PNG or JPEG; otherwise they show the lender's name."}
               />
             ) : null}
           </>
@@ -281,7 +303,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
               tag={groupUnsaved ? <span className="tag tag-accent">Unsaved</span> : null}
               open={foldOpen} onOpenChange={setFoldOpen}
             >
-              <div>{restoreButton}</div>
+              {restoreButton ? <div>{restoreButton}</div> : null}
               {body}
             </Disclosure>
           );
@@ -300,7 +322,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
         );
       })}
 
-      <section className="ax-group" aria-labelledby="ax-preview">
+      {listing ? null : <section className="ax-group" aria-labelledby="ax-preview">
         <h5 id="ax-preview" style={{ margin: 0, fontFamily: 'var(--font-heading)', fontSize: 14 }}>Footer text preview</h5>
         <div className="ax-preview">
           {result.lender.ready ? (
@@ -326,7 +348,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
         <span className="text-muted" style={{ fontSize: 14 }}>
           Text only. The buyer app adds the lender logo and the Equal Housing Lender mark.
         </span>
-      </section>
+      </section>}
     </div>
   );
 }

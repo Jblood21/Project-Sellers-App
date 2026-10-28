@@ -1,4 +1,5 @@
 import { homeGreeting, settingMaxLength } from '@shared/domain.js';
+import { isListing } from '../listing.js';
 import { TextAreaField, TextField } from '../ui.jsx';
 
 const KEYS = ['homeHeadline', 'homeSubhead'];
@@ -37,6 +38,7 @@ const DEFAULTS = {
  * it, in the builder's own words. Saved with the rest of the page by Save settings; blank keeps the layout's own.
  */
 export default function HomeHeadingCard({ community, settings, setSettings }) {
+  const listing = isListing(community);
   const saved = community.settings ?? {};
   const unsaved = KEYS.some((key) => (settings[key] ?? '') !== (saved[key] ?? ''));
   const fallback = DEFAULTS[community.layout] ?? DEFAULTS.other;
@@ -55,8 +57,8 @@ export default function HomeHeadingCard({ community, settings, setSettings }) {
         {unsaved ? <span className="tag tag-accent">Unsaved changes</span> : null}
       </div>
       <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        The first words a buyer reads after they sign in. Leave a box empty to keep the wording shown in grey.
-        Type <strong>{'{name}'}</strong> for the buyer&apos;s first name and <strong>{'{community}'}</strong> for {community.name}.
+        The first words {listing ? 'a visitor reads' : 'a buyer reads'} after they sign in. Leave a box empty to keep the wording shown in grey.
+        Type <strong>{'{name}'}</strong> for {listing ? 'the visitor' : 'the buyer'}&apos;s first name and <strong>{'{community}'}</strong> for {listing ? 'the address' : ''} {community.name}.
       </p>
       <TextField
         id="setting-homeHeadline"
@@ -81,7 +83,7 @@ export default function HomeHeadingCard({ community, settings, setSettings }) {
         <p style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: 17, color: 'var(--color-text)' }}>{preview.headline}</p>
         <p>{preview.subhead}</p>
       </div>
-      <span className="text-muted" style={{ fontSize: 14 }}>Shown for a buyer named Dana. It goes live when you press Save settings.</span>
+      <span className="text-muted" style={{ fontSize: 14 }}>Shown for a {listing ? 'visitor' : 'buyer'} named Dana. It goes live when you press Save settings.</span>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
+import { isListing } from '../listing.js';
 import ImageSlot from './ImageSlot.jsx';
 import { logoToDataUrl } from './readImage.js';
 
@@ -12,6 +13,7 @@ import { logoToDataUrl } from './readImage.js';
  */
 export default function LogoCard({ community, reload }) {
   const { token } = useAdmin();
+  const listing = isListing(community);
 
   const upload = (kind) => async (dataUrl) => {
     await adminApi.addCommunityPhoto(token, community.id, kind, { dataUrl });
@@ -24,9 +26,9 @@ export default function LogoCard({ community, reload }) {
 
   return (
     <div className="card elev-sm" style={{ gap: 12 }}>
-      <span className="card-kicker">Development logo</span>
+      <span className="card-kicker">{listing ? 'Brokerage logo (optional)' : 'Development logo'}</span>
       <ImageSlot
-        label="Development logo"
+        label={listing ? 'Brokerage logo' : 'Development logo'}
         image={community.logo?.url ?? null}
         alt={`${community.name} logo as saved`}
         read={logoToDataUrl}
@@ -48,7 +50,7 @@ export default function LogoCard({ community, reload }) {
       />
       <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
         PNG, WebP, JPEG or GIF up to 3 MB. SVG files are not accepted. Without a logo, buyers see
-        the community name as text.
+        the {listing ? 'home’s address' : 'community name'} as text.
       </span>
     </div>
   );

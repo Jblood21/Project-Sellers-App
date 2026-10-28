@@ -11,7 +11,7 @@ import ChangePasswordDialog from '../screens/ChangePasswordDialog.jsx';
 import { buyerUrl } from '../screens/QrDialog.jsx';
 import { Dialog, ErrorNote, Spinner } from '../ui.jsx';
 import NavIcon from './navIcons.jsx';
-import { BOTTOM_KEYS, GROUPS, sectionOf, sectionsFor } from './sections.js';
+import { GROUPS, bottomKeysFor, sectionOf, sectionsFor } from './sections.js';
 
 import '../../styles/admin-shell.css';
 
@@ -54,6 +54,7 @@ export default function AdminShell({
   // A listing (one home an agent is selling) has the same sections with its own words: Visitors, The home, Neighborhood.
   const listing = isListing(community);
   const sections = sectionsFor(listing);
+  const bottomKeys = bottomKeysFor(listing);
   const current = sectionOf(section, listing);
   const attention = attentionCount(leads);
   const guard = (after) => (event) => {
@@ -120,7 +121,7 @@ export default function AdminShell({
               </button>
               {GROUPS.map((group) => (
                 <div key={group} className="as-group">
-                  <span className="as-eyebrow">{group}</span>
+                  <span className="as-eyebrow">{listing && group === 'Buyer app' ? 'Visitor page' : group}</span>
                   {sections.filter((item) => item.group === group).map((item) => sectionLink(item))}
                 </div>
               ))}
@@ -283,10 +284,10 @@ export default function AdminShell({
 
         {community ? (
           <nav className="as-bottom" aria-label="Sections">
-            {BOTTOM_KEYS.map((key) => sectionLink(sectionOf(key, listing), { className: 'as-tab' }))}
+            {bottomKeys.map((key) => sectionLink(sectionOf(key, listing), { className: 'as-tab' }))}
             <button
               type="button"
-              className={`as-tab${BOTTOM_KEYS.includes(section) ? '' : ' is-active'}`}
+              className={`as-tab${bottomKeys.includes(section) ? '' : ' is-active'}`}
               onClick={() => setMoreOpen(true)}
               aria-haspopup="dialog"
             >
@@ -304,7 +305,7 @@ export default function AdminShell({
           actions={<button type="button" className="btn btn-secondary" onClick={() => setMoreOpen(false)}>Close</button>}
         >
           <div className="as-sheet">
-            {sections.filter((item) => !BOTTOM_KEYS.includes(item.key)).map((item, index) => sectionLink(item, {
+            {sections.filter((item) => !bottomKeys.includes(item.key)).map((item, index) => sectionLink(item, {
               className: 'as-sheet__row', onNavigate: () => setMoreOpen(false), first: index === 0,
             }))}
             <hr className="as-sheet__rule" />
