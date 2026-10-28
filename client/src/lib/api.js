@@ -168,7 +168,10 @@ export const adminApi = {
   // Whether agents can make their own account here ({ open }), and making one with the access code the owner gave
   // them (answers with a session, like signing in).
   signupOpen: () => request('/api/admin/signup'),
-  signup: (email, password, code) => request('/api/admin/signup', { method: 'POST', body: { email, password, code } }),
+  signup: (email, password, code, about = {}) => request('/api/admin/signup', { method: 'POST', body: { email, password, code, ...about } }),
+  // The signed-in agent's own details (name, phone, email, brokerage, licence, portrait), which every new listing starts from.
+  myProfile: (token) => request('/api/admin/me/profile', { token }),
+  saveMyProfile: (token, body) => request('/api/admin/me/profile', { method: 'PUT', body, token }),
   // { id, email, role }: role is 'owner' for the account ADMIN_EMAIL names and 'member' for anyone invited.
   // Given up on after 20 seconds, so a signal that has gone quiet shows the sign-in check's Retry rather than a spinner for good.
   me: (token) => request('/api/admin/me', { token, timeoutMs: 20000 }),

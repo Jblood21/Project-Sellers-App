@@ -284,7 +284,7 @@ export function createFileStore(path) {
       return admin;
     },
     /** Changes what is given and nothing else; see the Postgres store. The row, or null. */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile } = {}) {
       const admin = await this.getAdminById(id);
       if (!admin) return null;
       if (passwordHash !== undefined) admin.password_hash = passwordHash;
@@ -293,6 +293,7 @@ export function createFileStore(path) {
       if (bootPasswordHash !== undefined) admin.boot_password_hash = bootPasswordHash;
       if (invitedAt !== undefined) admin.invited_at = invitedAt ? new Date(invitedAt).toISOString() : null;
       if (role !== undefined) admin.role = role;
+      if (profile !== undefined) admin.profile = profile;
       save();
       return admin;
     },

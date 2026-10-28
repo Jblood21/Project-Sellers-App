@@ -9,6 +9,7 @@ import {
   isSafeEmail, isThemeKey, SLOT_TIMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
   LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
 } from '../../shared/domain.js';
+import { PROFILE_PHOTO_MAX_BYTES, cleanProfile, profileOf } from '../../shared/agentProfile.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { getStore } from '../db/index.js';
@@ -449,8 +450,12 @@ export function adminRouter() {
     if (await store.getAdminByEmail(email)) {
       return res.status(409).json({ error: 'That email already has an account. Sign in instead.' });
     }
+    // What they tell us about themselves here starts their profile, which every listing they make then starts from.
+    const profile = cleanProfile({ ...req.body, email: undefined });
+    if (profile.error) return res.status(400).json({ error: profile.error });
     const admin = await store.createAdmin({ email, passwordHash: hashPassword(password), role: 'member' });
-    res.status(201).json({ token: issueToken(admin), admin: sessionAdmin(admin) });
+    const stored = Object.keys(profile.data).length ? await store.updateAdmin(admin.id, { profile: profile.data }) : admin;
+    res.status(201).json({ token: issueToken(stored ?? admin), admin: sessionAdmin(stored ?? admin) });
   });
 
   /** Who is signed in. The role comes from the row (through requireAdmin's cache), never from the token: a token outlives a role. */
@@ -546,6 +551,39 @@ export function adminRouter() {
 
   // Everything below requires a signed-in admin.
   router.use(requireAdmin);
+
+  // ── the signed-in agent's own details ────────────────────────────────────
+  // Name, phone, email, brokerage and licence line, and a portrait, kept on the account so each listing starts filled
+  // in (createListing reads them). The email falls back to the sign-in address until they type another.
+  const profileView = (admin) => {
+    const stored = admin?.profile ?? {};
+    const fields = profileOf(stored);
+    const photo = stored.photo?.data ? `data:${stored.photo.contentType};base64,${stored.photo.data}` : null;
+    return { ...fields, email: fields.email || admin?.email || '', photo };
+  };
+  router.get('/me/profile', async (req, res) => {
+    const store = await getStore();
+    res.json(profileView(await store.getAdminById(req.admin.sub)));
+  });
+  router.put('/me/profile', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(404).json({ error: 'Not found' });
+    const clean = cleanProfile(req.body);
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    const next = { ...(admin.profile ?? {}), ...clean.data };
+    // The portrait: a picture to keep, null to remove, absent to leave as it is. Kept small: it rides in the account row.
+    if (req.body?.photo === null) delete next.photo;
+    else if (req.body?.photo !== undefined) {
+      const image = readImage({ dataUrl: req.body.photo });
+      if (image.error) return res.status(400).json({ error: image.error });
+      if (!image.data || Buffer.byteLength(image.data, 'base64') > PROFILE_PHOTO_MAX_BYTES) {
+        return res.status(400).json({ error: 'Use a smaller photo of your face (under 700 KB).' });
+      }
+      next.photo = { contentType: image.contentType, data: image.data };
+    }
+    res.json(profileView(await store.updateAdmin(admin.id, { profile: next })));
+  });
 
   /**
    * A new password chosen while signed in. The current one is asked for again, so a tab left open on a
@@ -1121,13 +1159,18 @@ export function adminRouter() {
     const numbers = readHomeNumbers(req.body);
     if (numbers.error) return res.status(400).json({ error: numbers.error });
     const store = await getStore();
+    // The agent's details start from their account profile (see /me/profile); what the form sends wins, and is kept for next time.
+    const me = await store.getAdminById(req.admin.sub);
+    const mine = profileView(me);
+    const detail = (sent, own) => (sent === undefined || sent === null ? own : str(sent));
+    const brokerage = detail(req.body?.brokerage, mine.brokerage).slice(0, COMMUNITY_TEXT_MAX);
     const made = await store.createCommunity({
       name: address,
       location: str(req.body?.city ?? req.body?.location).slice(0, COMMUNITY_TEXT_MAX),
       status: LISTING_STATUSES.includes(req.body?.status) ? req.body.status : 'Active',
       theme: isThemeKey(req.body?.theme) ? req.body.theme : DEFAULT_THEME,
       // A listing's "builder" is the brokerage it is listed with: the footer and the consent wording read it.
-      builder: str(req.body?.brokerage).slice(0, COMMUNITY_TEXT_MAX),
+      builder: brokerage,
       // Made on a listing's own settings, tools, features, layout and guides in the same step (shared/listing.js).
       kind: 'listing',
     });
@@ -1138,18 +1181,23 @@ export function adminRouter() {
       // The licence line the footer prints, when the agent gave one.
       // Typed as "12345", "#12345" or "Lic. #12345": the number is kept on its own for the agent's card, and the line
       // the footer prints is always written the same way.
-      const licenseNo = str(req.body?.license).replace(/^\s*lic(?:ense|\.)?\s*(?:no\.?|number)?\s*#?\s*/i, '').replace(/^#\s*/, '').trim().slice(0, AGENT_TEXT_MAX.licenseNo);
+      const licenseNo = detail(req.body?.license, mine.license).replace(/^\s*lic(?:ense|\.)?\s*(?:no\.?|number)?\s*#?\s*/i, '').replace(/^#\s*/, '').trim().slice(0, AGENT_TEXT_MAX.licenseNo);
       if (licenseNo) community = await store.updateCommunity(made.id, { settings: { ...made.settings, agentLicense: `Lic. #${licenseNo}` } });
       // The listing agent is the person making it: their name and number are what a buyer is shown to call. One
       // agent, edited in Setup; a listing never asks for a team of them.
-      const agentName = str(req.body?.agentName).slice(0, AGENT_TEXT_MAX.name);
+      const agentName = detail(req.body?.agentName, mine.name).slice(0, AGENT_TEXT_MAX.name);
       if (agentName) {
-        const phone = str(req.body?.agentPhone).slice(0, AGENT_TEXT_MAX.phone);
-        const email = str(req.body?.agentEmail).slice(0, AGENT_TEXT_MAX.email);
+        const phone = detail(req.body?.agentPhone, mine.phone).slice(0, AGENT_TEXT_MAX.phone);
+        const email = detail(req.body?.agentEmail, mine.email).slice(0, AGENT_TEXT_MAX.email);
         agent = await store.createAgent(made.id, {
           name: agentName, brokerage: community.builder, licenseNo, phone,
           email: email && isSafeEmail(email) ? email : '',
         });
+        // Their face, kept on the account, goes on this listing's agent too.
+        const face = me?.profile?.photo;
+        if (face?.data && face.contentType) {
+          await store.addPhoto({ communityId: made.id, agentId: agent.id, kind: 'agent', contentType: face.contentType, data: face.data });
+        }
       }
       home = await store.createHome(community.id, {
         name: address,
@@ -1168,6 +1216,15 @@ export function adminRouter() {
       await store.deleteCommunity(made.id).catch(() => {});
       throw err;
     }
+    // What they typed here is kept on their account, so the next listing starts from it. A blank never clears a detail.
+    try {
+      const sent = cleanProfile({
+        name: req.body?.agentName, phone: req.body?.agentPhone, email: req.body?.agentEmail,
+        brokerage: req.body?.brokerage, license: req.body?.license,
+      });
+      const keep = Object.fromEntries(Object.entries(sent.data ?? {}).filter(([, value]) => value));
+      if (Object.keys(keep).length) await store.updateAdmin(req.admin.sub, { profile: { ...(me?.profile ?? {}), ...keep } });
+    } catch { /* the listing is made; remembering the details is a convenience */ }
     await recordActivity(store, req, { communityId: community.id, action: 'listing.created', subject: community.name });
     return res.status(201).json({ ...community, homes: [home], agents: agent ? [agent] : [] });
   }

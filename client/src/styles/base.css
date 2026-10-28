@@ -1017,3 +1017,9 @@ textarea.input { min-height: auto; resize: vertical; }
   border: 1px solid var(--t-accT); border-radius: var(--t-rad); color: var(--t-accT); background: transparent; font-weight: 700; font-size: 14px; text-decoration: none; cursor: pointer; }
 .b-lat__act:first-child { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-acc); }
 @media (max-width: 420px) { .b-lat { flex-wrap: wrap; } .b-lat__actions { width: 100%; } .b-lat__act { flex: 1; } }
+
+/* The agent row above a listing's home page takes the page's width and gutters but none of its grid. */
+.b-app .b-hd.b-hd--top { display: block !important; grid-template-columns: none !important; }
+.b-app .b-hd.b-hd--top .b-lat { margin-bottom: 14px; }
+.b-app .b-hd.b-hd--top { margin-bottom: 0 !important; padding-bottom: 0 !important; min-height: 0; }
+.b-app .b-hd.b-hd--top + .b-hd { padding-top: 0 !important; margin-top: 0 !important; }
