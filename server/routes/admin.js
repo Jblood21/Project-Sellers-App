@@ -10,6 +10,10 @@ import {
   LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
 } from '../../shared/domain.js';
 import { PROFILE_PHOTO_MAX_BYTES, cleanProfile, profileOf } from '../../shared/agentProfile.js';
+import {
+  CONTACT_LOGO_MAX_BYTES, CONTACT_MAX, LENDER_CONTACT_FIELDS, cleanContact, contactsOf,
+} from '../../shared/contacts.js';
+import { shortId } from '../lib/ids.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { getStore } from '../db/index.js';
@@ -583,6 +587,118 @@ export function adminRouter() {
       next.photo = { contentType: image.contentType, data: image.data };
     }
     res.json(profileView(await store.updateAdmin(admin.id, { profile: next })));
+  });
+
+  // ── the signed-in agent's saved business contacts ────────────────────────
+  // A lender (loan officer and company) is typed once here and used on any listing. Using one copies its details onto
+  // the listing, so a later edit of the contact never silently changes a flyer that has already been printed.
+  const contactView = (c) => ({
+    id: c.id, label: c.label, fields: Object.fromEntries(LENDER_CONTACT_FIELDS.map((k) => [k, c.fields?.[k] ?? ''])),
+    isDefault: Boolean(c.isDefault), hasLogo: Boolean(c.logo?.data),
+  });
+  const contactsView = (admin) => contactsOf(admin?.contacts).map(contactView);
+  const readContactLogo = (value) => {
+    const image = readImage({ dataUrl: value });
+    if (image.error) return { error: image.error };
+    if (!image.data || Buffer.byteLength(image.data, 'base64') > CONTACT_LOGO_MAX_BYTES) return { error: 'Use a smaller logo (under 700 KB).' };
+    return { logo: { contentType: image.contentType, data: image.data } };
+  };
+  // At most one contact is the one new listings start with.
+  const withDefault = (list, id, on) => list.map((c) => ({ ...c, isDefault: on ? c.id === id : (c.id === id ? false : Boolean(c.isDefault)) }));
+  router.get('/me/contacts', async (req, res) => {
+    const store = await getStore();
+    res.json(contactsView(await store.getAdminById(req.admin.sub)));
+  });
+  router.post('/me/contacts', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(404).json({ error: 'Not found' });
+    const list = contactsOf(admin.contacts);
+    if (list.length >= CONTACT_MAX) return res.status(400).json({ error: `You can save up to ${CONTACT_MAX} contacts. Remove one you no longer use.` });
+    const clean = cleanContact(req.body);
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    const made = { id: shortId(10), ...clean.data, isDefault: false };
+    if (req.body?.logo) {
+      const read = readContactLogo(req.body.logo);
+      if (read.error) return res.status(400).json({ error: read.error });
+      made.logo = read.logo;
+    }
+    let next = [...list, made];
+    if (req.body?.isDefault === true) next = withDefault(next, made.id, true);
+    const saved = await store.updateAdmin(admin.id, { contacts: next });
+    res.status(201).json({ contact: contactView(next.find((c) => c.id === made.id)), contacts: contactsView(saved) });
+  });
+  router.put('/me/contacts/:cid', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(404).json({ error: 'Not found' });
+    const list = contactsOf(admin.contacts);
+    const old = list.find((c) => c.id === req.params.cid);
+    if (!old) return res.status(404).json({ error: 'That contact is no longer saved.' });
+    const clean = cleanContact(req.body);
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    const edited = { ...old, ...clean.data };
+    // A logo: a picture to keep, null to remove, absent to leave as it is.
+    if (req.body?.logo === null) delete edited.logo;
+    else if (req.body?.logo !== undefined) {
+      const read = readContactLogo(req.body.logo);
+      if (read.error) return res.status(400).json({ error: read.error });
+      edited.logo = read.logo;
+    }
+    let next = list.map((c) => (c.id === old.id ? edited : c));
+    if (req.body?.isDefault !== undefined) next = withDefault(next, old.id, req.body.isDefault === true);
+    res.json(contactsView(await store.updateAdmin(admin.id, { contacts: next })));
+  });
+  router.delete('/me/contacts/:cid', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(404).json({ error: 'Not found' });
+    const next = contactsOf(admin.contacts).filter((c) => c.id !== req.params.cid);
+    res.json(contactsView(await store.updateAdmin(admin.id, { contacts: next })));
+  });
+
+  /** Puts a saved lender onto a listing: its details into the lender settings, its logo (or none) as the lender logo. */
+  async function applyLender(store, community, contact) {
+    const lender = Object.fromEntries(LENDER_CONTACT_FIELDS.map((k) => [k, contact.fields?.[k] ?? '']));
+    const updated = await store.updateCommunity(community.id, { settings: { ...community.settings, ...lender } });
+    const old = await store.listCommunityPhotos(community.id, 'lenderlogo');
+    if (contact.logo?.data) await store.addPhoto({ communityId: community.id, kind: 'lenderlogo', contentType: contact.logo.contentType, data: contact.logo.data });
+    for (const photo of old) await store.deletePhoto(photo.id);
+    return updated;
+  }
+  // Use a saved lender on this listing.
+  router.post('/communities/:id/lender/use', async (req, res) => {
+    const store = await getStore();
+    const community = await communityOf(req, res, store);
+    if (!community) return;
+    const admin = await store.getAdminById(req.admin.sub);
+    const contact = contactsOf(admin?.contacts).find((c) => c.id === str(req.body?.contactId));
+    if (!contact) return res.status(404).json({ error: 'That contact is no longer saved.' });
+    await applyLender(store, community, contact);
+    await recordActivity(store, req, { communityId: community.id, action: 'community.updated', subject: community.name, detail: 'chose a lender' });
+    res.json({ ok: true });
+  });
+  // Save what this listing has as its lender (details and logo) as a contact, to use on other listings.
+  router.post('/communities/:id/lender/save', async (req, res) => {
+    const store = await getStore();
+    const community = await communityOf(req, res, store);
+    if (!community) return;
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(404).json({ error: 'Not found' });
+    const list = contactsOf(admin.contacts);
+    if (list.length >= CONTACT_MAX) return res.status(400).json({ error: `You can save up to ${CONTACT_MAX} contacts. Remove one you no longer use.` });
+    const clean = cleanContact({ label: req.body?.label, fields: req.body?.fields ?? community.settings });
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    const made = { id: shortId(10), ...clean.data, isDefault: false };
+    const [logo] = await store.listCommunityPhotos(community.id, 'lenderlogo');
+    if (logo) {
+      const full = await store.getPhotoData(logo.id);
+      if (full?.data && full.data.length <= CONTACT_LOGO_MAX_BYTES * 1.4) {
+        made.logo = { contentType: full.content_type ?? full.contentType, data: typeof full.data === 'string' ? full.data : Buffer.from(full.data).toString('base64') };
+      }
+    }
+    const saved = await store.updateAdmin(admin.id, { contacts: [...list, made] });
+    res.status(201).json({ contact: contactView(made), contacts: contactsView(saved) });
   });
 
   /**
@@ -1183,6 +1299,9 @@ export function adminRouter() {
       // the footer prints is always written the same way.
       const licenseNo = detail(req.body?.license, mine.license).replace(/^\s*lic(?:ense|\.)?\s*(?:no\.?|number)?\s*#?\s*/i, '').replace(/^#\s*/, '').trim().slice(0, AGENT_TEXT_MAX.licenseNo);
       if (licenseNo) community = await store.updateCommunity(made.id, { settings: { ...made.settings, agentLicense: `Lic. #${licenseNo}` } });
+      // The lender they marked as their usual one starts on every new listing.
+      const usual = contactsOf(me?.contacts).find((c) => c.isDefault);
+      if (usual) community = await applyLender(store, community, usual);
       // The listing agent is the person making it: their name and number are what a buyer is shown to call. One
       // agent, edited in Setup; a listing never asks for a team of them.
       const agentName = detail(req.body?.agentName, mine.name).slice(0, AGENT_TEXT_MAX.name);
