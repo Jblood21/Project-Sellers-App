@@ -9,6 +9,7 @@ import { useAdmin } from '../AdminContext.jsx';
 import { isListing } from '../listing.js';
 import { Disclosure, TextAreaField, TextField } from '../ui.jsx';
 import ImageSlot from './ImageSlot.jsx';
+import LenderPicker from './LenderPicker.jsx';
 import { logoToDataUrl } from './readImage.js';
 
 /** Which field to jump to for each thing complianceOf says is still missing. */
@@ -220,6 +221,13 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
           Add a lender you work with and visitors get a &ldquo;Talk about financing&rdquo; button and loan links. Leave this
           empty and no lender or loan links appear on the page. Press <strong>Save settings</strong> to make a change live.
         </p>
+      ) : null}
+      {listing ? (
+        <LenderPicker
+          community={community} reload={reload}
+          fields={Object.fromEntries(LISTING_LENDER_KEYS.map((key) => [key, settings[key] ?? '']))}
+          onUsed={(picked) => setSettings((prev) => ({ ...prev, ...picked }))}
+        />
       ) : null}
       {listing ? null : <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
         This is printed at the foot of every buyer page, on the printed plan and in the plan email. The

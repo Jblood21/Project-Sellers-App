@@ -783,6 +783,10 @@ reports and tools) pointed at one purchase instead of a development of many home
   `Now selling`, `Sold out`; each kind ignores the other's).
 - **Made whole or not at all.** The address and a real price are checked before anything is created. The home is made with it;
   a second home, or deleting the one home on its own, is refused in words. Deleting the whole listing is the way out.
+- **Saved lenders.** An agent keeps lenders on their account (`admin_users.contacts`, `shared/contacts.js`; `GET/POST /me/contacts`,
+  `PUT/DELETE /me/contacts/:id`): the loan officer and company, a logo, and which one is the **usual** lender. Using one on a listing
+  (`POST /communities/:id/lender/use`) copies its details and logo onto that listing's lender settings, and a listing's lender can be
+  saved as a contact (`/lender/save`). The usual lender starts on every new listing. Contacts are private to the account.
 - **Who can.** Members (agents) may make and delete **listings**, and are given access to what they make (their portfolio);
   making or deleting a **community** stays owner-only. Two listings made at once by one agent are both kept.
 - **Starting figures for one purchase.** No new-construction assistance program or price cap, no HOA until the agent types the

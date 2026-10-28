@@ -27,6 +27,7 @@ ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'mem
 -- The agent's own details (name, phone, email, brokerage, licence line) and their portrait ({contentType, data}),
 -- so each listing they make starts filled in. See shared/agentProfile.js.
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS profile JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS contacts JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 -- The "forgot your password" links that are out. A row is the SHA-256 of the token in the link, never
 -- the token: the database cannot be read back into a working link. One live row per admin (asking again

@@ -6,6 +6,7 @@ import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import ImageSlot from '../setup/ImageSlot.jsx';
 import AdminShell from '../shell/AdminShell.jsx';
+import SavedLenders from './SavedLenders.jsx';
 import { ErrorNote, Spinner, TextField, useSaving, SaveNote } from '../ui.jsx';
 
 // A portrait is shown at most 110 px square, so it is kept smaller than a photo.
@@ -72,6 +73,7 @@ export default function Profile() {
           <SaveNote saver={saver} />
         </form>
       )}
+      {form ? <SavedLenders /> : null}
     </AdminShell>
   );
 }

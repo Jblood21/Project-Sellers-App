@@ -172,6 +172,15 @@ export const adminApi = {
   // The signed-in agent's own details (name, phone, email, brokerage, licence, portrait), which every new listing starts from.
   myProfile: (token) => request('/api/admin/me/profile', { token }),
   saveMyProfile: (token, body) => request('/api/admin/me/profile', { method: 'PUT', body, token }),
+  // Business contacts (lenders) kept on the account, and putting one on a listing or saving a listing's lender as one.
+  myContacts: (token) => request('/api/admin/me/contacts', { token }),
+  addContact: (token, body) => request('/api/admin/me/contacts', { method: 'POST', body, token }),
+  saveContact: (token, id, body) => request(`/api/admin/me/contacts/${encodeURIComponent(id)}`, { method: 'PUT', body, token }),
+  removeContact: (token, id) => request(`/api/admin/me/contacts/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  useContact: (token, communityId, contactId) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/lender/use`, { method: 'POST', body: { contactId }, token }),
+  saveLenderAsContact: (token, communityId, body) =>
+    request(`/api/admin/communities/${encodeURIComponent(communityId)}/lender/save`, { method: 'POST', body, token }),
   // { id, email, role }: role is 'owner' for the account ADMIN_EMAIL names and 'member' for anyone invited.
   // Given up on after 20 seconds, so a signal that has gone quiet shows the sign-in check's Retry rather than a spinner for good.
   me: (token) => request('/api/admin/me', { token, timeoutMs: 20000 }),

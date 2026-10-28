@@ -10,23 +10,13 @@ import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { localToday, sessionDate, sessionTimes } from '../listing.js';
 import ImageSlot from '../setup/ImageSlot.jsx';
+import LenderPicker from '../setup/LenderPicker.jsx';
 import { logoToDataUrl } from '../setup/readImage.js';
 import { SaveNote, TextField, useSaving } from '../ui.jsx';
+import { LENDER_FIELDS } from '../lenderFields.js';
 import { buyerUrl, useQrDataUrl } from './QrDialog.jsx';
 import '../../styles/listing-flyer.css';
 
-/** The lender facts the back of the flyer prints. The agent fills these in; they save to the listing's lender settings. */
-const LENDER_FIELDS = [
-  { key: 'lenderName', label: 'Lender or company name' },
-  { key: 'lenderNmls', label: 'Company NMLS ID', inputMode: 'numeric' },
-  { key: 'loName', label: 'Loan officer name' },
-  { key: 'loNmls', label: 'Loan officer NMLS ID', inputMode: 'numeric' },
-  { key: 'lenderPhone', label: 'Phone', inputMode: 'tel' },
-  { key: 'lenderEmail', label: 'Email', inputMode: 'email' },
-  { key: 'lenderWebsite', label: 'Website', inputMode: 'url', placeholder: 'https://…' },
-  { key: 'lenderAddress', label: 'Office address' },
-  { key: 'loanApplicationUrl', label: 'Loan application link', inputMode: 'url', placeholder: 'https://…' },
-];
 
 /** What the back says in small print when the agent has not set the lender's own wording in Setup. */
 const FALLBACK_FINE_PRINT =
@@ -139,6 +129,14 @@ export default function ListingFlyer({ community, reload }) {
           Fill in the lender you work with. It prints on the back and also fills the &ldquo;Talk about financing&rdquo; button on the
           buyer page. Leave it empty and the back points buyers to you for financing instead.
         </p>
+        <LenderPicker
+          community={community} fields={lender} reload={reload}
+          onUsed={(picked) => {
+            const next = { ...lender, ...picked };
+            setLender(next);
+            saved.current = next;
+          }}
+        />
         <div className="ax-cols">
           {LENDER_FIELDS.map(({ key, label, ...rest2 }) => (
             <TextField
