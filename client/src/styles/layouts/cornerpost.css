@@ -732,3 +732,151 @@
 .b-app.l-cornerpost .b-tour__meet { font-size: 18px; line-height: 24px; font-weight: 800; text-transform: none; letter-spacing: 0; }
 .b-app.l-cornerpost .b-faq__item { border-radius: var(--cp-radius-md); }
 .b-app.l-cornerpost .b-faq__q { font-weight: 700; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Listing page: "phone card stack". A photo swipe strip, a price card that
+   overlaps its foot, three stat tiles, then soft rounded tiles. On a wide
+   screen the strip and the price card sit side by side and the tiles run in
+   two columns.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.b-app.l-cornerpost .ls-cornerpost-page { padding-top: var(--cp-space-4); padding-bottom: var(--cp-space-6); }
+.b-app.l-cornerpost .ls-cornerpost-top { display: block; }
+
+/* the swipe strip */
+.b-app.l-cornerpost .ls-cornerpost-hero {
+  position: relative; border-radius: 22px; overflow: hidden; background: var(--t-tint);
+  aspect-ratio: 4 / 3; border: 1px solid var(--t-line);
+}
+.b-app.l-cornerpost .ls-cornerpost-hero--none { aspect-ratio: 16 / 9; }
+.b-app.l-cornerpost .ls-cornerpost-strip {
+  display: flex; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.b-app.l-cornerpost .ls-cornerpost-strip::-webkit-scrollbar { display: none; }
+.b-app.l-cornerpost .ls-cornerpost-slide { flex: 0 0 100%; height: 100%; scroll-snap-align: center; scroll-snap-stop: always; }
+.b-app.l-cornerpost .ls-cornerpost-photo { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.b-app.l-cornerpost .ls-cornerpost-photo .photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b-app.l-cornerpost .ls-cornerpost-photo:focus-visible,
+.b-app.l-cornerpost .ls-cornerpost-arrow:focus-visible,
+.b-app.l-cornerpost .ls-cornerpost-save:focus-visible,
+.b-app.l-cornerpost .ls-cornerpost-more:focus-visible,
+.b-app.l-cornerpost .ls-cornerpost-act:focus-visible { outline: 3px solid var(--t-acc); outline-offset: -3px; }
+.b-app.l-cornerpost .ls-cornerpost-count {
+  position: absolute; right: 12px; top: 12px; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; line-height: 18px; font-weight: 800;
+  background: color-mix(in srgb, var(--t-ink) 72%, transparent); color: var(--t-bg); pointer-events: none;
+}
+.b-app.l-cornerpost .ls-cornerpost-arrow {
+  display: none; position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 999px; padding: 0;
+  place-items: center; border: 1px solid var(--t-line); background: var(--t-sur); color: var(--t-ink); cursor: pointer;
+}
+.b-app.l-cornerpost .ls-cornerpost-arrow--prev { left: 10px; }
+.b-app.l-cornerpost .ls-cornerpost-arrow--next { right: 10px; }
+.b-app.l-cornerpost .ls-cornerpost-arrow:disabled { opacity: .35; cursor: default; }
+@media (hover: hover) and (pointer: fine) { .b-app.l-cornerpost .ls-cornerpost-arrow { display: grid; } }
+
+/* the price card, overlapping the foot of the strip */
+.b-app.l-cornerpost .ls-cornerpost-price {
+  position: relative; z-index: 1; margin: -44px 12px 0; padding: 18px 18px 18px; border-radius: 22px;
+  background: var(--t-sur); border: 1px solid var(--t-line);
+  box-shadow: 0 10px 28px -12px color-mix(in srgb, var(--t-ink) 30%, transparent);
+}
+.b-app.l-cornerpost .ls-cornerpost-price__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; min-height: 44px; margin-top: -6px; }
+.b-app.l-cornerpost .ls-cornerpost-chip { letter-spacing: .03em; }
+.b-app.l-cornerpost .ls-cornerpost-save {
+  flex: none; width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  background: var(--t-tint); color: var(--t-accT); border: 1px solid var(--t-line);
+}
+.b-app.l-cornerpost .ls-cornerpost-save[aria-pressed="true"] { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-acc); }
+.b-app.l-cornerpost .ls-cornerpost-title { margin: 0; font-size: 22px; line-height: 28px; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.b-app.l-cornerpost .ls-cornerpost-city { margin: 2px 0 0; color: var(--t-mut); font-size: 14px; line-height: 20px; }
+.b-app.l-cornerpost .ls-cornerpost-money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin-top: 14px; }
+.b-app.l-cornerpost .ls-cornerpost-amount { font-size: 34px; line-height: 40px; font-weight: 800; letter-spacing: -0.02em; color: var(--t-ink); }
+.b-app.l-cornerpost .ls-cornerpost-est { font-size: 14px; color: var(--t-mut); font-weight: 600; display: block; }
+.b-app.l-cornerpost .ls-cornerpost-est strong { color: var(--t-accT); font-weight: 800; }
+.b-app.l-cornerpost .ls-cornerpost-est strong::before { content: 'about '; font-weight: 600; color: var(--t-mut); }
+.b-app.l-cornerpost .ls-cornerpost-est small { display: block; font-size: 12px; font-weight: 500; }
+.b-app.l-cornerpost .ls-cornerpost-note {
+  margin: 14px 0 0; padding: 10px 14px; border-radius: var(--cp-radius-md); font-size: 14px; line-height: 20px; font-weight: 700;
+  background: var(--t-tint); color: var(--t-ink); border: 1px solid var(--t-line);
+}
+.b-app.l-cornerpost .ls-cornerpost-actions { display: flex; flex-direction: column; gap: var(--cp-space-2); margin-top: 16px; }
+.b-app.l-cornerpost .ls-cornerpost-actions:empty { display: none; }
+
+/* three stat tiles */
+.b-app.l-cornerpost .ls-cornerpost-stats { list-style: none; margin: var(--cp-space-3) 0 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--cp-space-2); }
+.b-app.l-cornerpost .ls-cornerpost-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 76px; padding: 10px 6px;
+  border-radius: var(--cp-radius-lg); background: var(--t-tint); border: 1px solid var(--t-line);
+}
+.b-app.l-cornerpost .ls-cornerpost-stat strong { font-size: 24px; line-height: 28px; font-weight: 800; color: var(--t-ink); }
+.b-app.l-cornerpost .ls-cornerpost-stat span { font-size: 12.5px; line-height: 16px; color: var(--t-mut); font-weight: 700; }
+
+/* tiles */
+.b-app.l-cornerpost .ls-cornerpost-body { display: grid; gap: var(--cp-space-3); margin-top: var(--cp-space-3); }
+.b-app.l-cornerpost .ls-cornerpost-col { display: flex; flex-direction: column; gap: var(--cp-space-3); min-width: 0; }
+.b-app.l-cornerpost .ls-cornerpost-col:empty { display: none; }
+.b-app.l-cornerpost .ls-cornerpost-tile,
+.b-app.l-cornerpost .ls-cornerpost-page .b-ls-oh,
+.b-app.l-cornerpost .ls-cornerpost-page .b-ls-guides {
+  margin: 0; padding: 18px; border-radius: 22px; background: var(--t-sur); border: 1px solid var(--t-line); min-width: 0;
+}
+.b-app.l-cornerpost .ls-cornerpost-h2,
+.b-app.l-cornerpost .ls-cornerpost-page .b-ls-oh__title,
+.b-app.l-cornerpost .ls-cornerpost-page .b-ls-guides__title { margin: 0 0 10px; font-size: 18px; line-height: 24px; font-weight: 800; letter-spacing: -0.005em; }
+.b-app.l-cornerpost .ls-cornerpost-eyebrow { margin: 0 0 12px; font-size: 12px; line-height: 16px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--t-accT); }
+.b-app.l-cornerpost .ls-cornerpost-page .b-ls-oh__item { border-radius: var(--cp-radius-md); }
+.b-app.l-cornerpost .ls-cornerpost-page .b-ls-oh__act { min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 999px; }
+.b-app.l-cornerpost .ls-cornerpost-page .b-ls-guides__all { width: 100%; }
+
+.b-app.l-cornerpost .ls-cornerpost-about { margin: 0; font-size: 15px; line-height: 24px; color: var(--t-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.b-app.l-cornerpost .ls-cornerpost-about.is-clamped { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.b-app.l-cornerpost .ls-cornerpost-more {
+  margin-top: 8px; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--t-accT); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.b-app.l-cornerpost .ls-cornerpost-facts { list-style: none; margin: 0; padding: 0 6px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 20px; color: var(--t-mut); }
+
+/* agent tile */
+.b-app.l-cornerpost .ls-cornerpost-agent__who { display: flex; align-items: center; gap: 14px; }
+.b-app.l-cornerpost .ls-cornerpost-agent .ls-face { flex: none; border-radius: 999px; object-fit: cover; border: 2px solid var(--t-line); }
+.b-app.l-cornerpost .ls-cornerpost-agent .ls-face--initial { display: grid; place-items: center; background: var(--t-acc); color: var(--t-onacc); font-size: 26px; font-weight: 800; }
+.b-app.l-cornerpost .ls-cornerpost-agent__lines { display: flex; flex-direction: column; min-width: 0; }
+.b-app.l-cornerpost .ls-cornerpost-agent .ls-agent__name { font-size: 18px; line-height: 24px; font-weight: 800; }
+.b-app.l-cornerpost .ls-cornerpost-agent .ls-agent__brokerage { font-size: 14px; line-height: 20px; color: var(--t-ink); }
+.b-app.l-cornerpost .ls-cornerpost-agent .ls-agent__license { font-size: 12.5px; line-height: 18px; color: var(--t-mut); }
+.b-app.l-cornerpost .ls-cornerpost-agent__acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--cp-space-2); margin-top: 16px; }
+.b-app.l-cornerpost .ls-cornerpost-agent__acts:empty { display: none; }
+.b-app.l-cornerpost .ls-cornerpost-act {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 16px; font-weight: 800; text-decoration: none; background: var(--t-acc); color: var(--t-onacc); border: 1.5px solid var(--t-acc);
+}
+.b-app.l-cornerpost .ls-cornerpost-act:nth-child(2) { background: var(--t-sur); color: var(--t-accT); }
+.b-app.l-cornerpost .ls-cornerpost-act:only-child { background: var(--t-acc); color: var(--t-onacc); }
+
+/* floor plans and video */
+.b-app.l-cornerpost .ls-cornerpost-plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: var(--cp-space-2); margin-bottom: var(--cp-space-3); }
+.b-app.l-cornerpost .ls-cornerpost-plans .ls-plan {
+  aspect-ratio: 4 / 3; padding: 4px; border-radius: var(--cp-radius-md); border: 1px solid var(--t-line); background: var(--t-bg); cursor: zoom-in; overflow: hidden;
+}
+.b-app.l-cornerpost .ls-cornerpost-plans .ls-plan:focus-visible { outline: 3px solid var(--t-acc); outline-offset: 2px; }
+.b-app.l-cornerpost .ls-cornerpost-video { width: 100%; }
+
+/* wide: strip and price card side by side, tiles in two columns */
+@media (min-width: 1100px) {
+  .b-app.l-cornerpost .b-shell.ls-cornerpost-page { max-width: 1080px; padding-top: var(--cp-space-8); padding-bottom: 48px; }
+  .b-app.l-cornerpost .ls-cornerpost-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+  .b-app.l-cornerpost .ls-cornerpost-hero { aspect-ratio: 4 / 3; }
+  .b-app.l-cornerpost .ls-cornerpost-summary { position: sticky; top: 88px; }
+  .b-app.l-cornerpost .ls-cornerpost-price { margin: 0; padding: 28px; }
+  .b-app.l-cornerpost .ls-cornerpost-title { font-size: 28px; line-height: 34px; }
+  .b-app.l-cornerpost .ls-cornerpost-amount { font-size: 44px; line-height: 50px; }
+  .b-app.l-cornerpost .ls-cornerpost-body { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 40px; margin-top: 40px; align-items: start; }
+  .b-app.l-cornerpost .ls-cornerpost-col { gap: var(--cp-space-4); }
+  .b-app.l-cornerpost .ls-cornerpost-stats { margin-top: var(--cp-space-4); }
+}
+@media (min-width: 700px) and (max-width: 1099px) {
+  .b-app.l-cornerpost .ls-cornerpost-hero { aspect-ratio: 3 / 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-app.l-cornerpost .ls-cornerpost-strip { scroll-behavior: auto; }
+}

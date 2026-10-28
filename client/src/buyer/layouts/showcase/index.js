@@ -1,6 +1,7 @@
 import '../../../styles/layouts/showcase.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Showcase: photo first, like phone stories. Each home fills the screen with its first photo, its name very
@@ -24,4 +25,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };

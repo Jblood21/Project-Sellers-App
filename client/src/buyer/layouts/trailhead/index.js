@@ -1,6 +1,7 @@
 import '../../../styles/layouts/trailhead.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Trailhead: the buyer's way home as a guided trail. The community's tools are numbered stops on one winding
@@ -30,4 +31,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };

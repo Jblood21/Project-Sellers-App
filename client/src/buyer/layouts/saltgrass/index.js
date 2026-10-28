@@ -1,6 +1,7 @@
 import '../../../styles/layouts/saltgrass.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Salt Grass: a loud, condensed, big-control look for the landing and the
@@ -19,4 +20,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };

@@ -1,6 +1,7 @@
 import '../../../styles/layouts/redrock.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Red Rock: warm and solid, like late sun on sandstone. A dark header bar with the community's name in a
@@ -22,4 +23,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };

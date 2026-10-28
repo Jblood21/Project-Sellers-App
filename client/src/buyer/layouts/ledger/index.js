@@ -1,6 +1,7 @@
 import '../../../styles/layouts/ledger.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Ledger: the buyer's own dashboard. A bento of tiles of different sizes with the figures first: buying power
@@ -25,4 +26,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };
