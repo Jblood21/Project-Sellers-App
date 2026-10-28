@@ -1283,3 +1283,257 @@
    it is done, so the step goes to full opacity in the muted ink instead. */
 .b-app.l-redrock .b-main .b-shell [style*='opacity: 0.55'] { opacity: 1 !important; }
 .b-app.l-redrock .b-main .b-shell [style*='line-through'] { color: var(--t-mut) !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Listing page: the warm brochure (layouts/redrock/Listing.jsx)
+
+   Phone: the photo edge to edge, the price band overlapping its foot, a thumbnail rail, three big numbers, then
+   the sections stacked, each under a thick rule and numbered. From 900px the screen splits: the photo panel
+   stays put on the left, the right half scrolls. Colour is only the --t-* tokens: rust (--t-acc) and the dark
+   ground (--t-acc2) as solid blocks, ink on the page.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.b-app.l-redrock .ls-redrock {
+  --ls-pad: 20px;
+  --ls-rule: 5px solid var(--t-acc2);
+  display: flex;
+  flex-direction: column;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-width: 0;
+  overflow-x: clip;
+  /* Room for the bar pinned to the foot of a phone. */
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+.b-app.l-redrock .ls-redrock :where(p) { margin: 0; }
+.b-app.l-redrock .ls-redrock :where(ul) { list-style: none; margin: 0; padding: 0; }
+
+/* On a phone the two wrappers dissolve so the rail can sit after the title and before the numbers. */
+.b-app.l-redrock .ls-redrock-media,
+.b-app.l-redrock .ls-redrock-body { display: contents; }
+
+/* ── photo panel ──────────────────────────────────────────────────────── */
+.b-app.l-redrock .ls-redrock-main { order: 1; position: relative; aspect-ratio: 4 / 3; background: var(--t-acc2); }
+.b-app.l-redrock .ls-redrock-main__btn {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+  padding: 0; border: 0; background: none; cursor: zoom-in; color: inherit;
+}
+.b-app.l-redrock .ls-redrock-main__btn > div { position: absolute; inset: 0; }
+.b-app.l-redrock .ls-redrock-main__btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b-app.l-redrock .ls-redrock-main__btn:focus-visible { outline-offset: -4px; outline-color: var(--t-onacc2); }
+.b-app.l-redrock .ls-redrock-main__count {
+  position: absolute; right: 12px; bottom: 48px; padding: 7px 12px; border-radius: 999px;
+  background: var(--t-acc2); color: var(--t-onacc2); font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+}
+.b-app.l-redrock .ls-redrock-main__none { position: absolute; inset: 0; background: var(--t-acc2); }
+
+.b-app.l-redrock .ls-redrock-rail {
+  order: 4; display: flex; gap: 8px; overflow-x: auto; padding: 14px var(--ls-pad) 4px;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+}
+.b-app.l-redrock .ls-redrock-rail > li { flex: 0 0 auto; }
+.b-app.l-redrock .ls-redrock-thumb {
+  display: block; position: relative; width: 84px; height: 62px; padding: 0; overflow: hidden; cursor: pointer;
+  border: 3px solid transparent; border-radius: 4px; background: var(--t-tint); scroll-snap-align: start;
+}
+.b-app.l-redrock .ls-redrock-thumb > div { position: absolute; inset: 0; }
+.b-app.l-redrock .ls-redrock-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.72; }
+.b-app.l-redrock .ls-redrock-thumb[aria-pressed='true'] { border-color: var(--t-acc); }
+.b-app.l-redrock .ls-redrock-thumb[aria-pressed='true'] img,
+.b-app.l-redrock .ls-redrock-thumb:hover img { opacity: 1; }
+/* A 44px target on a phone without making the picture bigger. */
+.b-app.l-redrock .ls-redrock-thumb::after { content: ''; position: absolute; inset: -4px 0; }
+
+/* ── price band ───────────────────────────────────────────────────────── */
+.b-app.l-redrock .ls-redrock-band {
+  order: 2; position: relative; z-index: 1;
+  margin: -44px var(--ls-pad) 0 0; padding: 18px var(--ls-pad) 22px;
+  background: var(--t-acc); color: var(--t-onacc);
+  border-top-right-radius: var(--rr-corner);
+}
+.b-app.l-redrock .ls-redrock-ribbon {
+  display: inline-block; margin-bottom: 8px; padding: 5px 12px 4px;
+  background: var(--t-acc2); color: var(--t-onacc2);
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.b-app.l-redrock .ls-redrock-price {
+  font-family: var(--t-head); font-weight: 600; font-size: clamp(52px, 17vw, 76px);
+  line-height: 1; letter-spacing: -0.03em; overflow-wrap: anywhere;
+}
+.b-app.l-redrock .ls-redrock-monthly {
+  display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 14px;
+  padding: 8px 14px; border-radius: 999px; background: var(--t-acc2); color: var(--t-onacc2); font-size: 15px;
+}
+.b-app.l-redrock .ls-redrock-monthly__k { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rr-soft); }
+.b-app.l-redrock .ls-redrock-monthly__v { font-weight: 700; font-size: 17px; }
+.b-app.l-redrock .ls-redrock-monthly__t { font-size: 13.5px; color: var(--rr-soft); }
+
+/* ── address and numbers ──────────────────────────────────────────────── */
+.b-app.l-redrock .ls-redrock-title { order: 3; padding: 26px var(--ls-pad) 0; }
+.b-app.l-redrock .ls-redrock-h1 {
+  font-size: clamp(32px, 9vw, 44px); line-height: 1.08; font-weight: 500; letter-spacing: -0.015em;
+  text-wrap: balance; overflow-wrap: anywhere;
+}
+.b-app.l-redrock .ls-redrock-city {
+  margin-top: 6px; font-family: var(--t-head); font-style: italic; font-size: 20px; color: var(--t-accT);
+}
+.b-app.l-redrock .ls-redrock-note {
+  margin-top: 14px; padding: 10px 14px; border-left: 5px solid var(--t-acc); background: var(--rr-chip);
+  font-weight: 600; font-size: 15px;
+}
+
+.b-app.l-redrock .ls-redrock-stats {
+  order: 5; display: grid; grid-template-columns: repeat(3, 1fr);
+  margin: 22px var(--ls-pad) 0; border-top: var(--ls-rule); border-bottom: 1px solid var(--rr-ctl);
+}
+.b-app.l-redrock .ls-redrock-stats > li { padding: 14px 0 12px 14px; border-left: 1px solid var(--rr-ctl); min-width: 0; }
+.b-app.l-redrock .ls-redrock-stats > li:first-child { padding-left: 0; border-left: 0; }
+.b-app.l-redrock .ls-redrock-stats__v {
+  display: block; font-family: var(--t-head); font-weight: 500; font-size: clamp(38px, 11vw, 60px); line-height: 1;
+  letter-spacing: -0.03em;
+}
+.b-app.l-redrock .ls-redrock-stats__l { display: block; margin-top: 6px; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rr-mut); }
+
+/* ── numbered sections ────────────────────────────────────────────────── */
+.b-app.l-redrock .ls-redrock-secs { order: 6; padding: 8px var(--ls-pad) 0; }
+.b-app.l-redrock .ls-redrock-sec { margin-top: 34px; padding-top: 14px; border-top: var(--ls-rule); }
+.b-app.l-redrock .ls-redrock-sec__n {
+  display: block; font-family: var(--t-head); font-weight: 500; font-size: 22px; line-height: 1; color: var(--t-accT);
+}
+.b-app.l-redrock .ls-redrock-sec__h {
+  margin: 6px 0 16px; font-size: clamp(28px, 7.5vw, 36px); line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; text-wrap: balance;
+}
+.b-app.l-redrock .ls-redrock-lead {
+  font-family: var(--t-head); font-weight: 400; font-size: 20px; line-height: 1.55; max-width: 62ch; overflow-wrap: anywhere;
+}
+.b-app.l-redrock .ls-redrock-p { margin-top: 14px; font-size: 17px; line-height: 1.65; max-width: 62ch; overflow-wrap: anywhere; }
+.b-app.l-redrock .ls-redrock-facts { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+.b-app.l-redrock .ls-redrock-facts > li { padding: 8px 14px; background: var(--rr-chip); border-radius: 999px; font-size: 14.5px; font-weight: 500; }
+.b-app.l-redrock .ls-redrock-minor { margin: 22px 0 10px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--rr-mut); }
+.b-app.l-redrock .ls-redrock .ls-plans { display: flex; flex-wrap: wrap; gap: 10px; }
+.b-app.l-redrock .ls-redrock .ls-plan {
+  width: 132px; height: 100px; padding: 0; overflow: hidden; cursor: pointer; background: var(--t-sur);
+  border: 2px solid var(--rr-ink); border-radius: 4px;
+}
+.b-app.l-redrock .ls-redrock-plans + .ls-redrock-facts { margin-top: 22px; }
+.b-app.l-redrock .ls-redrock-lead ~ .ls-redrock-btn,
+.b-app.l-redrock .ls-redrock-p ~ .ls-redrock-btn { margin-top: 20px; }
+
+/* ── buttons ──────────────────────────────────────────────────────────── */
+.b-app.l-redrock .ls-redrock-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 24px;
+  border: 2px solid var(--t-acc2); border-radius: 0 var(--t-radbtn) 0 var(--t-radbtn);
+  font: 700 16px/1.2 var(--t-font); text-decoration: none; cursor: pointer; text-align: center;
+}
+.b-app.l-redrock .ls-redrock-btn--solid { background: var(--t-acc); border-color: var(--t-acc); color: var(--t-onacc); }
+.b-app.l-redrock .ls-redrock-btn--solid:hover { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-redrock .ls-redrock-btn--line { background: transparent; color: var(--rr-ink); border-color: var(--rr-ink); }
+.b-app.l-redrock .ls-redrock-btn--line:hover { background: var(--rr-chip); }
+.b-app.l-redrock .ls-redrock-btn[data-saved] { background: var(--t-acc2); border-color: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-redrock .ls-redrock-cta { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.b-app.l-redrock .ls-redrock-oh + .ls-redrock-cta { margin-top: 22px; }
+.b-app.l-redrock .ls-redrock-cta .ls-redrock-btn { width: 100%; }
+
+/* ── open houses: solid blocks ────────────────────────────────────────── */
+.b-app.l-redrock .ls-redrock-oh { display: flex; flex-direction: column; gap: 12px; }
+.b-app.l-redrock .ls-redrock-ohb {
+  display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: center; padding: 18px 18px 16px;
+  border-top-left-radius: var(--rr-corner);
+}
+.b-app.l-redrock .ls-redrock-ohb--a { background: var(--t-acc); color: var(--t-onacc); }
+.b-app.l-redrock .ls-redrock-ohb--b { background: var(--t-acc2); color: var(--t-onacc2); }
+.b-app.l-redrock .ls-redrock-ohb__when { display: flex; flex-direction: column; align-items: center; min-width: 78px; }
+.b-app.l-redrock .ls-redrock-ohb__day { font-family: var(--t-head); font-weight: 600; font-size: 76px; line-height: 0.9; letter-spacing: -0.04em; }
+.b-app.l-redrock .ls-redrock-ohb__mon { margin-top: 4px; font-size: 14px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.b-app.l-redrock .ls-redrock-ohb__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.b-app.l-redrock .ls-redrock-ohb__wk { font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.92; }
+.b-app.l-redrock .ls-redrock-ohb__time { font-family: var(--t-head); font-size: clamp(21px, 6vw, 28px); font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; }
+.b-app.l-redrock .ls-redrock-ohb__now { display: inline-block; margin-top: 6px; padding: 2px 10px; border: 1.5px solid currentColor; border-radius: 999px; font-size: 13px; font-weight: 700; }
+.b-app.l-redrock .ls-redrock-ohb__note { margin-top: 6px; font-size: 14.5px; }
+.b-app.l-redrock .ls-redrock-ohb__acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.b-app.l-redrock .ls-redrock-ohb__act {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 2px solid currentColor;
+  border-radius: 999px; background: transparent; color: inherit; font: 700 14.5px/1 var(--t-font); text-decoration: none; cursor: pointer;
+}
+.b-app.l-redrock .ls-redrock-ohb__act:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
+.b-app.l-redrock .ls-redrock-ohb--a a:focus-visible, .b-app.l-redrock .ls-redrock-ohb--a button:focus-visible { outline-color: var(--t-onacc); }
+.b-app.l-redrock .ls-redrock-ohb--b a:focus-visible, .b-app.l-redrock .ls-redrock-ohb--b button:focus-visible { outline-color: var(--t-onacc2); }
+
+/* ── guides teaser inside "Make it yours" ─────────────────────────────── */
+.b-app.l-redrock .ls-redrock .b-ls-guides { margin: 26px 0 0; padding: 0; background: none; border: 0; }
+.b-app.l-redrock .ls-redrock .b-ls-guides__title { font-size: 22px; font-style: italic; }
+
+/* ── the agent signs off ──────────────────────────────────────────────── */
+.b-app.l-redrock .ls-redrock-sign { display: flex; flex-direction: column; gap: 18px; padding: 22px; background: var(--rr-chip); border-bottom: var(--ls-rule); }
+.b-app.l-redrock .ls-redrock-face { display: block; width: 112px; height: 112px; border-radius: 50%; object-fit: cover; border: 4px solid var(--t-acc); }
+.b-app.l-redrock .ls-redrock-face.ls-face--initial { display: flex; align-items: center; justify-content: center; background: var(--t-acc); color: var(--t-onacc); font-size: 48px; }
+.b-app.l-redrock .ls-redrock-sign__t { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.b-app.l-redrock .ls-redrock-sign .ls-agent__name {
+  font-family: var(--t-head); font-style: italic; font-weight: 400; font-size: clamp(34px, 9vw, 46px); line-height: 1.05;
+  letter-spacing: -0.02em; overflow-wrap: break-word;
+}
+.b-app.l-redrock .ls-redrock-sign .ls-agent__brokerage { font-size: 17px; font-weight: 600; }
+.b-app.l-redrock .ls-redrock-sign .ls-agent__license { font-size: 14px; color: var(--rr-mut); }
+.b-app.l-redrock .ls-redrock-sign__acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.b-app.l-redrock .ls-redrock-sign__acts .ls-redrock-btn { flex: 1 1 120px; }
+
+/* ── a wider phone / small tablet ─────────────────────────────────────── */
+@media (min-width: 600px) and (max-width: 899px) {
+  .b-app.l-redrock .ls-redrock { --ls-pad: 32px; }
+  .b-app.l-redrock .ls-redrock-main { aspect-ratio: 16 / 10; }
+  .b-app.l-redrock .ls-redrock-cta { flex-direction: row; flex-wrap: wrap; }
+  .b-app.l-redrock .ls-redrock-cta .ls-redrock-btn { width: auto; flex: 1 1 220px; }
+}
+
+/* ── desktop: the split screen ────────────────────────────────────────── */
+@media (min-width: 900px) {
+  .b-app.l-redrock .ls-redrock {
+    --ls-pad: 56px;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start;
+    padding-bottom: 0;
+  }
+  .b-app.l-redrock .ls-redrock-media {
+    display: flex; flex-direction: column; position: sticky; top: calc(var(--rr-bar-h) + env(safe-area-inset-top));
+    height: calc(100vh - var(--rr-bar-h) - env(safe-area-inset-top)); height: calc(100dvh - var(--rr-bar-h) - env(safe-area-inset-top));
+    min-height: 460px; background: var(--t-acc2);
+  }
+  .b-app.l-redrock .ls-redrock-body { display: block; min-width: 0; }
+  .b-app.l-redrock .ls-redrock-main { order: 0; flex: 1 1 auto; aspect-ratio: auto; min-height: 0; }
+  .b-app.l-redrock .ls-redrock-main__count { bottom: 14px; right: 14px; }
+  .b-app.l-redrock .ls-redrock-rail { order: 0; flex: 0 0 auto; padding: 14px 20px; background: var(--t-acc2); }
+  .b-app.l-redrock .ls-redrock-thumb { width: 96px; height: 68px; }
+  .b-app.l-redrock .ls-redrock-band { margin: 0; padding: 36px var(--ls-pad) 34px; border-radius: 0; }
+  .b-app.l-redrock .ls-redrock-price { font-size: clamp(64px, 7.4vw, 104px); }
+  .b-app.l-redrock .ls-redrock-ribbon { margin-bottom: 14px; }
+  .b-app.l-redrock .ls-redrock-title { padding-top: 40px; }
+  .b-app.l-redrock .ls-redrock-h1 { font-size: clamp(38px, 3.8vw, 52px); }
+  .b-app.l-redrock .ls-redrock-city { font-size: 24px; }
+  .b-app.l-redrock .ls-redrock-stats { margin-top: 32px; }
+  .b-app.l-redrock .ls-redrock-stats > li { padding: 20px 0 18px 24px; }
+  .b-app.l-redrock .ls-redrock-stats > li:first-child { padding-left: 0; }
+  .b-app.l-redrock .ls-redrock-secs { padding-bottom: 72px; }
+  .b-app.l-redrock .ls-redrock-sec { display: grid; grid-template-columns: 64px minmax(0, 1fr); margin-top: 48px; padding-top: 22px; column-gap: 8px; }
+  .b-app.l-redrock .ls-redrock-sec__n { font-size: 34px; padding-top: 4px; }
+  .b-app.l-redrock .ls-redrock-sec__h { margin-top: 0; font-size: 40px; }
+  .b-app.l-redrock .ls-redrock-lead { font-size: 22px; }
+  .b-app.l-redrock .ls-redrock-cta { flex-direction: row; flex-wrap: wrap; }
+  .b-app.l-redrock .ls-redrock-cta .ls-redrock-btn { width: auto; flex: 0 1 auto; }
+  .b-app.l-redrock .ls-redrock-ohb { padding: 24px 26px 22px; gap: 8px 28px; }
+  .b-app.l-redrock .ls-redrock-ohb__day { font-size: 96px; }
+  .b-app.l-redrock .ls-redrock-sign { padding: 28px; }
+  .b-app.l-redrock .ls-redrock-sign__acts .ls-redrock-btn { flex: 0 1 160px; }
+}
+@media (min-width: 900px) and (max-width: 1099px) {
+  .b-app.l-redrock .ls-redrock { --ls-pad: 32px; }
+}
+/* A phone on its side: the panel is no taller than the screen, so let the page flow. */
+@media (min-width: 900px) and (max-height: 520px) {
+  .b-app.l-redrock .ls-redrock-media { position: relative; top: auto; height: 100vh; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .b-app.l-redrock .ls-redrock-main__btn img { animation: ls-redrock-in 0.35s ease-out; }
+  @keyframes ls-redrock-in { from { opacity: 0.4; } to { opacity: 1; } }
+}
+@media print {
+  .b-app.l-redrock .ls-redrock-media { position: static; height: auto; }
+}
