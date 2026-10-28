@@ -102,7 +102,10 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
   const isAdminPath = (req) => /^\/api\/admin(\/|$)/i.test(req.path);
   // The admin requests a stranger legitimately makes: signing in, asking for a password reset link, and
   // using one. Each carries an email, a password or a token and nothing bigger.
-  const isSignIn = (req) => req.method === 'POST' && /^\/api\/admin\/(login|password\/(forgot|reset))\/*$/i.test(req.path);
+  // Making an agent account (POST signup) is one too, behind an access code; asking whether it is open (GET) carries nothing.
+  const isSignIn = (req) =>
+    (req.method === 'POST' && /^\/api\/admin\/(login|signup|password\/(forgot|reset))\/*$/i.test(req.path))
+    || (req.method === 'GET' && /^\/api\/admin\/signup\/*$/i.test(req.path));
   // The 6 MB parser is for a caller who has already proved they are an admin, for the same reason as
   // the video one: the limits on the sign-in form run after the body is read, so a body read first is
   // a body anyone can make this server hold in memory, a few at a time, on a 512 MB instance.

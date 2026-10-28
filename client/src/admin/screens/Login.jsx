@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import AuthCard from './AuthCard.jsx';
 import { ErrorNote, TextField } from '../ui.jsx';
@@ -11,6 +12,13 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Offered only while the owner has opened agent sign-up (an access code is set on the server).
+  const [agentsOpen, setAgentsOpen] = useState(false);
+  useEffect(() => {
+    let live = true;
+    adminApi.signupOpen().then((r) => live && setAgentsOpen(Boolean(r?.open)), () => {});
+    return () => { live = false; };
+  }, []);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -42,6 +50,11 @@ export default function Login() {
         {busy ? 'Signing in…' : 'Sign in'}
       </button>
       <Link to="/admin/forgot" className="btn btn-link btn-block" style={{ fontSize: 14 }}>Forgot your password?</Link>
+      {agentsOpen ? (
+        <Link to="/admin/signup" className="btn btn-secondary btn-block" style={{ minHeight: 46 }}>
+          Real estate agent? Create your account
+        </Link>
+      ) : null}
     </AuthCard>
   );
 }

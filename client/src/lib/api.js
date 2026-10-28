@@ -165,6 +165,10 @@ export const buyerApi = {
 // ── admin ─────────────────────────────────────────────────────────────────
 export const adminApi = {
   login: (email, password) => request('/api/admin/login', { method: 'POST', body: { email, password } }),
+  // Whether agents can make their own account here ({ open }), and making one with the access code the owner gave
+  // them (answers with a session, like signing in).
+  signupOpen: () => request('/api/admin/signup'),
+  signup: (email, password, code) => request('/api/admin/signup', { method: 'POST', body: { email, password, code } }),
   // { id, email, role }: role is 'owner' for the account ADMIN_EMAIL names and 'member' for anyone invited.
   // Given up on after 20 seconds, so a signal that has gone quiet shows the sign-in check's Retry rather than a spinner for good.
   me: (token) => request('/api/admin/me', { token, timeoutMs: 20000 }),
