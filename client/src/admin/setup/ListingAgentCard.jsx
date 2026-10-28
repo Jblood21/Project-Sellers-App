@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+
 import AgentEditor from './AgentEditor.jsx';
 
 /**
@@ -13,8 +14,8 @@ export default function ListingAgentCard({ community, reload }) {
     <div className="card elev-sm" style={{ gap: 12 }}>
       <span className="card-kicker">Listing agent</span>
       <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        This is you. Visitors see these details under &ldquo;Meet your agent&rdquo; and &ldquo;Want a showing?&rdquo;, and
-        they can call, text or email you from there. Changes here save on their own, not with the Save settings button.
+        This is you. Visitors see your face, name and brokerage above the home&apos;s pictures, and these details under
+        &ldquo;Meet your agent&rdquo; and &ldquo;Want a showing?&rdquo;, where they can call, text or email you. Add a clear photo of your face below. Changes here save on their own, not with the Save settings button.
       </p>
       <AgentEditor
         key={agent?.id ?? 'new'} single agent={agent} index={0} community={community} reload={reload}

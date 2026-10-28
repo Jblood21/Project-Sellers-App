@@ -190,6 +190,13 @@ for (const kind of backends()) {
       assert.equal((await asOwner(`/communities/${made.id}`)).body.guides.length, LISTING_GUIDE_ORDER.length);
     });
 
+    test('the create answer carries the agent, who is the listing\'s one agent', async () => {
+      const made = (await asOwner('/communities', { method: 'POST', body: { ...listing, agentName: 'Ada Agent', agentPhone: '801-555-0100' } })).body;
+      assert.equal(made.agents.length, 1);
+      assert.equal(made.agents[0].name, 'Ada Agent');
+      assert.equal((await api(`/api/c/${made.id}`)).body.agents[0].phone, '801-555-0100', 'buyers are served the agent');
+    });
+
     test('nothing is made when the address or the price is missing or wrong', async () => {
       const before = (await asOwner('/communities')).body.length;
       for (const [body, pattern] of [

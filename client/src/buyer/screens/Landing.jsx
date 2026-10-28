@@ -6,6 +6,7 @@ import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { nextOpenHouseLine, useOpenHouses } from '../openHouse.js';
 import GuidesTeaser from '../GuidesTeaser.jsx';
+import ListingAgentTop from '../ListingAgentTop.jsx';
 import useFitHeading from '../useFitHeading.js';
 import GateForm from './GateForm.jsx';
 
@@ -35,6 +36,8 @@ export default function Landing({ onEntered }) {
   return (
     // `b-gate` as well: the layouts style a page that holds the sign-in form under that name.
     <div className="b-shell b-landing b-gate" style={{ minHeight: '100vh', paddingTop: 'calc(20px + env(safe-area-inset-top))' }}>
+      {/* A listing: the agent before the picture. */}
+      <ListingAgentTop />
       <div className={`b-landing__hero${hero ? '' : ' b-landing__hero--none'}`}>
         {hero ? <Photo eager quiet photo={hero} alt={isListing ? `${community?.name} photo` : `${community?.name} community photo`} sizes="(min-width: 600px) 760px, 125vw" /> : null}
       </div>

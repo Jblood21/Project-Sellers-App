@@ -96,7 +96,7 @@ function BuyerShell() {
 
   if (loading) return <Centered>Loading…</Centered>;
   if (loadError) return <Centered>{loadError}</Centered>;
-  if (!community) return <Centered>This community link isn’t active anymore. Ask the team for a new one.</Centered>;
+  if (!community) return <Centered>This link isn’t active anymore. Ask whoever shared it for a new one.</Centered>;
 
   // A trailing slash reaches the same page, so it counts as the same page here.
   const path = location.pathname.replace(/\/+$/, '');

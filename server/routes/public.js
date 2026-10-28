@@ -286,7 +286,7 @@ export function publicRouter() {
   /** Everything the buyer app needs to render a community. */
   router.get('/c/:communityId', async (req, res) => {
     const payload = await loadPublicCommunity(await getStore(), req.params.communityId);
-    if (!payload) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
+    if (!payload) return res.status(404).json({ error: 'This link isn’t active anymore. Ask whoever shared it for a new one.' });
     res.json(payload);
   });
 
@@ -305,7 +305,7 @@ export function publicRouter() {
       return res.status(404).json({ error: 'That guide could not be found.' });
     }
     const community = await store.getCommunity(req.params.communityId);
-    if (!community) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
+    if (!community) return res.status(404).json({ error: 'This link isn’t active anymore. Ask whoever shared it for a new one.' });
     const guide = community.features.guides
       ? await store.getGuideBySlug(community.id, req.params.slug)
       : null;
@@ -323,7 +323,7 @@ export function publicRouter() {
   ], 'sign-up attempts'), async (req, res) => {
     const store = await getStore();
     const community = await store.getCommunity(req.params.communityId);
-    if (!community) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
+    if (!community) return res.status(404).json({ error: 'This link isn’t active anymore. Ask whoever shared it for a new one.' });
 
     const name = String(req.body?.name ?? '').trim();
     const email = String(req.body?.email ?? '').trim();
@@ -478,7 +478,7 @@ export function publicRouter() {
     let lead = await store.getLead(req.leadId);
     if (!lead) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
     const community = await store.getCommunity(lead.communityId);
-    if (!community) return res.status(404).json({ error: 'This community link isn’t active anymore. Ask the team for a new one.' });
+    if (!community) return res.status(404).json({ error: 'This link isn’t active anymore. Ask whoever shared it for a new one.' });
 
     // An address typed in the "also send to" box is kept on the lead (the next send and the team have
     // it); an empty one removes it. Checked before anything is sent or counted.

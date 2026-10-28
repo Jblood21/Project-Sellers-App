@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { LAYOUTS, normalizeLayout } from '@shared/domain.js';
+import { LAYOUTS, LISTING_LAYOUT_NOTES, isListing, normalizeLayout } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { ErrorNote } from '../ui.jsx';
@@ -269,7 +269,7 @@ export default function LayoutCard({ community, reload }) {
               {current === layout.k ? <span className="tag tag-accent">In use</span> : null}
               {saving === layout.k ? <span className="text-muted" style={{ fontSize: 14 }}>Saving…</span> : null}
             </span>
-            <span className="ax-choice-note">{layout.note}</span>
+            <span className="ax-choice-note">{(isListing(community) && LISTING_LAYOUT_NOTES[layout.k]) || layout.note}</span>
           </button>
         ))}
       </div>

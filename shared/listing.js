@@ -153,3 +153,18 @@ export function readOpenHouses(raw) {
 export function upcomingOpenHouses(list, today) {
   return (list ?? []).filter((session) => session.date >= today);
 }
+
+/**
+ * What each buyer-app layout does for a listing (one home), in place of the community descriptions in LAYOUTS, which
+ * talk about many homes. Keyed by the layout's key; a layout not listed falls back to its own note.
+ */
+export const LISTING_LAYOUT_NOTES = {
+  cornerpost: 'One phone-width column of soft, rounded tiles: the photo, the price and facts, the open houses and a Request a showing button. Manrope throughout.',
+  saltgrass: 'Condensed uppercase headlines, a dark header and footer, and a big price. Reads best with the Navy & Gold, Ice Blue & Dark Navy or Slate Blue & Soft Green themes.',
+  foyer: 'Serif headlines and thin rules, laid out like a magazine feature for the home. Reads best with the Charcoal & Bronze, Forest Green & Cream or Warm Modern Real Estate themes.',
+  marketplace: 'Laid out like a home-search listing page: a white bar, the photos, the price and a payment estimate, and your details. Reads best with the Modern Blue & White, Teal & Navy or Navy & Gold themes.',
+  redrock: 'Warm and solid: a dark header, a big serif price, the open houses and your contact. Reads best with the Rust & Desert Plum theme.',
+  trailhead: 'A guided walk through the home: photos, open houses, the payment tools and your contact, one after another with a big button for the next step. Reads best with the Forest Green & Cream or Slate Blue & Soft Green themes.',
+  showcase: 'Photo first, like phone stories: the home fills the screen with its price over the picture, with the tools in a sheet that slides up. Reads best with Black, White & Orange or Charcoal & Bronze.',
+  ledger: 'Figures first: tiles for the price, the monthly payment, what a buyer needs down and the open houses. Reads best with Ice Blue & Dark Navy, Modern Blue & White or Teal & Navy.',
+};

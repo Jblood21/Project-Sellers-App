@@ -124,7 +124,7 @@ function PreviewShell() {
 
   if (loading) return <Status>Loading the preview…</Status>;
   if (loadError) return <Status>{loadError}</Status>;
-  if (!community) return <Status>This community link isn’t active anymore.</Status>;
+  if (!community) return <Status>This link isn’t active anymore.</Status>;
 
   const view = themeView(community.theme, community.settings);
   const Header = layoutFor(layout).Header ?? BuyerHeader;

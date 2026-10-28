@@ -1133,6 +1133,7 @@ export function adminRouter() {
     });
     let community = made;
     let home;
+    let agent = null;
     try {
       // The licence line the footer prints, when the agent gave one.
       // Typed as "12345", "#12345" or "Lic. #12345": the number is kept on its own for the agent's card, and the line
@@ -1145,7 +1146,7 @@ export function adminRouter() {
       if (agentName) {
         const phone = str(req.body?.agentPhone).slice(0, AGENT_TEXT_MAX.phone);
         const email = str(req.body?.agentEmail).slice(0, AGENT_TEXT_MAX.email);
-        await store.createAgent(made.id, {
+        agent = await store.createAgent(made.id, {
           name: agentName, brokerage: community.builder, licenseNo, phone,
           email: email && isSafeEmail(email) ? email : '',
         });
@@ -1168,7 +1169,7 @@ export function adminRouter() {
       throw err;
     }
     await recordActivity(store, req, { communityId: community.id, action: 'listing.created', subject: community.name });
-    return res.status(201).json({ ...community, homes: [home] });
+    return res.status(201).json({ ...community, homes: [home], agents: agent ? [agent] : [] });
   }
 
   router.post('/communities', async (req, res) => {

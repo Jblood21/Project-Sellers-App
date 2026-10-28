@@ -13,6 +13,7 @@ import OpenHouseCard from '../OpenHouseCard.jsx';
 import { useOpenHouses } from '../openHouse.js';
 import AgentCard from '../AgentCard.jsx';
 import GuidesTeaser from '../GuidesTeaser.jsx';
+import ListingAgentTop from '../ListingAgentTop.jsx';
 import VideoViewer from '../VideoViewer.jsx';
 
 /**
@@ -80,6 +81,8 @@ export default function HomeDetail({ onOpenLender, onRequestShowing = null }) {
     // The b-hd names carry no style of their own; they are there so a layout can arrange the page (a
     // photo grid, the actions in a column beside the details) without matching the inline styles.
     <div className="b-shell b-hd" style={{ paddingTop: 16 }}>
+      {/* A listing: who is selling it (their face, name and a way to reach them) comes before the pictures. */}
+      <ListingAgentTop />
       {/* The hero: this home's first photo, big. Tap it to see all of them full size. */}
       <button
         type="button"
