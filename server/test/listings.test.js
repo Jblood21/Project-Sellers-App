@@ -4,7 +4,9 @@ import { after, before, describe, test } from 'node:test';
 import {
   DEFAULT_SETTINGS, LISTING_STATUSES, OPEN_HOUSE_MAX, isListing, normalizeOpenHouses, readOpenHouses, upcomingOpenHouses,
 } from '../../shared/domain.js';
+import { parseFaq } from '../../shared/faq.js';
 import { pageMeta } from '../../shared/schema.js';
+import { LISTING_GUIDE_ORDER, loadDefaultGuides } from '../lib/guides.js';
 import { OWNER_ONLY, forgetAdminAccess } from '../lib/access.js';
 import { hashPassword } from '../lib/auth.js';
 import { backends, startBackend } from './fixtures/harness.js';
@@ -63,6 +65,20 @@ describe('open house sessions', () => {
     assert.equal(isListing({ settings: { siteKind: 'listing' } }), true);
     assert.equal(isListing({ settings: DEFAULT_SETTINGS }), false);
     assert.equal(isListing(null), false);
+  });
+});
+
+describe('a listing\'s starting guides', () => {
+  test('are the single-family set, in reading order, and none of the community ones', () => {
+    const listing = loadDefaultGuides('listing');
+    assert.deepEqual(listing.map((g) => g.slug), LISTING_GUIDE_ORDER, 'every guide on disk is in the order, and the other way round');
+    const community = new Set(loadDefaultGuides().map((g) => g.slug));
+    assert.ok(listing.every((g) => !community.has(g.slug)));
+    for (const g of listing) {
+      assert.ok(g.title && g.summary && g.body, g.slug);
+      assert.equal(g.byline, 'By your listing agent', g.slug);
+      assert.doesNotMatch(`${g.title} ${g.body}`, /Summit|NMLS|Utah|Hill Air Force/i, g.slug);
+    }
   });
 });
 
@@ -144,6 +160,33 @@ for (const kind of backends()) {
       const stored = (await asOwner(`/communities/${body.id}`)).body;
       assert.equal(stored.homes.length, 1);
       assert.equal(stored.settings.siteKind, 'listing');
+    });
+
+    test('starts with the single-family guides and questions, no lender, no booking times, and the agent as its one agent', async () => {
+      const made = (await asOwner('/communities', {
+        method: 'POST',
+        body: { ...listing, address: '4 Guide Court', license: 'Lic. #LP-1', agentName: 'Maren Whitcombe', agentPhone: '801-555-0111', agentEmail: 'maren@example.test' },
+      })).body;
+      const full = (await asOwner(`/communities/${made.id}`)).body;
+      assert.deepEqual(full.guides.map((g) => g.title).slice(0, 2), ['What to expect at an open house', 'How buying a single-family home works']);
+      assert.equal(full.guides.length, LISTING_GUIDE_ORDER.length);
+      assert.ok(!full.guides.some((g) => /townhome|Utah/i.test(g.title)));
+      for (const key of ['lenderName', 'lenderNmls', 'lenderPhone', 'lenderEmail', 'lenderLicense', 'loanApplicationUrl', 'complianceEhl', 'complianceDisclaimer']) {
+        assert.equal(full.settings[key], '', key);
+      }
+      assert.equal(full.features.booking, false);
+      assert.equal(full.settings.agentLicense, 'Lic. #LP-1');
+      assert.match(full.settings.listingDisclosure, /Equal Housing Opportunity/);
+      const faq = parseFaq(full.settings.faqJson);
+      assert.equal(faq.length, 6);
+      assert.ok(!faq.some((i) => /community|My Home Plan|preferred lender/i.test(`${i.q} ${i.a}`)));
+      assert.equal(full.agents.length, 1);
+      assert.deepEqual([full.agents[0].name, full.agents[0].phone, full.agents[0].email, full.agents[0].brokerage], ['Maren Whitcombe', '801-555-0111', 'maren@example.test', 'Summit Realty']);
+      // Restoring the default guides on a listing brings back its own set, never the community's.
+      for (const g of full.guides.slice(0, 2)) await asOwner(`/guides/${g.id}`, { method: 'DELETE' });
+      const restored = await asOwner(`/communities/${made.id}/guides/restore-defaults`, { method: 'POST' });
+      assert.equal(restored.status, 200, JSON.stringify(restored.body));
+      assert.equal((await asOwner(`/communities/${made.id}`)).body.guides.length, LISTING_GUIDE_ORDER.length);
     });
 
     test('nothing is made when the address or the price is missing or wrong', async () => {

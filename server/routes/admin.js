@@ -1128,16 +1128,26 @@ export function adminRouter() {
       theme: isThemeKey(req.body?.theme) ? req.body.theme : DEFAULT_THEME,
       // A listing's "builder" is the brokerage it is listed with: the footer and the consent wording read it.
       builder: str(req.body?.brokerage).slice(0, COMMUNITY_TEXT_MAX),
+      // Made on a listing's own settings, tools, features, layout and guides in the same step (shared/listing.js).
+      kind: 'listing',
     });
-    let community;
+    let community = made;
     let home;
     try {
-      community = await store.updateCommunity(made.id, {
-        settings: { ...made.settings, ...LISTING_SETTINGS },
-        tools: { ...made.tools, ...LISTING_TOOLS },
-        features: { ...made.features, ...LISTING_FEATURES },
-        layout: LISTING_LAYOUT,
-      });
+      // The licence line the footer prints, when the agent gave one.
+      const license = str(req.body?.license).slice(0, 120);
+      if (license) community = await store.updateCommunity(made.id, { settings: { ...made.settings, agentLicense: license } });
+      // The listing agent is the person making it: their name and number are what a buyer is shown to call. One
+      // agent, edited in Setup; a listing never asks for a team of them.
+      const agentName = str(req.body?.agentName).slice(0, AGENT_TEXT_MAX.name);
+      if (agentName) {
+        const phone = str(req.body?.agentPhone).slice(0, AGENT_TEXT_MAX.phone);
+        const email = str(req.body?.agentEmail).slice(0, AGENT_TEXT_MAX.email);
+        await store.createAgent(made.id, {
+          name: agentName, brokerage: community.builder, licenseNo: license, phone,
+          email: email && isSafeEmail(email) ? email : '',
+        });
+      }
       home = await store.createHome(community.id, {
         name: address,
         ...numbers.data,

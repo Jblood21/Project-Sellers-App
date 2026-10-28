@@ -55,6 +55,37 @@ export const DEFAULT_FAQ = [
   },
 ];
 
+/**
+ * The questions a new listing (one home an agent is selling) starts with. Like the community's they promise nothing
+ * about a price, a rate or an approval and name no lender or agent; they are about this one home and its open houses.
+ */
+export const DEFAULT_LISTING_FAQ = [
+  {
+    q: 'What is this page?',
+    a: 'It is the page for this home. You can see the photos and details, find out when the next open house is, estimate a monthly payment and ask the listing agent for a showing.',
+  },
+  {
+    q: 'Does signing in commit me to anything?',
+    a: 'No. Your name and email go to the listing agent so they can follow up if you ask them to. Looking around and using the payment tools do not commit you to anything.',
+  },
+  {
+    q: 'How do I see the home in person?',
+    a: 'Tap Request a showing to call, text or email the listing agent, or come to an open house if one is listed. The times are on the home page.',
+  },
+  {
+    q: 'Is the payment estimate a quote?',
+    a: 'No. It is an estimate to help you plan, based on the price, down payment and rate shown. It may not include every cost of owning a home, and your actual payment depends on your loan.',
+  },
+  {
+    q: 'How do I find out what loan I qualify for?',
+    a: 'Talk to a lender of your choice about getting pre-approved. This page is not a loan approval or an offer to lend, and you are free to use any lender.',
+  },
+  {
+    q: 'What happens to my details?',
+    a: 'They go to the listing agent for this home. If you gave a number and agreed to calls and texts, they may use it to follow up about this home.',
+  },
+];
+
 const clean = (value, max) => String(value ?? '').replace(/\u0000/g, '').trim().slice(0, max);
 
 /**
@@ -113,6 +144,9 @@ export function normalizeFaqJson(raw) {
 
 /** What a new community stores until its builder edits the list. */
 export const DEFAULT_FAQ_JSON = serializeFaq(DEFAULT_FAQ);
+
+/** What a new listing stores until its agent edits the list. */
+export const DEFAULT_LISTING_FAQ_JSON = serializeFaq(DEFAULT_LISTING_FAQ);
 
 /**
  * Earlier versions of the starter questions, exactly as they were stored. A community that never
