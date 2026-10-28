@@ -1,6 +1,7 @@
 import '../../../styles/layouts/foyer.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Foyer: a calm, magazine-like layout for established communities. Serif
@@ -19,4 +20,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };

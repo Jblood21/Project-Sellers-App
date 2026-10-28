@@ -1,6 +1,7 @@
 import '../../../styles/layouts/marketplace.css';
 import Header from './Header.jsx';
 import Home from './Home.jsx';
+import Listing from './Listing.jsx';
 
 /**
  * Marketplace: laid out like a big home-search site, in the community's own colours. A white bar with
@@ -21,4 +22,5 @@ export default {
   },
   Header,
   Home,
+  Listing,
 };

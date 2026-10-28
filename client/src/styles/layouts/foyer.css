@@ -1447,3 +1447,207 @@
   .b-app.l-foyer .b-agent__logo { align-self: center; }
   .b-app.l-foyer .fy-idx { gap: 14px; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Listing page: "Magazine feature"
+   A centred masthead (city in small capitals, the address as a serif title, the
+   price as a pull-quote), a captioned plate, then a two-column spread: the story
+   with a drop cap and an "At a glance" box on the left, a narrow sidebar with the
+   agent's portrait and a typeset calendar on the right, and the photographs as an
+   offset grid of numbered plates. Hairlines, no boxes, no shadows.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.b-app.l-foyer .ls-foyer {
+  --ls-w: 1120px;
+  max-width: var(--ls-w);
+  margin: 0 auto;
+  padding: 36px var(--fy-gutter) 96px;
+  min-width: 0;
+}
+.b-app.l-foyer .ls-foyer *, .b-app.l-foyer .ls-foyer *::before, .b-app.l-foyer .ls-foyer *::after { box-sizing: border-box; }
+.b-app.l-foyer .ls-foyer p { margin: 0; }
+
+/* small capitals label used for every section */
+.b-app.l-foyer .ls-foyer-kicker {
+  margin: 0 0 14px;
+  font: 600 12.5px/1.3 var(--t-font);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--t-accT);
+}
+.b-app.l-foyer .ls-foyer-kicker--rule {
+  display: flex; align-items: center; gap: 18px; justify-content: center; margin-bottom: 28px;
+}
+.b-app.l-foyer .ls-foyer-kicker--rule::before,
+.b-app.l-foyer .ls-foyer-kicker--rule::after { content: ''; flex: 1; height: 1px; background: var(--t-line); }
+
+/* text links: underlined, 44px hit area */
+.b-app.l-foyer .ls-foyer-link {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px;
+  background: none; border: 0; border-radius: 0; cursor: pointer;
+  font: 500 15px/1.2 var(--t-font);
+  color: var(--t-ink);
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px;
+}
+.b-app.l-foyer .ls-foyer-link:hover { color: var(--t-accT); text-decoration-thickness: 2px; }
+
+/* masthead */
+.b-app.l-foyer .ls-foyer-mast { text-align: center; max-width: 820px; margin: 0 auto 32px; }
+.b-app.l-foyer .ls-foyer-city {
+  font: 600 13px/1.3 var(--t-font); letter-spacing: 0.28em; text-transform: uppercase; color: var(--t-accT);
+  margin-bottom: 14px !important;
+}
+.b-app.l-foyer .ls-foyer-title {
+  margin: 0;
+  font-family: var(--t-head); font-weight: 500;
+  font-size: clamp(2.5rem, 11.5vw, 5rem);
+  line-height: 1.02; letter-spacing: -0.01em; text-transform: none;
+  text-wrap: balance; overflow-wrap: anywhere;
+}
+.b-app.l-foyer .ls-foyer-quote {
+  margin-top: 22px !important;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px;
+  padding: 14px 4px 0;
+  border-top: 1px solid var(--t-line);
+  width: min(100%, 440px); margin-left: auto !important; margin-right: auto !important;
+  font-family: var(--fy-italic); font-style: italic;
+}
+.b-app.l-foyer .ls-foyer-quote__price { font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1.2; color: var(--t-ink); }
+.b-app.l-foyer .ls-foyer-quote__est { font-size: 16px; color: var(--t-mut); }
+.b-app.l-foyer .ls-foyer-status {
+  margin: 18px auto 0 !important; max-width: 36em; padding: 10px 0 !important;
+  border: 0 !important; border-top: 1px solid var(--t-line) !important; border-bottom: 1px solid var(--t-line) !important;
+  border-radius: 0 !important; background: none !important;
+  font: italic 17px/1.5 var(--fy-italic); color: var(--t-ink); text-align: center;
+}
+.b-app.l-foyer .ls-foyer-cta {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 26px;
+}
+.b-app.l-foyer .ls-foyer-cta:empty { display: none; }
+.b-app.l-foyer .ls-foyer-cta .b-btn { margin: 0 !important; min-height: 48px; width: auto; flex: 0 1 auto; }
+@media (max-width: 520px) {
+  .b-app.l-foyer .ls-foyer-cta { flex-direction: column; align-items: stretch; }
+  .b-app.l-foyer .ls-foyer-cta .b-btn { width: 100%; }
+}
+
+/* hero plate */
+.b-app.l-foyer .ls-foyer-hero { margin: 0 0 56px; }
+.b-app.l-foyer .ls-foyer-hero__btn,
+.b-app.l-foyer .ls-foyer-plate__btn {
+  display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: var(--t-tint);
+  cursor: zoom-in; overflow: hidden; position: relative;
+}
+.b-app.l-foyer .ls-foyer-hero__btn { aspect-ratio: 4 / 3; }
+.b-app.l-foyer .ls-foyer-plate__btn { aspect-ratio: 3 / 2; }
+.b-app.l-foyer .ls-foyer-hero__btn > div, .b-app.l-foyer .ls-foyer-plate__btn > div { width: 100%; height: 100%; }
+.b-app.l-foyer .ls-foyer-hero__btn img, .b-app.l-foyer .ls-foyer-plate__btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b-app.l-foyer .ls-foyer-cap {
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--t-line);
+  font: italic 14.5px/1.5 var(--fy-italic); color: var(--t-mut); text-align: center;
+}
+.b-app.l-foyer .ls-foyer-cap__n { font-style: normal; letter-spacing: 0.12em; text-transform: uppercase; font-size: 12px; font-family: var(--t-font); }
+
+/* the spread */
+.b-app.l-foyer .ls-foyer-spread { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; align-items: start; }
+.b-app.l-foyer .ls-foyer-main { min-width: 0; max-width: 62ch; margin: 0 auto; width: 100%; }
+.b-app.l-foyer .ls-foyer-side { min-width: 0; max-width: 340px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 44px; }
+
+/* the story with a drop cap */
+.b-app.l-foyer .ls-foyer-story p {
+  font-size: 18px; line-height: 1.75; color: var(--t-ink); overflow-wrap: anywhere; hyphens: auto;
+}
+.b-app.l-foyer .ls-foyer-story p + p { margin-top: 1em; }
+.b-app.l-foyer .ls-foyer-story__lead::first-letter {
+  float: left; font-family: var(--t-head); font-weight: 600; color: var(--t-accT);
+  font-size: 5.1em; line-height: 0.78; padding: 0.06em 0.1em 0 0; text-transform: uppercase;
+}
+
+/* At a glance */
+.b-app.l-foyer .ls-foyer-glance { margin-top: 44px; border-top: 3px double var(--t-ink); border-bottom: 1px solid var(--t-ink); padding: 18px 0 6px; }
+.b-app.l-foyer .ls-foyer-glance__h {
+  margin: 0 0 8px; font-family: var(--t-head); font-weight: 600; font-style: italic; text-transform: none;
+  font-size: 28px; line-height: 1.1; text-align: center;
+}
+.b-app.l-foyer .ls-foyer-glance__list { margin: 0; }
+.b-app.l-foyer .ls-foyer-glance__row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 20px;
+  padding: 11px 0; border-top: 1px solid var(--t-line);
+}
+.b-app.l-foyer .ls-foyer-glance__row:first-child { border-top: 0; }
+.b-app.l-foyer .ls-foyer-glance dt { font: 600 12px/1.4 var(--t-font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--t-mut); flex: none; }
+.b-app.l-foyer .ls-foyer-glance dd { margin: 0; text-align: right; min-width: 0; font: 500 18px/1.35 var(--t-head); overflow-wrap: anywhere; color: var(--t-ink); }
+.b-app.l-foyer .ls-foyer-glance dd small { display: block; font: 14px/1.4 var(--t-font); color: var(--t-mut); }
+
+.b-app.l-foyer .ls-foyer-extras { margin-top: 36px; }
+.b-app.l-foyer .ls-foyer-plans { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+.b-app.l-foyer .ls-foyer-plans .ls-plan {
+  width: 120px; height: 90px; padding: 0; background: var(--t-sur); border: 1px solid var(--t-line); border-radius: 0; cursor: zoom-in; overflow: hidden;
+}
+.b-app.l-foyer .ls-foyer-save { margin-top: 28px !important; text-align: center; }
+
+/* the agent's portrait */
+.b-app.l-foyer .ls-foyer-agent { text-align: center; }
+.b-app.l-foyer .ls-foyer-agent__arch {
+  width: min(100%, 280px); margin: 0 auto 20px; aspect-ratio: 3 / 4; overflow: hidden;
+  border-radius: 999px 999px 0 0; background: var(--t-tint); border-bottom: 1px solid var(--t-ink);
+}
+.b-app.l-foyer .ls-foyer-agent .ls-face {
+  display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 0;
+}
+.b-app.l-foyer .ls-foyer-agent .ls-face--initial {
+  display: flex; align-items: center; justify-content: center; font-size: 96px; color: var(--t-accT);
+}
+.b-app.l-foyer .ls-foyer-agent .ls-foyer-kicker { margin-bottom: 6px; }
+.b-app.l-foyer .ls-foyer-agent__name { font: italic 500 30px/1.15 var(--t-head); color: var(--t-ink); overflow-wrap: anywhere; }
+.b-app.l-foyer .ls-foyer-agent__line { margin-top: 4px !important; font-size: 14.5px; color: var(--t-mut); overflow-wrap: anywhere; }
+.b-app.l-foyer .ls-foyer-agent__acts { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 26px; margin-top: 12px !important; }
+
+/* typeset calendar */
+.b-app.l-foyer .ls-foyer-cal { border-top: 1px solid var(--t-ink); padding-top: 18px; }
+.b-app.l-foyer .ls-foyer-cal .ls-foyer-kicker { text-align: center; }
+.b-app.l-foyer .ls-foyer-cal__list { list-style: none; margin: 0; padding: 0; }
+.b-app.l-foyer .ls-foyer-cal__item { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; padding: 16px 0; border-top: 1px solid var(--t-line); }
+.b-app.l-foyer .ls-foyer-cal__item:first-child { border-top: 0; }
+.b-app.l-foyer .ls-foyer-cal__date { text-align: center; line-height: 1; }
+.b-app.l-foyer .ls-foyer-cal__num { display: block; font: 500 56px/0.95 var(--t-head); color: var(--t-ink); }
+.b-app.l-foyer .ls-foyer-cal__mon { display: block; margin-top: 4px; font: 600 12px/1 var(--t-font); letter-spacing: 0.2em; text-transform: uppercase; color: var(--t-accT); }
+.b-app.l-foyer .ls-foyer-cal__when { display: flex; flex-direction: column; gap: 2px; }
+.b-app.l-foyer .ls-foyer-cal__wd { font: 600 12px/1.4 var(--t-font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--t-mut); }
+.b-app.l-foyer .ls-foyer-cal__time { font: italic 500 22px/1.25 var(--t-head); color: var(--t-ink); }
+.b-app.l-foyer .ls-foyer-cal__now { margin-top: 4px !important; font: 600 12px/1.4 var(--t-font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--t-accT); }
+.b-app.l-foyer .ls-foyer-cal__note { margin-top: 6px !important; font: italic 15px/1.5 var(--fy-italic); color: var(--t-mut); }
+.b-app.l-foyer .ls-foyer-cal__acts { display: flex; flex-wrap: wrap; gap: 0 20px; margin-top: 4px !important; }
+
+/* gallery: an offset grid of numbered plates */
+.b-app.l-foyer .ls-foyer-gallery { margin-top: 88px; }
+.b-app.l-foyer .ls-foyer-plates { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+.b-app.l-foyer .ls-foyer-plate { margin: 0; min-width: 0; }
+.b-app.l-foyer .ls-foyer-plate__cap { display: block; margin-top: 10px; font: italic 14.5px/1.45 var(--fy-italic); color: var(--t-mut); }
+.b-app.l-foyer .ls-foyer-plate__n { font: 600 12px/1 var(--t-font); font-style: normal; letter-spacing: 0.16em; text-transform: uppercase; color: var(--t-accT); margin-right: 6px; }
+.b-app.l-foyer .ls-foyer-guides { margin-top: 72px; max-width: 760px; margin-left: auto; margin-right: auto; }
+
+/* Open-house card / guides teaser restyled to the page's voice, should either be drawn here */
+.b-app.l-foyer .ls-foyer .b-ls-guides__title { font-family: var(--t-head); font-weight: 500; text-transform: none; text-align: center; }
+
+@media (min-width: 900px) {
+  .b-app.l-foyer .ls-foyer { padding-top: 56px; }
+  .b-app.l-foyer .ls-foyer-hero { margin-bottom: 72px; }
+  .b-app.l-foyer .ls-foyer-hero__btn { aspect-ratio: 16 / 9; }
+  .b-app.l-foyer .ls-foyer-spread { grid-template-columns: minmax(0, 1fr) 320px; gap: 80px; }
+  .b-app.l-foyer .ls-foyer-spread--solo { grid-template-columns: minmax(0, 1fr); }
+  .b-app.l-foyer .ls-foyer-main { margin: 0; max-width: 66ch; }
+  .b-app.l-foyer .ls-foyer-side { margin: 0; position: sticky; top: calc(var(--fy-bar-h) + 28px); }
+  .b-app.l-foyer .ls-foyer-plates { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 56px 32px; }
+  .b-app.l-foyer .ls-foyer-plate:nth-child(4n + 1) { grid-column: 1 / span 7; }
+  .b-app.l-foyer .ls-foyer-plate:nth-child(4n + 2) { grid-column: 9 / span 4; margin-top: 96px; }
+  .b-app.l-foyer .ls-foyer-plate:nth-child(4n + 2) .ls-foyer-plate__btn { aspect-ratio: 3 / 4; }
+  .b-app.l-foyer .ls-foyer-plate:nth-child(4n + 3) { grid-column: 2 / span 4; }
+  .b-app.l-foyer .ls-foyer-plate:nth-child(4n + 3) .ls-foyer-plate__btn { aspect-ratio: 3 / 4; }
+  .b-app.l-foyer .ls-foyer-plate:nth-child(4n + 4) { grid-column: 6 / span 7; margin-top: 64px; }
+  /* a lone last plate stands wide and centred */
+  .b-app.l-foyer .ls-foyer-plate:last-child:nth-child(4n + 1) { grid-column: 3 / span 8; }
+}
+@media (hover: hover) {
+  .b-app.l-foyer .ls-foyer-hero__btn:hover img, .b-app.l-foyer .ls-foyer-plate__btn:hover img { opacity: 0.94; }
+}
+.b-app.l-foyer .ls-foyer .b-ls-guides__sub { text-align: center; }
