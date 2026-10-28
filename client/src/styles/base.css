@@ -993,3 +993,13 @@ textarea.input { min-height: auto; resize: vertical; }
 
 .b-footer__listing { margin: 0 0 14px; }
 .b-footer__listing .b-footer__id { margin-bottom: 6px; }
+
+/* Listing mode: a few buyer guides on the front of a listing (GuidesTeaser). */
+.b-ls-guides { margin: 28px 0 8px; text-align: left; }
+.b-ls-guides__title { margin: 0 0 4px; font-size: 22px; }
+.b-ls-guides__sub { margin: 0 0 12px; color: var(--t-mut); font-size: 13px; line-height: 1.5; }
+.b-ls-guides__list { display: grid; gap: 10px; }
+.b-ls-guides__all { margin-top: 12px; width: 100%; text-align: center; text-decoration: none; }
+@media (min-width: 700px) {
+  .b-ls-guides__list { grid-template-columns: 1fr 1fr; }
+}
