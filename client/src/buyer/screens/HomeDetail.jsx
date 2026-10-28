@@ -12,6 +12,7 @@ import ImageViewer from '../ImageViewer.jsx';
 import OpenHouseCard from '../OpenHouseCard.jsx';
 import { useOpenHouses } from '../openHouse.js';
 import AgentCard from '../AgentCard.jsx';
+import GuidesTeaser from '../GuidesTeaser.jsx';
 import VideoViewer from '../VideoViewer.jsx';
 
 /**
@@ -292,6 +293,9 @@ export default function HomeDetail({ onOpenLender, onRequestShowing = null }) {
         the home first, and who to talk to about buying it comes second. The
         agents are the community's, not this home's, so every home shows the same.
       */}
+      {/* A listing: a few buyer guides under the home, above who to talk to. */}
+      <GuidesTeaser />
+
       {features.agents && agents.length ? (
         <section className="b-hd__agents" style={{ marginTop: 26 }} aria-labelledby="home-agents">
           <hr className="b-rule" aria-hidden="true" style={{ margin: '0 0 12px' }} />

@@ -5,6 +5,7 @@ import Photo from '../../components/Photo.jsx';
 import { homeMeta, money } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { nextOpenHouseLine, useOpenHouses } from '../openHouse.js';
+import GuidesTeaser from '../GuidesTeaser.jsx';
 import useFitHeading from '../useFitHeading.js';
 import GateForm from './GateForm.jsx';
 
@@ -78,6 +79,8 @@ export default function Landing({ onEntered }) {
       ) : (
         <GateForm onEntered={onEntered} />
       )}
+      {/* A listing shows a few guides right here, readable before signing in. */}
+      <GuidesTeaser />
     </div>
   );
 }
