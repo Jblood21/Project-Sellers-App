@@ -1107,3 +1107,242 @@
 }
 .b-app.l-saltgrass .b-faq__item:has(> .b-faq__q:focus-visible) { border-color: var(--t-accT); }
 .b-app.l-saltgrass .b-faq__q { min-height: 54px; font-weight: 700; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Listing page: "Billboard"  (buyer/layouts/saltgrass/Listing.jsx)
+   A dark band, the address set huge, the price on an accent plate, a cinematic
+   banner with an angled foot, a stat bar, ticket-style open houses, a dark agent
+   strip and a tight photo mosaic. All colour is a --t-* token (or a --sg-* alias).
+   ══════════════════════════════════════════════════════════════════════════ */
+.b-app.l-saltgrass .ls-saltgrass { --lsg-cut: clamp(28px, 7vw, 84px); overflow-x: clip; }
+.b-app.l-saltgrass .ls-saltgrass-wrap { width: min(100% - 2rem, 1120px); margin-inline: auto; }
+.b-app.l-saltgrass .ls-saltgrass-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* the dark opening band: text sits on the deep ground, the banner photo slides up under it */
+.b-app.l-saltgrass .ls-saltgrass-bill {
+  --t-ink: var(--t-onacc2);
+  --t-mut: var(--sg-soft);
+  --t-accT: var(--t-onacc2);
+  color: var(--t-onacc2);
+  position: relative;
+  /* the foot of the band is the page ground, so the angled photo edge reveals it */
+  background: linear-gradient(to bottom, var(--sg-deep) calc(100% - var(--lsg-cut)), var(--t-bg) 0);
+}
+.b-app.l-saltgrass .ls-saltgrass-bill__head { position: relative; z-index: 2; padding: 1.6rem 0 0; }
+.b-app.l-saltgrass .ls-saltgrass-flag {
+  display: inline-block;
+  margin: 0 0 0.9rem;
+  padding: 0.3rem 0.8rem;
+  border: 2px solid var(--t-onacc2);
+  font: 800 0.95rem/1 var(--t-head);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+}
+.b-app.l-saltgrass .ls-saltgrass-flag[data-status='Active'] { background: var(--t-onacc2); color: var(--sg-deep); }
+.b-app.l-saltgrass .ls-saltgrass-flag[data-status='Sold'] { background: var(--t-acc); color: var(--t-onacc); border-color: var(--t-acc); }
+.b-app.l-saltgrass h1.b-head.ls-saltgrass-h1 {
+  margin: 0;
+  font-size: clamp(3.1rem, 15.5vw, 8.6rem) !important; /* beats the shared h1 size above */
+  margin-bottom: 0 !important;
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--t-onacc2);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+}
+.b-app.l-saltgrass .ls-saltgrass-city {
+  margin: 0.7rem 0 0;
+  font: 700 clamp(1.05rem, 3.6vw, 1.5rem)/1.2 var(--t-head);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sg-soft);
+}
+.b-app.l-saltgrass .ls-saltgrass-price {
+  display: inline-block;
+  margin: 1.1rem 0 0;
+  padding: 0.25rem 1rem 0.2rem;
+  background: var(--t-acc);
+  color: var(--t-onacc);
+  font: 800 clamp(2.6rem, 12vw, 5.6rem)/1 var(--t-head);
+  letter-spacing: -0.01em;
+  transform: rotate(-1.5deg) translateY(var(--lsg-lift, 0px));
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* the cinematic banner: angled foot, pulled up under the headline */
+.b-app.l-saltgrass .ls-saltgrass-banner {
+  position: relative;
+  z-index: 1;
+  margin-top: -2.2rem;
+  aspect-ratio: 16 / 10;
+  max-height: 78vh;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--lsg-cut)), 0 100%);
+}
+.b-app.l-saltgrass .ls-saltgrass-banner__btn { all: unset; box-sizing: border-box; display: block; width: 100%; height: 100%; cursor: zoom-in; position: relative; }
+.b-app.l-saltgrass .ls-saltgrass-banner__btn .photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* melt the photo's top into the dark band so the headline above it stays legible */
+.b-app.l-saltgrass .ls-saltgrass-banner__btn::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, var(--sg-deep) 0, color-mix(in srgb, var(--sg-deep) 55%, transparent) 22%, transparent 55%);
+}
+.b-app.l-saltgrass .ls-saltgrass-banner__btn:focus-visible { outline: 4px solid var(--t-acc); outline-offset: -8px; }
+.b-app.l-saltgrass .ls-saltgrass-count {
+  position: absolute; right: 1rem; bottom: calc(var(--lsg-cut) + 0.4rem); z-index: 3;
+  padding: 0.25rem 0.7rem; background: var(--sg-deep); color: var(--t-onacc2);
+  font: 700 0.85rem/1.2 var(--t-font); letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none;
+}
+
+/* main body */
+.b-app.l-saltgrass .ls-saltgrass-main { padding-bottom: 2.5rem; }
+.b-app.l-saltgrass .ls-saltgrass-note {
+  margin: 0 0 1rem; padding: 0.8rem 1rem; background: var(--t-tint); border-left: 6px solid var(--t-acc);
+  font-weight: 700; color: var(--t-ink);
+}
+.b-app.l-saltgrass .ls-saltgrass-main > .ls-saltgrass-wrap:first-child { margin-top: -1.2rem; position: relative; z-index: 3; }
+
+/* stat bar */
+.b-app.l-saltgrass .ls-saltgrass-stats {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  background: var(--sg-deep); color: var(--t-onacc2);
+  border-radius: var(--t-rad);
+  overflow: hidden;
+}
+.b-app.l-saltgrass .ls-saltgrass-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  padding: 1.1rem 0.5rem 1rem;
+  border-right: 2px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+.b-app.l-saltgrass .ls-saltgrass-stat:nth-child(2n) { border-right: 0; }
+.b-app.l-saltgrass .ls-saltgrass-stat:nth-last-child(-n + 2):nth-child(odd),
+.b-app.l-saltgrass .ls-saltgrass-stat:nth-last-child(-n + 2):nth-child(odd) ~ .ls-saltgrass-stat { border-bottom: 0; }
+.b-app.l-saltgrass .ls-saltgrass-stat:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
+.b-app.l-saltgrass .ls-saltgrass-stat__n { font: 800 clamp(2.4rem, 9vw, 4rem)/0.95 var(--t-head); letter-spacing: -0.01em; }
+.b-app.l-saltgrass .ls-saltgrass-stat__l { margin-top: 0.3rem; font: 700 0.95rem/1.1 var(--t-head); letter-spacing: 0.18em; text-transform: uppercase; color: var(--sg-soft); }
+.b-app.l-saltgrass .ls-saltgrass-stat__note { margin-top: 0.15rem; font-size: 0.8rem; color: var(--sg-soft); }
+.b-app.l-saltgrass .ls-saltgrass-stat[data-k='est'] { background: var(--t-acc); color: var(--t-onacc); border-color: transparent; }
+.b-app.l-saltgrass .ls-saltgrass-stat[data-k='est'] .ls-saltgrass-stat__l,
+.b-app.l-saltgrass .ls-saltgrass-stat[data-k='est'] .ls-saltgrass-stat__note { color: var(--t-onacc); }
+
+/* actions */
+.b-app.l-saltgrass .ls-saltgrass-cta { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.b-app.l-saltgrass .ls-saltgrass-actions { display: grid; grid-template-columns: 1fr; gap: 0.6rem; }
+.b-app.l-saltgrass .ls-saltgrass-btn { min-height: 56px; width: 100%; font-family: var(--t-head); font-size: 1.25rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 800; }
+.b-app.l-saltgrass .ls-saltgrass-actions .ls-saltgrass-btn:not(.b-btn-outline) { background: var(--t-acc); color: var(--t-onacc); }
+
+/* shared small headings */
+.b-app.l-saltgrass .ls-saltgrass-h2 { margin: 0 0 1rem; font-size: clamp(2rem, 8vw, 3.4rem); line-height: 0.92; color: var(--t-ink); }
+.b-app.l-saltgrass .ls-saltgrass-lbl { margin: 0 0 0.8rem; font: 800 1rem/1 var(--t-head); letter-spacing: 0.2em; text-transform: uppercase; color: var(--t-accT); }
+
+/* open-house tickets */
+.b-app.l-saltgrass .ls-saltgrass-oh { margin-top: 2.6rem; }
+.b-app.l-saltgrass .ls-saltgrass-tickets {
+  list-style: none; margin: 0; padding: 0.3rem max(1rem, calc((100% - 1120px) / 2)) 0.9rem;
+  display: flex; gap: 1rem; overflow-x: auto;
+  scroll-snap-type: x proximity; scroll-padding-inline: 1rem; -webkit-overflow-scrolling: touch;
+}
+.b-app.l-saltgrass .ls-saltgrass-tickets:focus-visible { outline: 3px solid var(--t-accT); outline-offset: -3px; }
+.b-app.l-saltgrass .ls-saltgrass-ticket {
+  flex: 0 0 min(86%, 360px); scroll-snap-align: start;
+  display: grid; grid-template-columns: 96px 1fr;
+  background: var(--t-sur); border: 2px solid var(--sg-deep); border-radius: var(--t-rad);
+  position: relative;
+}
+.b-app.l-saltgrass .ls-saltgrass-ticket[data-now] { box-shadow: 0 0 0 4px var(--t-acc); }
+.b-app.l-saltgrass .ls-saltgrass-ticket__date {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+  background: var(--sg-deep); color: var(--t-onacc2); padding: 0.8rem 0.4rem;
+  border-right: 3px dashed var(--t-bg);
+  border-radius: calc(var(--t-rad) - 2px) 0 0 calc(var(--t-rad) - 2px);
+}
+.b-app.l-saltgrass .ls-saltgrass-ticket__mo { font: 800 1.15rem/1 var(--t-head); letter-spacing: 0.2em; text-transform: uppercase; }
+.b-app.l-saltgrass .ls-saltgrass-ticket__day { font: 800 4rem/0.9 var(--t-head); }
+.b-app.l-saltgrass .ls-saltgrass-ticket__body { padding: 0.9rem 1rem 1rem; min-width: 0; }
+.b-app.l-saltgrass .ls-saltgrass-ticket__body p { margin: 0; }
+.b-app.l-saltgrass .ls-saltgrass-ticket__wk { font: 800 1.5rem/1 var(--t-head); letter-spacing: 0.04em; text-transform: uppercase; color: var(--t-ink); }
+.b-app.l-saltgrass .ls-saltgrass-ticket__time { margin-top: 0.25rem !important; font-weight: 700; font-size: 1.05rem; color: var(--t-ink); }
+.b-app.l-saltgrass .ls-saltgrass-ticket__now { margin-top: 0.4rem !important; display: inline-block; padding: 0.1rem 0.5rem; background: var(--t-acc); color: var(--t-onacc); font: 800 0.85rem/1.4 var(--t-head); letter-spacing: 0.1em; text-transform: uppercase; }
+.b-app.l-saltgrass .ls-saltgrass-ticket__note { margin-top: 0.4rem !important; font-size: 0.9rem; color: var(--t-mut); }
+.b-app.l-saltgrass .ls-saltgrass-ticket__acts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+.b-app.l-saltgrass .ls-saltgrass-ticket__act {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0.4rem 0.8rem;
+  border: 2px solid var(--sg-deep); border-radius: var(--t-radbtn); background: transparent; color: var(--sg-deep);
+  font: 700 0.92rem/1.1 var(--t-font); text-decoration: none; cursor: pointer;
+}
+.b-app.l-saltgrass .ls-saltgrass-ticket__act:hover { background: var(--sg-deep); color: var(--t-onacc2); }
+
+/* description: big, short measure */
+.b-app.l-saltgrass .ls-saltgrass-story { margin-top: 2.2rem; }
+.b-app.l-saltgrass .ls-saltgrass-desc {
+  margin: 0; max-width: 24em; padding-left: 1.1rem; border-left: 8px solid var(--t-acc);
+  font: 600 clamp(1.35rem, 5.2vw, 2.1rem)/1.28 var(--t-font); letter-spacing: -0.01em; color: var(--t-ink);
+  white-space: pre-line; overflow-wrap: anywhere;
+}
+
+/* mosaic */
+.b-app.l-saltgrass .ls-saltgrass-gallery { margin-top: 2.6rem; }
+.b-app.l-saltgrass .ls-saltgrass-mosaic { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; grid-auto-flow: dense; }
+.b-app.l-saltgrass .ls-saltgrass-tile { all: unset; box-sizing: border-box; display: block; position: relative; overflow: hidden; aspect-ratio: 1; cursor: zoom-in; background: var(--t-tint); }
+.b-app.l-saltgrass .ls-saltgrass-tile--big { grid-column: span 2; grid-row: span 2; aspect-ratio: auto; }
+.b-app.l-saltgrass .ls-saltgrass-tile .photo-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s var(--sg-ease); }
+.b-app.l-saltgrass .ls-saltgrass-tile:hover .photo-img { transform: scale(1.04); }
+.b-app.l-saltgrass .ls-saltgrass-tile:focus-visible { outline: 4px solid var(--t-accT); outline-offset: -4px; }
+
+.b-app.l-saltgrass .ls-saltgrass-plans { margin-top: 2.6rem; }
+.b-app.l-saltgrass .ls-saltgrass-planrow { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+.b-app.l-saltgrass .ls-saltgrass-planrow .ls-plan {
+  width: 150px; height: 120px; padding: 0.3rem; background: var(--t-sur); border: 2px solid var(--sg-deep); border-radius: var(--t-rad); cursor: zoom-in;
+}
+
+/* agent strip */
+.b-app.l-saltgrass .ls-saltgrass-agent {
+  --t-ink: var(--t-onacc2); --t-mut: var(--sg-soft);
+  margin-top: 3rem; padding: 2rem 0; background: var(--sg-deep); color: var(--t-onacc2);
+  clip-path: polygon(0 var(--lsg-cut), 100% 0, 100% 100%, 0 100%);
+  padding-top: calc(2rem + var(--lsg-cut) * 0.5);
+}
+.b-app.l-saltgrass .ls-saltgrass-agent__in { display: grid; grid-template-columns: auto 1fr; gap: 0.9rem 1.2rem; align-items: center; }
+.b-app.l-saltgrass .ls-saltgrass-face { width: 96px; height: 96px; object-fit: cover; border-radius: 50%; border: 4px solid var(--t-acc); background: var(--t-sur); color: var(--t-ink); display: inline-flex; align-items: center; justify-content: center; font-size: 2.4rem; }
+.b-app.l-saltgrass .ls-saltgrass-face.ls-face--initial { color: var(--sg-deep); }
+.b-app.l-saltgrass .ls-saltgrass-agent__lbl { margin: 0 0 0.2rem; font: 700 0.85rem/1 var(--t-head); letter-spacing: 0.22em; text-transform: uppercase; color: var(--sg-soft); }
+.b-app.l-saltgrass .ls-saltgrass-agent__name { margin: 0; font-size: clamp(2rem, 8vw, 3.2rem); line-height: 0.95; color: var(--t-onacc2); overflow-wrap: anywhere; }
+.b-app.l-saltgrass .ls-saltgrass-agent__line { margin: 0.3rem 0 0; color: var(--t-onacc2); font-weight: 600; }
+.b-app.l-saltgrass .ls-saltgrass-agent__lic { color: var(--sg-soft); font-weight: 500; font-size: 0.9rem; }
+.b-app.l-saltgrass .ls-saltgrass-agent__acts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.6rem; }
+.b-app.l-saltgrass .ls-saltgrass-act {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 0.4rem 1rem;
+  background: var(--t-acc); color: var(--t-onacc); border: 2px solid var(--t-acc); border-radius: var(--t-radbtn);
+  font: 800 1.3rem/1 var(--t-head); letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; cursor: pointer;
+}
+.b-app.l-saltgrass .ls-saltgrass-act:hover { filter: brightness(0.93); }
+.b-app.l-saltgrass .ls-saltgrass-agent a:focus-visible,
+.b-app.l-saltgrass .ls-saltgrass-agent button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+.b-app.l-saltgrass .ls-saltgrass-guides { margin-top: 2.5rem; }
+.b-app.l-saltgrass .ls-saltgrass-facts { list-style: none; margin: 2rem 0 0; padding: 1rem 0 0; border-top: 4px solid var(--sg-deep); display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; font-size: 0.9rem; color: var(--t-mut); }
+.b-app.l-saltgrass .ls-saltgrass-facts__dot { width: 6px; height: 6px; margin-top: 0.55em; background: var(--t-acc); border-radius: 50%; }
+
+@media (min-width: 700px) {
+  .b-app.l-saltgrass .ls-saltgrass-banner { aspect-ratio: 21 / 9; margin-top: -4.5rem; }
+  .b-app.l-saltgrass .ls-saltgrass-bill__head { padding-top: 2.6rem; }
+  .b-app.l-saltgrass .ls-saltgrass-stats { grid-template-columns: repeat(var(--n), 1fr); }
+  .b-app.l-saltgrass .ls-saltgrass-stat { border-bottom: 0 !important; border-right: 2px solid rgba(255, 255, 255, 0.2) !important; }
+  .b-app.l-saltgrass .ls-saltgrass-stat:last-child { border-right: 0 !important; grid-column: auto; }
+  .b-app.l-saltgrass .ls-saltgrass-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .b-app.l-saltgrass .ls-saltgrass-cta { flex-direction: row; align-items: stretch; }
+  .b-app.l-saltgrass .ls-saltgrass-actions { flex: 1; }
+  .b-app.l-saltgrass .ls-saltgrass-cta > .ls-saltgrass-btn { width: auto; }
+  .b-app.l-saltgrass .ls-saltgrass-tickets { overflow-x: visible; flex-wrap: wrap; }
+  .b-app.l-saltgrass .ls-saltgrass-ticket { flex: 0 1 360px; }
+  .b-app.l-saltgrass .ls-saltgrass-agent__in { grid-template-columns: auto 1fr auto; }
+  .b-app.l-saltgrass .ls-saltgrass-agent__acts { grid-column: auto; grid-template-columns: repeat(2, 140px); }
+  .b-app.l-saltgrass .ls-saltgrass-face { width: 128px; height: 128px; }
+  .b-app.l-saltgrass .ls-saltgrass-gallery .ls-saltgrass-mosaic { gap: 6px; }
+}
+@media (min-width: 900px) {
+  .b-app.l-saltgrass .ls-saltgrass-price { --lsg-lift: calc(var(--lsg-cut) * 0.5); margin-bottom: calc(var(--lsg-cut) * -0.5); }
+}
