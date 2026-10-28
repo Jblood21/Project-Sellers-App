@@ -257,21 +257,26 @@ export default function Today() {
       {data ? (
         <>
           <div className="as-tiles">
-            <div className={`as-tile${totals.waiting ? ' as-tile--alert' : ''}`}>
-              <strong>{totals.waiting}</strong>
-              <span>{totals.waiting === 1 ? 'call waiting' : 'calls waiting'}</span>
-            </div>
-            <div className={`as-tile${totals.overdue ? ' as-tile--warn' : ''}`}>
-              <strong>{totals.overdue}</strong>
-              <span>past their day</span>
-            </div>
-            <div className="as-tile">
+            {/* A listing has no booking times, so an account of listings alone has no booked calls to count. */}
+            {onlyListings ? null : (
+              <>
+                <div className={`as-tile${totals.waiting ? ' as-tile--alert' : ''}`}>
+                  <strong>{totals.waiting}</strong>
+                  <span>{totals.waiting === 1 ? 'call waiting' : 'calls waiting'}</span>
+                </div>
+                <div className={`as-tile${totals.overdue ? ' as-tile--warn' : ''}`}>
+                  <strong>{totals.overdue}</strong>
+                  <span>past their day</span>
+                </div>
+              </>
+            )}
+            <div className={`as-tile${onlyListings && totals.ready ? ' as-tile--alert' : ''}`}>
               <strong>{totals.ready}</strong>
-              <span>agreed to calls, no call booked</span>
+              <span>{onlyListings ? 'visitors to follow up (said yes to calls and texts)' : 'agreed to calls, no call booked'}</span>
             </div>
             <div className="as-tile">
               <strong>{totals.unread}</strong>
-              <span>new, not opened yet</span>
+              <span>{onlyListings ? 'new visitors, not opened yet' : 'new, not opened yet'}</span>
             </div>
             <div className="as-tile">
               <strong>{totals.people}</strong>
@@ -348,6 +353,8 @@ export default function Today() {
             </section>
           ) : null}
 
+          {onlyListings ? null : (
+            <>
           <h2 className="as-section-title" style={{ marginTop: 28 }}>Calls waiting</h2>
           {data.calls.length === 0 ? (
             <div className="as-empty">
@@ -386,9 +393,12 @@ export default function Today() {
             </p>
           ) : null}
 
-          <h2 className="as-section-title" id="ready">Agreed to calls, no call booked</h2>
+            </>
+          )}
+
+          <h2 className="as-section-title" id="ready" style={onlyListings ? { marginTop: 28 } : undefined}>{onlyListings ? 'Visitors to follow up' : 'Agreed to calls, no call booked'}</h2>
           <p className="text-muted" style={{ fontSize: 14, margin: '-4px 0 10px' }}>
-            They said yes to calls and texts and gave a number, but have not asked for a time. Open one to see them in{' '}
+            {onlyListings ? 'They signed in, gave a number and said yes to calls and texts. ' : 'They said yes to calls and texts and gave a number, but have not asked for a time. '}Open one to see them in{' '}
             {onlyListings ? 'the listing\u2019s Visitors' : listings.length ? 'the Visitors or Leads page of its listing or community' : 'their community\u2019s Leads'}.
           </p>
           <ReadyToCall people={data.ready} total={totals.ready} totalNew={totals.readyNew} communities={data.communities} />

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { groupByBranch, sortBranches } from '../branches.js';
+import { isListing } from '../listing.js';
 
 /** From this many communities a box to find one by name sits above the list. */
 const FILTER_FROM = 9;
@@ -71,16 +72,16 @@ export default function AccessPicker({ branches, communities, branchIds, communi
       </CheckGroup>
 
       <fieldset className="as-access">
-        <legend className="as-access__legend">Individual communities</legend>
+        <legend className="as-access__legend">Individual communities and listings</legend>
         <p className="as-acc__note">On their own, whichever branch each is in.</p>
         {communities.length === 0 ? (
-          <span className="as-member__line">No communities yet. Once there is one, it can be given here.</span>
+          <span className="as-member__line">No communities or listings yet. Once there is one, it can be given here.</span>
         ) : (
           <>
             {communities.length >= FILTER_FROM ? (
               <input
                 type="search" className="input as-acc__filter" value={filter} onChange={(event) => setFilter(event.target.value)}
-                placeholder="Find a community" aria-label="Find a community" autoComplete="off"
+                placeholder="Find a community or listing" aria-label="Find a community or listing" autoComplete="off"
                 // On the Team page this box sits inside the invite form, where Enter in a text box submits the form:
                 // the invite would go, account made and email sent, with the boxes still to tick. Enter here narrows
                 // the list as the person types and does nothing more.
@@ -106,7 +107,7 @@ export default function AccessPicker({ branches, communities, branchIds, communi
                           checked={chosen.has(community.id)}
                           onChange={(event) => onChange({ branchIds, communityIds: toggle(communityIds, community.id, event.target.checked) })}
                         />
-                        <span>{community.name}</span>
+                        <span>{community.name}{isListing(community) ? ' (listing)' : ''}</span>
                       </label>
                     ))}
                   </div>
