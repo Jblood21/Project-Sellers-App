@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { money } from '@shared/domain.js';
@@ -7,6 +7,8 @@ import { adminApi } from '../../lib/api.js';
 import { readJson, writeJson } from '../../lib/storage.js';
 import { useAdmin } from '../AdminContext.jsx';
 import PhotoPicker from '../PhotoPicker.jsx';
+import ImageSlot from '../setup/ImageSlot.jsx';
+import { readPortrait } from './Profile.jsx';
 import CheckedField, { PROBLEM_RED } from '../setup/CheckedField.jsx';
 import { Dialog, SaveNote, TextField, useSaving } from '../ui.jsx';
 
@@ -42,12 +44,30 @@ export default function NewListingDialog({ onClose }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({ address: '', city: '', price: '', beds: '', baths: '', sqft: '', brokerage: rememberedBrokerage(), agentName: '', agentPhone: '', agentEmail: '', license: '', ...rememberedAgent() });
   const [photo, setPhoto] = useState(null);
-  // The agent's own face, shown to visitors above the home's pictures. Optional here; Setup > You can add or change it.
-  const [face, setFace] = useState(null);
-  const faceDone = useRef(false);
+  // The agent's own details come from their account (Your details), so the form starts filled in; their face is the
+  // one on the account too, and a new one picked here is saved there, which is where each new listing reads it from.
+  const [profile, setProfile] = useState(null);
+  const touchedAtLoad = useRef({});
   const [tried, setTried] = useState(false);
   const [left, setLeft] = useState({});
   const saver = useSaving();
+  useEffect(() => {
+    let live = true;
+    adminApi.myProfile(token).then((mine) => {
+      if (!live) return;
+      setProfile(mine);
+      // Fills only what has not been typed in the meantime, and what this device remembered stays as the fallback.
+      setForm((f) => ({
+        ...f,
+        agentName: touchedAtLoad.current.agentName ? f.agentName : (mine.name || f.agentName),
+        agentPhone: touchedAtLoad.current.agentPhone ? f.agentPhone : (mine.phone || f.agentPhone),
+        agentEmail: touchedAtLoad.current.agentEmail ? f.agentEmail : (mine.email || f.agentEmail),
+        license: touchedAtLoad.current.license ? f.license : (mine.license || f.license),
+        brokerage: touchedAtLoad.current.brokerage ? f.brokerage : (mine.brokerage || f.brokerage),
+      }));
+    }, () => {});
+    return () => { live = false; };
+  }, [token]);
   const created = useRef(null);
   const photoDone = useRef(false);
 
@@ -56,6 +76,7 @@ export default function NewListingDialog({ onClose }) {
   const touched = useRef({});
   const set = (key) => (value) => {
     touched.current[key] = true;
+    touchedAtLoad.current[key] = true;
     setForm((f) => ({ ...f, [key]: value }));
   };
   const leave = (key) => {
@@ -99,14 +120,6 @@ export default function NewListingDialog({ onClose }) {
           photoDone.current = true;
         } catch (photoError) {
           notice = `${listing.name} was created, but the photo did not upload: ${photoError.message} Add it here.`;
-        }
-      }
-      if (face && !faceDone.current && listing.agents?.[0]?.id) {
-        try {
-          await adminApi.setAgentPhoto(token, listing.agents[0].id, { dataUrl: face });
-          faceDone.current = true;
-        } catch (faceError) {
-          notice = `${notice ? `${notice} ` : ''}Your photo did not upload: ${faceError.message} Add it under Setup, Listing agent.`;
         }
       }
       onClose();
@@ -191,11 +204,13 @@ export default function NewListingDialog({ onClose }) {
           hint="Printed under the home. Optional. Remembered for your next listing." autoComplete="off"
         />
       </fieldset>
-      <PhotoPicker
-        label="Your photo (your face)"
-        hint="Visitors see you above the home's pictures. A clear head-and-shoulders photo works best."
-        pendingDataUrl={face}
-        onPick={setFace}
+      <ImageSlot
+        label="Your photo (your face)" shape="square" image={profile?.photo ?? null} alt="Your photo as saved"
+        hint="Visitors see you above the home's pictures. A clear head-and-shoulders photo works best. It is saved to your details, so your next listing has it too."
+        read={readPortrait} use="portrait"
+        onPick={async (dataUrl) => setProfile(await adminApi.saveMyProfile(token, { photo: dataUrl }))}
+        onRemove={async () => setProfile(await adminApi.saveMyProfile(token, { photo: null }))}
+        removeWarning="Remove your photo from your details?"
       />
       <PhotoPicker
         label="First photo of the home"

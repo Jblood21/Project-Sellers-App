@@ -18,6 +18,9 @@ export default function AgentSignup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  // About them: starts their profile, which every listing they make begins from (Your details, in the menu).
+  const [about, setAbout] = useState({ name: '', phone: '', brokerage: '', license: '' });
+  const setA = (key) => (value) => setAbout((a) => ({ ...a, [key]: value }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -25,11 +28,12 @@ export default function AgentSignup() {
     event.preventDefault();
     if (!EMAIL_RE.test(email.trim())) return setError('Type a real email address.');
     if (password.length < MIN_PASSWORD_LENGTH) return setError(`Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`);
+    if (!about.name.trim()) return setError('Type your name: visitors see it on your listings.');
     if (!code.trim()) return setError('Type the access code you were given.');
     setBusy(true);
     setError('');
     try {
-      adoptSession(await adminApi.signup(email.trim(), password, code.trim()));
+      adoptSession(await adminApi.signup(email.trim(), password, code.trim(), Object.fromEntries(Object.entries(about).map(([k, v]) => [k, v.trim()]))));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -43,7 +47,10 @@ export default function AgentSignup() {
       blurb="Keep your listings and open houses in one place. You will see only the homes you add."
       onSubmit={submit}
     >
-      <TextField label="Email" value={email} onChange={setEmail} type="email" autoComplete="username" />
+      <TextField label="Your name" value={about.name} onChange={setA('name')} autoComplete="name" hint="Visitors see this on your listings." />
+      <TextField label="Phone" value={about.phone} onChange={setA('phone')} type="tel" autoComplete="tel" hint="Visitors call or text this to ask for a showing." />
+      <TextField label="Brokerage" value={about.brokerage} onChange={setA('brokerage')} autoComplete="organization" />
+      <TextField label="Email" value={email} onChange={setEmail} type="email" autoComplete="username" hint="This is your sign-in, and buyers can email you here." />
       <TextField
         label="Choose a password" value={password} onChange={setPassword} type="password" autoComplete="new-password"
         hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}

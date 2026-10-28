@@ -6,6 +6,7 @@ import Branches from './screens/Branches.jsx';
 import CommunityDetail from './screens/CommunityDetail.jsx';
 import ForgotPassword from './screens/ForgotPassword.jsx';
 import Login from './screens/Login.jsx';
+import Profile from './screens/Profile.jsx';
 import AgentSignup from './screens/AgentSignup.jsx';
 import AuthCard from './screens/AuthCard.jsx';
 import ResetPassword from './screens/ResetPassword.jsx';
@@ -77,6 +78,7 @@ function AdminRoutes() {
   return (
     <Routes>
       <Route index element={<Today />} />
+      <Route path="profile" element={<Profile />} />
       <Route path="team" element={<OwnerOnly><Team /></OwnerOnly>} />
       <Route path="branches" element={<OwnerOnly><Branches /></OwnerOnly>} />
       <Route path="activity" element={<OwnerOnly><Activity /></OwnerOnly>} />

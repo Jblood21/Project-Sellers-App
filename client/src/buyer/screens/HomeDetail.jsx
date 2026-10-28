@@ -78,11 +78,21 @@ export default function HomeDetail({ onOpenLender, onRequestShowing = null }) {
   const photoGrid = gridLayout && more.length >= 4;
 
   return (
-    // The b-hd names carry no style of their own; they are there so a layout can arrange the page (a
-    // photo grid, the actions in a column beside the details) without matching the inline styles.
-    <div className="b-shell b-hd" style={{ paddingTop: 16 }}>
-      {/* A listing: who is selling it (their face, name and a way to reach them) comes before the pictures. */}
-      <ListingAgentTop />
+    <>
+    {/*
+      A listing: who is selling it (their face, name and a way to reach them) comes before the pictures. It is its own
+      row above the page, not a child of it: on a wide screen a layout lays .b-hd out as a grid with the photos in row 1
+      and the actions in a column from row 2, so an extra child would push the pictures down and the actions out of place.
+      It takes the b-shell b-hd widths and padding, but never the grid (b-hd--top).
+    */}
+    {isListing && features?.agents && agents?.length ? (
+      <div className="b-shell b-hd b-hd--top" style={{ paddingTop: 16, paddingBottom: 0 }}>
+        <ListingAgentTop />
+      </div>
+    ) : null}
+    {/* The b-hd names carry no style of their own; they are there so a layout can arrange the page (a
+        photo grid, the actions in a column beside the details) without matching the inline styles. */}
+    <div className="b-shell b-hd" style={{ paddingTop: isListing && features?.agents && agents?.length ? 0 : 16 }}>
       {/* The hero: this home's first photo, big. Tap it to see all of them full size. */}
       <button
         type="button"
@@ -344,5 +354,6 @@ export default function HomeDetail({ onOpenLender, onRequestShowing = null }) {
         label={`${home.name} floor plan`}
       />
     </div>
+    </>
   );
 }

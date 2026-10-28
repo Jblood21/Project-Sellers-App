@@ -195,6 +195,12 @@ export default function AdminShell({
               </NavLink>
             </>
           ) : null}
+          {isOwner ? null : (
+            <NavLink to="/admin/profile" className="as-link as-link--quiet" onClick={guard()}>
+              <NavIcon name="team" />
+              <span className="as-link__label">Your details</span>
+            </NavLink>
+          )}
           <button type="button" className="as-link as-link--quiet" onClick={() => setPasswordOpen(true)} aria-haspopup="dialog">
             <NavIcon name="key" />
             <span className="as-link__label">Change password</span>
