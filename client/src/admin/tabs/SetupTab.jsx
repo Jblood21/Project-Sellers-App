@@ -28,6 +28,7 @@ import RealtorsCard from '../setup/RealtorsCard.jsx';
 import ThemeStudio from '../setup/ThemeStudio.jsx';
 import { Disclosure, ErrorNote, Field, TextField } from '../ui.jsx';
 import ReportButton from '../ReportButton.jsx';
+import { fromInput, useFileDrop } from '../useFileDrop.js';
 
 // What "Check rate inbox" can change; everything else on the form is left alone.
 const RATE_KEYS = ['rateConv', 'rateFha', 'rateVa', 'ratesUpdatedAt'];
@@ -452,10 +453,7 @@ function CommunityArtwork({ community, reload }) {
     document.getElementById('artwork-hero')?.focus({ preventScroll: true });
   }, [hash]);
 
-  const upload = (kind) => async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const upload = (kind) => async (file) => {
     setError('');
     try {
       const picked = await preparePhoto(file, { kind: kind === 'icon' ? 'icon' : 'photo' });
@@ -468,10 +466,14 @@ function CommunityArtwork({ community, reload }) {
     }
   };
 
-  const slot = (kind, label, hint, inputRef, photo, height) => (
+  const heroDrop = useFileDrop(upload('hero'), { accept: 'image', onReject: setError });
+  const iconDrop = useFileDrop(upload('icon'), { accept: 'image', onReject: setError });
+
+  const slot = (kind, label, hint, inputRef, photo, height, drop) => (
     <Field label={label}>
       <button
         type="button"
+        {...drop.dropProps}
         id={`artwork-${kind}`}
         onClick={() => inputRef.current?.click()}
         style={{
@@ -486,7 +488,7 @@ function CommunityArtwork({ community, reload }) {
           />
         ) : <span className="text-muted" style={{ fontSize: 14 }}>{hint}</span>}
       </button>
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload(kind)} />
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={fromInput(upload(kind))} />
       <LowResNote>{photo ? lowRes[kind].note : ''}</LowResNote>
     </Field>
   );
@@ -494,8 +496,8 @@ function CommunityArtwork({ community, reload }) {
   return (
     <div className="card elev-sm" id="artwork" ref={card} style={{ gap: 12 }}>
       <span className="card-kicker">{listing ? 'Listing artwork' : 'Community artwork'}</span>
-      {slot('hero', 'Hero photo (QR landing)', listing ? 'Tap to upload a cover photo' : 'Tap to upload the community photo', heroInput, community.heroPhoto, 140)}
-      {slot('icon', 'App icon (Add to Home Screen)', 'Tap to upload a square icon', iconInput, community.iconPhoto, 90)}
+      {slot('hero', 'Hero photo (QR landing)', listing ? 'Tap to upload or drop a cover photo' : 'Tap to upload or drop the community photo', heroInput, community.heroPhoto, 140, heroDrop)}
+      {slot('icon', 'App icon (Add to Home Screen)', 'Tap to upload or drop a square icon', iconInput, community.iconPhoto, 90, iconDrop)}
       {listing ? (
         <span className="text-muted" style={{ fontSize: 14 }}>
           The home&apos;s own photos, floor plans and video are on The home tab.

@@ -8,6 +8,7 @@ import { useAdmin } from '../AdminContext.jsx';
 import GuidesSection from '../learn/GuidesSection.jsx';
 import { isListing } from '../listing.js';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
+import { fromInput, useFileDrop } from '../useFileDrop.js';
 
 const BLANK_ARTICLE = { kind: 'article', title: '', body: '' };
 const BLANK_VIDEO = { kind: 'video', title: '', url: '', dataUrl: '', fileName: '' };
@@ -29,10 +30,7 @@ export default function LearnTab({ community, reload }) {
   const [reading, setReading] = useState(false);
   const fileInput = useRef(null);
 
-  const pickVideo = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const pickVideo = async (file) => {
     setReading(true);
     setError('');
     try {
@@ -46,6 +44,9 @@ export default function LearnTab({ community, reload }) {
       setReading(false);
     }
   };
+
+  // A video file can be dropped on the box in the dialog as well as chosen.
+  const { dropProps: videoDrop } = useFileDrop(pickVideo, { accept: 'video', disabled: reading, onReject: setError });
 
   const resources = community.resources ?? [];
   const articles = resources.filter((r) => r.kind === 'article');
@@ -276,6 +277,7 @@ export default function LearnTab({ community, reload }) {
               <Field label="Video file">
                 <button
                   type="button"
+                  {...videoDrop}
                   onClick={() => fileInput.current?.click()}
                   style={{
                     width: '100%', minHeight: 92, borderRadius: 12, cursor: 'pointer',
@@ -288,12 +290,12 @@ export default function LearnTab({ community, reload }) {
                     {reading ? 'Reading…' : form.fileName || 'Choose a video from this device'}
                   </span>
                   <span className="text-muted" style={{ fontSize: 14 }}>
-                    {form.fileName ? 'Tap to pick a different one' : `MP4, WebM or MOV · up to ${megabytes(MAX_VIDEO_BYTES)}`}
+                    {form.fileName ? 'Tap or drop to pick a different one' : `Tap or drop a file · MP4, WebM or MOV · up to ${megabytes(MAX_VIDEO_BYTES)}`}
                   </span>
                 </button>
                 <input
                   ref={fileInput} type="file" accept="video/*" hidden
-                  onChange={pickVideo}
+                  onChange={fromInput(pickVideo)}
                 />
               </Field>
 

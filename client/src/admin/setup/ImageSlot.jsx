@@ -4,6 +4,7 @@ import { photoImgProps } from '../../components/Photo.jsx';
 import { fileToDataUrl } from '../../lib/photos.js';
 import { LowResNote, measureImg, pickedSize, useLowRes } from '../lowRes.jsx';
 import { ErrorNote } from '../ui.jsx';
+import { fromInput, useFileDrop } from '../useFileDrop.js';
 
 /**
  * One uploadable picture: what is saved now, plus Replace and Remove.
@@ -37,10 +38,7 @@ export default function ImageSlot({
   const shown = image || fallback?.url || null;
   const working = busy !== null;
 
-  const pick = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const pick = async (file) => {
     setBusy('upload');
     setError('');
     try {
@@ -55,6 +53,9 @@ export default function ImageSlot({
       setBusy(null);
     }
   };
+
+  // A picture can be dropped on the slot as well as chosen with the button.
+  const { dropProps } = useFileDrop(pick, { accept: 'image', disabled: working || disabled, onReject: setError });
 
   const remove = async () => {
     if (!window.confirm(removeWarning || `Remove the ${label.toLowerCase()}?`)) return;
@@ -80,7 +81,7 @@ export default function ImageSlot({
 
   return (
     <div role="group" aria-label={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div className="ax-slot">
+      <div className="ax-slot" {...dropProps}>
         <div className={plateClass}>
           {shown ? (
             <img
@@ -115,7 +116,7 @@ export default function ImageSlot({
           </div>
           <input
             ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden
-            aria-label={label} onChange={pick}
+            aria-label={label} onChange={fromInput(pick)}
           />
         </div>
       </div>

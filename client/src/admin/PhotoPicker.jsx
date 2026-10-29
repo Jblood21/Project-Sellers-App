@@ -4,6 +4,7 @@ import { photoImgProps } from '../components/Photo.jsx';
 import { preparePhoto } from '../lib/photos.js';
 import { LowResNote, measureImg, useLowRes } from './lowRes.jsx';
 import { ErrorNote, Field } from './ui.jsx';
+import { fromInput, useFileDrop } from './useFileDrop.js';
 
 /**
  * Picks and previews one photo inside a dialog.
@@ -31,10 +32,7 @@ export default function PhotoPicker({
   const preview = pendingDataUrl || currentUrl || null;
   const lowRes = useLowRes(use, preview);
 
-  const pick = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const pick = async (file) => {
     setBusy(true);
     setError('');
     try {
@@ -46,10 +44,13 @@ export default function PhotoPicker({
     }
   };
 
+  const { dropProps } = useFileDrop(pick, { accept: 'image', disabled: busy, onReject: setError });
+
   return (
     <Field label={label}>
       <button
         type="button"
+        {...dropProps}
         onClick={() => inputRef.current?.click()}
         aria-label={preview ? `Replace ${label}` : `Upload ${label}`}
         style={{
@@ -88,7 +89,7 @@ export default function PhotoPicker({
           </span>
         )}
       </button>
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={pick} />
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={fromInput(pick)} />
       {pendingDataUrl ? (
         <span className="text-muted" style={{ fontSize: 14 }}>
           Uploads when you save.
