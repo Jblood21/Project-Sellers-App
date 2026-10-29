@@ -464,3 +464,12 @@ textarea.ax-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, m
 
 /* The way out of a listing, quiet and last. */
 .ax-danger { border-color: rgba(168, 51, 43, 0.3); }
+
+/* A file held over a spot that takes one (useFileDrop). !important because the spots carry their dashed border and
+   background inline. */
+[data-dropping="true"] {
+  outline: 3px solid var(--color-accent-700, #1f5f55) !important;
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--color-accent-700, #1f5f55) 12%, transparent) !important;
+  border-radius: 12px;
+}

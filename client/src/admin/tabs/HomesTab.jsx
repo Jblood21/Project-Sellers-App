@@ -16,6 +16,7 @@ import { RemovalNotes, useRemovals } from '../homes/removals.jsx';
 import { upcomingOf } from '../listing.js';
 import CheckedField, { PROBLEM_RED } from '../setup/CheckedField.jsx';
 import { Dialog, ErrorNote, Field, SaveNote, TextField, useSaving } from '../ui.jsx';
+import { fromInput, useFileDrop } from '../useFileDrop.js';
 
 const BLANK = {
   name: '', price: '', beds: '', baths: '', sqft: '', description: '',
@@ -478,10 +479,7 @@ function FloorPlanStrip({ home, reload, removals }) {
   const lowRes = useLowResRow('floorplan', plans.map((plan) => plan.url));
   const smallPlans = new Set(lowRes.small.map((entry) => entry.url));
 
-  const upload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const upload = async (file) => {
     setBusy(true);
     setError('');
     try {
@@ -497,9 +495,11 @@ function FloorPlanStrip({ home, reload, removals }) {
     }
   };
 
+  const { dropProps } = useFileDrop(upload, { accept: 'image', disabled: busy || plans.length >= 4, onReject: setError });
+
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+      <div {...dropProps} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <span className="text-muted" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', height: 54, display: 'flex', alignItems: 'center' }}>
           Floor plans
         </span>
@@ -537,7 +537,7 @@ function FloorPlanStrip({ home, reload, removals }) {
           </button>
         ) : null}
       </div>
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={fromInput(upload)} />
       <LowResNote>{rowNote('floorplan', lowRes.small, 'Plan')}</LowResNote>
       <ErrorNote>{error}</ErrorNote>
     </>
@@ -601,10 +601,7 @@ function WalkthroughRow({ home, reload }) {
   };
   const fault = playFault.url && playFault.url === home.videoUrl ? playFault.kind : '';
 
-  const upload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const upload = async (file) => {
     setBusy(true);
     setError('');
     try {
@@ -626,9 +623,11 @@ function WalkthroughRow({ home, reload }) {
     await reload();
   };
 
+  const { dropProps } = useFileDrop(upload, { accept: 'video', disabled: busy, onReject: setError });
+
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div {...dropProps} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span className="text-muted" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase' }}>
           Video tour
         </span>
@@ -667,11 +666,11 @@ function WalkthroughRow({ home, reload }) {
               color: 'var(--color-neutral-700)', fontSize: 14,
             }}
           >
-            {busy ? 'Uploading…' : `＋ Add a video · up to ${megabytes(MAX_VIDEO_BYTES)}`}
+            {busy ? 'Uploading…' : `＋ Add or drop a video · up to ${megabytes(MAX_VIDEO_BYTES)}`}
           </button>
         )}
       </div>
-      <input ref={inputRef} type="file" accept="video/*" hidden onChange={upload} />
+      <input ref={inputRef} type="file" accept="video/*" hidden onChange={fromInput(upload)} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
         <span className="text-muted" style={{ fontSize: 14 }}>
           {home.videoUrl ? 'Or replace it with a link:' : 'Or paste a YouTube or Vimeo link:'}
@@ -727,10 +726,7 @@ function SiteMapCard({ community, reload }) {
   const lowRes = useLowRes('sitemap', map?.url);
   const placed = community.homes.filter((home) => home.lotNumber).length;
 
-  const upload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const upload = async (file) => {
     setBusy(true);
     setError('');
     try {
@@ -745,6 +741,8 @@ function SiteMapCard({ community, reload }) {
       setBusy(false);
     }
   };
+
+  const { dropProps } = useFileDrop(upload, { accept: 'image', disabled: busy, onReject: setError });
 
   const remove = async () => {
     if (!window.confirm('Remove the site map? Buyers will stop seeing it.')) return;
@@ -772,6 +770,7 @@ function SiteMapCard({ community, reload }) {
       <span className="card-kicker">Site map</span>
       <button
         type="button"
+        {...dropProps}
         onClick={() => inputRef.current?.click()}
         aria-label={map ? 'Replace the site map' : 'Upload the site map'}
         style={{
@@ -798,11 +797,11 @@ function SiteMapCard({ community, reload }) {
           </>
         ) : (
           <span className="text-muted" style={{ fontSize: 14 }}>
-            {busy ? 'Uploading…' : 'Tap to upload the plat buyers tap'}
+            {busy ? 'Uploading…' : 'Tap to upload or drop the plat buyers tap'}
           </span>
         )}
       </button>
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={fromInput(upload)} />
       <LowResNote>{map ? lowRes.note : ''}</LowResNote>
 
       {/*
@@ -885,10 +884,7 @@ function PhotoStrip({ home, reload, removals }) {
   const lowRes = useLowResRow('home', photos.map((photo) => photo.url));
   const smallPhotos = new Set(lowRes.small.map((entry) => entry.url));
 
-  const upload = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const upload = async (file) => {
     setBusy(true);
     setError('');
     try {
@@ -927,9 +923,15 @@ function PhotoStrip({ home, reload, removals }) {
     }
   };
 
+  // Several pictures dropped together go up one after another, in the order given.
+  const uploadAll = async (dropped) => {
+    for (const file of [].concat(dropped)) await upload(file);
+  };
+  const { dropProps } = useFileDrop(uploadAll, { accept: 'image', multiple: true, disabled: busy || photos.length >= MAX_PHOTOS_PER_HOME, onReject: setError });
+
   return (
     <>
-      <div className="scroll-x" style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -4px', padding: '0 4px' }}>
+      <div {...dropProps} className="scroll-x" style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -4px', padding: '0 4px' }}>
         {photos.map((photo, index) => (
           <div key={photo.id} style={{ width: TILE_WIDTH, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ position: 'relative', width: TILE_WIDTH, height: 144 }}>
@@ -1010,7 +1012,7 @@ function PhotoStrip({ home, reload, removals }) {
           </button>
         ) : null}
       </div>
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={upload} />
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={fromInput(upload)} />
       <LowResNote>{rowNote('home', lowRes.small, 'Photo')}</LowResNote>
       <ErrorNote>{error}</ErrorNote>
     </>
