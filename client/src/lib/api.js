@@ -203,6 +203,13 @@ export const adminApi = {
   resendInvite: (token, id) =>
     request(`/api/admin/team/invites/${encodeURIComponent(id)}/resend`, { method: 'POST', body: {}, token }),
   removeAdmin: (token, id) => request(`/api/admin/team/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // Slack alerts to chosen team members when a new visitor signs in: whether the app is connected, who is switched
+  // on, and a test message to one person (answers { ok } or { ok: false, error }).
+  slackStatus: (token) => request('/api/admin/team/slack', { token }),
+  setSlackAlerts: (token, id, enabled) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/slack`, { method: 'PUT', body: { enabled }, token }),
+  testSlack: (token, id) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/slack/test`, { method: 'POST', body: {}, token }),
   // Replaces a member's set of communities. The owner has every community and no set to replace (a 400).
   setAdminCommunities: (token, id, communityIds) =>
     request(`/api/admin/team/${encodeURIComponent(id)}/communities`, { method: 'PUT', body: { communityIds }, token }),

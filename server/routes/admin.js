@@ -14,6 +14,7 @@ import {
   CONTACT_LOGO_MAX_BYTES, CONTACT_MAX, LENDER_CONTACT_FIELDS, cleanContact, contactsOf,
 } from '../../shared/contacts.js';
 import { shortId } from '../lib/ids.js';
+import { dm, slackConfigured } from '../lib/slack.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { getStore } from '../db/index.js';
@@ -810,6 +811,8 @@ export function adminRouter() {
     // Set until a password is chosen, by whichever link; the page says "Invited" and offers to resend.
     invitedAt: admin.invited_at ?? null,
     passwordSet: !admin.invited_at,
+    // Whether this person is messaged in Slack when a new visitor signs in (the owner decides, on the Team page).
+    slackAlerts: Boolean(admin.slack_alerts),
     // Made again at every start, so the page explains instead of offering Remove; see bootstrapEmail.
     bootstrap: admin.email.toLowerCase() === bootstrapEmail(),
   });
@@ -842,6 +845,23 @@ export function adminRouter() {
     const branchesOf = new Map();
     for (const { adminId, branchId } of memberships) branchesOf.set(adminId, [...(branchesOf.get(adminId) ?? []), branchId]);
     res.json(admins.map((admin) => teamMember(admin, communitiesOf.get(admin.id) ?? [], branchesOf.get(admin.id) ?? [])));
+  });
+
+  // Slack alerts: whether the app is connected, who gets them, and a test message to check a person is found.
+  router.get('/team/slack', (_req, res) => res.json({ configured: slackConfigured() }));
+  router.put('/team/:id/slack', async (req, res) => {
+    const store = await getStore();
+    if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ error: 'Send enabled as true or false.' });
+    const updated = await store.updateAdmin(req.params.id, { slackAlerts: req.body.enabled });
+    if (!updated) return res.status(404).json({ error: 'That person is no longer on the team.' });
+    res.json({ id: updated.id, slackAlerts: Boolean(updated.slack_alerts) });
+  });
+  router.post('/team/:id/slack/test', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.params.id);
+    if (!admin) return res.status(404).json({ error: 'That person is no longer on the team.' });
+    const result = await dm(admin.email, 'This is a test from Touradoor. You will get a message like this when a new visitor signs in.');
+    res.json(result);
   });
 
   router.post('/team/invites', async (req, res) => {

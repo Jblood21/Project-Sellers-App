@@ -109,6 +109,9 @@ export default function Team() {
   const [editing, setEditing] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [removeError, setRemoveError] = useState('');
+  // Whether the app is connected to Slack (null until known), and the last word about one person's alert or test.
+  const [slack, setSlack] = useState(null);
+  const [slackNote, setSlackNote] = useState(null); // { id, ok, text }
   const emailField = useRef(null);
   const noteLine = useRef(null);
   // A resend or a removal leaves the keyboard on nothing (the button is disabled, or gone with its row), so
@@ -122,6 +125,7 @@ export default function Team() {
     // The side menu lists the communities on every page without one; here they are also the boxes to tick.
     adminApi.communities(token).then(setCommunities).catch(() => {});
     adminApi.branches(token).then((list) => setBranches(list ?? [])).catch(() => setBranches([]));
+    adminApi.slackStatus(token).then((r) => setSlack(Boolean(r.configured))).catch(() => setSlack(false));
   }, [token]);
 
   useEffect(() => {
@@ -129,6 +133,31 @@ export default function Team() {
     focusNote.current = false;
     noteLine.current?.focus();
   }, [note]);
+
+  const toggleSlack = async (member, enabled) => {
+    setSlackNote(null);
+    // Shown at once and put back if it did not save.
+    const show = (on) => setMembers((list) => list.map((m) => (m.id === member.id ? { ...m, slackAlerts: on } : m)));
+    show(enabled);
+    try {
+      await adminApi.setSlackAlerts(token, member.id, enabled);
+    } catch (err) {
+      show(!enabled);
+      setSlackNote({ id: member.id, ok: false, text: err.message });
+    }
+  };
+  const testSlack = async (member) => {
+    setBusy(member.id);
+    setSlackNote(null);
+    try {
+      const result = await adminApi.testSlack(token, member.id);
+      setSlackNote({ id: member.id, ok: result.ok, text: result.ok ? 'Test message sent. Check Slack.' : result.error });
+    } catch (err) {
+      setSlackNote({ id: member.id, ok: false, text: err.message });
+    } finally {
+      setBusy('');
+    }
+  };
 
   const invite = async (event) => {
     event.preventDefault();
@@ -253,6 +282,24 @@ export default function Team() {
 
       <h2 className="as-section-title" style={{ marginTop: 0 }}>Who can sign in</h2>
       {members === null && !error ? <Spinner /> : null}
+      {slack !== null ? (
+        <div className="card elev-sm" style={{ gap: 8, marginBottom: 14 }}>
+          <span className="card-kicker">Slack alerts</span>
+          {slack ? (
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+              <span className="tag tag-accent">Connected</span> Switch alerts on for the people who should hear in Slack when a new
+              visitor signs in. Each is messaged directly, by the email they use here, and only for the communities and
+              listings they can open.
+            </p>
+          ) : (
+            <p className="text-muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+              Not connected yet. In Slack, make an app for your workspace with the permissions <strong>chat:write</strong>,{' '}
+              <strong>im:write</strong> and <strong>users:read.email</strong>, install it, then add its bot token in Render as{' '}
+              <strong>SLACK_BOT_TOKEN</strong>. After the next deploy, switch alerts on below and send a test.
+            </p>
+          )}
+        </div>
+      ) : null}
       {members ? (
         <ul className="as-team">
           {members.map((member) => {
@@ -276,6 +323,25 @@ export default function Team() {
                     <span className="as-member__line">
                       Set by ADMIN_EMAIL in Render, so it is made again at every deploy. To remove it, change or clear
                       ADMIN_EMAIL and ADMIN_PASSWORD there.
+                    </span>
+                  ) : null}
+                  {slack ? (
+                    <span className="as-member__line" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', minHeight: 44 }}>
+                        <input
+                          type="checkbox" checked={member.slackAlerts} onChange={(e) => toggleSlack(member, e.target.checked)}
+                          aria-label={`Slack alerts for ${member.email}`}
+                        />
+                        Slack alert when a new visitor signs in
+                      </label>
+                      {member.slackAlerts ? (
+                        <button type="button" className="btn btn-ghost" onClick={() => testSlack(member)} disabled={working}>
+                          {working ? 'Sending…' : 'Send test'}
+                        </button>
+                      ) : null}
+                      {slackNote?.id === member.id ? (
+                        <span role="status" style={{ fontSize: 14, color: slackNote.ok ? 'inherit' : 'var(--color-danger, #a8332b)' }}>{slackNote.text}</span>
+                      ) : null}
                     </span>
                   ) : null}
                   <span className="as-member__line as-member__access">
