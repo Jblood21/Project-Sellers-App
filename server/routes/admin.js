@@ -21,7 +21,7 @@ import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, mailboxKey, reserve, tooMany } from '../lib/limits.js';
 import { hasControlCharacter, rejectControlCharacters } from '../lib/params.js';
-import { emailConfigured } from '../lib/email.js';
+import { emailConfigured, sendEmail } from '../lib/email.js';
 import { buildReport, emailReport, reportDay } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
@@ -813,6 +813,8 @@ export function adminRouter() {
     passwordSet: !admin.invited_at,
     // Whether this person is messaged in Slack when a new visitor signs in (the owner decides, on the Team page).
     slackAlerts: Boolean(admin.slack_alerts),
+    // The same, by email.
+    emailAlerts: Boolean(admin.email_alerts),
     // Made again at every start, so the page explains instead of offering Remove; see bootstrapEmail.
     bootstrap: admin.email.toLowerCase() === bootstrapEmail(),
   });
@@ -855,6 +857,35 @@ export function adminRouter() {
     const updated = await store.updateAdmin(req.params.id, { slackAlerts: req.body.enabled });
     if (!updated) return res.status(404).json({ error: 'That person is no longer on the team.' });
     res.json({ id: updated.id, slackAlerts: Boolean(updated.slack_alerts) });
+  });
+  // Email alerts: the same switch per person, a switch for a whole branch at once, and a test email.
+  router.get('/team/email', (_req, res) => res.json({ configured: emailConfigured(), senderSet: Boolean(process.env.EMAIL_FROM) }));
+  router.put('/team/email-alerts/branch', async (req, res) => {
+    const store = await getStore();
+    if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ error: 'Send enabled as true or false.' });
+    const branch = await store.getBranch(String(req.body?.branchId ?? ''));
+    if (!branch) return res.status(404).json({ error: 'That branch is no longer here.' });
+    const ids = (await store.listAdminBranchAssignments()).filter((m) => m.branchId === branch.id).map((m) => m.adminId);
+    for (const id of ids) await store.updateAdmin(id, { emailAlerts: req.body.enabled });
+    res.json({ branchId: branch.id, changed: ids, enabled: req.body.enabled });
+  });
+  router.put('/team/:id/email-alerts', async (req, res) => {
+    const store = await getStore();
+    if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ error: 'Send enabled as true or false.' });
+    const updated = await store.updateAdmin(req.params.id, { emailAlerts: req.body.enabled });
+    if (!updated) return res.status(404).json({ error: 'That person is no longer on the team.' });
+    res.json({ id: updated.id, emailAlerts: Boolean(updated.email_alerts) });
+  });
+  router.post('/team/:id/email-alerts/test', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.params.id);
+    if (!admin) return res.status(404).json({ error: 'That person is no longer on the team.' });
+    if (!emailConfigured()) return res.json({ ok: false, error: 'Email is not set up on this site yet. Add RESEND_API_KEY and EMAIL_FROM in Render.' });
+    const r = await sendEmail({
+      to: admin.email, subject: 'Test: new-visitor alerts from Touradoor',
+      text: 'This is a test. You will get an email like this whenever a new visitor signs in to a community or listing you can open.',
+    });
+    res.json(r.sent ? { ok: true } : { ok: false, error: r.error || r.skipped || 'The email could not be sent.' });
   });
   router.post('/team/:id/slack/test', async (req, res) => {
     const store = await getStore();

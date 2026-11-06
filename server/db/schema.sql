@@ -29,6 +29,7 @@ ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'mem
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS profile JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS contacts JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS slack_alerts BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS email_alerts BOOLEAN NOT NULL DEFAULT false;
 
 -- The "forgot your password" links that are out. A row is the SHA-256 of the token in the link, never
 -- the token: the database cannot be read back into a working link. One live row per admin (asking again

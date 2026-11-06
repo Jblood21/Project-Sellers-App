@@ -1,7 +1,5 @@
-import { loadAccess } from './access.js';
-
 /**
- * Tells chosen team members in Slack when a new visitor signs in to a community or listing. The app has its own Slack
+ * Sends a Slack direct message to a team member (used by the new-visitor alerts in visitorAlerts.js). The app has its own Slack
  * connection: a Slack app's bot token in SLACK_BOT_TOKEN (Render), with the scopes chat:write, im:write and
  * users:read.email. Each person is found by the email they sign in to the admin with and gets a direct message.
  *
@@ -58,31 +56,5 @@ export async function dm(email, text) {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message || 'Slack could not be reached.' };
-  }
-}
-
-/**
- * A new visitor signed in. Goes to every team member the owner has switched Slack alerts on for and who can see this
- * community or listing (the owner always can). Not awaited by the caller.
- */
-export async function notifyNewVisitor({ store, community, lead, baseUrl }) {
-  if (!slackConfigured()) return { sent: 0 };
-  try {
-    const admins = (await store.listAdmins()).filter((admin) => admin.slack_alerts);
-    const people = [];
-    for (const admin of admins) {
-      const access = await loadAccess(admin.id);
-      if (access && (access.role === 'owner' || access.communityIds.has(community.id))) people.push(admin);
-    }
-    if (!people.length) return { sent: 0 };
-    const kind = community?.settings?.siteKind === 'listing' ? 'listing' : 'community';
-    const link = baseUrl ? `\n<${baseUrl}/admin/communities/${community.id}/leads/${lead.id}|Open ${lead.name}>` : '';
-    const text = `*${lead.name}* just signed in to the ${kind} *${community.name}*.${link}`;
-    const results = await Promise.all(people.map((admin) => dm(admin.email, text)));
-    for (const [i, r] of results.entries()) if (!r.ok) console.warn(`Slack alert to ${people[i].email} failed: ${r.error}`);
-    return { sent: results.filter((r) => r.ok).length };
-  } catch (err) {
-    console.warn(`Slack alert failed: ${err.message}`);
-    return { sent: 0 };
   }
 }

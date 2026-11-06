@@ -284,7 +284,7 @@ export function createFileStore(path) {
       return admin;
     },
     /** Changes what is given and nothing else; see the Postgres store. The row, or null. */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts, slackAlerts } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts, slackAlerts, emailAlerts } = {}) {
       const admin = await this.getAdminById(id);
       if (!admin) return null;
       if (passwordHash !== undefined) admin.password_hash = passwordHash;
@@ -296,6 +296,7 @@ export function createFileStore(path) {
       if (profile !== undefined) admin.profile = profile;
       if (contacts !== undefined) admin.contacts = contacts;
       if (slackAlerts !== undefined) admin.slack_alerts = Boolean(slackAlerts);
+      if (emailAlerts !== undefined) admin.email_alerts = Boolean(emailAlerts);
       save();
       return admin;
     },
