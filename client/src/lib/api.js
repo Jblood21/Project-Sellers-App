@@ -203,6 +203,22 @@ export const adminApi = {
   resendInvite: (token, id) =>
     request(`/api/admin/team/invites/${encodeURIComponent(id)}/resend`, { method: 'POST', body: {}, token }),
   removeAdmin: (token, id) => request(`/api/admin/team/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
+  // Slack alerts to chosen team members when a new visitor signs in: whether the app is connected, who is switched
+  // on, and a test message to one person (answers { ok } or { ok: false, error }).
+  // Email alerts to chosen team members when a new person signs in: whether email is set up, one person, a whole branch
+  // at once, and a test email.
+  emailStatus: (token) => request('/api/admin/team/email', { token }),
+  setEmailAlerts: (token, id, enabled) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/email-alerts`, { method: 'PUT', body: { enabled }, token }),
+  setBranchEmailAlerts: (token, branchId, enabled) =>
+    request('/api/admin/team/email-alerts/branch', { method: 'PUT', body: { branchId, enabled }, token }),
+  testEmailAlert: (token, id) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/email-alerts/test`, { method: 'POST', body: {}, token }),
+  slackStatus: (token) => request('/api/admin/team/slack', { token }),
+  setSlackAlerts: (token, id, enabled) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/slack`, { method: 'PUT', body: { enabled }, token }),
+  testSlack: (token, id) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/slack/test`, { method: 'POST', body: {}, token }),
   // Replaces a member's set of communities. The owner has every community and no set to replace (a 400).
   setAdminCommunities: (token, id, communityIds) =>
     request(`/api/admin/team/${encodeURIComponent(id)}/communities`, { method: 'PUT', body: { communityIds }, token }),

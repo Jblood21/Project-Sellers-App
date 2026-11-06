@@ -14,6 +14,7 @@ import { clientKey, createLimiter, limitRequests, mailboxKey, reserve, tooMany }
 import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
 import { emailLoanTeam, notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
+import { alertNewVisitor } from '../lib/visitorAlerts.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { askedWidth, sizedPhoto } from '../lib/photoSizes.js';
 import { sendVideo } from '../lib/video.js';
@@ -396,6 +397,8 @@ export function publicRouter() {
     // CHANGE of mind is news, and that is logged below on a return visit.
     if (phone) await store.recordConsent(created.id, consent);
     const lead = await store.getLead(created.id);
+    // Chosen team members hear about a new visitor by email and/or Slack. Not waited for: a slow provider never holds up the sign-in.
+    alertNewVisitor({ store, community, lead, baseUrl: linkOriginOf(req) }).catch(() => {});
     res.status(201).json({ lead: publicLead(lead), token: issueLeadToken(lead), returning: false });
   });
 

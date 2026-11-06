@@ -402,7 +402,7 @@ export function createPostgresStore(connectionString) {
      * the sessions issued before it), the record of the ADMIN_PASSWORD applied at boot, the invitation
      * stamp (null once a password is set), or the role. The row, or null.
      */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts, slackAlerts, emailAlerts } = {}) {
       const sets = [];
       const params = [id];
       const set = (column, value) => {
@@ -416,6 +416,8 @@ export function createPostgresStore(connectionString) {
       if (role !== undefined) set('role', role);
       if (profile !== undefined) set('profile', profile);
       if (contacts !== undefined) set('contacts', JSON.stringify(contacts));
+      if (slackAlerts !== undefined) set('slack_alerts', Boolean(slackAlerts));
+      if (emailAlerts !== undefined) set('email_alerts', Boolean(emailAlerts));
       if (!sets.length) return this.getAdminById(id);
       const { rows } = await q(`UPDATE admin_users SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, params);
       return rows[0] || null;

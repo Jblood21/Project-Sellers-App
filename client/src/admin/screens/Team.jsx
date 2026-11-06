@@ -109,6 +109,15 @@ export default function Team() {
   const [editing, setEditing] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [removeError, setRemoveError] = useState('');
+  // Whether the app is connected to Slack (null until known), and the last word about one person's alert or test.
+  const [slack, setSlack] = useState(null);
+  const [slackNote, setSlackNote] = useState(null); // { id, ok, text }
+  // Whether email is set up on the site (null until known), the last word about one person's email alert or test,
+  // the branch picked for the switch-a-whole-branch control, and what that control last did.
+  const [emailReady, setEmailReady] = useState(null);
+  const [emailNote, setEmailNote] = useState(null); // { id, ok, text }
+  const [alertBranch, setAlertBranch] = useState('');
+  const [branchNote, setBranchNote] = useState('');
   const emailField = useRef(null);
   const noteLine = useRef(null);
   // A resend or a removal leaves the keyboard on nothing (the button is disabled, or gone with its row), so
@@ -122,6 +131,8 @@ export default function Team() {
     // The side menu lists the communities on every page without one; here they are also the boxes to tick.
     adminApi.communities(token).then(setCommunities).catch(() => {});
     adminApi.branches(token).then((list) => setBranches(list ?? [])).catch(() => setBranches([]));
+    adminApi.emailStatus(token).then((r) => setEmailReady(Boolean(r.configured))).catch(() => setEmailReady(false));
+    adminApi.slackStatus(token).then((r) => setSlack(Boolean(r.configured))).catch(() => setSlack(false));
   }, [token]);
 
   useEffect(() => {
@@ -129,6 +140,71 @@ export default function Team() {
     focusNote.current = false;
     noteLine.current?.focus();
   }, [note]);
+
+  const toggleEmail = async (member, enabled) => {
+    setEmailNote(null);
+    const show = (on) => setMembers((list) => list.map((m) => (m.id === member.id ? { ...m, emailAlerts: on } : m)));
+    show(enabled);
+    try {
+      await adminApi.setEmailAlerts(token, member.id, enabled);
+    } catch (err) {
+      show(!enabled);
+      setEmailNote({ id: member.id, ok: false, text: err.message });
+    }
+  };
+  const testEmail = async (member) => {
+    setBusy(member.id);
+    setEmailNote(null);
+    try {
+      const result = await adminApi.testEmailAlert(token, member.id);
+      setEmailNote({ id: member.id, ok: result.ok, text: result.ok ? 'Test email sent. Check the inbox.' : result.error });
+    } catch (err) {
+      setEmailNote({ id: member.id, ok: false, text: err.message });
+    } finally {
+      setBusy('');
+    }
+  };
+  // Everyone in a branch at once; each person can still be switched on or off by themselves afterwards.
+  const switchBranch = async (enabled) => {
+    if (!alertBranch) return;
+    setBranchNote('');
+    try {
+      const result = await adminApi.setBranchEmailAlerts(token, alertBranch, enabled);
+      const changed = new Set(result.changed);
+      setMembers((list) => list.map((m) => (changed.has(m.id) ? { ...m, emailAlerts: enabled } : m)));
+      const name = (branches ?? []).find((b) => b.id === alertBranch)?.name ?? 'that branch';
+      setBranchNote(result.changed.length
+        ? `Email alerts ${enabled ? 'on' : 'off'} for ${result.changed.length} ${result.changed.length === 1 ? 'person' : 'people'} in ${name}.`
+        : `Nobody is in ${name} yet. Add people to the branch first.`);
+    } catch (err) {
+      setBranchNote(err.message);
+    }
+  };
+
+  const toggleSlack = async (member, enabled) => {
+    setSlackNote(null);
+    // Shown at once and put back if it did not save.
+    const show = (on) => setMembers((list) => list.map((m) => (m.id === member.id ? { ...m, slackAlerts: on } : m)));
+    show(enabled);
+    try {
+      await adminApi.setSlackAlerts(token, member.id, enabled);
+    } catch (err) {
+      show(!enabled);
+      setSlackNote({ id: member.id, ok: false, text: err.message });
+    }
+  };
+  const testSlack = async (member) => {
+    setBusy(member.id);
+    setSlackNote(null);
+    try {
+      const result = await adminApi.testSlack(token, member.id);
+      setSlackNote({ id: member.id, ok: result.ok, text: result.ok ? 'Test message sent. Check Slack.' : result.error });
+    } catch (err) {
+      setSlackNote({ id: member.id, ok: false, text: err.message });
+    } finally {
+      setBusy('');
+    }
+  };
 
   const invite = async (event) => {
     event.preventDefault();
@@ -253,6 +329,42 @@ export default function Team() {
 
       <h2 className="as-section-title" style={{ marginTop: 0 }}>Who can sign in</h2>
       {members === null && !error ? <Spinner /> : null}
+      <div className="card elev-sm" style={{ gap: 10, marginBottom: 14 }}>
+        <span className="card-kicker">New-visitor alerts</span>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+          Every new person who signs in to a community or listing, whether or not they book a time, can be sent to your team
+          outside the app. Switch it on for each person below. Each person only hears about the communities and listings
+          they can open.
+        </p>
+        {emailReady === false ? (
+          <p className="ax-callout" style={{ margin: 0, fontSize: 14 }}>
+            Email is not set up on this site yet, so no emails go out. Add RESEND_API_KEY and EMAIL_FROM in Render.
+          </p>
+        ) : null}
+        {branches?.length ? (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              className="input" aria-label="Branch for email alerts" value={alertBranch}
+              onChange={(e) => { setAlertBranch(e.target.value); setBranchNote(''); }} style={{ flex: '1 1 200px', minWidth: 0 }}
+            >
+              <option value="">Everyone in a branch…</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <button type="button" className="btn btn-secondary" disabled={!alertBranch} onClick={() => switchBranch(true)}>Email alerts on</button>
+            <button type="button" className="btn btn-ghost" disabled={!alertBranch} onClick={() => switchBranch(false)}>Off</button>
+          </div>
+        ) : null}
+        {branchNote ? <span role="status" style={{ fontSize: 14 }}>{branchNote}</span> : null}
+        {slack === false ? (
+          <p className="text-muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+            Slack is not connected (optional). In Slack, make an app with the permissions <strong>chat:write</strong>,{' '}
+            <strong>im:write</strong>, <strong>users:read</strong> and <strong>users:read.email</strong>, install it, then add its bot token in
+            Render as <strong>SLACK_BOT_TOKEN</strong>.
+          </p>
+        ) : slack ? (
+          <p style={{ margin: 0, fontSize: 14 }}><span className="tag tag-accent">Slack connected</span> Slack alerts can be switched on per person too.</p>
+        ) : null}
+      </div>
       {members ? (
         <ul className="as-team">
           {members.map((member) => {
@@ -276,6 +388,42 @@ export default function Team() {
                     <span className="as-member__line">
                       Set by ADMIN_EMAIL in Render, so it is made again at every deploy. To remove it, change or clear
                       ADMIN_EMAIL and ADMIN_PASSWORD there.
+                    </span>
+                  ) : null}
+                  <span className="as-member__line" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', minHeight: 44 }}>
+                      <input
+                        type="checkbox" checked={member.emailAlerts} onChange={(e) => toggleEmail(member, e.target.checked)}
+                        aria-label={`Email alerts for ${member.email}`}
+                      />
+                      Email me when a new person signs in
+                    </label>
+                    {member.emailAlerts ? (
+                      <button type="button" className="btn btn-ghost" onClick={() => testEmail(member)} disabled={working}>
+                        {working ? 'Sending…' : 'Send test email'}
+                      </button>
+                    ) : null}
+                    {emailNote?.id === member.id ? (
+                      <span role="status" style={{ fontSize: 14, color: emailNote.ok ? 'inherit' : 'var(--color-danger, #a8332b)' }}>{emailNote.text}</span>
+                    ) : null}
+                  </span>
+                  {slack ? (
+                    <span className="as-member__line" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', minHeight: 44 }}>
+                        <input
+                          type="checkbox" checked={member.slackAlerts} onChange={(e) => toggleSlack(member, e.target.checked)}
+                          aria-label={`Slack alerts for ${member.email}`}
+                        />
+                        Slack alert when a new visitor signs in
+                      </label>
+                      {member.slackAlerts ? (
+                        <button type="button" className="btn btn-ghost" onClick={() => testSlack(member)} disabled={working}>
+                          {working ? 'Sending…' : 'Send test'}
+                        </button>
+                      ) : null}
+                      {slackNote?.id === member.id ? (
+                        <span role="status" style={{ fontSize: 14, color: slackNote.ok ? 'inherit' : 'var(--color-danger, #a8332b)' }}>{slackNote.text}</span>
+                      ) : null}
                     </span>
                   ) : null}
                   <span className="as-member__line as-member__access">
