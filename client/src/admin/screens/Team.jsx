@@ -117,6 +117,9 @@ export default function Team() {
   const [emailReady, setEmailReady] = useState(null);
   const [emailNote, setEmailNote] = useState(null); // { id, ok, text }
   const [alertBranch, setAlertBranch] = useState('');
+  // How many phones each person has turned on ({ adminId: n }), and the last word about one person's phone test.
+  const [pushCounts, setPushCounts] = useState({});
+  const [pushNote, setPushNote] = useState(null); // { id, ok, text }
   const [branchNote, setBranchNote] = useState('');
   const emailField = useRef(null);
   const noteLine = useRef(null);
@@ -131,6 +134,7 @@ export default function Team() {
     // The side menu lists the communities on every page without one; here they are also the boxes to tick.
     adminApi.communities(token).then(setCommunities).catch(() => {});
     adminApi.branches(token).then((list) => setBranches(list ?? [])).catch(() => setBranches([]));
+    adminApi.pushCounts(token).then((r) => setPushCounts(r.counts ?? {})).catch(() => {});
     adminApi.emailStatus(token).then((r) => setEmailReady(Boolean(r.configured))).catch(() => setEmailReady(false));
     adminApi.slackStatus(token).then((r) => setSlack(Boolean(r.configured))).catch(() => setSlack(false));
   }, [token]);
@@ -178,6 +182,30 @@ export default function Team() {
         : `Nobody is in ${name} yet. Add people to the branch first.`);
     } catch (err) {
       setBranchNote(err.message);
+    }
+  };
+
+  const togglePush = async (member, enabled) => {
+    setPushNote(null);
+    const show = (on) => setMembers((list) => list.map((m) => (m.id === member.id ? { ...m, pushAlerts: on } : m)));
+    show(enabled);
+    try {
+      await adminApi.setPushAlerts(token, member.id, enabled);
+    } catch (err) {
+      show(!enabled);
+      setPushNote({ id: member.id, ok: false, text: err.message });
+    }
+  };
+  const testPush = async (member) => {
+    setBusy(member.id);
+    setPushNote(null);
+    try {
+      const result = await adminApi.testPushFor(token, member.id);
+      setPushNote({ id: member.id, ok: result.ok, text: result.ok ? 'Test sent. It should appear on their phone.' : result.error });
+    } catch (err) {
+      setPushNote({ id: member.id, ok: false, text: err.message });
+    } finally {
+      setBusy('');
     }
   };
 
@@ -333,8 +361,9 @@ export default function Team() {
         <span className="card-kicker">New-visitor alerts</span>
         <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
           Every new person who signs in to a community or listing, whether or not they book a time, can be sent to your team
-          outside the app. Switch it on for each person below. Each person only hears about the communities and listings
-          they can open.
+          outside the app, as an email or a notification on their phone. Switch it on for each person below. For phone
+          notifications each person also turns on their own phone under Your details, in the installed app. Each person only
+          hears about the communities and listings they can open.
         </p>
         {emailReady === false ? (
           <p className="ax-callout" style={{ margin: 0, fontSize: 14 }}>
@@ -405,6 +434,26 @@ export default function Team() {
                     ) : null}
                     {emailNote?.id === member.id ? (
                       <span role="status" style={{ fontSize: 14, color: emailNote.ok ? 'inherit' : 'var(--color-danger, #a8332b)' }}>{emailNote.text}</span>
+                    ) : null}
+                  </span>
+                  <span className="as-member__line" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', minHeight: 44 }}>
+                      <input
+                        type="checkbox" checked={member.pushAlerts} onChange={(e) => togglePush(member, e.target.checked)}
+                        aria-label={`Phone notifications for ${member.email}`}
+                      />
+                      Phone notification when a new person signs in
+                    </label>
+                    <span className="text-muted" style={{ fontSize: 14 }}>
+                      {pushCounts[member.id] ? `${pushCounts[member.id]} ${pushCounts[member.id] === 1 ? 'phone' : 'phones'} turned on` : 'no phone turned on yet'}
+                    </span>
+                    {member.pushAlerts && pushCounts[member.id] ? (
+                      <button type="button" className="btn btn-ghost" onClick={() => testPush(member)} disabled={working}>
+                        {working ? 'Sending…' : 'Send test'}
+                      </button>
+                    ) : null}
+                    {pushNote?.id === member.id ? (
+                      <span role="status" style={{ fontSize: 14, color: pushNote.ok ? 'inherit' : 'var(--color-danger, #a8332b)' }}>{pushNote.text}</span>
                     ) : null}
                   </span>
                   {slack ? (

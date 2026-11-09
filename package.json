@@ -4,7 +4,9 @@
   "private": true,
   "description": "Touradoor — the homebuyer app builders put on their community sign, plus the builder admin behind it.",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "install:client": "npm --prefix client install --include=dev",
     "build": "npm run install:client && npm --prefix client run build",
@@ -17,7 +19,8 @@
   "dependencies": {
     "express": "^4.21.2",
     "pg": "^8.13.1",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

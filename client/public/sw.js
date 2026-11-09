@@ -27,6 +27,39 @@ self.addEventListener('activate', (event) => {
 // the message is what has the worker running by the time that request arrives. It needs no answer.
 self.addEventListener('message', () => {});
 
+// A phone notification sent by the server (see server/lib/push.js): who signed in. Tapping it opens that person.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Touradoor', {
+      body: data.body || '',
+      tag: data.tag || undefined,
+      data: { url: typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/admin' },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/admin';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if ('focus' in client) {
+          if ('navigate' in client) client.navigate(url).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);

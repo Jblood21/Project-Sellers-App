@@ -74,7 +74,7 @@ for (const kind of backends()) {
       assert.equal(me.role, 'owner');
       assert.deepEqual(me.communityIds, [], 'the owner has every community by role, so none is listed');
       assert.deepEqual(me.branchIds, [], 'nor is a branch');
-      assert.deepEqual(Object.keys(me).sort(), ['bootstrap', 'branchIds', 'communityIds', 'createdAt', 'email', 'emailAlerts', 'id', 'invitedAt', 'passwordSet', 'role', 'slackAlerts']);
+      assert.deepEqual(Object.keys(me).sort(), ['bootstrap', 'branchIds', 'communityIds', 'createdAt', 'email', 'emailAlerts', 'id', 'invitedAt', 'passwordSet', 'pushAlerts', 'role', 'slackAlerts']);
     });
 
     test('an invite makes the account with a password nobody can use, sends one 7-day link and marks the row', async () => {

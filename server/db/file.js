@@ -17,7 +17,7 @@ const EMPTY = {
   admins: [], communities: [], homes: [], highlights: [], photos: [], resources: [],
   homeVideos: [], slots: [], leads: [], planItems: [], moveIn: [], activity: [],
   consents: [], agents: [], guides: [], communitySlugs: [], passwordResets: [],
-  adminCommunities: [], adminActivity: [], branches: [], adminBranches: [],
+  adminCommunities: [], adminActivity: [], branches: [], adminBranches: [], pushSubs: [], pushKeys: null,
 };
 
 /**
@@ -257,6 +257,40 @@ export function createFileStore(path) {
       return [...db.admins].sort(byAdminAge).map((admin) => ({ ...admin }));
     },
 
+    // ── phone notifications (push); see the Postgres store ───────────────
+    async listPushSubscriptions(adminId) {
+      return db.pushSubs.filter((r) => r.admin_id === adminId).map((r) => ({ ...r }));
+    },
+    async countPushSubscriptions() {
+      const counts = {};
+      for (const r of db.pushSubs) counts[r.admin_id] = (counts[r.admin_id] ?? 0) + 1;
+      return counts;
+    },
+    async addPushSubscription(adminId, { endpoint, p256dh, auth, userAgent = '' }) {
+      db.pushSubs = db.pushSubs.filter((r) => r.endpoint !== endpoint);
+      const row = { id: `ps_${shortId(12)}`, admin_id: adminId, endpoint, p256dh, auth, user_agent: userAgent, created_at: now() };
+      db.pushSubs.push(row);
+      save();
+      return { ...row };
+    },
+    async removePushSubscription(endpoint, adminId = null) {
+      const before = db.pushSubs.length;
+      db.pushSubs = db.pushSubs.filter((r) => !(r.endpoint === endpoint && (!adminId || r.admin_id === adminId)));
+      if (db.pushSubs.length === before) return false;
+      save();
+      return true;
+    },
+    async getPushKeys() {
+      return db.pushKeys ? { ...db.pushKeys } : null;
+    },
+    async savePushKeys({ publicKey, privateKey }) {
+      if (!db.pushKeys) {
+        db.pushKeys = { publicKey, privateKey };
+        save();
+      }
+      return { ...db.pushKeys };
+    },
+
     async getAdminByEmail(email) {
       return db.admins.find((a) => a.email.toLowerCase() === String(email).toLowerCase()) || null;
     },
@@ -284,7 +318,7 @@ export function createFileStore(path) {
       return admin;
     },
     /** Changes what is given and nothing else; see the Postgres store. The row, or null. */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts, slackAlerts, emailAlerts } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts, slackAlerts, emailAlerts, pushAlerts } = {}) {
       const admin = await this.getAdminById(id);
       if (!admin) return null;
       if (passwordHash !== undefined) admin.password_hash = passwordHash;
@@ -297,6 +331,7 @@ export function createFileStore(path) {
       if (contacts !== undefined) admin.contacts = contacts;
       if (slackAlerts !== undefined) admin.slack_alerts = Boolean(slackAlerts);
       if (emailAlerts !== undefined) admin.email_alerts = Boolean(emailAlerts);
+      if (pushAlerts !== undefined) admin.push_alerts = Boolean(pushAlerts);
       save();
       return admin;
     },
@@ -315,6 +350,7 @@ export function createFileStore(path) {
       db.passwordResets = db.passwordResets.filter((r) => r.adminId !== id);
       db.adminCommunities = db.adminCommunities.filter((r) => r.adminId !== id);
       db.adminBranches = db.adminBranches.filter((r) => r.adminId !== id);
+      db.pushSubs = db.pushSubs.filter((r) => r.admin_id !== id);
       save();
       return true;
     },

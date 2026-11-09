@@ -30,6 +30,27 @@ ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS profile JSONB NOT NULL DEFAULT 
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS contacts JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS slack_alerts BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS email_alerts BOOLEAN NOT NULL DEFAULT false;
+-- Phone notifications: whether this team member is sent a push notification when a new person signs in. The phones
+-- that can receive one are in admin_push_subscriptions, one row per phone or browser that agreed to it.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS push_alerts BOOLEAN NOT NULL DEFAULT false;
+CREATE TABLE IF NOT EXISTS admin_push_subscriptions (
+  id         TEXT PRIMARY KEY,
+  admin_id   TEXT NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  endpoint   TEXT NOT NULL UNIQUE,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  user_agent TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS admin_push_subscriptions_admin_idx ON admin_push_subscriptions(admin_id);
+-- The one key pair this site signs its push messages with (VAPID). Made on first use unless VAPID_PUBLIC_KEY and
+-- VAPID_PRIVATE_KEY are set; a phone's subscription is tied to the public key, so it must not change.
+CREATE TABLE IF NOT EXISTS push_keys (
+  id          INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  public_key  TEXT NOT NULL,
+  private_key TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- The "forgot your password" links that are out. A row is the SHA-256 of the token in the link, never
 -- the token: the database cannot be read back into a working link. One live row per admin (asking again
