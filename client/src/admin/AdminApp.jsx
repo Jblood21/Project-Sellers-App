@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { AdminProvider, useAdmin } from './AdminContext.jsx';
@@ -90,7 +91,24 @@ function AdminRoutes() {
   );
 }
 
+/** Points the page at the admin's own manifest while the admin is open, so it can be put on a phone's Home Screen as an app. */
+function useAdminManifest() {
+  useEffect(() => {
+    const had = document.querySelector('link[rel="manifest"]');
+    const link = had ?? document.createElement('link');
+    const before = had?.getAttribute('href');
+    link.rel = 'manifest';
+    link.href = '/admin/manifest.webmanifest';
+    if (!had) document.head.appendChild(link);
+    return () => {
+      if (!had) link.remove();
+      else if (before) link.setAttribute('href', before);
+    };
+  }, []);
+}
+
 export default function AdminApp() {
+  useAdminManifest();
   return (
     <AdminProvider>
       <AdminRoutes />

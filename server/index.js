@@ -171,6 +171,22 @@ export function createApp({ clientDist = defaultClientDist } = {}) {
     }
   });
 
+  /** The admin's own manifest, so it can be put on a phone's Home Screen as an app (and, on an iPhone, be sent notifications). */
+  app.get('/admin/manifest.webmanifest', (_req, res) => {
+    res.type('application/manifest+json').json({
+      id: '/admin',
+      name: 'Touradoor',
+      short_name: 'Touradoor',
+      description: 'Your visitors, listings and communities.',
+      start_url: '/admin',
+      scope: '/admin',
+      display: 'standalone',
+      background_color: '#f4f7f8',
+      theme_color: '#143c46',
+      icons: [{ src: '/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }],
+    });
+  });
+
   if (existsSync(clientDist)) {
     // The build gives everything under /assets a hashed name, so an hour (or
     // longer) is safe there. The artwork in /brand and /guides keeps its name when

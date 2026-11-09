@@ -371,6 +371,46 @@ export function createPostgresStore(connectionString) {
       return rows;
     },
 
+    // ── phone notifications (push) ───────────────────────────────────────
+    /** The phones or browsers of one team member that agreed to notifications, oldest first. */
+    async listPushSubscriptions(adminId) {
+      const { rows } = await q(`SELECT * FROM admin_push_subscriptions WHERE admin_id = $1 ORDER BY created_at`, [adminId]);
+      return rows;
+    },
+    /** How many each team member has: { adminId: count }. */
+    async countPushSubscriptions() {
+      const { rows } = await q(`SELECT admin_id, count(*)::int AS n FROM admin_push_subscriptions GROUP BY admin_id`);
+      return Object.fromEntries(rows.map((r) => [r.admin_id, r.n]));
+    },
+    /** Keeps a phone's subscription. The same phone signing in as someone else moves to them. */
+    async addPushSubscription(adminId, { endpoint, p256dh, auth, userAgent = '' }) {
+      const { rows } = await q(
+        `INSERT INTO admin_push_subscriptions (id, admin_id, endpoint, p256dh, auth, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (endpoint) DO UPDATE SET admin_id = EXCLUDED.admin_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth,
+           user_agent = EXCLUDED.user_agent
+         RETURNING *`,
+        [`ps_${shortId(12)}`, adminId, endpoint, p256dh, auth, userAgent],
+      );
+      return rows[0];
+    },
+    /** Takes a phone off. With `adminId`, only if it is theirs (a person turns off their own phone, never another's). */
+    async removePushSubscription(endpoint, adminId = null) {
+      const { rowCount } = adminId
+        ? await q(`DELETE FROM admin_push_subscriptions WHERE endpoint = $1 AND admin_id = $2`, [endpoint, adminId])
+        : await q(`DELETE FROM admin_push_subscriptions WHERE endpoint = $1`, [endpoint]);
+      return rowCount > 0;
+    },
+    async getPushKeys() {
+      const { rows } = await q(`SELECT public_key, private_key FROM push_keys WHERE id = 1`);
+      return rows[0] ? { publicKey: rows[0].public_key, privateKey: rows[0].private_key } : null;
+    },
+    /** Saves the key pair unless one is already there (two servers starting at once keep the first), and returns the one kept. */
+    async savePushKeys({ publicKey, privateKey }) {
+      await q(`INSERT INTO push_keys (id, public_key, private_key) VALUES (1, $1, $2) ON CONFLICT (id) DO NOTHING`, [publicKey, privateKey]);
+      return this.getPushKeys();
+    },
+
     async getAdminByEmail(email) {
       const { rows } = await q(`SELECT * FROM admin_users WHERE lower(email) = lower($1)`, [email]);
       return rows[0] || null;
@@ -402,7 +442,7 @@ export function createPostgresStore(connectionString) {
      * the sessions issued before it), the record of the ADMIN_PASSWORD applied at boot, the invitation
      * stamp (null once a password is set), or the role. The row, or null.
      */
-    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts, slackAlerts, emailAlerts } = {}) {
+    async updateAdmin(id, { passwordHash, passwordChangedAt, bootPasswordHash, invitedAt, role, profile, contacts, slackAlerts, emailAlerts, pushAlerts } = {}) {
       const sets = [];
       const params = [id];
       const set = (column, value) => {
@@ -418,6 +458,7 @@ export function createPostgresStore(connectionString) {
       if (contacts !== undefined) set('contacts', JSON.stringify(contacts));
       if (slackAlerts !== undefined) set('slack_alerts', Boolean(slackAlerts));
       if (emailAlerts !== undefined) set('email_alerts', Boolean(emailAlerts));
+      if (pushAlerts !== undefined) set('push_alerts', Boolean(pushAlerts));
       if (!sets.length) return this.getAdminById(id);
       const { rows } = await q(`UPDATE admin_users SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, params);
       return rows[0] || null;

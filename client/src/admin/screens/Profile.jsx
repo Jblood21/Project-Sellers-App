@@ -6,6 +6,7 @@ import { fileToDataUrl } from '../../lib/photos.js';
 import { useAdmin } from '../AdminContext.jsx';
 import ImageSlot from '../setup/ImageSlot.jsx';
 import AdminShell from '../shell/AdminShell.jsx';
+import PhoneNotifications from './PhoneNotifications.jsx';
 import SavedLenders from './SavedLenders.jsx';
 import { ErrorNote, Spinner, TextField, useSaving, SaveNote } from '../ui.jsx';
 
@@ -73,6 +74,7 @@ export default function Profile() {
           <SaveNote saver={saver} />
         </form>
       )}
+      {form ? <PhoneNotifications /> : null}
       {form ? <SavedLenders /> : null}
     </AdminShell>
   );

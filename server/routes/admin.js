@@ -15,6 +15,7 @@ import {
 } from '../../shared/contacts.js';
 import { shortId } from '../lib/ids.js';
 import { dm, slackConfigured } from '../lib/slack.js';
+import { cleanSubscription, pushPublicKey, pushToAdmin } from '../lib/push.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { getStore } from '../db/index.js';
@@ -590,6 +591,42 @@ export function adminRouter() {
     res.json(profileView(await store.updateAdmin(admin.id, { profile: next })));
   });
 
+  // ── this person's phones: notifications when a new person signs in ────────
+  // Any signed-in team member turns on their own phone; the owner decides who is sent notifications (the Team page).
+  const PUSH_DEVICES_MAX = 10;
+  router.get('/me/push', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(404).json({ error: 'Not found' });
+    const subs = await store.listPushSubscriptions(admin.id);
+    res.json({ publicKey: await pushPublicKey(store), devices: subs.length, alertsOn: Boolean(admin.push_alerts) });
+  });
+  router.post('/me/push/subscribe', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.admin.sub);
+    if (!admin) return res.status(404).json({ error: 'Not found' });
+    const clean = cleanSubscription(req.body?.subscription);
+    if (clean.error) return res.status(400).json({ error: clean.error });
+    const mine = await store.listPushSubscriptions(admin.id);
+    if (mine.length >= PUSH_DEVICES_MAX && !mine.some((s) => s.endpoint === clean.value.endpoint)) {
+      return res.status(400).json({ error: `Up to ${PUSH_DEVICES_MAX} phones can be turned on. Turn one off first.` });
+    }
+    await store.addPushSubscription(admin.id, { ...clean.value, userAgent: String(req.get('user-agent') ?? '').slice(0, 200) });
+    res.status(201).json({ devices: (await store.listPushSubscriptions(admin.id)).length });
+  });
+  router.post('/me/push/unsubscribe', async (req, res) => {
+    const store = await getStore();
+    const endpoint = typeof req.body?.endpoint === 'string' ? req.body.endpoint : '';
+    if (endpoint) await store.removePushSubscription(endpoint, req.admin.sub);
+    res.json({ devices: (await store.listPushSubscriptions(req.admin.sub)).length });
+  });
+  router.post('/me/push/test', async (req, res) => {
+    const store = await getStore();
+    const r = await pushToAdmin(store, req.admin.sub, { title: 'Test from Touradoor', body: 'Phone notifications are working.', url: '/admin', tag: 'test' });
+    if (!r.devices) return res.json({ ok: false, error: 'This phone is not turned on yet.' });
+    res.json(r.sent ? { ok: true, sent: r.sent } : { ok: false, error: 'The notification could not be delivered. Check that notifications are allowed for this app in your phone\'s Settings.' });
+  });
+
   // ── the signed-in agent's saved business contacts ────────────────────────
   // A lender (loan officer and company) is typed once here and used on any listing. Using one copies its details onto
   // the listing, so a later edit of the contact never silently changes a flyer that has already been printed.
@@ -815,6 +852,8 @@ export function adminRouter() {
     slackAlerts: Boolean(admin.slack_alerts),
     // The same, by email.
     emailAlerts: Boolean(admin.email_alerts),
+    // The same, as a notification on their phone (which phones are on is GET /team/push).
+    pushAlerts: Boolean(admin.push_alerts),
     // Made again at every start, so the page explains instead of offering Remove; see bootstrapEmail.
     bootstrap: admin.email.toLowerCase() === bootstrapEmail(),
   });
@@ -858,6 +897,27 @@ export function adminRouter() {
     if (!updated) return res.status(404).json({ error: 'That person is no longer on the team.' });
     res.json({ id: updated.id, slackAlerts: Boolean(updated.slack_alerts) });
   });
+  // Phone notifications: who is switched on and how many phones each has, and a test to a person's phones.
+  router.get('/team/push', async (_req, res) => {
+    const store = await getStore();
+    res.json({ counts: await store.countPushSubscriptions() });
+  });
+  router.put('/team/:id/push', async (req, res) => {
+    const store = await getStore();
+    if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ error: 'Send enabled as true or false.' });
+    const updated = await store.updateAdmin(req.params.id, { pushAlerts: req.body.enabled });
+    if (!updated) return res.status(404).json({ error: 'That person is no longer on the team.' });
+    res.json({ id: updated.id, pushAlerts: Boolean(updated.push_alerts) });
+  });
+  router.post('/team/:id/push/test', async (req, res) => {
+    const store = await getStore();
+    const admin = await store.getAdminById(req.params.id);
+    if (!admin) return res.status(404).json({ error: 'That person is no longer on the team.' });
+    const r = await pushToAdmin(store, admin.id, { title: 'Test from Touradoor', body: 'Phone notifications are working.', url: '/admin', tag: 'test' });
+    if (!r.devices) return res.json({ ok: false, error: 'No phone has notifications turned on for this person yet. They turn it on under Your details, in the installed app on their phone.' });
+    res.json(r.sent ? { ok: true, sent: r.sent } : { ok: false, error: 'The notification could not be delivered. Their phone may have turned notifications off.' });
+  });
+
   // Email alerts: the same switch per person, a switch for a whole branch at once, and a test email.
   router.get('/team/email', (_req, res) => res.json({ configured: emailConfigured(), senderSet: Boolean(process.env.EMAIL_FROM) }));
   router.put('/team/email-alerts/branch', async (req, res) => {

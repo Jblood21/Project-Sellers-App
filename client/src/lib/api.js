@@ -207,6 +207,15 @@ export const adminApi = {
   // on, and a test message to one person (answers { ok } or { ok: false, error }).
   // Email alerts to chosen team members when a new person signs in: whether email is set up, one person, a whole branch
   // at once, and a test email.
+  // Phone notifications: this person's own phones (any team member), and the owner's switch per person.
+  myPush: (token) => request('/api/admin/me/push', { token }),
+  pushSubscribe: (token, subscription) => request('/api/admin/me/push/subscribe', { method: 'POST', body: { subscription }, token }),
+  pushUnsubscribe: (token, endpoint) => request('/api/admin/me/push/unsubscribe', { method: 'POST', body: { endpoint }, token }),
+  pushTest: (token) => request('/api/admin/me/push/test', { method: 'POST', body: {}, token }),
+  pushCounts: (token) => request('/api/admin/team/push', { token }),
+  setPushAlerts: (token, id, enabled) =>
+    request(`/api/admin/team/${encodeURIComponent(id)}/push`, { method: 'PUT', body: { enabled }, token }),
+  testPushFor: (token, id) => request(`/api/admin/team/${encodeURIComponent(id)}/push/test`, { method: 'POST', body: {}, token }),
   emailStatus: (token) => request('/api/admin/team/email', { token }),
   setEmailAlerts: (token, id, enabled) =>
     request(`/api/admin/team/${encodeURIComponent(id)}/email-alerts`, { method: 'PUT', body: { enabled }, token }),

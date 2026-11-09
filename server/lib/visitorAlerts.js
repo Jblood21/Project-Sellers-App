@@ -1,9 +1,10 @@
 import { loadAccess } from './access.js';
 import { emailConfigured, sendEmail } from './email.js';
+import { pushToAdmin } from './push.js';
 import { dm, slackConfigured } from './slack.js';
 
 /**
- * Tells chosen team members, outside the app, when a new person signs in to a community or listing: by email and/or in
+ * Tells chosen team members, outside the app, when a new person signs in to a community or listing: by email, on their phone and/or in
  * Slack, whichever the owner switched on for them on the Team page. It is every new person, whether or not they have
  * booked a time. Only people who can open that community or listing hear about it (the owner always can).
  *
@@ -43,7 +44,7 @@ export function visitorEmail({ community, lead, baseUrl }) {
 }
 
 export async function alertNewVisitor({ store, community, lead, baseUrl }) {
-  const out = { email: 0, slack: 0 };
+  const out = { email: 0, slack: 0, push: 0 };
   try {
     if (emailConfigured()) {
       const { subject, text } = visitorEmail({ community, lead, baseUrl });
@@ -53,6 +54,17 @@ export async function alertNewVisitor({ store, community, lead, baseUrl }) {
         if (r.sent) out.email += 1;
         else console.warn(`Visitor email to ${admin.email} not sent: ${r.error || r.skipped}`);
       }
+    }
+    // Phones: a notification a tap away from that person's page.
+    const phones = await recipients(store, community, 'push_alerts');
+    if (phones.length) {
+      const payload = {
+        title: 'New visitor',
+        body: `${lead.name} just signed in to ${community.name}.`,
+        url: `/admin/communities/${community.id}/leads/${lead.id}`,
+        tag: `lead-${lead.id}`,
+      };
+      for (const admin of phones) out.push += (await pushToAdmin(store, admin.id, payload)).sent;
     }
     if (slackConfigured()) {
       const kind = community?.settings?.siteKind === 'listing' ? 'listing' : 'community';
