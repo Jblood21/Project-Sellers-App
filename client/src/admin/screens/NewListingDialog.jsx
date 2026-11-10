@@ -39,11 +39,13 @@ const rememberedAgent = () => {
  * Pressing Create again after a dropped signal asks the server for nothing twice: once the listing exists, a retry
  * only does the part that is left (the photo).
  */
-export default function NewListingDialog({ onClose }) {
+export default function NewListingDialog({ onClose, listings = [] }) {
   const { token } = useAdmin();
   const navigate = useNavigate();
   const [form, setForm] = useState({ address: '', city: '', price: '', beds: '', baths: '', sqft: '', brokerage: rememberedBrokerage(), agentName: '', agentPhone: '', agentEmail: '', license: '', ...rememberedAgent() });
   const [photo, setPhoto] = useState(null);
+  // Another of their listings to copy the look and setup from (its layout, colours, lender and agent), or '' to start fresh.
+  const [copyFrom, setCopyFrom] = useState('');
   // The agent's own details come from their account (Your details), so the form starts filled in; their face is the
   // one on the account too, and a new one picked here is saved there, which is where each new listing reads it from.
   const [profile, setProfile] = useState(null);
@@ -108,6 +110,7 @@ export default function NewListingDialog({ onClose }) {
         const body = { address: form.address.trim(), city: form.city.trim(), brokerage: form.brokerage.trim() };
         for (const key of ['price', ...COUNT_FIELDS]) body[key] = readNumber(form[key], HOME_NUMBER_RULES[key]).value ?? '';
         for (const key of AGENT_FIELDS) body[key] = form[key].trim();
+        if (copyFrom) body.copyFrom = copyFrom;
         created.current = await adminApi.createListing(token, body);
         writeJson(BROKERAGE_KEY, form.brokerage.trim());
         writeJson(AGENT_KEY, Object.fromEntries(AGENT_FIELDS.map((key) => [key, form[key].trim()])));
@@ -141,6 +144,20 @@ export default function NewListingDialog({ onClose }) {
         </>
       }
     >
+      {listings.length ? (
+        <label style={{ display: 'grid', gap: 4 }}>
+          <span style={{ fontWeight: 600 }}>Start from</span>
+          <select className="input" value={copyFrom} onChange={(event) => setCopyFrom(event.target.value)}>
+            <option value="">A new listing</option>
+            {listings.map((item) => <option key={item.id} value={item.id}>Copy of {item.name}</option>)}
+          </select>
+          <span className="text-muted" style={{ fontSize: 13 }}>
+            {copyFrom
+              ? 'Copies its look, layout, lender and tools. Its open houses, MLS number and photos start empty. Type the new address and price below.'
+              : 'Or copy one you already made, so you do not set it all up again.'}
+          </span>
+        </label>
+      ) : null}
       <CheckedField
         id="listing-address" label="Address" value={form.address} placeholder="e.g. 123 Maple Street"
         onChange={set('address')} onBlur={() => leave('address')} error={problemOf('address')} autoComplete="off"

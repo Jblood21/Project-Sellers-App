@@ -1591,3 +1591,57 @@ export function sortLeads(leads = [], sort = DEFAULT_LEAD_SORT) {
 export function countPendingTours(leads = []) {
   return leads.filter(isTourPending).length;
 }
+
+// ── how warm a person is, and when to contact them next ─────────────────────────────────────────────────────────
+
+/** How the team judges a person: what the Leads page offers, hottest first. A blank is "not judged yet". */
+export const INTEREST_LEVELS = [
+  { key: 'hot', label: 'Hot', hint: 'Ready or close to it' },
+  { key: 'warm', label: 'Warm', hint: 'Interested, not in a hurry' },
+  { key: 'cold', label: 'Cold', hint: 'Just looking' },
+  { key: 'not_interested', label: 'Not interested', hint: 'Said no or does not fit' },
+];
+
+export function isInterest(value) {
+  return INTEREST_LEVELS.some((level) => level.key === value);
+}
+
+export function interestLabel(value) {
+  return INTEREST_LEVELS.find((level) => level.key === value)?.label ?? '';
+}
+
+/** A day as the date boxes write it, YYYY-MM-DD, and a real one (not the 31st of February). */
+export function isDay(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * Somebody the team planned to contact by `today` (YYYY-MM-DD, the viewer's own day) or earlier. Closed people and
+ * those marked not interested never count: nobody is waiting on them.
+ */
+export function isFollowUpDue(lead, today) {
+  return Boolean(
+    lead?.followUpOn && lead.followUpOn <= today && !lead.archivedAt && lead.interest !== 'not_interested',
+  );
+}
+
+// ── a showing asked for on a listing ────────────────────────────────────────────────────────────────────────────
+
+/** What a buyer can ask for on a listing: a day and a part of it. The agent answers with an exact time. */
+export const SHOWING_PARTS = ['Morning', 'Afternoon', 'Evening', 'Any time'];
+
+/** What the agent can answer a showing request with. */
+export const SHOWING_ANSWERS = ['confirmed', 'declined', 'suggested'];
+
+/** Asked for and not answered yet, by somebody the team has not closed. */
+export function isShowingPending(lead) {
+  return Boolean(lead?.showing && !lead.showing.response && !lead.archivedAt);
+}
+
+export function describeShowing(showing) {
+  if (!showing) return '';
+  const when = [showing.date ? formatSlotDate(showing.date) : '', showing.part || ''].filter(Boolean).join(' · ');
+  return when || 'No day given';
+}

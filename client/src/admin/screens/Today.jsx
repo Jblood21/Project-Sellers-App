@@ -16,6 +16,7 @@ import { LoadError, Spinner } from '../ui.jsx';
 import ActivityRows from './ActivityRows.jsx';
 import NewCommunityDialog from './NewCommunityDialog.jsx';
 import NewListingDialog from './NewListingDialog.jsx';
+import AgentQueues from './AgentQueues.jsx';
 import ReadyToCall from './ReadyToCall.jsx';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -196,7 +197,7 @@ export default function Today() {
     let cancelled = false;
     setRetrying(true);
     adminApi
-      .today(token)
+      .today(token, new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10))
       .then((next) => {
         if (cancelled) return;
         setData(next);
@@ -396,6 +397,8 @@ export default function Today() {
             </>
           )}
 
+          <AgentQueues showings={data.showings} followUps={data.followUps} />
+
           <h2 className="as-section-title" id="ready" style={onlyListings ? { marginTop: 28 } : undefined}>{onlyListings ? 'Visitors to follow up' : 'Agreed to calls, no call booked'}</h2>
           <p className="text-muted" style={{ fontSize: 14, margin: '-4px 0 10px' }}>
             {onlyListings ? 'They signed in, gave a number and said yes to calls and texts. ' : 'They said yes to calls and texts and gave a number, but have not asked for a time. '}Open one to see them in{' '}
@@ -406,7 +409,7 @@ export default function Today() {
       ) : null}
 
       {creating ? <NewCommunityDialog onClose={closeNew} /> : null}
-      {creatingListing ? <NewListingDialog onClose={closeNew} /> : null}
+      {creatingListing ? <NewListingDialog onClose={closeNew} listings={listings.map((entry) => entry.listing)} /> : null}
     </AdminShell>
   );
 }

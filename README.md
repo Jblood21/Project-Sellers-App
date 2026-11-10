@@ -773,6 +773,14 @@ starts so an idle one is awake for the 6 seconds. If the browser is killed in th
 picture is still there afterwards: the safe way to be wrong.
 The delete and move buttons are 44 px and sit under the picture, with space between them, not on it.
 
+## Working your people (agents)
+
+Every person on a community or a listing carries, beside the notes box ("What they want and like"), how interested they are (Hot, Warm, Cold, Not interested) and a day to follow up. The team sees these on the Leads list; a buyer never does (`publicLead` is a whitelist). Today lists everyone whose follow-up day has come, oldest first, by the viewer's own day (`/today?day=YYYY-MM-DD`); closed people and those marked Not interested never list.
+
+On a listing, "Request a showing" has a form: a day, a part of it and a word to the agent (`POST /me/showing`; one open request at a time, a number is asked for if they signed in without one). The people chosen for new-visitor alerts get an email and a phone notification. The agent answers on the person's page: Confirm a time (the buyer is emailed with a calendar invite), Suggest another time, or Decline. Email needs `RESEND_API_KEY` and `EMAIL_FROM`; without it the answer is saved and shown in the app but nothing is emailed. Call and Text buttons on Today appear only for people who agreed to calls and texts.
+
+"New listing" can start from one of the agent's own listings (`copyFrom`): its layout, colours, lender and tools are copied; open houses, MLS number and photos are not.
+
 ## Listings: one home, for an agent
 
 A **listing** is a single home an agent is selling, with its open houses. It is the same app (same tables, leads, themes, layouts,
