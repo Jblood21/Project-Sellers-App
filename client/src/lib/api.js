@@ -153,6 +153,9 @@ export const buyerApi = {
   // One whole guide, body included. The community payload carries only the summaries.
   guide: (communityId, slug) =>
     request(`/api/c/${encodeURIComponent(communityId)}/guides/${encodeURIComponent(slug)}`),
+  // Ask to see a listing: a day, a part of it and a word to the agent. Answers the buyer's own record, with the
+  // agent's answer on it once there is one.
+  requestShowing: (token, body) => request('/api/me/showing', { method: 'POST', body, token }),
   requestTour: (token, slotId, contact, topic = 'community', extra = {}) =>
     request('/api/me/tour', { method: 'POST', body: { slotId, contact, topic, ...extra }, token }),
   // The "Find out if you qualify" message, sent for the buyer. The server chooses who it goes to.
@@ -259,7 +262,8 @@ export const adminApi = {
     return request(`/api/admin/activity?${query}`, { token });
   },
   communities: (token) => request('/api/admin/communities', { token }),
-  today: (token) => request('/api/admin/today', { token }),
+  // `day` is the viewer's own day (YYYY-MM-DD), so follow-ups come due by their clock and not the server's.
+  today: (token, day) => request(`/api/admin/today${day ? `?day=${encodeURIComponent(day)}` : ''}`, { token }),
   community: (token, id) => request(`/api/admin/communities/${encodeURIComponent(id)}`, { token }),
   createCommunity: (token, body) => request('/api/admin/communities', { method: 'POST', body, token }),
   // A listing: one home an agent is selling, made with its home in one step. Answers the community with `homes: [home]`.

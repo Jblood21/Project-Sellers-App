@@ -1135,7 +1135,7 @@ export function createFileStore(path) {
       const row = db.leads.find((l) => l.id === id);
       if (!row) return null;
       for (const key of [
-        'name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds', 'extraEmails', 'openedAt', 'archivedAt',
+        'name', 'phone', 'status', 'notes', 'tour', 'savedHomeIds', 'extraEmails', 'interest', 'followUpOn', 'showing', 'openedAt', 'archivedAt',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }

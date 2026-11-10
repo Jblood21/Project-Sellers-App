@@ -3,7 +3,7 @@ import { Router } from 'express';
 import {
   CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, incentiveWritten, isSafeEmail,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
-  TOUR_TOPICS,
+  TOUR_TOPICS, isDay, SHOWING_PARTS, describeShowing,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
   PLAN_LABELS, TOOL_KEYS,
 } from '../../shared/domain.js';
@@ -14,7 +14,7 @@ import { clientKey, createLimiter, limitRequests, mailboxKey, reserve, tooMany }
 import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } from '../lib/params.js';
 import { emailConfigured } from '../lib/email.js';
 import { emailLoanTeam, notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
-import { alertNewVisitor } from '../lib/visitorAlerts.js';
+import { alertNewVisitor, alertShowingRequest } from '../lib/visitorAlerts.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { askedWidth, sizedPhoto } from '../lib/photoSizes.js';
 import { sendVideo } from '../lib/video.js';
@@ -54,6 +54,18 @@ export const publicLead = (lead) => (lead ? {
       contact: lead.tour.contact,
       topic: lead.tour.topic,
       requestedAt: lead.tour.requestedAt,
+    }
+    : null,
+  // What they asked for on a listing and the agent's answer, so the app can show "Confirmed for Sat at 10:00".
+  showing: lead.showing
+    ? {
+      date: lead.showing.date, part: lead.showing.part, message: lead.showing.message, requestedAt: lead.showing.requestedAt,
+      response: lead.showing.response
+        ? {
+          status: lead.showing.response.status, date: lead.showing.response.date, time: lead.showing.response.time,
+          message: lead.showing.response.message, at: lead.showing.response.at,
+        }
+        : null,
     }
     : null,
   consent: lead.consent ? { granted: Boolean(lead.consent.granted), at: lead.consent.at ?? null } : null,
@@ -612,6 +624,39 @@ export function publicRouter() {
     // Booking switched off: nothing is on offer, whatever times are published (they are kept).
     if (!community || community.features.booking === false) return res.json([]);
     res.json(await store.listOpenSlots(community.id));
+  });
+
+
+  // Asking to see a listing: a day, a part of it and a word to the agent. One open request at a time, so asking
+  // again replaces the last (and clears any answer to it). The agent answers from the lead's page.
+  const showingsPerLead = createLimiter({ windowMs: 60 * 60 * 1000, max: 8 });
+  router.post('/me/showing', requireLead, limitRequests((req) => [[showingsPerLead, req.leadId]], 'showing requests'), async (req, res) => {
+    const store = await getStore();
+    const buyer = await store.getLead(req.leadId);
+    if (!buyer) return res.status(404).json({ error: 'We couldn’t find your plan. Reload the page and sign in again.' });
+    const community = await store.getCommunity(buyer.communityId);
+    if (!community) return res.status(404).json({ error: 'That home is no longer available.' });
+    const date = String(req.body?.date ?? '').trim();
+    if (!isDay(date)) return res.status(400).json({ error: 'Pick the day you would like to see it.' });
+    const today = new Date().toISOString().slice(0, 10);
+    if (date < today) return res.status(400).json({ error: 'Pick a day that has not passed.' });
+    const part = SHOWING_PARTS.includes(req.body?.part) ? req.body.part : 'Any time';
+    const message = stripControlCharacters(String(req.body?.message ?? '')).trim().slice(0, 600);
+    // The agent has to be able to reach them to answer: a number is asked for here as it is when booking a time.
+    let newPhone = '';
+    if (!buyer.phone) {
+      const given = String(req.body?.phone ?? '').trim();
+      if ((given.match(/\d/g) || []).length < 7 || given.length > FIELD_MAX.phone || hasControlCharacter(given)) {
+        return res.status(400).json({ error: 'To set up a showing, we need a number the agent can reach you on.' });
+      }
+      newPhone = given;
+    }
+    const showing = { date, part, message, requestedAt: new Date().toISOString(), response: null };
+    const reopen = buyer.archivedAt ? { archivedAt: null } : {};
+    const lead = await store.updateLead(req.leadId, { showing, ...reopen, ...(newPhone ? { phone: newPhone } : {}) });
+    await store.addActivity(req.leadId, `Asked to see the home: ${describeShowing(showing)}`);
+    alertShowingRequest({ store, community, lead, showing, baseUrl: linkOriginOf(req) }).catch(() => {});
+    res.json(publicLead(lead));
   });
 
   router.post('/me/tour', requireLead, limitRequests((req) => [[toursPerLead, req.leadId]], 'booking attempts'), async (req, res) => {

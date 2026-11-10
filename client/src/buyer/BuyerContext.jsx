@@ -68,6 +68,7 @@ const PREVIEW_ACTIONS = Object.freeze({
   saveMoveIn: nothingAsync,
   emailPlan: async () => null,
   requestTour: async () => false,
+  requestShowing: async () => false,
   tutorialSeen: () => true,
   markTutorialSeen: nothing,
 });
@@ -323,6 +324,22 @@ export function BuyerProvider({ communityId, preview = null, children }) {
     [showToast, token],
   );
 
+  /** Returns true when the request went to the agent, so the form knows to show it as sent. */
+  const requestShowing = useCallback(
+    async (body) => {
+      if (!token) return false;
+      try {
+        setLead(await buyerApi.requestShowing(token, body));
+        showToast('Sent. The agent will answer you');
+        return true;
+      } catch (err) {
+        showToast(err.message);
+        return false;
+      }
+    },
+    [showToast, token],
+  );
+
   // What the screens are given: the community as loaded or, in the preview, wearing the look being tried on.
   // For a buyer it is the loaded object itself, so nothing below sees a difference.
   const shown = useMemo(() => (preview && community ? wearing(community, preview) : community), [community, preview]);
@@ -362,6 +379,7 @@ export function BuyerProvider({ communityId, preview = null, children }) {
       savePlan,
       saveMoveIn,
       requestTour,
+      requestShowing,
       emailPlan,
       tutorialSeen: () => Boolean(readJson(tutorialKey(communityId))),
       markTutorialSeen: () => writeJson(tutorialKey(communityId), true),
@@ -369,7 +387,7 @@ export function BuyerProvider({ communityId, preview = null, children }) {
       ...(previewing ? { ...PREVIEW_ACTIONS, signedIn: true, lead: PREVIEW_LEAD } : null),
     }),
     [
-      communityId, emailPlan, enter, lead, loadError, loading, previewing, requestTour, savePlan,
+      communityId, emailPlan, enter, lead, loadError, loading, previewing, requestShowing, requestTour, savePlan,
       planSaves, saveMoveIn, setTool, showToast, shown, toast, toggleSave, token, toolOpened, tools, track,
     ],
   );

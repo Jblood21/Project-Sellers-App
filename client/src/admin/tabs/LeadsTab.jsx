@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
-  LEAD_SORTS, countPendingTours, describeTour, isArchived, isReadyToCall, isTourPending, isUnread, lenderNameOf, sortLeads, toolsUsedOf,
+  LEAD_SORTS, countPendingTours, describeShowing, describeTour, interestLabel, isArchived, isFollowUpDue, isReadyToCall, isShowingPending, isTourPending, isUnread, lenderNameOf, sortLeads, toolsUsedOf,
 } from '@shared/domain.js';
 import { emailHref, textHref } from '../../lib/contact.js';
 import { shortDate } from '../../lib/format.js';
@@ -38,6 +38,8 @@ export default function LeadsTab({
   // Pills that would only ever read zero are not shown at all — an empty filter
   // is one more thing to scan past for no information.
   const everyone = leads ?? [];
+  // The viewer's own day, for "follow up today".
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const pendingTours = countPendingTours(everyone);
   const unread = everyone.filter((lead) => isUnread(lead) && !isArchived(lead)).length;
   const archived = everyone.filter(isArchived).length;
@@ -183,6 +185,9 @@ export default function LeadsTab({
                     {lead.consent?.granted ? null : (
                       <span className="as-chip as-chip--stop">Do not call · {lead.consent ? 'declined' : 'never asked'}</span>
                     )}
+                    {isShowingPending(lead) ? <span className="as-chip as-chip--call">🏠 Showing request · {describeShowing(lead.showing)}</span> : null}
+                    {lead.interest ? <span className={`as-chip${lead.interest === 'hot' ? ' as-chip--call' : ''}`}>{interestLabel(lead.interest)}</span> : null}
+                    {isFollowUpDue(lead, today) ? <span className="as-chip as-chip--late">Follow up{lead.followUpOn < today ? ' · overdue' : ' today'}</span> : null}
                     {lead.status === 'contacted' ? <span className="as-chip">Contacted</span> : null}
                     {isArchived(lead) ? <span className="as-chip">Archived</span> : null}
                   </span>
@@ -191,6 +196,7 @@ export default function LeadsTab({
                     {lead.phone && lead.email ? ' · ' : null}
                     {lead.email}
                   </span>
+                  {lead.notes ? <span className="as-lead__line" style={{ fontStyle: 'italic' }}>{lead.notes.length > 90 ? `${lead.notes.slice(0, 90)}…` : lead.notes}</span> : null}
                   <span className="as-lead__meta">
                     {plural(toolsUsedOf(lead).length, 'tool')} used · ★ {lead.savedHomeIds.length} saved · {plural(lead.activityCount ?? 0, 'action')} ·{' '}
                     {shortDate(lead.firstVisitAt)}

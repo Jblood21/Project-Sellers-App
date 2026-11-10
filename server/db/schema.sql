@@ -405,6 +405,11 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 -- One more email a buyer can add (a spouse, a co-buyer): it gets the plan too and is shown to the team.
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS extra_emails JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- How warm the team judges the person (hot, warm, cold, not_interested; blank = not judged yet), the day they plan to
+-- contact them next (YYYY-MM-DD), and a showing the person asked for on a listing with the agent's answer.
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS interest TEXT NOT NULL DEFAULT '';
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_on TEXT NOT NULL DEFAULT '';
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS showing JSONB;
 
 -- Email alone no longer identifies a person: two people who share an address are
 -- two leads, and only name + email + phone together mean "the same buyer" (see

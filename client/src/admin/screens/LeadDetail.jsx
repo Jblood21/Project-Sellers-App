@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { telHref } from '@shared/compliance.js';
 import {
   formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS,
-  describeTour, isTourPending, lenderNameOf, toolAnswerOf, toolsUsedOf,
+  describeTour, INTEREST_LEVELS, isTourPending, lenderNameOf, toolAnswerOf, toolsUsedOf,
 } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -13,6 +13,15 @@ import { money, shortDate } from '../../lib/format.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { isListing } from '../listing.js';
 import { ErrorNote, LoadError, SaveNote, Spinner, useSaving } from '../ui.jsx';
+import ShowingCard from './ShowingCard.jsx';
+
+/** The day `days` from now as the date box writes it (the viewer's own day, not the server's). */
+function dayFromNow(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 /**
  * One person. `embedded` is the panel beside the Leads list on a computer: no page frame of its own, and a
@@ -40,6 +49,8 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
   const statusSaver = useSaving();
   const archiveSaver = useSaving();
   const notesSaver = useSaving();
+  const interestSaver = useSaving();
+  const followSaver = useSaving();
   const [downloading, setDownloading] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
@@ -280,6 +291,68 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         <SaveNote saver={statusSaver} />
       </div>
 
+      {lead.showing ? (
+        <ShowingCard lead={lead} onAnswer={(showingResponse) => apply({ showingResponse })} />
+      ) : null}
+
+      <div className="card" style={{ gap: 10, marginBottom: 12 }}>
+        <span className="card-kicker">Where they are</span>
+        <div role="group" aria-label="How interested they are" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {INTEREST_LEVELS.map((level) => (
+            <button
+              key={level.key} type="button" title={level.hint}
+              className={lead.interest === level.key ? 'btn btn-primary' : 'btn btn-secondary'}
+              aria-pressed={lead.interest === level.key}
+              onClick={() => interestSaver.run(() => apply({ interest: lead.interest === level.key ? '' : level.key }))}
+              aria-disabled={interestSaver.saving || undefined}
+            >
+              {level.label}
+            </button>
+          ))}
+        </div>
+        <SaveNote saver={interestSaver} />
+
+        <label style={{ display: 'grid', gap: 4, fontSize: 14 }}>
+          Follow up on
+          <input
+            className="input" type="date" value={lead.followUpOn || ''} style={{ maxWidth: 220 }}
+            onChange={(event) => followSaver.run(() => apply({ followUpOn: event.target.value }))}
+          />
+        </label>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[['Tomorrow', 1], ['In 3 days', 3], ['Next week', 7], ['In a month', 30]].map(([label, days]) => (
+            <button
+              key={label} type="button" className="btn btn-ghost"
+              onClick={() => followSaver.run(() => apply({ followUpOn: dayFromNow(days) }))}
+              aria-disabled={followSaver.saving || undefined}
+            >
+              {label}
+            </button>
+          ))}
+          {lead.followUpOn ? (
+            <button type="button" className="btn btn-ghost" onClick={() => followSaver.run(() => apply({ followUpOn: '' }))}>Clear</button>
+          ) : null}
+        </div>
+        <SaveNote saver={followSaver} />
+
+        <label style={{ display: 'grid', gap: 4, fontSize: 14 }}>
+          What they want and like
+          <textarea
+            className="input" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)}
+            placeholder="e.g. Wants a big yard, pre-approved, call after 5pm, not sure about the area"
+          />
+        </label>
+        <ErrorNote>{error}</ErrorNote>
+        <button
+          type="button" className="btn btn-secondary" onClick={saveNotes}
+          disabled={notes === lead.notes} aria-disabled={notesSaver.saving || undefined}
+          style={{ alignSelf: 'flex-start' }}
+        >
+          {notesSaver.saving ? 'Saving…' : notesSaved ? 'Saved ✓' : 'Save notes'}
+        </button>
+        <SaveNote saver={notesSaver} />
+      </div>
+
       <div className="card" style={{ gap: 8, marginBottom: 12 }}>
         <span className="card-kicker">Homes they like</span>
         {savedHomes.length === 0 ? (
@@ -324,22 +397,6 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         ))}
       </div>
 
-      <div className="card" style={{ gap: 8 }}>
-        <span className="card-kicker">Notes</span>
-        <textarea
-          className="input" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)}
-          placeholder="e.g. Prefers a corner lot, call after 5pm"
-        />
-        <ErrorNote>{error}</ErrorNote>
-        <button
-          type="button" className="btn btn-secondary" onClick={saveNotes}
-          disabled={notes === lead.notes} aria-disabled={notesSaver.saving || undefined}
-          style={{ alignSelf: 'flex-start' }}
-        >
-          {notesSaver.saving ? 'Saving…' : notesSaved ? 'Saved ✓' : 'Save notes'}
-        </button>
-        <SaveNote saver={notesSaver} />
-      </div>
       <div className="card elev-sm" style={{ gap: 8 }}>
         <span className="card-kicker">Report for this person</span>
         <p className="card-body" style={{ margin: 0 }}>

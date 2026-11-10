@@ -9,6 +9,7 @@ import { ArrowUp, ChevronLeft, Menu } from '../components/Icons.jsx';
 import { photoImgProps } from '../components/Photo.jsx';
 import { useBuyer } from './BuyerContext.jsx';
 import CommunityMark from './CommunityMark.jsx';
+import ShowingRequest from './ShowingRequest.jsx';
 import { rootLabel, rootPath } from './listingNav.js';
 import { canTalkFinancing } from './reach.js';
 import TextAction from './TextAction.jsx';
@@ -522,6 +523,7 @@ export function TourDialog({ topic, onClose }) {
 
         {showPeople ? (
           <>
+            {isListing && !lender ? <ShowingRequest /> : null}
             {intro ? <span style={{ fontSize: 13.5, color: 'var(--t-mut)', lineHeight: 1.5 }}>{intro}</span> : null}
             {people.length ? (
               <div className="b-reach__list">

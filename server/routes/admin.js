@@ -26,8 +26,9 @@ import { emailConfigured, sendEmail } from '../lib/email.js';
 import { buildReport, emailReport, reportDay } from '../lib/report.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { buildMismo34, mismoFilename } from '../lib/mismo.js';
+import { showingAnswerEmail, showingInvite } from '../lib/showing.js';
 import {
-  DEFAULT_LEAD_SORT, LEAD_SORTS, describeTour, isReadyToCall, isTourPending, isUnread, lenderNameOf,
+  DEFAULT_LEAD_SORT, LEAD_SORTS, SHOWING_ANSWERS, describeTour, isDay, isFollowUpDue, isInterest, isReadyToCall, isShowingPending, isTourPending, isUnread, lenderNameOf,
 } from '../../shared/domain.js';
 import { loadLenderBrand } from '../lib/lenderBrand.js';
 import { PERIODS, buildLeadsPdf, buildUserPdf } from '../lib/pdfReports.js';
@@ -1299,6 +1300,11 @@ export function adminRouter() {
     const communities = [];
     const calls = [];
     const ready = [];
+    // People to follow up by the viewer's own day (the page sends it, since a server in another time zone would
+    // call a day overdue too early or late), and showing requests nobody has answered yet.
+    const day = isDay(req.query?.day) ? req.query.day : now.toISOString().slice(0, 10);
+    const followUps = [];
+    const showings = [];
     // Filtered before anything is counted, so a member's totals, calls and ready list are drawn only from the
     // communities shared with them: the page must not hint at people in a community they cannot open.
     for (const row of (await store.listCommunities()).filter((c) => canAccess(req.access, c.id))) {
@@ -1317,6 +1323,13 @@ export function adminRouter() {
         });
       }
       const listingHome = isListing(community) ? (await store.listHomes(community.id))[0] : null;
+      for (const lead of report.leads) {
+        const base = { communityId: community.id, communityName: community.name, leadId: lead.id, name: lead.name, phone: lead.phone || '',
+          // Only somebody who agreed to calls and texts is offered a Call or Text button, as on every other list.
+          canCall: Boolean(lead.phone && lead.consent?.granted) };
+        if (isFollowUpDue(lead, day)) followUps.push({ ...base, followUpOn: lead.followUpOn, interest: lead.interest, overdue: lead.followUpOn < day });
+        if (isShowingPending(lead)) showings.push({ ...base, date: lead.showing.date, part: lead.showing.part, requestedAt: lead.showing.requestedAt });
+      }
       const agreed = report.leads.filter(isReadyToCall);
       for (const lead of agreed) {
         ready.push({
@@ -1364,6 +1377,9 @@ export function adminRouter() {
       branches,
       calls: calls.slice(0, 30).map(({ key, ...call }) => call),
       ready: ready.slice(0, READY_LISTED).map(({ firstVisitAt, ...person }) => person),
+      // Oldest day first, so what has waited longest is at the top; showings by the day they ask for.
+      followUps: followUps.sort((a, b) => a.followUpOn.localeCompare(b.followUpOn)).slice(0, 100),
+      showings: showings.sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(0, 100),
       totals: {
         communities: communities.length, people: sum('people'), unread: sum('unread'), waiting: sum('waiting'), overdue: sum('overdue'),
         ready: sum('ready'), readyNew: sum('readyNew'),
@@ -1386,6 +1402,14 @@ export function adminRouter() {
     const numbers = readHomeNumbers(req.body);
     if (numbers.error) return res.status(400).json({ error: numbers.error });
     const store = await getStore();
+    // Checked first, so a bad copy request leaves nothing half-built.
+    let source = null;
+    if (req.body?.copyFrom) {
+      source = await store.getCommunity(String(req.body.copyFrom));
+      if (!source || !isListing(source) || !canAccess(req.access, source.id)) {
+        return res.status(400).json({ error: 'Pick one of your own listings to copy.' });
+      }
+    }
     // The agent's details start from their account profile (see /me/profile); what the form sends wins, and is kept for next time.
     const me = await store.getAdminById(req.admin.sub);
     const mine = profileView(me);
@@ -1428,6 +1452,16 @@ export function adminRouter() {
         if (face?.data && face.contentType) {
           await store.addPhoto({ communityId: made.id, agentId: agent.id, kind: 'agent', contentType: face.contentType, data: face.data });
         }
+      }
+      // A copy of another listing of theirs: its look and setup carry over, but nothing that belongs to that one home
+      // (its open houses, MLS number or report history). The new address, price and details come from the form.
+      if (source) {
+        const own = new Set(['siteKind', 'openHousesJson', 'mlsNumber', 'reportLastSentAt', 'agentLicense']);
+        const carried = Object.fromEntries(Object.entries(source.settings ?? {}).filter(([key]) => !own.has(key)));
+        community = await store.updateCommunity(made.id, {
+          settings: { ...community.settings, ...carried },
+          theme: source.theme, layout: source.layout, tools: source.tools, features: source.features,
+        });
       }
       home = await store.createHome(community.id, {
         name: address,
@@ -2641,6 +2675,45 @@ export function adminRouter() {
       patch.notes = String(req.body.notes).slice(0, 4000);
       did.push('changed the notes');
     }
+    // How warm they are and when to contact them next. Blank clears either; anything else must be a real choice, so a
+    // stray value never reaches a list. The day is a plain YYYY-MM-DD: the team's own day, not a moment in time.
+    if (req.body?.interest !== undefined) {
+      if (req.body.interest !== '' && !isInterest(req.body.interest)) return res.status(400).json({ error: 'Pick how interested they are from the list.' });
+      patch.interest = req.body.interest;
+      did.push(patch.interest ? `marked ${patch.interest.replace('_', ' ')}` : 'cleared how interested they are');
+    }
+    if (req.body?.followUpOn !== undefined) {
+      if (req.body.followUpOn !== '' && !isDay(req.body.followUpOn)) return res.status(400).json({ error: 'Pick a real day to follow up.' });
+      patch.followUpOn = req.body.followUpOn;
+      did.push(patch.followUpOn ? `set a follow-up for ${patch.followUpOn}` : 'cleared the follow-up');
+    }
+    // Answering a showing request: confirm a time, suggest another, or decline. The buyer is emailed (a confirmed time
+    // comes with a calendar invite) and the answer is kept on the request, so the app can show it.
+    let answered = null;
+    if (req.body?.showingResponse !== undefined) {
+      const sent = req.body.showingResponse;
+      if (!lead.showing) return res.status(400).json({ error: 'They have not asked to see the home.' });
+      if (!SHOWING_ANSWERS.includes(sent?.status)) return res.status(400).json({ error: 'Choose confirm, decline or suggest another time.' });
+      const response = {
+        status: sent.status,
+        date: String(sent.date ?? '').slice(0, 10),
+        time: String(sent.time ?? '').slice(0, 5),
+        message: String(sent.message ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 600),
+        at: new Date().toISOString(),
+      };
+      if (response.status !== 'declined') {
+        if (!isDay(response.date)) return res.status(400).json({ error: 'Pick the day.' });
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(response.time)) return res.status(400).json({ error: 'Pick the time.' });
+      } else {
+        response.date = '';
+        response.time = '';
+      }
+      patch.showing = { ...lead.showing, response };
+      // Answering is contacting them.
+      if (lead.status === 'new') patch.status = 'contacted';
+      did.push(`${{ confirmed: 'confirmed', declined: 'declined', suggested: 'suggested another time for' }[response.status]} the showing`);
+      answered = response;
+    }
     // Archiving is reversible and never deletes: a buyer who went quiet this
     // spring is the same buyer who calls back in the autumn.
     if (req.body?.archived !== undefined) {
@@ -2658,7 +2731,22 @@ export function adminRouter() {
     }
     const updated = await store.updateLead(lead.id, patch);
     await recordActivity(store, req, { communityId: lead.communityId, action: 'lead.updated', subject: lead.name, detail: did.join(', ') });
-    res.json(updated);
+    let emailed = null;
+    if (answered) {
+      await store.addActivity(lead.id, `Showing ${answered.status}${answered.date ? ` for ${answered.date}${answered.time ? ` ${answered.time}` : ''}` : ''}`);
+      const community = await store.getCommunity(lead.communityId);
+      const agent = (await store.listAgents(lead.communityId))[0];
+      const mail = showingAnswerEmail({ lead, community, agentName: agent?.name, agentPhone: agent?.phone, response: answered });
+      const invite = answered.status === 'confirmed'
+        ? showingInvite({ uid: `${lead.id}-${answered.date}-${answered.time}`, date: answered.date, time: answered.time, address: community?.name, agentName: agent?.name })
+        : null;
+      const result = await sendEmail({
+        to: lead.email, ...mail, replyTo: agent?.email || undefined,
+        ...(invite ? { attachments: [{ filename: 'showing.ics', content: Buffer.from(invite).toString('base64') }] } : {}),
+      });
+      emailed = result.sent ? 'sent' : (result.skipped || result.error || 'not sent');
+    }
+    res.json(emailed === null ? updated : { ...updated, emailed });
   });
 
   return router;
