@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { telHref } from '@shared/compliance.js';
 import {
-  LEAD_SORTS, countPendingTours, describeShowing, describeTour, interestLabel, isArchived, isFollowUpDue, isReadyToCall, isShowingPending, isTourPending, isUnread, lenderNameOf, sortLeads, toolsUsedOf,
+  LEAD_SORTS, countPendingTours, describeShowing, describeTour, formatSlotDate, formatSlotTime, interestLabel, isArchived, isFollowUpDue, isReadyToCall, isShowingPending, isTourPending, isUnread, lenderNameOf, sortLeads, toolsUsedOf,
 } from '@shared/domain.js';
 import { emailHref, textHref } from '../../lib/contact.js';
 import { shortDate } from '../../lib/format.js';
@@ -31,7 +31,7 @@ export default function LeadsTab({
   const people = listing ? 'visitors' : 'people';
   // A link from the Today page can say which people to show first (?show=ready or ?show=tour).
   const [params] = useSearchParams();
-  const [chosen, setFilter] = useState(() => (['unread', 'tour', 'ready', 'closed'].includes(params.get('show')) ? params.get('show') : 'active'));
+  const [chosen, setFilter] = useState(() => (['unread', 'tour', 'ready', 'showing', 'followup', 'closed'].includes(params.get('show')) ? params.get('show') : 'active'));
   const [sort, setSort] = useState('recent');
   const [reportsOpen, setReportsOpen] = useState(false);
 
@@ -44,10 +44,14 @@ export default function LeadsTab({
   const unread = everyone.filter((lead) => isUnread(lead) && !isArchived(lead)).length;
   const archived = everyone.filter(isArchived).length;
   const agreed = everyone.filter(isReadyToCall).length;
+  // Showing requests nobody has answered, and people whose follow-up day has come.
+  const showings = everyone.filter(isShowingPending).length;
+  const followUps = everyone.filter((lead) => isFollowUpDue(lead, today)).length;
   // The filter in use. If the one chosen has nobody left (the last unread person was opened, the last call was
   // handled, the last closed person was brought back), its pill is gone and so is it: back to Active, never an
   // empty list with nothing highlighted.
   const filter = (chosen === 'unread' && !unread) || (chosen === 'tour' && !pendingTours) || (chosen === 'ready' && !agreed)
+    || (chosen === 'showing' && !showings) || (chosen === 'followup' && !followUps)
     || (chosen === 'closed' && !archived)
     ? 'active'
     : chosen;
@@ -63,14 +67,25 @@ export default function LeadsTab({
     else if (filter === 'tour') out = out.filter(isTourPending);
     // Agreed to calls and gave a number, but no call waiting; the person on screen stays, as with Unread.
     else if (filter === 'ready') out = out.filter((lead) => isReadyToCall(lead) || lead.id === leadId);
+    else if (filter === 'showing') out = out.filter((lead) => isShowingPending(lead) || lead.id === leadId);
+    else if (filter === 'followup') out = out.filter((lead) => isFollowUpDue(lead, today) || lead.id === leadId);
     const q = query.trim().toLowerCase();
     if (q) out = out.filter((lead) => `${lead.name} ${lead.email} ${lead.phone || ''}`.toLowerCase().includes(q));
     return sortLeads(out, sort);
-  }, [filter, leadId, leads, query, sort]);
+  }, [filter, leadId, leads, query, sort, today]);
 
   if (!leads) return <Spinner label="Loading leads…" />;
 
   const lender = lenderNameOf(community);
+  const showOptions = [
+    { value: 'active', label: 'Active' },
+    ...(showings ? [{ value: 'showing', label: `🏠 Showing ${showings}` }] : []),
+    ...(followUps ? [{ value: 'followup', label: `Follow up ${followUps}` }] : []),
+    ...(unread ? [{ value: 'unread', label: `Unread ${unread}` }] : []),
+    ...(pendingTours ? [{ value: 'tour', label: `📞 ${pendingTours}` }] : []),
+    ...(agreed ? [{ value: 'ready', label: `${listing ? 'OK to call' : 'Agreed, no call'} ${agreed}` }] : []),
+    ...(archived ? [{ value: 'closed', label: `Closed ${archived}` }] : []),
+  ];
 
   return (
     <div className={`as-leads${leadId ? ' has-detail' : ''}`}>
@@ -89,32 +104,31 @@ export default function LeadsTab({
               <NavIcon name="doc" size={16} /> Reports
             </button>
           </div>
-          <div className="as-bar__row">
-            <span className="as-bar__label" aria-hidden="true">Show</span>
-            <PillRow
-              label="Show"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: 'active', label: 'Active' },
-                ...(unread ? [{ value: 'unread', label: `Unread ${unread}` }] : []),
-                ...(pendingTours ? [{ value: 'tour', label: `📞 ${pendingTours}` }] : []),
-                ...(agreed ? [{ value: 'ready', label: `Agreed, no call ${agreed}` }] : []),
-                ...(archived ? [{ value: 'closed', label: `Closed ${archived}` }] : []),
-              ]}
-            />
-          </div>
-          <div className="as-bar__row">
-            <label className="as-bar__label" htmlFor="lead-sort">Sort</label>
-            <select id="lead-sort" className="input" value={sort} onChange={(event) => setSort(event.target.value)}>
-              {Object.entries(LEAD_SORTS).map(([value, option]) => (
-                <option key={value} value={value}>{option.label}</option>
-              ))}
-            </select>
-            <span className="as-count" role="status">
-              {rows.length} {rows.length === 1 ? person : people}
-            </span>
-          </div>
+          {/* Nothing to choose between until there is more than "Active": one pill alone is just clutter. */}
+          {showOptions.length > 1 ? (
+            <div className="as-bar__row">
+              <span className="as-bar__label" aria-hidden="true">Show</span>
+              <PillRow label="Show" value={filter} onChange={setFilter} options={showOptions} />
+            </div>
+          ) : null}
+          {/* One slim line: how many, and the order. Nothing to order until there are two. */}
+          {leads.length > 0 ? (
+            <div className="as-bar__row" style={{ justifyContent: 'space-between' }}>
+              <span className="as-count" role="status">
+                {rows.length} {rows.length === 1 ? person : people}
+              </span>
+              {rows.length > 1 ? (
+                <select
+                  id="lead-sort" className="input" aria-label="Sort" value={sort} onChange={(event) => setSort(event.target.value)}
+                  style={{ width: 'auto', minHeight: 36, padding: '0 10px', fontSize: 14 }}
+                >
+                  {Object.entries(LEAD_SORTS).map(([value, option]) => (
+                    <option key={value} value={value}>Sort: {option.label}</option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+          ) : null}
           {pendingTours > 0 ? (
             <button type="button" className="as-callbanner" onClick={() => setFilter('tour')}>
               <span aria-hidden="true">📞</span>
@@ -186,6 +200,12 @@ export default function LeadsTab({
                       <span className="as-chip as-chip--stop">Do not call · {lead.consent ? 'declined' : 'never asked'}</span>
                     )}
                     {isShowingPending(lead) ? <span className="as-chip as-chip--call">🏠 Showing request · {describeShowing(lead.showing)}</span> : null}
+                    {lead.showing?.response ? (
+                      <span className="as-chip">
+                        🏠 {{ confirmed: 'Showing confirmed', suggested: 'Suggested a time', declined: 'Showing declined' }[lead.showing.response.status]}
+                        {lead.showing.response.date ? ` · ${formatSlotDate(lead.showing.response.date)} at ${formatSlotTime(lead.showing.response.time)}` : ''}
+                      </span>
+                    ) : null}
                     {lead.interest ? <span className={`as-chip${lead.interest === 'hot' ? ' as-chip--call' : ''}`}>{interestLabel(lead.interest)}</span> : null}
                     {isFollowUpDue(lead, today) ? <span className="as-chip as-chip--late">Follow up{lead.followUpOn < today ? ' · overdue' : ' today'}</span> : null}
                     {lead.status === 'contacted' ? <span className="as-chip">Contacted</span> : null}

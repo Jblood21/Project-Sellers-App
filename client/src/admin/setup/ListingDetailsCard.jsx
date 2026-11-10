@@ -112,7 +112,16 @@ export default function ListingDetailsCard({ community, reload, onDirty }) {
           Use the standard text
         </button>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      {/* Once something is changed the button follows the screen (above the phone's bottom bar), not sitting at the foot of a long form. */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          ...(dirty ? {
+            position: 'sticky', bottom: 'calc(var(--as-bottom-h, 0px) + env(safe-area-inset-bottom, 0px))', zIndex: 5,
+            background: 'var(--color-neutral-100)', padding: '10px 0', borderTop: '1px solid var(--color-divider)',
+          } : {}),
+        }}
+      >
         <button
           type="button" className="btn btn-primary" onClick={save} disabled={!dirty}
           aria-disabled={saver.saving || undefined} style={{ minHeight: 46 }}

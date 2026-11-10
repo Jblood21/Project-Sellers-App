@@ -123,6 +123,9 @@
   color: var(--color-accent); cursor: pointer; text-decoration: none; padding: 0;
 }
 .as-top__icon:hover { background: var(--color-accent-100); }
+/* An icon with its word beneath it (Edit, QR sign), so no button on the phone is a guess. */
+.as-top__icon--cap { flex-direction: column; gap: 1px; width: 56px; height: 48px; border-radius: 12px; }
+.as-top__cap { font-family: var(--font-body); font-size: 11px; font-weight: 600; line-height: 1; }
 .as-top__brand { flex: 1; min-width: 0; color: var(--color-accent); }
 /* The owner's bar (as-top--full) has five round buttons after the wordmark: Team, Branches, Activity, Change
    password and Sign out, which with the gaps and the side padding take 292px, and the wordmark 106px more. Under
@@ -215,8 +218,14 @@
 .as-part:hover { color: var(--color-accent-700); }
 /* Inside the row's own box: the row scrolls, and a ring drawn outside it would be clipped. */
 .as-part:focus-visible { outline-offset: -3px; }
-/* Four parts do not fit a phone in one line; wrap them rather than hide the last one off the edge. */
-@media (max-width: 560px) { .as-parts { flex-wrap: wrap; overflow: visible; } }
+/* Five parts do not fit a phone in one line: they scroll sideways on one row (the open one is brought into view)
+   and the right edge fades, so it reads as "more this way" and not as a cut-off. */
+@media (max-width: 560px) {
+  .as-parts { flex-wrap: nowrap; scrollbar-width: none; scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .as-parts::-webkit-scrollbar { display: none; }
+  .as-part { scroll-snap-align: start; }
+}
 .as-part.active { color: var(--color-accent-700); border-bottom-color: var(--color-accent); }
 
 /* The sticky "Save settings" bar sits inside the page padding and above the phone's bottom bar. */
@@ -246,7 +255,13 @@
 .as-tile--warn { border-color: rgba(168, 51, 43, 0.4); background: #FDF1EF; }
 .as-tile--warn strong { color: #8a1c11; }
 .as-tile--warn span { color: #6E2A22; }
-
+/* On a phone the counts are a compact strip of three across, so the lists that need a person are not pushed off the screen. */
+@media (max-width: 560px) {
+  .as-tiles { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .as-tile { padding: 10px 11px; border-radius: 14px; gap: 2px; }
+  .as-tile strong { font-size: 24px; }
+  .as-tile span { font-size: 12px; line-height: 1.25; }
+}
 .as-section-title { margin: 24px 0 10px; font-family: var(--font-heading); font-weight: 600; font-size: 20px; color: var(--color-accent-700); }
 @media (min-width: 980px) { .as-section-title { font-size: 22px; } }
 /* The calls sit in one white box, a row each, with a bar at the left edge: grey for a call still to come, red

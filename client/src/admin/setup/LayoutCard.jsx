@@ -234,6 +234,8 @@ export default function LayoutCard({ community, reload }) {
   const { token } = useAdmin();
   const [error, setError] = useState('');
   const [saving, setSaving] = useState('');
+  // Shut by default: the one in use and a Change button. Eight stacked pictures were most of the Look & feel page on a phone.
+  const [open, setOpen] = useState(false);
   const current = normalizeLayout(community.layout);
 
   const choose = async (layout) => {
@@ -243,12 +245,33 @@ export default function LayoutCard({ community, reload }) {
     try {
       await adminApi.updateCommunity(token, community.id, { layout });
       await reload();
+      setOpen(false);
     } catch (err) {
       setError(err.message);
     } finally {
       setSaving('');
     }
   };
+
+  if (!open) {
+    const inUse = LAYOUTS.find((layout) => layout.k === current);
+    return (
+      <div className="card elev-sm" style={{ gap: 10 }}>
+        <span className="card-kicker">Buyer app layout</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 96, flex: 'none' }}><Wire layoutKey={current} /></div>
+          <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 2 }}>
+            <strong>{inUse?.name ?? current} <span className="tag tag-accent">In use</span></strong>
+            <span className="text-muted" style={{ fontSize: 13 }}>{(isListing(community) && LISTING_LAYOUT_NOTES[current]) || inUse?.note}</span>
+          </div>
+        </div>
+        <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} aria-expanded="false" onClick={() => setOpen(true)}>
+          Change layout
+        </button>
+        <ErrorNote>{error}</ErrorNote>
+      </div>
+    );
+  }
 
   return (
     <div className="card elev-sm" style={{ gap: 10 }}>
@@ -278,6 +301,9 @@ export default function LayoutCard({ community, reload }) {
         what it did before, and the theme below still sets the colours.
       </span>
       <ErrorNote>{error}</ErrorNote>
+      <button type="button" className="btn btn-ghost" style={{ alignSelf: 'flex-start' }} aria-expanded="true" onClick={() => setOpen(false)}>
+        Close, keep {LAYOUTS.find((layout) => layout.k === current)?.name ?? 'this one'}
+      </button>
     </div>
   );
 }

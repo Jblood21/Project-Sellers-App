@@ -55,6 +55,10 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
   const listing = isListing(community);
   const parts = listing ? LISTING_SETUP_PARTS : SETUP_PARTS;
   const active = parts.some((item) => item.key === part) ? part : (listing ? DEFAULT_LISTING_SETUP_PART : DEFAULT_SETUP_PART);
+  // The row of parts scrolls sideways on a phone: keep the open one in view.
+  useEffect(() => {
+    document.querySelector('.as-parts .as-part.active')?.scrollIntoView?.({ inline: 'center', block: 'nearest' });
+  }, [active]);
   const [settings, setSettings] = useState(community.settings);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
