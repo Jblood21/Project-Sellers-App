@@ -257,6 +257,52 @@ export default function Today() {
 
       {data ? (
         <>
+          {/* What needs a person comes first, ahead of the counts and the listing cards: showings to answer, people to
+              follow up, and calls waiting. Each only shows when there is something in it. */}
+          <AgentQueues showings={data.showings} followUps={data.followUps} />
+          {onlyListings ? null : (
+            <>
+          <h2 className="as-section-title">Calls waiting</h2>
+          {data.calls.length === 0 ? (
+            <div className="as-empty">
+              <strong>Nobody is waiting for a call.</strong>
+              <span>When a buyer asks for a time, they show up here.</span>
+            </div>
+          ) : (
+            <ul className="as-calls">
+              {data.calls.map((call) => {
+                const tel = call.canCall ? telHref(call.phone) : '';
+                const mail = emailHref(call.email);
+                return (
+                  <li key={call.leadId} className={`as-call${call.overdue ? ' as-call--late' : ''}`}>
+                    <div className="as-call__main">
+                      <span className="as-call__name">{call.name}</span>
+                      <span className="as-call__when">
+                        {call.overdue ? <span className="as-call__late">Past their day · </span> : null}
+                        {call.when}
+                      </span>
+                      <span className="as-call__where">{call.communityName}</span>
+                      {call.phone && !call.canCall ? <span className="as-chip as-chip--stop" style={{ alignSelf: 'flex-start' }}>Do not call or text</span> : null}
+                    </div>
+                    <div className="as-call__actions">
+                      {tel ? <a className="btn btn-primary" href={tel}><NavIcon name="phone" size={16} /> Call</a> : null}
+                      {mail ? <a className="btn btn-ghost" href={mail}><NavIcon name="mail" size={16} /> Email</a> : null}
+                      <Link className="btn btn-link" to={`/admin/communities/${call.communityId}/leads/${call.leadId}?show=tour`}>Open</Link>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {totals.waiting > data.calls.length ? (
+            <p className="text-muted" style={{ fontSize: 14 }}>
+              Showing the first {data.calls.length} of {totals.waiting}. Open a {noun} to see the rest.
+            </p>
+          ) : null}
+
+            </>
+          )}
+
           <div className="as-tiles">
             {/* A listing has no booking times, so an account of listings alone has no booked calls to count. */}
             {onlyListings ? null : (
@@ -273,7 +319,7 @@ export default function Today() {
             )}
             <div className={`as-tile${onlyListings && totals.ready ? ' as-tile--alert' : ''}`}>
               <strong>{totals.ready}</strong>
-              <span>{onlyListings ? 'visitors to follow up (said yes to calls and texts)' : 'agreed to calls, no call booked'}</span>
+              <span>{onlyListings ? 'OK to call (said yes to calls and texts)' : 'agreed to calls, no call booked'}</span>
             </div>
             <div className="as-tile">
               <strong>{totals.unread}</strong>
@@ -354,52 +400,7 @@ export default function Today() {
             </section>
           ) : null}
 
-          {onlyListings ? null : (
-            <>
-          <h2 className="as-section-title" style={{ marginTop: 28 }}>Calls waiting</h2>
-          {data.calls.length === 0 ? (
-            <div className="as-empty">
-              <strong>Nobody is waiting for a call.</strong>
-              <span>When a buyer asks for a time, they show up here.</span>
-            </div>
-          ) : (
-            <ul className="as-calls">
-              {data.calls.map((call) => {
-                const tel = call.canCall ? telHref(call.phone) : '';
-                const mail = emailHref(call.email);
-                return (
-                  <li key={call.leadId} className={`as-call${call.overdue ? ' as-call--late' : ''}`}>
-                    <div className="as-call__main">
-                      <span className="as-call__name">{call.name}</span>
-                      <span className="as-call__when">
-                        {call.overdue ? <span className="as-call__late">Past their day · </span> : null}
-                        {call.when}
-                      </span>
-                      <span className="as-call__where">{call.communityName}</span>
-                      {call.phone && !call.canCall ? <span className="as-chip as-chip--stop" style={{ alignSelf: 'flex-start' }}>Do not call or text</span> : null}
-                    </div>
-                    <div className="as-call__actions">
-                      {tel ? <a className="btn btn-primary" href={tel}><NavIcon name="phone" size={16} /> Call</a> : null}
-                      {mail ? <a className="btn btn-ghost" href={mail}><NavIcon name="mail" size={16} /> Email</a> : null}
-                      <Link className="btn btn-link" to={`/admin/communities/${call.communityId}/leads/${call.leadId}?show=tour`}>Open</Link>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {totals.waiting > data.calls.length ? (
-            <p className="text-muted" style={{ fontSize: 14 }}>
-              Showing the first {data.calls.length} of {totals.waiting}. Open a {noun} to see the rest.
-            </p>
-          ) : null}
-
-            </>
-          )}
-
-          <AgentQueues showings={data.showings} followUps={data.followUps} />
-
-          <h2 className="as-section-title" id="ready" style={onlyListings ? { marginTop: 28 } : undefined}>{onlyListings ? 'Visitors to follow up' : 'Agreed to calls, no call booked'}</h2>
+          <h2 className="as-section-title" id="ready" style={onlyListings ? { marginTop: 28 } : undefined}>{onlyListings ? 'Visitors OK to call' : 'Agreed to calls, no call booked'}</h2>
           <p className="text-muted" style={{ fontSize: 14, margin: '-4px 0 10px' }}>
             {onlyListings ? 'They signed in, gave a number and said yes to calls and texts. ' : 'They said yes to calls and texts and gave a number, but have not asked for a time. '}Open one to see them in{' '}
             {onlyListings ? 'the listing\u2019s Visitors' : listings.length ? 'the Visitors or Leads page of its listing or community' : 'their community\u2019s Leads'}.

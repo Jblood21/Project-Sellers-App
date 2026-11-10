@@ -61,7 +61,7 @@ export const SETUP_PARTS = [
 export const DEFAULT_SETUP_PART = SETUP_PARTS[0].key;
 
 /** A listing's Setup opens on its own part (the details and the open houses) and then has the same four. */
-const LISTING_PART_LABELS = { team: 'You & alerts', rules: 'Lender & costs' };
+const LISTING_PART_LABELS = { team: 'Your details', rules: 'Lender & costs' };
 export const LISTING_SETUP_PARTS = [
   { key: 'listing', label: 'Listing' },
   ...SETUP_PARTS.map((part) => ({ ...part, label: LISTING_PART_LABELS[part.key] ?? part.label })),

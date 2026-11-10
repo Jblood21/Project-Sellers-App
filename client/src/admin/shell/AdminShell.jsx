@@ -46,7 +46,7 @@ export default function AdminShell({
   community = null, leads = null, section = '', communities = null, branches = null, leaveOk = () => true,
   onEdit, onQr, title = '', blurb = '', children,
 }) {
-  const { admin, isOwner, signOut } = useAdmin();
+  const { admin, isOwner, signOut, token } = useAdmin();
   const [moreOpen, setMoreOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -72,6 +72,18 @@ export default function AdminShell({
   const url = community ? buyerUrl(community) : '';
   // The menu on Today-like pages lists listings apart from communities: under "Listings" and "Communities" when an
   // account has both, and under the one heading it has otherwise. Branches group communities only.
+  // With one place there is nothing to switch to, so the menu says so by not offering it.
+  // Community pages are not handed the list, so how many there are is read once; until it is known the switch shows.
+  const [placeCount, setPlaceCount] = useState(null);
+  const communityId = community?.id;
+  useEffect(() => {
+    if (communities || !communityId) return undefined;
+    let live = true;
+    adminApi.communities(token).then((all) => { if (live) setPlaceCount(all.length); }).catch(() => {});
+    return () => { live = false; };
+  }, [communities, communityId, token]);
+  const canSwitch = communities ? communities.length > 1 : placeCount == null || placeCount > 1;
+  const whereIs = community ? (community.location || (listing ? 'City not added' : 'Location TBD')) : '';
   const listings = (communities ?? []).filter(isListing);
   const places = (communities ?? []).filter((item) => !isListing(item));
   const groups = groupByBranch(places, branches ?? []);
@@ -111,14 +123,24 @@ export default function AdminShell({
 
           {community ? (
             <>
-              <button type="button" className="as-switch" onClick={() => setSwitchOpen(true)} aria-haspopup="dialog">
-                <span className="as-switch__text">
-                  <span className="as-eyebrow">{listing ? 'Listing' : 'Community'}</span>
-                  <strong>{community.name}</strong>
-                  <span className="as-switch__loc">{community.location || 'Location TBD'}</span>
-                </span>
-                <NavIcon name="switch" size={18} />
-              </button>
+              {canSwitch ? (
+                <button type="button" className="as-switch" onClick={() => setSwitchOpen(true)} aria-haspopup="dialog">
+                  <span className="as-switch__text">
+                    <span className="as-eyebrow">{listing ? 'Listing' : 'Community'}</span>
+                    <strong>{community.name}</strong>
+                    <span className="as-switch__loc">{whereIs}</span>
+                  </span>
+                  <NavIcon name="switch" size={18} />
+                </button>
+              ) : (
+                <div className="as-switch" style={{ cursor: 'default' }}>
+                  <span className="as-switch__text">
+                    <span className="as-eyebrow">{listing ? 'Listing' : 'Community'}</span>
+                    <strong>{community.name}</strong>
+                    <span className="as-switch__loc">{whereIs}</span>
+                  </span>
+                </div>
+              )}
               {GROUPS.map((group) => (
                 <div key={group} className="as-group">
                   <span className="as-eyebrow">{listing && group === 'Buyer app' ? 'Visitor page' : group}</span>
@@ -218,15 +240,23 @@ export default function AdminShell({
             <Link to="/admin" className="as-top__icon" aria-label={listing ? 'Today, all listings' : 'Today, all communities'} onClick={guard()}>
               <NavIcon name="today" />
             </Link>
-            <button type="button" className="as-top__name" onClick={() => setSwitchOpen(true)} aria-haspopup="dialog">
-              <strong>{community.name}</strong>
-              <span>{community.location || 'Location TBD'} · switch</span>
+            {canSwitch ? (
+              <button type="button" className="as-top__name" onClick={() => setSwitchOpen(true)} aria-haspopup="dialog">
+                <strong>{community.name}</strong>
+                <span>{whereIs} · switch</span>
+              </button>
+            ) : (
+              <div className="as-top__name" style={{ cursor: 'default' }}>
+                <strong>{community.name}</strong>
+                <span>{whereIs}</span>
+              </div>
+            )}
+            {/* Words under the icons: a round picture alone does not say what it does. */}
+            <button type="button" className="as-top__icon as-top__icon--cap" aria-label={`Edit ${noun}`} onClick={onEdit}>
+              <NavIcon name="edit" size={18} /><span className="as-top__cap" aria-hidden="true">Edit</span>
             </button>
-            <button type="button" className="as-top__icon" aria-label={`Edit ${noun}`} onClick={onEdit}>
-              <NavIcon name="edit" />
-            </button>
-            <button type="button" className="as-top__icon" aria-label={listing ? 'QR code and open house sign' : 'QR code and flyer'} onClick={onQr}>
-              <NavIcon name="qr" />
+            <button type="button" className="as-top__icon as-top__icon--cap" aria-label={listing ? 'QR code and open house sign' : 'QR code and flyer'} onClick={onQr}>
+              <NavIcon name="qr" size={18} /><span className="as-top__cap" aria-hidden="true">QR sign</span>
             </button>
           </header>
         ) : (
@@ -324,9 +354,11 @@ export default function AdminShell({
             <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); onEdit?.(); }}>
               <NavIcon name="edit" /><span className="as-link__label">Edit {noun}</span>
             </button>
-            <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); setSwitchOpen(true); }}>
-              <NavIcon name="switch" /><span className="as-link__label">Switch {noun}</span>
-            </button>
+            {canSwitch ? (
+              <button type="button" className="as-sheet__row" onClick={() => { setMoreOpen(false); setSwitchOpen(true); }}>
+                <NavIcon name="switch" /><span className="as-link__label">Switch {noun}</span>
+              </button>
+            ) : null}
             <Link to="/admin" className="as-sheet__row" onClick={guard(() => setMoreOpen(false))}>
               <NavIcon name="today" /><span className="as-link__label">{listing ? 'Today, all listings' : 'Today, all communities'}</span>
             </Link>
