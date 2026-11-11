@@ -140,9 +140,11 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
         </div>
         <div className="ax-agent-meta">
           <span className="card-title" style={{ fontSize: 15 }}>{title}</span>
-          <span className="text-muted" style={{ fontSize: 14 }}>
-            {draft ? (single ? 'Visitors call, text or email you from the page.' : 'Fill this in, then add them.') : [agent.brokerage, license].filter(Boolean).join(' · ') || 'No brokerage yet'}
-          </span>
+          {draft ? null : (
+            <span className="text-muted" style={{ fontSize: 14 }}>
+              {[agent.brokerage, license].filter(Boolean).join(' · ') || 'No brokerage yet'}
+            </span>
+          )}
         </div>
         {!draft && dirty ? <span className="tag tag-accent">Unsaved</span> : null}
         {!draft && !single ? (
@@ -163,7 +165,6 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             <TextField
               label="License state" value={form.licenseState} onChange={set('licenseState')}
               maxLength={AGENT_TEXT_MAX.licenseState} autoCapitalize="characters" autoComplete="off"
-              hint="Two letters, such as UT."
             />
             <TextField label="License number" value={form.licenseNo} onChange={set('licenseNo')} maxLength={AGENT_TEXT_MAX.licenseNo} autoComplete="off" />
             <TextField label="Phone" value={form.phone} onChange={set('phone')} inputMode="tel" maxLength={AGENT_TEXT_MAX.phone} autoComplete="off" />
@@ -172,7 +173,6 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
               <TextField
                 label="Website" value={form.website} onChange={set('website')} inputMode="url"
                 maxLength={AGENT_TEXT_MAX.website} placeholder="https://…" autoComplete="off"
-                hint="Only web addresses starting with http:// or https:// are kept."
               />
             </div>
           </div>
@@ -186,7 +186,6 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             onPick={draft ? async (dataUrl) => setPending((p) => ({ ...p, photo: dataUrl })) : upload(adminApi.setAgentPhoto)}
             onRemove={draft ? async () => setPending((p) => ({ ...p, photo: null })) : discard(agent.photo ?? {})}
             removeWarning={draft ? 'Remove the picked photo?' : `Remove ${agent?.name}’s photo?`}
-            hint={single ? "A clear head-and-shoulders photo of your face: visitors see it above the home's pictures. It is cropped to fill a square." : "A head-and-shoulders portrait. It is cropped to fill a square."}
             read={readPortrait}
             use="portrait"
           />
@@ -200,7 +199,6 @@ export default function AgentEditor({ agent, index, community, reload, onClose, 
             onPick={draft ? async (dataUrl) => setPending((p) => ({ ...p, logo: dataUrl })) : upload(adminApi.setAgentLogo)}
             onRemove={draft ? async () => setPending((p) => ({ ...p, logo: null })) : discard(agent.logo ?? {})}
             removeWarning={draft ? 'Remove the picked logo?' : `Remove ${agent?.name}’s logo?`}
-            hint="Their own or their brokerage's logo. PNG, WebP, JPEG or GIF up to 3 MB; no SVG."
           />}
 
           <ErrorNote>{error}</ErrorNote>

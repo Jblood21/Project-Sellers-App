@@ -86,10 +86,6 @@ export default function OpenHousesCard({ community, reload, onDirty }) {
         <span className="card-kicker">Open houses</span>
         <span className="tag tag-neutral" aria-live="polite">{sessions.length} of {OPEN_HOUSE_MAX}</span>
       </div>
-      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        The days and times visitors can come and see the home. They are shown on the home&apos;s page. Each change
-        saves on its own, not with the Save settings button.
-      </p>
 
       {sessions.length === 0 ? (
         <p className="ax-oh__none">No open houses yet. Add the first one below.</p>
@@ -134,7 +130,6 @@ export default function OpenHousesCard({ community, reload, onDirty }) {
         <TextField
           label="Note (optional)" value={form.note} maxLength={OPEN_HOUSE_NOTE_MAX} disabled={full}
           onChange={(note) => setForm((f) => ({ ...f, note }))} placeholder="e.g. Meet the seller, or Park on the street"
-          hint={`Up to ${OPEN_HOUSE_NOTE_MAX} characters.`}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button type="submit" className="btn btn-primary" disabled={full} aria-disabled={saver.saving || undefined} style={{ minHeight: 46 }}>

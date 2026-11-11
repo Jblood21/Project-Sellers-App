@@ -436,9 +436,6 @@ export default function ThemeStudio({ community, reload }) {
               </div>
             )}
           </div>
-          {!isCurrent ? (
-            <p className="ax-studio__hint">Trying on changes nothing for buyers. Only the Use button saves it.</p>
-          ) : null}
           <ErrorNote>{error}</ErrorNote>
           <p role="status" className="ax-studio__saved">{saved}</p>
         </div>

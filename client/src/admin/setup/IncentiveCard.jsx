@@ -50,7 +50,7 @@ export default function IncentiveCard({ community, settings, setSettings, reload
       return (
         <div key={key} style={{ gridColumn: '1 / -1' }}>
           <TextAreaField
-            id={`setting-${key}`} label={label} hint={extra.hint} rows={extra.rows}
+            id={`setting-${key}`} label={label} rows={extra.rows}
             value={value} maxLength={max} onChange={change}
             counter={`${grouped(value.length)} of ${grouped(max)} characters`}
           />
@@ -61,7 +61,6 @@ export default function IncentiveCard({ community, settings, setSettings, reload
       <div key={key}>
         <TextField
           id={`setting-${key}`} label={label} value={value} maxLength={max} onChange={change}
-          hint={`${extra.hint ? `${extra.hint} ` : ''}Up to ${grouped(max)} characters.`}
           inputMode={extra.inputMode} placeholder={extra.placeholder}
         />
       </div>
@@ -87,9 +86,7 @@ export default function IncentiveCard({ community, settings, setSettings, reload
         <Toggle on={on} onChange={flip} label="Show the builder incentive to buyers" />
         <span style={{ fontSize: 14 }}>
           <strong>{on ? (empty ? 'Switched on, not showing yet' : 'Shown above Explore Homes') : 'Not shown'}</strong>
-          <span className="text-muted">
-            {busy ? ' · saving…' : on ? (empty ? '' : ' · buyers see it on their home screen') : ' · turn on to show it'}
-          </span>
+          {busy ? <span className="text-muted"> · saving…</span> : null}
         </span>
       </div>
       {error ? <ErrorNote>{error}</ErrorNote> : null}
@@ -99,28 +96,16 @@ export default function IncentiveCard({ community, settings, setSettings, reload
         </p>
       ) : null}
 
-      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        Write exactly what the incentive is and its terms: nothing is filled in for you, because an
-        incentive advertised with the wrong terms is worse than none. Use {'{community}'} for the
-        development name. The switch saves at once; the words go live when you press{' '}
-        <strong>Save settings</strong>.
-      </p>
-
       <div className="ax-cols">
-        {field('incentiveTitle', 'Headline', { hint: 'Write dollar amounts in full, with the dollar sign, like $20,000.' })}
+        {field('incentiveTitle', 'Headline')}
         {field('incentiveButton', 'Button label')}
-        {field('incentiveBody', 'Details', { rows: 3, hint: 'The incentive in a sentence or two. Write dollar amounts in full, like $20,000.' })}
-        {field('incentiveFinePrint', 'Terms (fine print)', { rows: 3, hint: 'Shown small under the details. Blank shows none. Dollar amounts in full, like $20,000.' })}
-        {field('incentivePhone', 'Phone to call or text', {
-          inputMode: 'tel', hint: 'Blank uses the lender’s phone.',
-        })}
+        {field('incentiveBody', 'Details', { rows: 3 })}
+        {field('incentiveFinePrint', 'Terms (fine print)', { rows: 3 })}
+        {field('incentivePhone', 'Phone to call or text', { inputMode: 'tel' })}
         {field('incentiveEmail', 'Email', {
           inputMode: 'email', placeholder: 'team@yourcompany.com',
-          hint: 'Buyers write to this address from inside the app: Touradoor sends their message and replies go straight to the buyer. (This needs the site’s email set up; if it is not, buyers are shown this address to write to instead.) Blank uses the loan team email under Lender & compliance.',
         })}
-        {field('incentiveMessage', 'Message the buyer sends', {
-          rows: 2, hint: 'Already typed into the text or email when the buyer taps. {community} is the development name.',
-        })}
+        {field('incentiveMessage', 'Message the buyer sends', { rows: 2 })}
       </div>
 
       <section className="ax-group" aria-labelledby="ax-inc-preview">

@@ -71,16 +71,9 @@ export default function ToolsTab({ community, reload }) {
   const listing = isListing(community);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p className="text-muted" style={{ fontSize: 14, margin: '0 0 4px' }}>
-        Choose which questions {listing ? 'visitors to this listing' : "this community's buyers"} can answer for themselves.
-      </p>
       {TOOLS.filter((tool) => !listing || LISTING_TOOLS.includes(tool.k)).map((tool) => (
         <SwitchRow key={tool.k} item={tool} group="tools" community={community} reload={reload} />
       ))}
-      <p className="text-muted" style={{ fontSize: 14, margin: '14px 0 4px' }}>
-        What {listing ? 'visitors' : 'buyers'} see on {listing ? 'the home' : 'the homes'} themselves. Each one also stays hidden until you
-        add something to it, so switching it on never shows an empty space.
-      </p>
       {FEATURES.filter((feature) => feature.k !== 'booking' && !(listing && COMMUNITY_ONLY.includes(feature.k))).map((feature) => (
         <SwitchRow
           key={feature.k} group="features" community={community} reload={reload}

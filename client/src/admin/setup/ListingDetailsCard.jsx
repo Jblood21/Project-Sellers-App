@@ -75,33 +75,28 @@ export default function ListingDetailsCard({ community, reload, onDirty }) {
         {dirty ? <span className="tag tag-accent">Unsaved changes</span> : null}
       </div>
       <div className="ax-cols">
-        <Field label="Status" hint="Shown on the home's page and on your Today page.">
+        <Field label="Status">
           <select className="input" value={form.status} onChange={(event) => set('status')(event.target.value)}>
             {LISTING_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
           </select>
         </Field>
         <TextField
-          label="MLS number" value={form.mlsNumber} onChange={set('mlsNumber')} maxLength={settingMaxLength('mlsNumber')}
-          hint="Printed under the home. Leave it blank to print nothing." autoComplete="off"
+          label="MLS number" value={form.mlsNumber} onChange={set('mlsNumber')} maxLength={settingMaxLength('mlsNumber')} autoComplete="off"
         />
         <TextField
           id="listing-details-address" label="Address" value={form.address} onChange={set('address')} autoComplete="off"
-          hint="Also the home's name, so the two always match."
         />
         <TextField label="City and state" value={form.city} onChange={set('city')} placeholder="e.g. Lehi, UT" autoComplete="off" />
         <TextField
           label="Brokerage" value={form.brokerage} onChange={set('brokerage')} autoComplete="organization"
-          hint="The company the home is listed with. Printed in the footer."
         />
         <TextField
-          label="Your license line" value={form.agentLicense} onChange={set('agentLicense')} maxLength={settingMaxLength('agentLicense')}
-          hint="For example “Jane Smith, Lic. #12345”. Printed under the home and in the footer. Blank prints nothing." autoComplete="off"
+          label="Your license line" value={form.agentLicense} onChange={set('agentLicense')} maxLength={settingMaxLength('agentLicense')} autoComplete="off"
         />
       </div>
       <TextAreaField
         id="listing-details-disclosure" label="Disclosure in the footer" rows={4} value={form.disclosure} maxLength={max}
         onChange={set('disclosure')}
-        hint="Printed above the lender details at the foot of the page. Clearing it removes the line."
         counter={`${form.disclosure.length.toLocaleString('en-US')} of ${max.toLocaleString('en-US')} characters`}
       />
       <div>
