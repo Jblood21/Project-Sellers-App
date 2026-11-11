@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import {
@@ -869,20 +869,40 @@ const removeButton = {
   ...tileButton, fontSize: 16, border: '1px solid #e8b9b4', background: '#fdecea', color: '#8a1c11',
 };
 
-const TILE_WIDTH = 204;
+// Small pictures in one strip that scrolls sideways, so all of them can be seen at once.
+const TILE_WIDTH = 148;
+const TILE_HEIGHT = 108;
+// How long a finger holds a picture before it lifts (a quicker swipe scrolls the strip), and how far a mouse moves first.
+const HOLD_MS = 280;
+const MOUSE_SLOP = 5;
+const TOUCH_SLOP = 10;
+const EDGE = 48;
 
 function PhotoStrip({ home, reload, removals }) {
   const { token } = useAdmin();
   const inputRef = useRef(null);
+  const stripRef = useRef(null);
+  const tileRefs = useRef(new Map());
+  const gesture = useRef(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   // The downscaled photo, shown in place the moment it is ready, so the strip
   // fills in while the upload is still in flight rather than after it.
   const [pending, setPending] = useState(null);
+  // The new order, shown the moment a picture is dropped, until the saved order comes back.
+  const [order, setOrder] = useState(null);
+  // The picture being carried, the gap it would drop into (0 is before the first, the count is after the last) and
+  // where the pointer is, for the picture that follows it.
+  const [drag, setDrag] = useState(null);
   // A photo taken off waits out its few seconds to be put back (see removals.jsx); until then it is out of sight.
-  const photos = home.photos.filter((photo) => !removals.hidden.has(photo.id));
+  const visible = home.photos.filter((photo) => !removals.hidden.has(photo.id));
+  const photos = order
+    ? [...order.map((id) => visible.find((photo) => photo.id === id)).filter(Boolean), ...visible.filter((photo) => !order.includes(photo.id))]
+    : visible;
   const lowRes = useLowResRow('home', photos.map((photo) => photo.url));
   const smallPhotos = new Set(lowRes.small.map((entry) => entry.url));
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
 
   const upload = async (file) => {
     setBusy(true);
@@ -902,25 +922,114 @@ function PhotoStrip({ home, reload, removals }) {
     }
   };
 
-  // The first photo is the hero buyers see at the top of the home. Moving a photo earlier or later (or
-  // making it the hero) sends the whole new order; arrows rather than dragging, so it works on a phone.
+  // The first photo is the hero buyers see at the top of the home: drag a picture to the front to make it the hero.
   // `from` and `to` are places among the photos in view. The order sent has to name every photo the home has, so a
   // photo still waiting to be deleted keeps its place in it while the visible ones are moved around it.
   const move = async (from, to) => {
-    if (to < 0 || to >= photos.length) return;
+    const shown = photosRef.current;
+    if (from === to || to < 0 || to >= shown.length) return;
     const ids = home.photos.map((photo) => photo.id);
-    const movedId = photos[from].id;
-    const anchorId = photos[to].id;
+    const movedId = shown[from].id;
+    const anchorId = shown[to].id;
     ids.splice(ids.indexOf(movedId), 1);
     const at = ids.indexOf(anchorId);
     ids.splice(from < to ? at + 1 : at, 0, movedId);
+    const next = shown.map((photo) => photo.id);
+    next.splice(from, 1);
+    next.splice(to, 0, movedId);
     setError('');
+    setOrder(next);
     try {
       await adminApi.reorderHomePhotos(token, home.id, ids);
       await reload();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setOrder(null);
     }
+  };
+
+  // The gap the pointer is over: how many pictures have their middle to its left.
+  const slotAt = (x) => {
+    let slot = 0;
+    photosRef.current.forEach((photo) => {
+      const rect = tileRefs.current.get(photo.id)?.getBoundingClientRect();
+      if (rect && x > rect.left + rect.width / 2) slot += 1;
+    });
+    return slot;
+  };
+
+  const stop = () => {
+    const g = gesture.current;
+    if (!g) return;
+    clearTimeout(g.timer);
+    clearInterval(g.scroller);
+    window.removeEventListener('pointermove', g.onMove);
+    window.removeEventListener('pointerup', g.onUp);
+    window.removeEventListener('pointercancel', g.onCancel);
+    window.removeEventListener('touchmove', g.blockScroll);
+    gesture.current = null;
+    setDrag(null);
+  };
+  // Leaving the page mid-carry must not leave listeners behind.
+  useEffect(() => stop, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pointerDown = (event, index) => {
+    if (order || event.button > 0 || event.target.closest('button')) return;
+    stop();
+    const g = {
+      id: photosRef.current[index].id, index, startX: event.clientX, startY: event.clientY,
+      x: event.clientX, y: event.clientY, touch: event.pointerType !== 'mouse', active: false,
+    };
+    const begin = () => {
+      g.active = true;
+      setDrag({ id: g.id, slot: index, x: g.x, y: g.y });
+      // The strip would otherwise scroll under a finger that is carrying a picture.
+      window.addEventListener('touchmove', g.blockScroll, { passive: false });
+      // Held near either end, the strip scrolls so the far pictures can be reached.
+      g.scroller = setInterval(() => {
+        const strip = stripRef.current;
+        if (!strip) return;
+        const rect = strip.getBoundingClientRect();
+        if (g.x < rect.left + EDGE) strip.scrollLeft -= 12;
+        else if (g.x > rect.right - EDGE) strip.scrollLeft += 12;
+        else return;
+        setDrag((now) => (now ? { ...now, slot: slotAt(g.x) } : now));
+      }, 16);
+    };
+    g.blockScroll = (e) => { if (g.active && e.cancelable) e.preventDefault(); };
+    g.onMove = (e) => {
+      g.x = e.clientX;
+      g.y = e.clientY;
+      if (!g.active) {
+        const moved = Math.hypot(g.x - g.startX, g.y - g.startY);
+        // A mouse picks a picture up once it moves; a finger that moves first was scrolling, not carrying.
+        if (!g.touch && moved > MOUSE_SLOP) begin();
+        else if (g.touch && moved > TOUCH_SLOP) stop();
+        return;
+      }
+      setDrag({ id: g.id, slot: slotAt(g.x), x: g.x, y: g.y });
+    };
+    g.onUp = () => {
+      const wasActive = g.active;
+      const slot = slotAt(g.x);
+      const from = g.index;
+      stop();
+      if (wasActive) move(from, slot > from ? slot - 1 : slot);
+    };
+    g.onCancel = () => stop();
+    if (g.touch) g.timer = setTimeout(begin, HOLD_MS);
+    gesture.current = g;
+    window.addEventListener('pointermove', g.onMove);
+    window.addEventListener('pointerup', g.onUp);
+    window.addEventListener('pointercancel', g.onCancel);
+  };
+
+  // Without a pointer, the same move from the keyboard: Shift and an arrow key on a focused picture.
+  const keyDown = (event, index) => {
+    if (!event.shiftKey || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+    event.preventDefault();
+    move(index, index + (event.key === 'ArrowLeft' ? -1 : 1));
   };
 
   // Several pictures dropped together go up one after another, in the order given.
@@ -928,22 +1037,46 @@ function PhotoStrip({ home, reload, removals }) {
     for (const file of [].concat(dropped)) await upload(file);
   };
   const { dropProps } = useFileDrop(uploadAll, { accept: 'image', multiple: true, disabled: busy || photos.length >= MAX_PHOTOS_PER_HOME, onReject: setError });
+  const carried = drag ? photos.find((photo) => photo.id === drag.id) : null;
+  const gapStyle = (index) => {
+    if (!drag) return undefined;
+    const accent = 'var(--color-accent)';
+    if (drag.slot === index) return { boxShadow: `-7px 0 0 0 ${accent}` };
+    if (drag.slot === photos.length && index === photos.length - 1) return { boxShadow: `7px 0 0 0 ${accent}` };
+    return undefined;
+  };
 
   return (
     <>
-      <div {...dropProps} className="scroll-x" style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -4px', padding: '0 4px' }}>
+      <div
+        {...dropProps} ref={stripRef} className="scroll-x" role="list" aria-label="Photos, in the order buyers see them"
+        style={{ display: 'flex', gap: 14, overflowX: 'auto', margin: '0 -4px', padding: '0 10px 4px 10px' }}
+      >
         {photos.map((photo, index) => (
-          <div key={photo.id} style={{ width: TILE_WIDTH, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ position: 'relative', width: TILE_WIDTH, height: 144 }}>
+          <div
+            key={photo.id} role="listitem" tabIndex={0}
+            ref={(node) => { if (node) tileRefs.current.set(photo.id, node); else tileRefs.current.delete(photo.id); }}
+            aria-label={`Photo ${index + 1} of ${photos.length}${photos.length > 1 ? '. Drag it to move it, or hold Shift and press the left or right arrow.' : ''}`}
+            onPointerDown={(event) => pointerDown(event, index)}
+            onKeyDown={(event) => keyDown(event, index)}
+            onDragStart={(event) => event.preventDefault()}
+            onContextMenu={(event) => { if (drag) event.preventDefault(); }}
+            style={{
+              width: TILE_WIDTH, flex: 'none', display: 'flex', flexDirection: 'column', gap: 6, borderRadius: 12,
+              cursor: photos.length > 1 ? (drag ? 'grabbing' : 'grab') : 'default', userSelect: 'none', WebkitTouchCallout: 'none',
+              opacity: drag?.id === photo.id ? 0.35 : 1, ...gapStyle(index),
+            }}
+          >
+            <div style={{ position: 'relative', width: TILE_WIDTH, height: TILE_HEIGHT, pointerEvents: 'none' }}>
               <Photo
-                photo={photo} radius={12} alt={`${home.name} photo ${index + 1}`} sizes="215px"
+                photo={photo} radius={12} alt={`${home.name} photo ${index + 1}`} sizes="160px"
                 onMeasure={(size) => lowRes.measured(photo.url, size)}
               />
               {smallPhotos.has(photo.url) ? <span className="ax-lowres-badge">Small</span> : null}
               {index === 0 ? (
                 <span
                   style={{
-                    position: 'absolute', left: 6, top: 6, padding: '3px 8px', borderRadius: 999, fontSize: 14,
+                    position: 'absolute', left: 6, top: 6, padding: '3px 8px', borderRadius: 999, fontSize: 13,
                     fontWeight: 700, background: 'rgba(14,34,40,.85)', color: '#fff',
                   }}
                 >
@@ -952,27 +1085,13 @@ function PhotoStrip({ home, reload, removals }) {
               ) : null}
             </div>
             {/* Under the picture rather than on it: nothing here is hit by a thumb that is only scrolling the strip. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {photos.length > 1 && index > 0 ? (
-                <>
-                  <button type="button" aria-label={`Make photo ${index + 1} the hero`} title={`Make photo ${index + 1} the hero`} onClick={() => move(index, 0)} style={tileButton}>
-                    ★
-                  </button>
-                  <button type="button" aria-label={`Move photo ${index + 1} earlier`} title={`Move photo ${index + 1} earlier`} onClick={() => move(index, index - 1)} style={tileButton}>
-                    ‹
-                  </button>
-                </>
-              ) : null}
-              {photos.length > 1 && index < photos.length - 1 ? (
-                <button type="button" aria-label={`Move photo ${index + 1} later`} title={`Move photo ${index + 1} later`} onClick={() => move(index, index + 1)} style={tileButton}>
-                  ›
-                </button>
-              ) : null}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span className="text-muted" style={{ fontSize: 13 }}>{index + 1}</span>
               <button
                 type="button"
                 aria-label={`Delete photo ${index + 1}`}
                 onClick={() => removals.start({ id: photo.id, label: 'Photo' })}
-                style={{ ...removeButton, marginLeft: 'auto' }}
+                style={removeButton}
               >
                 <Trash size={18} />
               </button>
@@ -980,7 +1099,7 @@ function PhotoStrip({ home, reload, removals }) {
           </div>
         ))}
         {pending ? (
-          <div style={{ position: 'relative', width: TILE_WIDTH, height: 144, flex: 'none' }}>
+          <div style={{ position: 'relative', width: TILE_WIDTH, height: TILE_HEIGHT, flex: 'none' }}>
             <img
               src={pending}
               alt=""
@@ -1003,7 +1122,7 @@ function PhotoStrip({ home, reload, removals }) {
             aria-label="Add photo"
             disabled={busy}
             style={{
-              width: 64, height: 144, flex: 'none', borderRadius: 12,
+              width: 64, height: TILE_HEIGHT, flex: 'none', borderRadius: 12,
               border: '1.5px dashed var(--color-neutral-400)', background: 'transparent',
               color: 'var(--color-neutral-700)', fontSize: 24, cursor: 'pointer',
             }}
@@ -1012,6 +1131,18 @@ function PhotoStrip({ home, reload, removals }) {
           </button>
         ) : null}
       </div>
+      {/* The picture being carried follows the pointer. */}
+      {drag && carried ? (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'fixed', left: drag.x - 56, top: drag.y - 42, width: 112, height: 84, zIndex: 60, pointerEvents: 'none',
+            borderRadius: 10, overflow: 'hidden', boxShadow: '0 10px 28px rgba(14,34,40,.35)', border: '2px solid #fff',
+          }}
+        >
+          <img src={carried.url} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        </div>
+      ) : null}
       <input ref={inputRef} type="file" accept="image/*" hidden onChange={fromInput(upload)} />
       <LowResNote>{rowNote('home', lowRes.small, 'Photo')}</LowResNote>
       <ErrorNote>{error}</ErrorNote>
