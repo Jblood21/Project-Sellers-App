@@ -43,23 +43,11 @@ const GROUPS = [
       { key: 'lenderAddress', label: 'Address' },
       { key: 'lenderPhone', label: 'Phone', inputMode: 'tel' },
       { key: 'lenderWebsite', label: 'Website', inputMode: 'url', placeholder: 'https://…' },
-      {
-        key: 'lenderEmail', label: 'Loan team email', inputMode: 'email', placeholder: 'team@lender.com',
-        hint: 'Where the builder incentive’s Email button goes unless that card has its own address. Blank means no email button.',
-      },
-      { key: 'lenderTagline', label: 'Tagline', hint: 'Shown on the lender card inside the buyer app.' },
-      {
-        key: 'lenderLicense', label: 'State licensing statement', rows: 3,
-        hint: 'The whole sentence, including the state license number once you have it. A number is what lets a buyer check it.',
-      },
-      {
-        key: 'lenderNmlsUrl', label: 'NMLS Consumer Access link', inputMode: 'url',
-        hint: 'Leave blank to build it from the NMLS ID.',
-      },
-      {
-        key: 'loanApplicationUrl', label: 'Loan application link', inputMode: 'url', placeholder: 'https://…', keep: true,
-        hint: 'Where “Start my loan process” goes: the lender’s online application. Blank hides those links. Restore defaults never changes it.',
-      },
+      { key: 'lenderEmail', label: 'Loan team email', inputMode: 'email', placeholder: 'team@lender.com' },
+      { key: 'lenderTagline', label: 'Tagline' },
+      { key: 'lenderLicense', label: 'State licensing statement', rows: 3 },
+      { key: 'lenderNmlsUrl', label: 'NMLS Consumer Access link', inputMode: 'url' },
+      { key: 'loanApplicationUrl', label: 'Loan application link', inputMode: 'url', placeholder: 'https://…', keep: true },
     ],
   },
   {
@@ -80,17 +68,13 @@ const GROUPS = [
     restore: 'Restore Summit defaults',
     // Six long paragraphs: folded until the builder wants to edit them.
     fold: true,
-    note: true,
     fields: [
       { key: 'complianceEhl', label: 'Equal Housing Lender statement', rows: 6 },
       { key: 'complianceNotOffer', label: 'Not an offer for credit', rows: 3 },
       { key: 'complianceNotAgent', label: 'Not a real estate agent', rows: 3 },
       { key: 'complianceDisclaimer', label: 'General disclaimer', rows: 5 },
       { key: 'complianceRates', label: 'Interest rate and APR note', rows: 3 },
-      {
-        key: 'complianceAba', label: 'Affiliated business disclosure', rows: 3,
-        hint: 'Blank unless the builder and the lender are affiliated. Your compliance team decides whether you need one.',
-      },
+      { key: 'complianceAba', label: 'Affiliated business disclosure', rows: 3 },
     ],
   },
   {
@@ -102,7 +86,6 @@ const GROUPS = [
       { key: 'complianceTermsUrl', label: 'Terms of Use link', inputMode: 'url', placeholder: 'https://…' },
       { key: 'complianceAccessibilityUrl', label: 'Accessibility link', inputMode: 'url', placeholder: 'https://…' },
     ],
-    help: 'A blank link is left out of the footer rather than guessed at. These live on the lender’s own website.',
   },
 ];
 
@@ -116,8 +99,7 @@ const LISTING_GROUPS = [{
   title: 'Lender',
   fields: LISTING_LENDER_KEYS.map((key) => {
     const field = GROUPS[0].fields.find((f) => f.key === key);
-    if (key === 'lenderEmail') return { ...field, label: 'Lender email', hint: 'Blank means no email button.' };
-    if (key === 'loanApplicationUrl') return { ...field, hint: 'Where “Start my loan process” goes. Blank hides those links.' };
+    if (key === 'lenderEmail') return { ...field, label: 'Lender email' };
     return field;
   }),
 }];
@@ -161,7 +143,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
     setRestored(group.id);
   };
 
-  const renderField = ({ key, label, hint, rows, keep, ...rest }) => {
+  const renderField = ({ key, label, rows, keep, ...rest }) => {
     const max = settingMaxLength(key);
     const value = settings[key] ?? '';
     const change = (next) => setSettings((prev) => ({ ...prev, [key]: next }));
@@ -170,7 +152,7 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
       return (
         <div key={key} style={{ gridColumn: '1 / -1' }}>
           <TextAreaField
-            id={`setting-${key}`} label={label} hint={hint} rows={rows ?? 3}
+            id={`setting-${key}`} label={label} rows={rows ?? 3}
             value={value} maxLength={max} onChange={change}
             counter={`${grouped(value.length)} of ${grouped(max)} characters`}
           />
@@ -181,7 +163,6 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
       <div key={key}>
         <TextField
           id={`setting-${key}`} label={label} value={value} maxLength={max} onChange={change}
-          hint={`${hint ? `${hint} ` : ''}Up to ${grouped(max)} characters.`}
           {...rest}
         />
       </div>
@@ -217,12 +198,6 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
       </div>
 
       {listing ? (
-        <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-          Add a lender you work with and visitors get a &ldquo;Talk about financing&rdquo; button and loan links. Leave this
-          empty and no lender or loan links appear on the page. Press <strong>Save settings</strong> to make a change live.
-        </p>
-      ) : null}
-      {listing ? (
         <LenderPicker
           community={community} reload={reload}
           fields={Object.fromEntries(LISTING_LENDER_KEYS.map((key) => [key, settings[key] ?? '']))}
@@ -230,12 +205,8 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
         />
       ) : null}
       {listing ? null : <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        This is printed at the foot of every buyer page, on the printed plan and in the plan email. The
-        wording starts from Summit Home Loans&apos; and has not been reviewed by counsel, so have your
-        compliance team read it before launch. The small labels in the footer itself (Loan officer, Verify
-        our licensing at NMLS Consumer Access, Privacy Policy, Terms of Use and Accessibility) are fixed
-        and cannot be edited here. Nothing changes for buyers until you press{' '}
-        <strong>Save settings</strong>.
+        The wording starts from Summit Home Loans&apos; and has not been reviewed by counsel, so have your
+        compliance team read it before launch.
       </p>}
 
       {listing ? null : result.missing.length ? (
@@ -277,14 +248,6 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
                 Put back on the form. Press Save settings to make it live.
               </span>
             ) : null}
-            {group.note ? (
-              <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                In any statement, {'{lender}'} becomes the lender&apos;s name, and {'{nmls}'}, {'{lo}'}, {'{loNmls}'},{' '}
-                {'{community}'} and {'{builder}'} work the same way. A word in braces that is not one of these is
-                printed exactly as typed, so a typo is visible rather than lost.
-              </span>
-            ) : null}
-            {group.help ? <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>{group.help}</span> : null}
             <div className="ax-cols">{group.fields.map(renderField)}</div>
             {group.id === 'lender' ? (
               <ImageSlot
@@ -297,7 +260,6 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
                 use="lenderlogo"
                 onRemove={community.lenderLogo ? removeLogo : undefined}
                 removeWarning={listing ? 'Remove the lender logo?' : 'Remove your lender logo and go back to the supplied Summit Home Loans logo?'}
-                hint={listing ? 'Saves as soon as it uploads. PNG, WebP, JPEG or GIF up to 3 MB.' : "Saves as soon as it uploads. Leave it alone to keep the supplied Summit logo. PNG, WebP, JPEG or GIF up to 3 MB, shown at least 30 pixels tall. It also goes on the lead reports when it is a PNG or JPEG; otherwise they show the lender's name."}
               />
             ) : null}
           </>
@@ -353,9 +315,6 @@ export default function ComplianceCard({ community, settings, setSettings, reloa
           {links.length ? <p>{links.map((link) => link.label).join(' · ')}</p> : null}
           <p>{result.copyright}</p>
         </div>
-        <span className="text-muted" style={{ fontSize: 14 }}>
-          Text only. The buyer app adds the lender logo and the Equal Housing Lender mark.
-        </span>
       </section>}
     </div>
   );

@@ -77,7 +77,7 @@ export default function OwnColours({ colours, setColours, onBack, titleRef, besi
     setShowError(false);
   };
 
-  const picker = <Wheel hsv={hsv} label={slot.label} hex={hex} onPick={setHsv} hintId={`${ids}-wheel-hint`} />;
+  const picker = <Wheel hsv={hsv} label={slot.label} hex={hex} onPick={setHsv} />;
 
   return (
     <div className="ax-own">
@@ -85,9 +85,6 @@ export default function OwnColours({ colours, setColours, onBack, titleRef, besi
         <span aria-hidden="true">‹</span> All themes
       </button>
       <h3 className="ax-own__title" ref={titleRef} tabIndex={-1}>Make your own colours</h3>
-      <p className="ax-own__lead">
-        Pick three colours. We work out the rest (lighter tints, softer text, lines) and check that every word can be read.
-      </p>
 
       <label className="ax-own__start">
         <span>Start from</span>
@@ -97,7 +94,6 @@ export default function OwnColours({ colours, setColours, onBack, titleRef, besi
           ))}
         </select>
       </label>
-      <p className="ax-own__small">Sets all three colours, and the type and shapes your colours are shown in.</p>
 
       <div role="group" aria-label="Which colour you are choosing" className="ax-own__slots">
         {SLOTS.map((item, index) => (
@@ -137,11 +133,9 @@ export default function OwnColours({ colours, setColours, onBack, titleRef, besi
               autoComplete="off"
               autoCapitalize="characters"
               aria-invalid={codeError ? 'true' : undefined}
-              aria-describedby={`${ids}-code-note`}
+              aria-describedby={codeError ? `${ids}-code-note` : undefined}
             />
-            <span id={`${ids}-code-note`} className={codeError ? 'ax-own__error' : 'ax-own__small'} aria-live="polite">
-              {codeError || `For the ${slot.label.toLowerCase()}. #5A1E33 or 5A1E33 both work.`}
-            </span>
+            <span id={`${ids}-code-note`} className="ax-own__error" aria-live="polite">{codeError}</span>
           </div>
 
           <div className="ax-own__field">
@@ -214,7 +208,6 @@ export function ReadabilityCheck({ derived, asTheme = null }) {
   return (
     <div className="ax-own ax-own__check">
       <h4 className="ax-own__h">Readability check</h4>
-      <p className="ax-own__small">Checked as you pick. Anything hard to read is fixed for you, and the fix shows here.</p>
       <ul className="ax-own__checks">
         {derived.checks.map((check) => {
           const fixes = derived.fixes.filter((fix) => fix.checks.includes(check.key));
@@ -264,7 +257,7 @@ export function CheckIcon({ fixed }) {
  * arrow keys. A 2D picker has no ARIA role of its own; like most colour pickers it is a slider whose value
  * is spoken as words, and the colour code, the slider and the swatches beside it set the same colour.
  */
-function Wheel({ hsv, label, hex, onPick, hintId }) {
+function Wheel({ hsv, label, hex, onPick }) {
   const ref = useRef(null);
   const dragging = useRef(false);
   const mark = hueStrengthToPoint(hsv.h, hsv.s);
@@ -288,7 +281,6 @@ function Wheel({ hsv, label, hex, onPick, hintId }) {
         aria-valuemax={359}
         aria-valuenow={Math.round(hsv.h) % 360}
         aria-valuetext={`${hex}: ${Math.round(hsv.h) % 360} degrees round the wheel, ${Math.round(hsv.s * 100)} percent strong`}
-        aria-describedby={hintId}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.preventDefault();
@@ -318,9 +310,6 @@ function Wheel({ hsv, label, hex, onPick, hintId }) {
           style={{ left: `${50 + mark.x * 50}%`, top: `${50 + mark.y * 50}%`, background: hex }}
         />
       </div>
-      <span id={hintId} className="ax-own__small ax-own__hint">
-        Click or drag on the wheel. Arrow keys work too: left and right go round it, up and down make the colour stronger or softer.
-      </span>
     </div>
   );
 }

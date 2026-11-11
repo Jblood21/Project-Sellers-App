@@ -35,7 +35,6 @@ export default function LogoCard({ community, reload }) {
         onPick={upload('logo')}
         use="logo"
         onRemove={community.logo ? remove(community.logo) : undefined}
-        hint="Used on light backgrounds. A transparent PNG at least 600 pixels wide looks best."
       />
       <ImageSlot
         label="Logo for dark backgrounds (optional)"
@@ -46,12 +45,7 @@ export default function LogoCard({ community, reload }) {
         onPick={upload('logolight')}
         use="logolight"
         onRemove={community.logoLight ? remove(community.logoLight) : undefined}
-        hint="A white or light version, used where the buyer app has a dark header or footer."
       />
-      <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
-        PNG, WebP, JPEG or GIF up to 3 MB. SVG files are not accepted. Without a logo, buyers see
-        the {listing ? 'home’s address' : 'community name'} as text.
-      </span>
     </div>
   );
 }

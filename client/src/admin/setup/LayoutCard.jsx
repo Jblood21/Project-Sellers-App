@@ -296,10 +296,6 @@ export default function LayoutCard({ community, reload }) {
           </button>
         ))}
       </div>
-      <span className="text-muted" style={{ fontSize: 14 }}>
-        Changes the type, the shapes and where buttons sit, instantly. Every tool does exactly
-        what it did before, and the theme below still sets the colours.
-      </span>
       <ErrorNote>{error}</ErrorNote>
       <button type="button" className="btn btn-ghost" style={{ alignSelf: 'flex-start' }} aria-expanded="true" onClick={() => setOpen(false)}>
         Close, keep {LAYOUTS.find((layout) => layout.k === current)?.name ?? 'this one'}

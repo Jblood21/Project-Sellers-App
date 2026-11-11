@@ -89,17 +89,11 @@ export default function FaqCard({ community, settings, setSettings, reload }) {
       </div>
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
-      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        A new community starts with a set of starter questions; change them, reorder them or remove any you do not
-        want. Up to {FAQ_MAX_ITEMS} questions. Answers are plain text; a line break stays a line break. The switch
-        saves at once; the questions go live when you press <strong>Save settings</strong>.
-      </p>
-
       {rows.map((row, index) => (
         <div key={index} className="ax-group" role="group" aria-label={`FAQ item ${index + 1}`}>
           <TextField
             id={`faq-q-${index}`} label={`Question ${index + 1}`} value={row.q} maxLength={FAQ_QUESTION_MAX}
-            onChange={edit(index, 'q')} hint={`Up to ${grouped(FAQ_QUESTION_MAX)} characters.`}
+            onChange={edit(index, 'q')}
           />
           <TextAreaField
             id={`faq-a-${index}`} label="Answer" rows={3} value={row.a} maxLength={FAQ_ANSWER_MAX}

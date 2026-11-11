@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-
 
 import AgentEditor from './AgentEditor.jsx';
 
@@ -14,11 +12,6 @@ export default function ListingAgentCard({ community, reload }) {
   return (
     <div className="card elev-sm" style={{ gap: 12 }}>
       <span className="card-kicker">Listing agent</span>
-      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        This is you. Visitors see your face, name and brokerage above the home&apos;s pictures, and these details under
-        &ldquo;Meet your agent&rdquo; and &ldquo;Want a showing?&rdquo;, where they can call, text or email you. Add a clear photo of your face below. Changes here save on their own, not with the Save settings button, and change this listing only; your name, number and photo for new listings are under{' '}
-        <Link to="/admin/profile">Your details</Link>.
-      </p>
       <AgentEditor
         key={agent?.id ?? 'new'} single agent={agent} index={0} community={community} reload={reload}
         onCreated={setNotice}

@@ -40,13 +40,6 @@ export default function RealtorsCard({ community, reload }) {
         <span className="card-kicker">{listing ? 'Agents' : 'Realtors'}</span>
         <span className="tag tag-neutral" aria-live="polite">{agents.length} of {MAX_AGENTS} added</span>
       </div>
-      <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-        {listing
-          ? 'The agents visitors can contact about this home. They are listed on the home screen under “Schedule your tour.”, under the home, and on a Meet the agent page. Visitors can call, text or email them, and ask to tour.'
-          : 'Agents buyers can contact about homes here. They are listed on the home screen under “Schedule your tour.”, under every home, and on a Meet the agent page. Buyers can call, text or email them, and ask to tour.'}{' '}
-        Changes here save on their own, not with the Save settings button.
-      </p>
-
       {agents.length && !shown ? (
         <div className="ax-callout">
           <span style={{ fontSize: 14, lineHeight: 1.45 }}>

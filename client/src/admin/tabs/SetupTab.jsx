@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-import { num } from '@shared/domain.js';
 import { SETTING_NUMBER_RULES, creditOrderProblem, readSetting, withoutPercent } from '@shared/numberInput.js';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -119,7 +118,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
   const numberField = (key, label, extra = {}) => (
     <CheckedField
       key={key} id={`setting-${key}`} label={label} value={settings[key]} inputMode={extra.inputMode ?? 'decimal'}
-      onChange={set(key)} onBlur={() => leave(key)} error={problemOf(key)} hint={extra.hint}
+      onChange={set(key)} onBlur={() => leave(key)} error={problemOf(key)}
       // "e.g." so a grey example is never read as a figure that is already in the box.
       placeholder={extra.placeholder ? `e.g. ${extra.placeholder}` : undefined}
       invalid={key in FOLD_OF ? false : Boolean(orderShown)} autoComplete="off"
@@ -275,12 +274,6 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
           inputMode="email"
           placeholder={listing ? 'you@yourbrokerage.com' : 'sales@yourcompany.com'}
         />
-        <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
-          Leave blank to use the account you sign in with.{' '}
-          {listing
-            ? 'A visitor asking for a showing is time-sensitive, so this is the one thing the app will email you about.'
-            : 'A buyer asking for a call is time-sensitive, so this is the one thing the app will email you about.'}
-        </span>
         <EmailStatus status={community.emailStatus} />
       </div>
 
@@ -294,11 +287,6 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
           inputMode="email"
           placeholder={listing ? 'you@yourbrokerage.com' : 'sales@yourcompany.com'}
         />
-        <span className="text-muted" style={{ fontSize: 14, lineHeight: 1.45 }}>
-          One address. The report lists {listing ? 'the visitors who signed up since the last report' : 'the scheduled calls still waiting and the people who signed up since the last report'}. The spreadsheet attached has everyone, with their phone numbers (including {listing ? 'visitors' : 'people'} who said
-          no to calls and texts), your notes and status. {listing ? 'Visitors' : 'People'} you have closed are left out. It is sent only when you press the button,
-          never on its own, and changing the address does not change who counts as new.
-        </span>
         <ReportButton
           community={community}
           reload={reload}
@@ -335,10 +323,6 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
           {numberField('rateFha', 'FHA %', { placeholder: '6.50' })}
           {numberField('rateVa', 'VA %', { placeholder: '6.25' })}
         </div>
-        <span className="text-muted" style={{ fontSize: 14 }}>
-          Updated {settings.ratesUpdatedAt ? fullDate(settings.ratesUpdatedAt) : 'never'}
-          {isOwner ? ' · a Zapier email parser can post new rates to this community automatically.' : '.'}
-        </span>
       </Disclosure>
       )}
 
@@ -352,7 +336,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
         <div className="grid-3" style={BOXES}>
           {numberField('taxPctYr', 'Tax %/yr', { placeholder: '0.55' })}
           {numberField('insuranceYr', 'Insurance $/yr', { placeholder: '1400' })}
-          {numberField('hoaMo', listing ? 'HOA dues per month, if this home has one' : 'HOA $/mo', { placeholder: '45', hint: listing ? 'Leave blank if there is none.' : 'Blank if there is no HOA.' })}
+          {numberField('hoaMo', listing ? 'HOA dues per month, if this home has one' : 'HOA $/mo', { placeholder: '45' })}
         </div>
       </Disclosure>
 
@@ -372,7 +356,6 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
       >
         <TextField
           label="Program name"
-          hint="Shown to buyers by name. Leave blank and it reads as “this community’s assistance program”."
           value={settings.dpaProgram}
           onChange={set('dpaProgram')}
           placeholder="Utah SB 240 first-time buyer"
@@ -380,22 +363,13 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
         <div className="grid-3" style={BOXES}>
           {numberField('dpaIncomeLimit', 'Income limit $', { placeholder: '162500' })}
           {numberField('dpaMinCredit', 'Min credit', { placeholder: '660', inputMode: 'numeric' })}
-          {numberField('dpaPriceCap', 'Price cap $', {
-            hint: 'The program\'s purchase-price ceiling. Homes above it are marked as not covered. Blank = no cap.',
-            placeholder: '450000',
-          })}
+          {numberField('dpaPriceCap', 'Price cap $', { placeholder: '450000' })}
         </div>
         <div className="grid-3" style={BOXES}>
-          {numberField('dpaAmount', 'Assist amount $', {
-            hint: 'A flat figure on its own. With a % below, this becomes the most the program will pay.',
-          })}
-          {numberField('dpaPct', 'or % of loan', {
-            hint: 'Leave blank for a flat amount. Set it and the help scales with each home\'s price.',
-            placeholder: '6',
-          })}
+          {numberField('dpaAmount', 'Assist amount $')}
+          {numberField('dpaPct', 'or % of loan', { placeholder: '6' })}
           <TextField
             label="Rules checked on"
-            hint="Shown to buyers. Limits reset every year and funded programs run out."
             value={settings.dpaAsOf}
             onChange={set('dpaAsOf')}
             type="date"
@@ -411,9 +385,6 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
           {numberField('creditFairMin', 'Fair ≥', { inputMode: 'numeric', placeholder: '660' })}
         </div>
         {orderShown ? <span role="alert" style={{ color: PROBLEM_RED, fontSize: 14, lineHeight: 1.4 }}>{orderShown}</span> : null}
-        <span className="text-muted" style={{ fontSize: 14 }}>
-          Buyers see these as ranges, e.g. &ldquo;Good {settings.creditGoodMin}–{num(settings.creditExcellentMin) - 1}&rdquo;.
-        </span>
       </div>
         </>
       )}
@@ -502,15 +473,6 @@ function CommunityArtwork({ community, reload }) {
       <span className="card-kicker">{listing ? 'Listing artwork' : 'Community artwork'}</span>
       {slot('hero', 'Hero photo (QR landing)', listing ? 'Tap to upload or drop a cover photo' : 'Tap to upload or drop the community photo', heroInput, community.heroPhoto, 140, heroDrop)}
       {slot('icon', 'App icon (Add to Home Screen)', 'Tap to upload or drop a square icon', iconInput, community.iconPhoto, 90, iconDrop)}
-      {listing ? (
-        <span className="text-muted" style={{ fontSize: 14 }}>
-          The home&apos;s own photos, floor plans and video are on The home tab.
-        </span>
-      ) : (
-        <span className="text-muted" style={{ fontSize: 14 }}>
-          The site map lives with the homes it places, on the Homes tab.
-        </span>
-      )}
       <ErrorNote>{error}</ErrorNote>
     </div>
   );
