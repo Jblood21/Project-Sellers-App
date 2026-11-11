@@ -410,7 +410,7 @@ export default function Today() {
       ) : null}
 
       {creating ? <NewCommunityDialog onClose={closeNew} /> : null}
-      {creatingListing ? <NewListingDialog onClose={closeNew} listings={listings.map((entry) => entry.listing)} /> : null}
+      {creatingListing ? <NewListingDialog onClose={closeNew} listings={listings} /> : null}
     </AdminShell>
   );
 }
