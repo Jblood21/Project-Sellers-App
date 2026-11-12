@@ -269,6 +269,11 @@ export const adminApi = {
   // A listing: one home an agent is selling, made with its home in one step. Answers the community with `homes: [home]`.
   // Members as well as the owner may make one; ordinary community creation stays the owner's.
   createListing: (token, body) => request('/api/admin/communities', { method: 'POST', body: { ...body, kind: 'listing' }, token }),
+  // What a pasted Utah MLS listing link says about the home (facts, description, MLS number, photo addresses). Stores nothing.
+  previewListingImport: (token, url) => request('/api/admin/listing-import/preview', { method: 'POST', body: { url }, token }),
+  // Brings a few of those photos into a home, in order. Answers { added, failed: [{url, reason}], total }.
+  importHomePhotos: (token, homeId, urls) =>
+    request(`/api/admin/homes/${encodeURIComponent(homeId)}/photos/import`, { method: 'POST', body: { urls }, token }),
   updateCommunity: (token, id, body) =>
     request(`/api/admin/communities/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
   deleteCommunity: (token, id) =>

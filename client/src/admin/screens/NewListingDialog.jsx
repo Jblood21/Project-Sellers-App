@@ -18,6 +18,25 @@ const BROKERAGE_KEY = 'psa:lastBrokerage';
 const AGENT_KEY = 'psa:lastListingAgent';
 const AGENT_FIELDS = ['agentName', 'agentPhone', 'agentEmail', 'license'];
 const COUNT_FIELDS = ['beds', 'baths', 'sqft'];
+// What an imported listing brings besides the form's own boxes; sent to the server when the listing is created.
+const EXTRA_FIELDS = ['yearBuilt', 'lotAcres', 'hoaMonthly', 'taxAnnual', 'description', 'mlsNumber'];
+// Photos are fetched a few at a time so no request runs long.
+const PHOTO_BATCH = 4;
+
+/** A plain sentence about what an import found, so the agent knows what to check. */
+function foundSummary(fields, photoCount) {
+  const parts = [];
+  if (fields.address) parts.push('address');
+  if (fields.price) parts.push('price');
+  if (fields.beds !== undefined || fields.baths !== undefined || fields.sqft) parts.push('beds, baths and size');
+  if (fields.yearBuilt) parts.push('year built');
+  if (fields.lotAcres) parts.push('lot size');
+  if (fields.hoaMonthly !== undefined) parts.push('HOA');
+  if (fields.taxAnnual) parts.push('taxes');
+  if (fields.description) parts.push('description');
+  const photos = photoCount ? `${photoCount} photo${photoCount === 1 ? '' : 's'}` : 'no photos';
+  return `Found: ${parts.join(', ') || 'nothing you can use'}, and ${photos}.`;
+}
 
 const rememberedBrokerage = () => {
   const saved = readJson(BROKERAGE_KEY);
@@ -44,6 +63,14 @@ export default function NewListingDialog({ onClose, listings = [] }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({ address: '', city: '', price: '', beds: '', baths: '', sqft: '', brokerage: rememberedBrokerage(), agentName: '', agentPhone: '', agentEmail: '', license: '', ...rememberedAgent() });
   const [photo, setPhoto] = useState(null);
+  // A pasted listing link: what it said (facts, description, MLS number, photo addresses), to be looked over before Create.
+  const [link, setLink] = useState('');
+  const [reading, setReading] = useState(false);
+  const [imported, setImported] = useState(null);
+  const [importNote, setImportNote] = useState({ text: '', bad: false });
+  const [photoProgress, setPhotoProgress] = useState('');
+  const importedPhotosDone = useRef(0);
+  const importedPhotosFailed = useRef(0);
   // Another of their listings to copy the look and setup from (its layout, colours, lender and agent), or '' to start fresh.
   const [copyFrom, setCopyFrom] = useState('');
   // The agent's own details come from their account (Your details), so the form starts filled in; their face is the
@@ -98,6 +125,34 @@ export default function NewListingDialog({ onClose, listings = [] }) {
   // The first count that is wrong speaks for the row of three: three sentences side by side would not fit a phone.
   const countProblemKey = COUNT_FIELDS.find((key) => problemOf(key));
 
+  const readLink = async () => {
+    if (!link.trim() || reading) return;
+    setReading(true);
+    setImportNote({ text: '', bad: false });
+    try {
+      const got = await adminApi.previewListingImport(token, link.trim());
+      const f = got.fields ?? {};
+      // Only what the page gave: a box the page did not fill keeps what is already typed.
+      const next = {};
+      if (f.address) next.address = f.address;
+      if (f.city) next.city = f.city;
+      if (f.price) next.price = money(f.price);
+      if (f.beds !== undefined) next.beds = String(f.beds);
+      if (f.baths !== undefined) next.baths = String(f.baths);
+      if (f.sqft) next.sqft = String(f.sqft);
+      setForm((prev) => ({ ...prev, ...next }));
+      setImported({ fields: f, photos: got.photos ?? [] });
+      importedPhotosDone.current = 0;
+      importedPhotosFailed.current = 0;
+      setImportNote({ text: `${foundSummary(f, (got.photos ?? []).length)} Look everything over below, then press Create. Nothing is saved until you do.`, bad: false });
+    } catch (err) {
+      setImported(null);
+      setImportNote({ text: err.message, bad: true });
+    } finally {
+      setReading(false);
+    }
+  };
+
   const create = () => {
     setTried(true);
     const first = ['address', 'price', ...COUNT_FIELDS, 'agentEmail'].find((key) => problems[key]);
@@ -111,6 +166,7 @@ export default function NewListingDialog({ onClose, listings = [] }) {
         for (const key of ['price', ...COUNT_FIELDS]) body[key] = readNumber(form[key], HOME_NUMBER_RULES[key]).value ?? '';
         for (const key of AGENT_FIELDS) body[key] = form[key].trim();
         if (copyFrom) body.copyFrom = copyFrom;
+        if (imported) for (const key of EXTRA_FIELDS) if (imported.fields[key] !== undefined) body[key] = imported.fields[key];
         created.current = await adminApi.createListing(token, body);
         writeJson(BROKERAGE_KEY, form.brokerage.trim());
         writeJson(AGENT_KEY, Object.fromEntries(AGENT_FIELDS.map((key) => [key, form[key].trim()])));
@@ -124,6 +180,23 @@ export default function NewListingDialog({ onClose, listings = [] }) {
         } catch (photoError) {
           notice = `${listing.name} was created, but the photo did not upload: ${photoError.message} Add it here.`;
         }
+      }
+      // The listing's own photos, in the page's order, after the one picked above (which is its first).
+      const wanted = imported?.photos ?? [];
+      while (importedPhotosDone.current < wanted.length) {
+        const batch = wanted.slice(importedPhotosDone.current, importedPhotosDone.current + PHOTO_BATCH);
+        setPhotoProgress(`Bringing in photos… ${Math.min(importedPhotosDone.current + batch.length, wanted.length)} of ${wanted.length}`);
+        try {
+          const done = await adminApi.importHomePhotos(token, listing.homes[0].id, batch);
+          importedPhotosFailed.current += done.failed?.length ?? 0;
+        } catch {
+          importedPhotosFailed.current += batch.length;
+        }
+        importedPhotosDone.current += batch.length;
+      }
+      setPhotoProgress('');
+      if (importedPhotosFailed.current) {
+        notice = `${notice ? `${notice} ` : ''}${listing.name} was created. ${importedPhotosFailed.current} of ${wanted.length} photos could not be brought in: add them here.`;
       }
       onClose();
       // The home is where the first photos and the facts are; it points on to the open houses.
@@ -158,6 +231,25 @@ export default function NewListingDialog({ onClose, listings = [] }) {
           </span>
         </label>
       ) : null}
+      <div style={{ display: 'grid', gap: 6 }}>
+        <label htmlFor="listing-link" style={{ fontWeight: 600 }}>Fill it in from a listing link</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            id="listing-link" className="input" style={{ flex: 1, minWidth: 0 }} value={link} inputMode="url" autoComplete="off"
+            placeholder="Paste a utahrealestate.com link" disabled={Boolean(created.current)}
+            onChange={(event) => setLink(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); readLink(); } }}
+          />
+          <button type="button" className="btn btn-secondary" onClick={readLink} aria-disabled={reading || !link.trim() || undefined}>
+            {reading ? 'Reading…' : 'Fill in'}
+          </button>
+        </div>
+        {importNote.text ? (
+          <span role={importNote.bad ? 'alert' : 'status'} style={{ fontSize: 14, lineHeight: 1.4, color: importNote.bad ? PROBLEM_RED : undefined }}>{importNote.text}</span>
+        ) : (
+          <span className="field-hint">Optional. Brings in the address, price, facts, description and photos from the MLS page. Private remarks and showing instructions are never read.</span>
+        )}
+      </div>
       <CheckedField
         id="listing-address" label="Address" value={form.address} placeholder="e.g. 123 Maple Street"
         onChange={set('address')} onBlur={() => leave('address')} error={problemOf('address')} autoComplete="off"
@@ -235,6 +327,7 @@ export default function NewListingDialog({ onClose, listings = [] }) {
         pendingDataUrl={photo}
         onPick={setPhoto}
       />
+      {photoProgress ? <span role="status" style={{ fontSize: 14 }}>{photoProgress}</span> : null}
       <SaveNote saver={saver} />
     </Dialog>
   );

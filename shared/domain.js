@@ -934,7 +934,7 @@ export function tourTopicLabel(topic, lenderName = LENDER.name) {
   return topic === 'lender' ? lenderName : 'the community team';
 }
 
-export const MAX_PHOTOS_PER_HOME = 8;
+export const MAX_PHOTOS_PER_HOME = 30;
 
 // ── numbers ────────────────────────────────────────────────────────────────
 

@@ -19,6 +19,7 @@ import { cleanSubscription, pushPublicKey, pushToAdmin } from '../lib/push.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { readHomeFacts } from '../../shared/homeFacts.js';
+import { cleanListingLink, fetchPage, fetchPhoto, readListingPage } from '../lib/listingImport.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, mailboxKey, reserve, tooMany } from '../lib/limits.js';
@@ -1403,6 +1404,10 @@ export function adminRouter() {
     if (!address) return res.status(400).json({ error: 'Give the home an address.' });
     const numbers = readHomeNumbers(req.body);
     if (numbers.error) return res.status(400).json({ error: numbers.error });
+    // Year built, lot, HOA and taxes, when the form brought them (a listing imported from a link does).
+    const facts = readHomeFacts(req.body);
+    if (facts.error) return res.status(400).json({ error: facts.error });
+    const mlsNumber = str(req.body?.mlsNumber).replace(/[^A-Za-z0-9-]/g, '').slice(0, 20);
     const store = await getStore();
     // Checked first, so a bad copy request leaves nothing half-built.
     let source = null;
@@ -1436,6 +1441,7 @@ export function adminRouter() {
       // the footer prints is always written the same way.
       const licenseNo = detail(req.body?.license, mine.license).replace(/^\s*lic(?:ense|\.)?\s*(?:no\.?|number)?\s*#?\s*/i, '').replace(/^#\s*/, '').trim().slice(0, AGENT_TEXT_MAX.licenseNo);
       if (licenseNo) community = await store.updateCommunity(made.id, { settings: { ...made.settings, agentLicense: `Lic. #${licenseNo}` } });
+      if (mlsNumber) community = await store.updateCommunity(made.id, { settings: { ...community.settings, mlsNumber } });
       // The lender they marked as their usual one starts on every new listing.
       const usual = contactsOf(me?.contacts).find((c) => c.isDefault);
       if (usual) community = await applyLender(store, community, usual);
@@ -1468,7 +1474,8 @@ export function adminRouter() {
       home = await store.createHome(community.id, {
         name: address,
         ...numbers.data,
-        description: str(req.body?.description),
+        ...facts.data,
+        description: str(req.body?.description).slice(0, 5000),
         availability: 'Move-in ready',
         lotNumber: '',
         readyOn: readyDate(null),
@@ -1494,6 +1501,70 @@ export function adminRouter() {
     await recordActivity(store, req, { communityId: community.id, action: 'listing.created', subject: community.name });
     return res.status(201).json({ ...community, homes: [home], agents: agent ? [agent] : [] });
   }
+
+  // ── import a listing from its MLS page ──────────────────────────────────
+  // Each preview is a request to another website made on this server's behalf, so a person gets a handful an hour.
+  const importPerPerson = createLimiter({ windowMs: 60 * 60 * 1000, max: 30 });
+
+  /**
+   * Reads the public page behind a pasted listing link and returns what it says: the facts the New listing form
+   * has boxes for, the description, the MLS number and the addresses of its photos. Nothing is stored; the agent
+   * looks it over in the form and presses Create. Private remarks and showing instructions are never read.
+   */
+  router.post('/listing-import/preview', async (req, res) => {
+    const link = cleanListingLink(req.body?.url);
+    if (link.error) return res.status(400).json({ error: link.error });
+    const attempt = reserve([[importPerPerson, req.admin.sub]]);
+    if (attempt.wait) {
+      res.set('Retry-After', String(attempt.wait));
+      return res.status(429).json({ error: tooMany('listing look-ups', attempt.wait) });
+    }
+    let page;
+    try {
+      page = await fetchPage(link.url);
+    } catch (err) {
+      return res.status(502).json({ error: `Could not open that listing page. ${err.message}` });
+    }
+    const read = readListingPage(page.html, page.url);
+    if (!read.fields.mlsNumber && link.mls) read.fields.mlsNumber = link.mls;
+    console.info(`Listing import: read ${read.found} of 5 key facts and ${read.photos.length} photos (${Math.round(page.html.length / 1024)} KB page).`);
+    if (read.found < 2) {
+      return res.status(422).json({
+        error: 'That page did not show the home\'s details to this tool (it may need a sign-in, or load them with a script). Type the address and price in by hand; you can still add the photos in the next step.',
+        fields: read.fields,
+        photos: read.photos,
+      });
+    }
+    res.json({ fields: read.fields, photos: read.photos });
+  });
+
+  /**
+   * Downloads some of a listing's photos into a home, in the order given. A few at a time (the client asks again for
+   * the next few) so no request runs long; a picture that cannot be fetched is skipped and reported, never fatal.
+   */
+  router.post('/homes/:id/photos/import', async (req, res) => {
+    const store = await getStore();
+    const home = await homeOf(req, res, store);
+    if (!home) return;
+    const urls = Array.isArray(req.body?.urls) ? req.body.urls.filter((u) => typeof u === 'string' && /^https:\/\//i.test(u)).slice(0, 5) : [];
+    if (!urls.length) return res.status(400).json({ error: 'Send the addresses of the photos to bring in.' });
+    let count = await store.countHomePhotos(home.id);
+    const failed = [];
+    let added = 0;
+    for (const url of urls) {
+      if (count >= MAX_PHOTOS_PER_HOME) { failed.push({ url, reason: `Up to ${MAX_PHOTOS_PER_HOME} photos per home.` }); continue; }
+      try {
+        const image = await fetchPhoto(url);
+        await store.addPhoto({ communityId: home.communityId, homeId: home.id, kind: 'home', ...image });
+        count += 1;
+        added += 1;
+      } catch (err) {
+        failed.push({ url, reason: String(err.message ?? 'Could not be fetched.').slice(0, 160) });
+      }
+    }
+    if (added) await recordActivity(store, req, { communityId: home.communityId, action: 'home.photos', subject: home.name, detail: `imported ${added} photo${added === 1 ? '' : 's'} from the listing` });
+    res.json({ added, failed, total: count, max: MAX_PHOTOS_PER_HOME });
+  });
 
   router.post('/communities', async (req, res) => {
     if (req.body?.kind === 'listing') return createListing(req, res);
