@@ -167,7 +167,7 @@ export default function Listing({ model }) {
 
         {factRows(model.home).length || featureLabels(model.home?.features).length ? (
           <div className="ls-saltgrass-wrap">
-            <HomeFacts home={model.home} />
+            <HomeFacts home={model.home} style={{ marginTop: 22 }} />
             <WhatsSpecial home={model.home} />
           </div>
         ) : null}

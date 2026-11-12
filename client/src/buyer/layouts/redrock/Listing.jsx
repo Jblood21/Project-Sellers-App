@@ -182,7 +182,7 @@ export default function Listing({ model }) {
           {hasHome ? (
             <Section n={++n} id="rr-ls-home" title="The home">
               {paragraphs.map((text, i) => <p key={i} className={i === 0 ? 'ls-redrock-lead' : 'ls-redrock-p'}>{text}</p>)}
-              <HomeFacts home={model.home} />
+              <HomeFacts home={model.home} style={{ marginTop: 22 }} />
               <WhatsSpecial home={model.home} />
               {model.hasVideo ? (
                 <button type="button" className="ls-redrock-btn ls-redrock-btn--line" onClick={model.openVideo}>▶ Watch the video tour</button>

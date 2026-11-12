@@ -140,7 +140,7 @@ export default function Listing({ model }) {
               {paragraphs.map((p, i) => <p key={i} className={i === 0 ? 'ls-foyer-story__lead' : undefined}>{p}</p>)}
             </section>
           ) : null}
-          <HomeFacts home={model.home} />
+          <HomeFacts home={model.home} style={{ marginTop: 22 }} />
           <WhatsSpecial home={model.home} />
 
           {rows.length ? (
