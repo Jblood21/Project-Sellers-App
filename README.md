@@ -841,7 +841,9 @@ Closest grocery store, public park, gym, park and ride, golf course and ski reso
 (typed by the agent). A place has a name, miles and minutes of driving, a note, a link, an address and an optional
 photo; with no photo it gets a simple icon. A school with no link of its own links to the Utah school report card.
 
-- In Setup's Area tab, **Find it on the map** looks the home's address up (Nominatim, no key; `server/lib/geocode.js`)
+- In Setup's Area tab, **Find it on the map** looks an address up (typed in the box above it, starting from the home's
+  name and city) with the US Census geocoder for street addresses and OpenStreetMap's Nominatim for place names and as
+  the fallback (no keys; `server/lib/geocode.js`; failures are logged with the service and reason, never the address)
   and keeps the point in `settings.mapLat/mapLng`. A place with an address is placed the same way when it is saved.
   A failed look-up never blocks a save: the place just has no pin.
 - Directions open the phone's own maps app (Apple Maps on Apple devices, Google Maps elsewhere), which starts from where

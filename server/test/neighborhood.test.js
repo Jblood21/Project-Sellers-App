@@ -42,20 +42,42 @@ describe('neighborhood (shared)', () => {
 describe('geocoding', () => {
   const real = hooks.fetch;
   after(() => { hooks.fetch = real; });
+  const census = (x, y) => new Response(JSON.stringify({ result: { addressMatches: [{ matchedAddress: '123 MAPLE ST, LEHI, UT', coordinates: { x, y } }] } }), { status: 200 });
 
-  test('reads the first match, and never throws', async () => {
-    let asked;
+  test('a street address goes to the Census service first', async () => {
+    const asked = [];
+    hooks.fetch = async (url) => { asked.push(String(url)); return census(-111.8507662, 40.3916172); };
+    assert.deepEqual(await geocode('123 Maple St, Lehi UT'), { lat: 40.391617, lng: -111.850766, label: '123 MAPLE ST, LEHI, UT', source: 'census' });
+    assert.equal(asked.length, 1);
+    assert.match(asked[0], /geocoding\.geo\.census\.gov/);
+  });
+
+  test('a place name, or an address the Census service does not know, falls back to Nominatim', async () => {
+    let ua;
     hooks.fetch = async (url, init) => {
-      asked = { url: String(url), ua: init.headers['User-Agent'] };
+      if (String(url).includes('census')) return new Response(JSON.stringify({ result: { addressMatches: [] } }), { status: 200 });
+      ua = init.headers['User-Agent'];
       return new Response(JSON.stringify([{ lat: '40.3916172', lon: '-111.8507662', display_name: 'Lehi, Utah' }]), { status: 200 });
     };
-    assert.deepEqual(await geocode('123 Maple St, Lehi UT'), { lat: 40.391617, lng: -111.850766, label: 'Lehi, Utah' });
-    assert.match(asked.url, /nominatim\.openstreetmap\.org\/search/);
-    assert.match(asked.ua, /Touradoor/);
-    hooks.fetch = async () => new Response('[]', { status: 200 });
-    assert.equal(await geocode('nowhere'), null);
+    assert.equal((await geocode('999 New Build Rd, Lehi UT')).source, 'nominatim');
+    assert.equal((await geocode('Lehi Elementary')).source, 'nominatim');
+    assert.match(ua, /Touradoor/);
+  });
+
+  test('a unit number is dropped on the second try, and every failure ends in null, never a throw', async () => {
+    const queries = [];
+    hooks.fetch = async (url) => {
+      const u = new URL(url);
+      queries.push(u.searchParams.get('q') ?? u.searchParams.get('address'));
+      if (u.hostname.includes('census')) return new Response('{}', { status: 200 });
+      return queries.at(-1).includes('Unit') ? new Response('[]', { status: 200 }) : new Response(JSON.stringify([{ lat: '40.1', lon: '-111.1' }]), { status: 200 });
+    };
+    assert.equal((await geocode('50 Pine Way Unit 4, Lehi UT')).lat, 40.1);
+    assert.ok(queries.some((q) => /Unit/.test(q)) && queries.some((q) => !/Unit/.test(q)));
+    hooks.fetch = async () => new Response('busy', { status: 429 });
+    assert.equal(await geocode('1 Any St'), null);
     hooks.fetch = async () => { throw new Error('down'); };
-    assert.equal(await geocode('anything'), null);
+    assert.equal(await geocode('1 Any St'), null);
     assert.equal(await geocode('   '), null);
   });
 });
@@ -73,6 +95,7 @@ for (const kind of backends()) {
       ({ api, token: owner } = app);
       community = (await api('/api/admin/communities', { token: owner, method: 'POST', body: { name: 'Map Place', location: 'Lehi, UT' } })).body;
       hooks.fetch = async (url) => {
+        if (String(url).includes('census')) return new Response(JSON.stringify({ result: { addressMatches: [] } }), { status: 200 });
         const q = new URL(url).searchParams.get('q');
         if (/nowhere/i.test(q)) return new Response('[]', { status: 200 });
         return new Response(JSON.stringify([{ lat: '40.4', lon: '-111.9', display_name: q }]), { status: 200 });
@@ -126,6 +149,8 @@ for (const kind of backends()) {
       assert.equal((await api(`/api/c/${community.id}`)).body.settings.mapLng, '-111.9');
       const none = await api(`/api/admin/communities/${community.id}/locate`, { token: owner, method: 'POST', body: { address: 'nowhere' } });
       assert.equal(none.status, 404);
+      assert.match(none.body.error, /nowhere/);
+      assert.match(none.body.error, /city and state/);
       const bad = await api(`/api/admin/communities/${community.id}`, { token: owner, method: 'PATCH', body: { settings: { mapLat: '95' } } });
       assert.equal(bad.status, 400);
     });

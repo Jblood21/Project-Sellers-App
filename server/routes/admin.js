@@ -2019,7 +2019,7 @@ export function adminRouter() {
     const typed = str(req.body?.address).slice(0, 200);
     const query = typed || [community.name, community.location].filter(Boolean).join(', ');
     const found = await geocode(query);
-    if (!found) return res.status(404).json({ error: 'That address could not be found on the map. Check the address and try again.' });
+    if (!found) return res.status(404).json({ error: `Could not find "${query}" on the map. Type the full street address with the city and state, like 1234 Maple St, Lehi, UT 84043, and try again.`, searched: query });
     await store.updateCommunity(community.id, { settings: { ...community.settings, mapLat: String(found.lat), mapLng: String(found.lng) } });
     res.json(found);
   });
