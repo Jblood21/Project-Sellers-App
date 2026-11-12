@@ -10,6 +10,7 @@ import {
   AgentActions, AgentLines, Face, FloorPlans, Guides, StatusNote, TeamAgents, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 import { featureLabels } from '@shared/homeFacts.js';
 
 /**
@@ -184,6 +185,7 @@ export default function Listing({ model }) {
               {paragraphs.map((text, i) => <p key={i} className={i === 0 ? 'ls-redrock-lead' : 'ls-redrock-p'}>{text}</p>)}
               <HomeFacts home={model.home} style={{ marginTop: 22 }} />
               <WhatsSpecial home={model.home} />
+              <RateScenarios />
               {model.hasVideo ? (
                 <button type="button" className="ls-redrock-btn ls-redrock-btn--line" onClick={model.openVideo}>▶ Watch the video tour</button>
               ) : null}

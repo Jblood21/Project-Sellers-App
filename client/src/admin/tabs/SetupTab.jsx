@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+import { SCENARIO_KEYS, scenariosOf, scenarioAprKey, scenarioRateKey } from '@shared/rateScenarios.js';
 import { SETTING_NUMBER_RULES, creditOrderProblem, readSetting, withoutPercent } from '@shared/numberInput.js';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -23,12 +24,14 @@ import IncentiveCard from '../setup/IncentiveCard.jsx';
 import LayoutCard from '../setup/LayoutCard.jsx';
 import LogoCard from '../setup/LogoCard.jsx';
 import ListingAgentCard from '../setup/ListingAgentCard.jsx';
+import ScenarioFields from '../setup/ScenarioFields.jsx';
 import RealtorsCard from '../setup/RealtorsCard.jsx';
 import ThemeStudio from '../setup/ThemeStudio.jsx';
 import { Disclosure, ErrorNote, Field, TextField } from '../ui.jsx';
 import ReportButton from '../ReportButton.jsx';
 import { fromInput, useFileDrop } from '../useFileDrop.js';
 
+const SCENARIO_SETTING_KEYS = ['scenarioPicks', 'scenarioEffective', 'scenarioAssumptions', ...SCENARIO_KEYS.flatMap((k) => [scenarioRateKey(k), scenarioAprKey(k)])];
 // What "Check rate inbox" can change; everything else on the form is left alone.
 const RATE_KEYS = ['rateConv', 'rateFha', 'rateVa', 'ratesUpdatedAt'];
 
@@ -39,6 +42,7 @@ const CREDIT_KEYS = ['creditExcellentMin', 'creditGoodMin', 'creditFairMin'];
 // Every box that must hold a number, and which fold it is in, so a refusal can open the fold and go to the box.
 const FOLD_OF = {
   rateConv: 'rates', rateFha: 'rates', rateVa: 'rates',
+  ...Object.fromEntries(SCENARIO_KEYS.flatMap((k) => [[scenarioRateKey(k), 'scenarios'], [scenarioAprKey(k), 'scenarios']])),
   taxPctYr: 'costs', insuranceYr: 'costs', hoaMo: 'costs',
   dpaIncomeLimit: 'dpa', dpaMinCredit: 'dpa', dpaPriceCap: 'dpa', dpaAmount: 'dpa', dpaPct: 'dpa',
 };
@@ -64,7 +68,7 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
   const [savedAt, setSavedAt] = useState(null);
   // The three folds the numbers live in. Open from outside so a refused box can be brought into view, and so the
   // note from "Check for new rates" lands where it is read.
-  const [folds, setFolds] = useState({ rates: false, costs: false, dpa: false });
+  const [folds, setFolds] = useState({ rates: false, scenarios: false, costs: false, dpa: false });
   const [ratesNote, setRatesNote] = useState('');
   // A box is judged once the person has left it (judging "7" on the way to "740" would only scold), and every box
   // is judged once they press Save settings.
@@ -115,6 +119,8 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
     const read = readSetting(key, settings[key]);
     if (!read.error && read.text !== (settings[key] ?? '')) setSettings((prev) => ({ ...prev, [key]: read.text }));
   };
+  const shownScenarios = scenariosOf(settings).rows.length;
+  const sampleRatesSummary = shownScenarios ? `${shownScenarios} loan solution${shownScenarios === 1 ? '' : 's'} showing` : 'Not showing to visitors yet';
   const numberField = (key, label, extra = {}) => (
     <CheckedField
       key={key} id={`setting-${key}`} label={label} value={settings[key]} inputMode={extra.inputMode ?? 'decimal'}
@@ -325,6 +331,16 @@ export default function SetupTab({ community, reload, dirtyRef, part = '', visit
         </div>
       </Disclosure>
       )}
+
+      <Disclosure
+        title="Sample loan rates"
+        summary={sampleRatesSummary}
+        tag={unsavedTag(SCENARIO_SETTING_KEYS)}
+        open={folds.scenarios}
+        onOpenChange={(open) => setFolds((prev) => ({ ...prev, scenarios: open }))}
+      >
+        <ScenarioFields settings={settings} set={set} numberField={numberField} />
+      </Disclosure>
 
       <Disclosure
         title="Monthly cost assumptions"

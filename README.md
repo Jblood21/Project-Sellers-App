@@ -818,6 +818,20 @@ Every home (a community's or a listing's) can carry year built, lot size in acre
 A listing is shown by **one agent** (the default), **several agents** or **a team** with a name (`agentMode`, `teamName` in Setup > Your details). A listing takes up to 8 agents (a community's realtors stay at 4). With one agent chosen, buyers see only the first; the rest stay saved. A team shows "Listed by <name>" with each member's Call and Text under the first agent in every layout.
 
 
+## Sample loan rates and the Offer to Keys steps
+
+Setup (Rates & rules for a community, Lender & costs for a listing) has **Sample loan rates**: an effective date, an
+assumptions line (default: a first-time buyer with a 780+ median score on a conventional HomeReady program) and five
+loan solutions (FHA 3.5% down, Conventional 3%, 5% and 20% down, 100% financing with down payment assistance), of which
+up to three are ticked to show. Each has a rate (shown bold) and an APR (italics). A ticked solution with no rate is
+not shown. Logic and wording: `shared/rateScenarios.js`; the buyer card is `client/src/buyer/RateScenarios.jsx`, shown
+in the Loans tool and on every layout's listing page. It is the same for communities and listings.
+
+"From Offer to Keys" (`MOVE_IN_STEPS` in `shared/domain.js`) now carries the steps a Utah agent usually walks a buyer
+through: buyer agreement, tours, offer, escrow and title, disclosures, inspection, due diligence deadline,
+appraisal, financing and appraisal deadline, insurance, Closing Disclosure, cash to close, utilities, walkthrough and
+closing. The timings are typical; the buyer is told the deadlines in the signed contract are the ones that count.
+
 ## Import a listing from its MLS link
 
 In **New listing**, an agent can paste a utahrealestate.com link and press **Fill in**. The server (`server/lib/listingImport.js`)

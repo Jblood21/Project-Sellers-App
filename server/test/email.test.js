@@ -225,7 +225,7 @@ test('the plan email carries the whole move-in plan, not just its summary line',
   assert.match(text, /^\[x\] Jul 19\s+Get pre-approved \(You\)$/m, 'the step they ticked');
   assert.match(text, /^\[ \] Aug 23\s+Appraisal ordered \(Your lender\)$/m, 'one they have not, and whose job it is');
   assert.match(text, /^\[ \] Sep 15\s+Transfer utilities \(You\)$/m, 'their own step is in it');
-  assert.match(text, /1 of 8 steps done\. The dates are estimates/);
+  assert.match(text, /1 of 18 steps done\. The dates are estimates/);
 
   assert.doesNotMatch(text, /In by Sep 20, 2027 — offer by Aug 9, 2027/, 'the summary is not said a second time');
   assert.match(text, /What you worked out:\n  · Looking at \$350,049/, 'the other tools still list as before');

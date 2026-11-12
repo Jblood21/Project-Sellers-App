@@ -4,6 +4,7 @@ import {
   AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, TeamAgents, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 import { dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange } from '../../openHouse.js';
 
 /** "Sat, Nov 14" into its three parts: the weekday, the big day number and the month. */
@@ -143,6 +144,7 @@ export default function Listing({ model }) {
           ) : null}
           <HomeFacts home={model.home} style={{ marginTop: 22 }} />
           <WhatsSpecial home={model.home} />
+          <RateScenarios />
 
           {rows.length ? (
             <section className="ls-foyer-glance" aria-labelledby="ls-foyer-glance-h">

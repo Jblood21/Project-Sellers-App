@@ -10,6 +10,7 @@ import {
   AgentActions, AgentLines, Face, FloorPlans, Guides, TeamAgents, useAgent, VideoButton,
 } from '../../listing/parts.jsx';
 import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 import { featureLabels } from '@shared/homeFacts.js';
 
 /**
@@ -240,6 +241,8 @@ export default function Listing({ model }) {
               <WhatsSpecial home={model.home} style={{ margin: 0 }} />
             </section>
           ) : null}
+
+          <RateScenarios />
 
           <OpenHouseRows model={model} />
 

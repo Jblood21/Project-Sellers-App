@@ -14,6 +14,8 @@
  * "1.2m"). Anything else, words and minus signs included, is not a number.
  */
 
+import { RATE_SCENARIOS, scenarioAprKey, scenarioRateKey } from './rateScenarios.js';
+
 const GROUPED = /^\d{1,3}(,\d{3})+(\.\d*)?$/;
 const PLAIN = /^(\d+\.?\d*|\.\d+)$/;
 const SUFFIX = { k: 1e3, m: 1e6 };
@@ -164,6 +166,11 @@ export const SETTING_NUMBER_RULES = {
   rateConv: { ...RATE, name: 'the conventional rate' },
   rateFha: { ...RATE, name: 'the FHA rate' },
   rateVa: { ...RATE, name: 'the VA rate' },
+  // The sample loan solutions: optional (a blank is allowed), and checked only when something is typed.
+  ...Object.fromEntries(RATE_SCENARIOS.flatMap((sc) => [
+    [scenarioRateKey(sc.k), { ...RATE, required: false, name: `the ${sc.label} rate` }],
+    [scenarioAprKey(sc.k), { ...RATE, required: false, name: `the ${sc.label} APR` }],
+  ])),
   taxPctYr: {
     name: 'the property tax', what: 'a percentage', example: '0.55', unit: 'percent', min: 0, max: 5, required: true,
     messages: { blank: 'Type the yearly property tax as a percentage of the price, like 0.55.' },

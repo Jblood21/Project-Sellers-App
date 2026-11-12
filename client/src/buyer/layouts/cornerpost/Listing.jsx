@@ -5,6 +5,7 @@ import {
   TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 
 /** A small chevron for the carousel arrows. */
 function Chev({ dir }) {
@@ -144,6 +145,7 @@ export default function Listing({ model }) {
           {description ? <About text={description} /> : null}
           <HomeFacts home={model.home} />
           <WhatsSpecial home={model.home} />
+          <RateScenarios />
           {facts.length ? (
             <ul className="ls-cornerpost-facts">{facts.map((f) => <li key={f}>{f}</li>)}</ul>
           ) : null}

@@ -2,6 +2,7 @@ import { PROGRAMS, PROGRAM_DESCRIPTIONS, complianceOf, creditRanges, ratesOf, su
 import { fullDate } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import LoanProcessLink from '../LoanProcessLink.jsx';
+import RateScenarios from '../RateScenarios.jsx';
 import { Field, PillGroup, SaveToPlan, ToolHeader } from './ToolUI.jsx';
 
 /**
@@ -54,6 +55,8 @@ export default function Loans() {
   return (
     <div className="b-shell" style={{ paddingTop: 20 }}>
       <ToolHeader title="Find My Loan Options" subtitle="What financing could work for you?" />
+
+      <RateScenarios className="b-card" style={{ padding: 16 }} />
 
       <div style={{ marginBottom: 14 }}>
         <PillGroup
