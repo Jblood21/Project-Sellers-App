@@ -346,7 +346,7 @@ function PowerTile({ cls, tool, reach, homes, onOpenTool, onOpenHome }) {
 function PaymentTile({ cls, home, tool, onOpenTool }) {
   const { tools, settings, setTool } = useBuyer();
   const { program, downPct } = tools.pay;
-  const result = calcPayment({ price: home.price, program, downPct, settings });
+  const result = calcPayment({ price: home.price, program, downPct, settings, home });
   const rate = ratesOf(settings)[program] ?? 0;
   const parts = [
     { k: 'pi', name: 'Principal & interest', value: result.pi },
@@ -410,7 +410,7 @@ function DownTile({ cls, tool, onOpenTool }) {
   // The tool's own working, line for line, so the tile always says what the tool would.
   const scenarioHome = homes.find((h) => h.id === tools.pay.homeId) ?? homes[0];
   const scenarioCash = scenarioHome
-    ? calcPayment({ price: scenarioHome.price, program: tools.pay.program, downPct: tools.pay.downPct, settings }).cashToClose
+    ? calcPayment({ price: scenarioHome.price, program: tools.pay.program, downPct: tools.pay.downPct, settings, home: scenarioHome }).cashToClose
     : 0;
   const cash = num(state.cash === '' ? String(Math.round(scenarioCash)) : state.cash);
   const current = num(state.current);
@@ -879,13 +879,13 @@ export default function Home({ model }) {
   const { program, downPct } = tools.pay;
   const monthlyOf = (home) => {
     if (!paymentTool || isSold(home) || !num(home.price)) return 0;
-    return calcPayment({ price: home.price, program, downPct, settings }).total;
+    return calcPayment({ price: home.price, program, downPct, settings, home }).total;
   };
   const payHome = paymentTool ? paymentHome(homes, tools.pay.homeId) : null;
   const rate = ratesOf(settings)[program] ?? 0;
   const terms = payHome
     ? `${downPct}% down on ${loanWords(program)} at ${rate.toFixed(2)}% fixed for 30 years${inTheSum(
-      calcPayment({ price: payHome.price, program, downPct, settings }),
+      calcPayment({ price: payHome.price, program, downPct, settings, home: payHome }),
     )}.`
     : '';
 

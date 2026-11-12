@@ -117,7 +117,7 @@ function Progress({ done, total }) {
 function PaymentPanel({ home, paymentTool, affordTool, onOpenTool }) {
   const { tools, settings, setTool } = useBuyer();
   const { program, downPct } = tools.pay;
-  const result = calcPayment({ price: home.price, program, downPct, settings });
+  const result = calcPayment({ price: home.price, program, downPct, settings, home });
   const rate = ratesOf(settings)[program] ?? 0;
 
   const changeNumbers = () => {
@@ -362,7 +362,7 @@ export default function Home({ model }) {
   const { program, downPct } = tools.pay;
   const monthlyOf = (home) => {
     if (!paymentTool || isSold(home) || !num(home.price)) return 0;
-    return calcPayment({ price: home.price, program, downPct, settings }).total;
+    return calcPayment({ price: home.price, program, downPct, settings, home }).total;
   };
   const panelHome = paymentTool ? paymentHome(homes, tools.pay.homeId) : null;
   const shown = homesToShow(homes);

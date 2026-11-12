@@ -56,7 +56,7 @@ export function useMonthly() {
   const { program, downPct } = tools.pay;
   const resultOf = (home) => {
     if (!on || isSold(home) || !num(home.price)) return null;
-    return calcPayment({ price: home.price, program, downPct, settings });
+    return calcPayment({ price: home.price, program, downPct, settings, home });
   };
   return { on, program, downPct, rate: ratesOf(settings)[program] ?? 0, resultOf };
 }

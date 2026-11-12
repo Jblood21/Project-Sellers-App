@@ -668,6 +668,9 @@ export function createFileStore(path) {
         // Spelled out so a home created without one has the column rather than
         // the key simply missing -- null is a value here, not an absence.
         unitsAvailable: data.unitsAvailable ?? null,
+        // The facts an agent adds (shared/homeFacts.js): null is "not given", so each is spelled out.
+        yearBuilt: data.yearBuilt ?? null, lotAcres: data.lotAcres ?? null, hoaMonthly: data.hoaMonthly ?? null,
+        taxPct: data.taxPct ?? null, taxAnnual: data.taxAnnual ?? null, features: data.features ?? [],
         position, createdAt: now(),
       };
       db.homes.push(row);
@@ -681,6 +684,7 @@ export function createFileStore(path) {
       for (const key of [
         'name', 'price', 'beds', 'baths', 'sqft', 'description', 'availability',
         'lotNumber', 'readyOn', 'unitsAvailable', 'position', 'videoLink',
+        'yearBuilt', 'lotAcres', 'hoaMonthly', 'taxPct', 'taxAnnual', 'features',
       ]) {
         if (patch[key] !== undefined) row[key] = patch[key];
       }

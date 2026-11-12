@@ -7,8 +7,10 @@ import {
   dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange,
 } from '../../openHouse.js';
 import {
-  AgentActions, AgentLines, Face, FloorPlans, Guides, StatusNote, factLines, statList, useAgent,
+  AgentActions, AgentLines, Face, FloorPlans, Guides, StatusNote, TeamAgents, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import { featureLabels } from '@shared/homeFacts.js';
 
 /**
  * Red Rock's listing page: a warm brochure. From 900px the screen is split: the photo panel on the left stays
@@ -135,7 +137,8 @@ export default function Listing({ model }) {
   const paragraphs = String(model.description ?? '').split(/\n{1,}/).map((s) => s.trim()).filter(Boolean);
   const ribbon = model.status === 'Active' ? 'For sale' : model.status;
 
-  const hasHome = paragraphs.length || facts.length || model.floorPlans.length || model.hasVideo;
+  const hasHome = paragraphs.length || facts.length || model.floorPlans.length || model.hasVideo
+    || factRows(model.home).length || featureLabels(model.home?.features).length;
   const hasSee = model.sessions.length > 0 || Boolean(model.requestShowing);
   const hasYours = Boolean(model.openPayment || model.talkFinancing || model.toggleSave);
   const hasAgent = Boolean(agent);
@@ -179,6 +182,8 @@ export default function Listing({ model }) {
           {hasHome ? (
             <Section n={++n} id="rr-ls-home" title="The home">
               {paragraphs.map((text, i) => <p key={i} className={i === 0 ? 'ls-redrock-lead' : 'ls-redrock-p'}>{text}</p>)}
+              <HomeFacts home={model.home} style={{ marginTop: 22 }} />
+              <WhatsSpecial home={model.home} />
               {model.hasVideo ? (
                 <button type="button" className="ls-redrock-btn ls-redrock-btn--line" onClick={model.openVideo}>▶ Watch the video tour</button>
               ) : null}
@@ -241,6 +246,7 @@ export default function Listing({ model }) {
                   </div>
                 </div>
               </div>
+              <TeamAgents model={model} />
             </Section>
           ) : null}
         </div>

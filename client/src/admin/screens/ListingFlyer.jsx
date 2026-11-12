@@ -36,13 +36,13 @@ function qrOf(url, cell = 6) {
 }
 
 /** How the payment on the back is worked out: the tool's own sum at three common ways to buy. */
-function scenarios(price, settings) {
+function scenarios(price, settings, home) {
   if (!(Number(price) > 0)) return [];
   return [
     { label: 'FHA', note: '3.5% down', program: 'fha', downPct: 3.5 },
     { label: 'Conventional', note: '5% down', program: 'conv', downPct: 5 },
     { label: 'Conventional', note: '20% down', program: 'conv', downPct: 20 },
-  ].map((s) => ({ ...s, ...calcPayment({ price, program: s.program, downPct: s.downPct, settings }) }));
+  ].map((s) => ({ ...s, ...calcPayment({ price, program: s.program, downPct: s.downPct, settings, home }) }));
 }
 
 /** The two-sided printable flyer for a listing: the home and its agent on the front, financing and the lender on the back. */
@@ -97,7 +97,7 @@ export default function ListingFlyer({ community, reload }) {
   const [lead, ...rest] = photos;
   const sessions = readOpenHouses(settings.openHousesJson).filter((s) => s.date >= localToday()).slice(0, 3);
   const price = home?.price || 0;
-  const rows = scenarios(price, settings);
+  const rows = scenarios(price, settings, home);
   const facts = [
     home?.beds ? `${home.beds} bed` : '',
     home?.baths ? `${home.baths} bath` : '',

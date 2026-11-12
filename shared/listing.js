@@ -73,12 +73,19 @@ export const LISTING_DEFAULTS = {
   // The listing agent's licence line and the MLS number, printed under the home and in the footer. Blank hides each.
   agentLicense: '',
   mlsNumber: '',
+  // Who shows the home: 'one' agent, 'several' individual agents, or 'team' (a named team with its members). A
+  // team's name is shown above its members. The agents themselves are the community's agents.
+  agentMode: 'one',
+  teamName: '',
   // Printed above the lender block in the footer of a listing. Editable; clearing it removes the line.
   listingDisclosure:
     'Equal Housing Opportunity. Square footage, room counts and other facts are provided by the seller or '
     + 'taken from public records and are not guaranteed. Buyers should verify everything that matters to them. '
     + 'Payment figures on this page are estimates for illustration only, not a loan offer or a pre-approval.',
 };
+
+export const AGENT_MODES = ['one', 'several', 'team'];
+export const TEAM_NAME_MAX = 80;
 
 export const OPEN_HOUSE_MAX = 8;
 export const OPEN_HOUSE_NOTE_MAX = 120;

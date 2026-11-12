@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, Guides, OpenHouses, PhotoButton, Price, StatusNote,
-  VideoButton, factLines, statList, useAgent,
+  TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 
 /** A small chevron for the carousel arrows. */
 function Chev({ dir }) {
@@ -86,6 +87,7 @@ function AgentTile({ model }) {
         <div className="ls-cornerpost-agent__lines"><AgentLines model={model} nameTag="strong" /></div>
       </div>
       <div className="ls-cornerpost-agent__acts"><AgentActions model={model} className="ls-cornerpost-act" /></div>
+      <TeamAgents model={model} />
     </section>
   );
 }
@@ -140,6 +142,8 @@ export default function Listing({ model }) {
         <div className="ls-cornerpost-col">
           <OpenHouses model={model} />
           {description ? <About text={description} /> : null}
+          <HomeFacts home={model.home} />
+          <WhatsSpecial home={model.home} />
           {facts.length ? (
             <ul className="ls-cornerpost-facts">{facts.map((f) => <li key={f}>{f}</li>)}</ul>
           ) : null}

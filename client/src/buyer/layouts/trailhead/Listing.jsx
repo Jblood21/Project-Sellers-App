@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  AgentActions, AgentLines, Face, FloorPlans, OpenHouses, StatusNote, VideoButton,
+  AgentActions, AgentLines, Face, FloorPlans, OpenHouses, StatusNote, TeamAgents, VideoButton,
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 import { ArrowRight, Check, ChevronLeft, ChevronRight } from './icons.jsx';
 
 /**
@@ -194,6 +195,8 @@ export default function Listing({ model }) {
                     ) : null}
                     {facts.length ? <p className="ls-trailhead-facts">{facts.join(' · ')}</p> : null}
                     {desc ? <p className="ls-trailhead-desc">{desc}</p> : null}
+                    <HomeFacts home={model.home} />
+                    <WhatsSpecial home={model.home} />
                     <button type="button" className="ls-trailhead-btn ls-trailhead-btn--line" onClick={model.toggleSave} aria-pressed={model.saved}>
                       {model.saved ? '★ Saved to your pack' : '☆ Save this home'}
                     </button>
@@ -244,6 +247,7 @@ export default function Listing({ model }) {
                     </div>
                   </div>
                 ) : null}
+                {stop.key === 'guide' && agent ? <TeamAgents model={model} /> : null}
 
                 {nextBtn(i)}
               </section>

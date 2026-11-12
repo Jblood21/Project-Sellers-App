@@ -1,5 +1,6 @@
 import AgentCard from './AgentCard.jsx';
 import { useBuyer } from './BuyerContext.jsx';
+import { listingAgentsOf } from './listingAgents.js';
 
 /**
  * The agent, listed on the page: "Meet the agent." and then everything a buyer
@@ -13,11 +14,13 @@ import { useBuyer } from './BuyerContext.jsx';
  * needs is a tap away.
  */
 export default function AgentsBlock({ homeName }) {
-  const { agents } = useBuyer();
+  const { agents: all, settings, isListing } = useBuyer();
+  // A listing shows one agent, several, or a team, as its agent chose (a community lists every realtor).
+  const { list: agents, teamName } = listingAgentsOf({ agents: all, settings, isListing });
   if (!agents.length) return null;
   return (
     <div className="b-tour">
-      <h3 className="b-tour__meet b-head">{agents.length > 1 ? 'Meet the agents.' : 'Meet the agent.'}</h3>
+      <h3 className="b-tour__meet b-head">{teamName ? `Meet ${teamName}.` : agents.length > 1 ? 'Meet the agents.' : 'Meet the agent.'}</h3>
       {agents.map((agent) => (
         <AgentCard key={agent.id} agent={agent} headingLevel={4} homeName={homeName} />
       ))}

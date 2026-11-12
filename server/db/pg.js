@@ -926,13 +926,17 @@ export function createPostgresStore(connectionString) {
       );
       const { rows } = await q(
         `INSERT INTO homes (id, community_id, name, price, beds, baths, sqft, description,
-                            availability, lot_number, ready_on, units_available, position)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+                            availability, lot_number, ready_on, units_available, position,
+                            year_built, lot_acres, hoa_monthly, tax_pct, tax_annual, features)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
         [`h_${shortId(10)}`, communityId, data.name, data.price, data.beds, data.baths, data.sqft,
           data.description, data.availability, data.lotNumber ?? '', data.readyOn ?? '',
           // ?? not ||, so a home created as sold out stays at 0 rather than
           // becoming an uncounted one.
-          data.unitsAvailable ?? null, posRows[0].pos],
+          data.unitsAvailable ?? null, posRows[0].pos,
+          // The facts an agent adds (shared/homeFacts.js): null is "not given".
+          data.yearBuilt ?? null, data.lotAcres ?? null, data.hoaMonthly ?? null, data.taxPct ?? null,
+          data.taxAnnual ?? null, JSON.stringify(data.features ?? [])],
       );
       return shapeHome(rows[0], [], []);
     },
@@ -942,12 +946,14 @@ export function createPostgresStore(connectionString) {
         name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'sqft',
         description: 'description', availability: 'availability', lotNumber: 'lot_number',
         readyOn: 'ready_on', unitsAvailable: 'units_available', position: 'position', videoLink: 'video_link',
+        yearBuilt: 'year_built', lotAcres: 'lot_acres', hoaMonthly: 'hoa_monthly', taxPct: 'tax_pct',
+        taxAnnual: 'tax_annual', features: 'features',
       };
       const sets = [];
       const params = [];
       for (const [key, column] of Object.entries(map)) {
         if (patch[key] === undefined) continue;
-        params.push(patch[key]);
+        params.push(key === 'features' ? JSON.stringify(patch[key]) : patch[key]);
         sets.push(`${column} = $${params.length}`);
       }
       if (!sets.length) return this.getHome(id);

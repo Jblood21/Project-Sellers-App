@@ -20,6 +20,7 @@ export default function Savings() {
         program: tools.pay.program,
         downPct: tools.pay.downPct,
         settings,
+        home: scenarioHome,
       }).cashToClose
     : 0;
 

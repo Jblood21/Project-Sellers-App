@@ -212,6 +212,15 @@ ALTER TABLE homes ADD COLUMN IF NOT EXISTS ready_on TEXT NOT NULL DEFAULT '';
 -- Anything reading this has to keep NULL and 0 apart: `Number(x) || 0` collapses
 -- them and turns every ordinary home into a sold one.
 ALTER TABLE homes ADD COLUMN IF NOT EXISTS units_available INTEGER;
+-- The facts an agent adds to a home (shared/homeFacts.js). All nullable: NULL is "not given", and for the HOA 0 is
+-- "none". Property tax is a percent of the price or a yearly dollar amount, one at a time. `features` is the list
+-- of picked highlight keys ("What's special").
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS year_built INTEGER;
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS lot_acres NUMERIC;
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS hoa_monthly NUMERIC;
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS tax_pct NUMERIC;
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS tax_annual NUMERIC;
+ALTER TABLE homes ADD COLUMN IF NOT EXISTS features JSONB NOT NULL DEFAULT '[]'::jsonb;
 -- A YouTube or Vimeo link for the home's video tour, as an alternative to uploading a file (which is capped
 -- and heavy to serve). A home has one or the other, never both; the routes enforce it. Not videoUrl, which
 -- already means the uploaded file.

@@ -72,6 +72,13 @@ const units = (value) => {
   return Number.isInteger(n) && n >= 0 ? n : null;
 };
 
+/** A figure that may be absent: null stays null (not given), anything else is the number. */
+const optionalNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
 export function shapeHome(row, photos = [], floorPlans = [], video = null) {
   if (!row) return null;
   return {
@@ -89,6 +96,13 @@ export function shapeHome(row, photos = [], floorPlans = [], video = null) {
     // Null and zero mean different things here -- no count at all versus sold
     // out -- so this cannot fall back through `|| 0` like the numbers above it.
     unitsAvailable: units(row.units_available ?? row.unitsAvailable),
+    // The facts an agent adds (shared/homeFacts.js). Null is "not given" and is never turned into a 0 here.
+    yearBuilt: optionalNumber(row.year_built ?? row.yearBuilt),
+    lotAcres: optionalNumber(row.lot_acres ?? row.lotAcres),
+    hoaMonthly: optionalNumber(row.hoa_monthly ?? row.hoaMonthly),
+    taxPct: optionalNumber(row.tax_pct ?? row.taxPct),
+    taxAnnual: optionalNumber(row.tax_annual ?? row.taxAnnual),
+    features: Array.isArray(row.features) ? row.features : [],
     position: Number(row.position) || 0,
     photos,
     floorPlans,

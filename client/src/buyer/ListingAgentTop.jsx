@@ -4,6 +4,7 @@ import { safeHref, telHref } from '@shared/compliance.js';
 import { photoImgProps } from '../components/Photo.jsx';
 import { safeEmail } from '../lib/contact.js';
 import { useBuyer } from './BuyerContext.jsx';
+import { listingAgentsOf } from './listingAgents.js';
 import TextAction from './TextAction.jsx';
 
 /**
@@ -11,10 +12,8 @@ import TextAction from './TextAction.jsx';
  * A listing is one agent's (the person who made it), so a visitor sees who they are dealing with before the photos.
  * With no portrait uploaded an initial keeps the shape. Nothing is drawn without an agent (or with agents off).
  */
-export default function ListingAgentTop() {
-  const { community, agents, features, lead, track, isListing } = useBuyer();
-  if (!isListing || !features?.agents || !agents?.length) return null;
-  const agent = agents[0];
+function AgentRow({ agent }) {
+  const { community, lead, track } = useBuyer();
   const brokerage = String(agent.brokerage ?? '').trim();
   const license = agentLicenseLine(agent);
   const phoneHref = telHref(agent.phone);
@@ -46,5 +45,24 @@ export default function ListingAgentTop() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The listing's agents, above the home's pictures: each with their face, name, brokerage and licence, and Call and Text
+ * in one tap. One agent shows alone; several, or a team, show under a line ("Listed by The Whitcombe Group").
+ * With no portrait an initial keeps the shape. Nothing is drawn without an agent (or with agents off).
+ */
+export default function ListingAgentTop() {
+  const { agents, features, settings, isListing } = useBuyer();
+  if (!isListing || !features?.agents || !agents?.length) return null;
+  const { list, title } = listingAgentsOf({ agents, settings, isListing });
+  if (!list.length) return null;
+  if (list.length === 1 && !title) return <AgentRow agent={list[0]} />;
+  return (
+    <div className="b-lat-group">
+      {title ? <p className="b-lat-group__title b-head">{title}</p> : null}
+      {list.map((agent) => <AgentRow key={agent.id} agent={agent} />)}
+    </div>
   );
 }

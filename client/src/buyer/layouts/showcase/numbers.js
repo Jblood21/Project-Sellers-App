@@ -30,7 +30,7 @@ export function slideOrder(homes) {
 export function paymentFor(home, { community, tools, settings }) {
   if (!home || !toolOf(community, 'payment') || isSold(home) || !num(home.price)) return null;
   const { program, downPct } = tools.pay;
-  const result = calcPayment({ price: home.price, program, downPct, settings });
+  const result = calcPayment({ price: home.price, program, downPct, settings, home });
   return { ...result, program, downPct, rate: ratesOf(settings)[program] ?? 0 };
 }
 

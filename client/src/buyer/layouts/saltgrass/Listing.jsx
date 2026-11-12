@@ -6,8 +6,10 @@ import {
   clock12, dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs,
 } from '../../openHouse.js';
 import {
-  Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, VideoButton, factLines, statList, useAgent,
+  Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import { featureLabels } from '@shared/homeFacts.js';
 
 /**
  * Salt Grass listing page: "Billboard".
@@ -114,6 +116,7 @@ function AgentStrip({ model }) {
         </div>
         <div className="ls-saltgrass-agent__acts"><AgentActions model={model} className="ls-saltgrass-act" /></div>
       </div>
+      <div className="ls-saltgrass-wrap"><TeamAgents model={model} /></div>
     </section>
   );
 }
@@ -161,6 +164,13 @@ export default function Listing({ model }) {
               <p className="ls-saltgrass-desc">{model.description}</p>
             </div>
           </section>
+        ) : null}
+
+        {factRows(model.home).length || featureLabels(model.home?.features).length ? (
+          <div className="ls-saltgrass-wrap">
+            <HomeFacts home={model.home} style={{ marginTop: 22 }} />
+            <WhatsSpecial home={model.home} />
+          </div>
         ) : null}
 
         {more.length ? (

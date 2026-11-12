@@ -5,6 +5,7 @@ import { homeMeta } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { useOpenHouses } from '../openHouse.js';
 import { canTalkFinancing } from '../reach.js';
+import { listingAgentsOf } from '../listingAgents.js';
 
 /**
  * Everything a layout's listing page needs, worked out once so eight different pages never disagree about a fact:
@@ -42,13 +43,15 @@ export default function useListingModel({ onOpenLender, onRequestShowing }) {
   const brokerage = String(community?.builder ?? '').trim();
   const price = Number(home.price) > 0 ? Number(home.price) : 0;
   const embed = home.videoUrl ? '' : videoEmbed(home.videoLink);
-  const agent = features?.agents && agents?.length ? agents[0] : null;
+  // One agent, several, or a team, as the agent chose (see listingAgentsOf): the first is the layout's own card.
+  const shown = features?.agents && agents?.length ? listingAgentsOf({ agents, settings, isListing: true }) : { list: [], title: '' };
+  const agent = shown.list[0] ?? null;
 
   // A monthly figure to put beside the price: the Payment tool's own sum at a common way to buy (5% down, conventional).
   let estimate = null;
   if (community?.tools?.payment && price && !sold) {
     try {
-      const sum = calcPayment({ price, program: 'conv', downPct: 5, settings });
+      const sum = calcPayment({ price, program: 'conv', downPct: 5, settings, home });
       if (Number.isFinite(sum.total) && sum.total > 0) estimate = { monthly: Math.round(sum.total), down: Math.round(sum.down), downPct: 5, rate: sum.rate };
     } catch {
       estimate = null;
@@ -57,7 +60,7 @@ export default function useListingModel({ onOpenLender, onRequestShowing }) {
 
   const saved = Boolean(lead?.savedHomeIds?.includes(home.id));
   const model = {
-    community, home, agent, agents: agent ? agents : [], features,
+    community, home, agent, agents: shown.list, agentTitle: shown.title, features,
     name: home.name, city: community?.location ?? '', status, sold,
     price, estimate, beds: home.beds, baths: home.baths, sqft: home.sqft,
     meta: homeMeta(home), mls, brokerage,

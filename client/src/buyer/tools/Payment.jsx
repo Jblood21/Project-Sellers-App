@@ -28,7 +28,7 @@ export default function Payment() {
   const state = tools.pay;
   const home = homes.find((h) => h.id === state.homeId) ?? homes[0];
   const rates = ratesOf(settings);
-  const result = calcPayment({ price: home.price, program: state.program, downPct: state.downPct, settings });
+  const result = calcPayment({ price: home.price, program: state.program, downPct: state.downPct, settings, home });
 
   // The down-payment-help checkbox only appears once the DPA screener says
   // "likely" AND this home clears the program's purchase-price ceiling. A

@@ -3,9 +3,11 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, OpenHouses, StatusNote, VideoButton,
+  Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, OpenHouses, StatusNote, TeamAgents, VideoButton,
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import { featureLabels } from '@shared/homeFacts.js';
 
 const Chevron = ({ up }) => (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -145,6 +147,13 @@ export default function Listing({ model }) {
                 </section>
               ) : null}
 
+              {factRows(model.home).length || featureLabels(model.home?.features).length ? (
+                <div className="ls-showcase-sec">
+                  <HomeFacts home={model.home} />
+                  <WhatsSpecial home={model.home} />
+                </div>
+              ) : null}
+
               {model.sessions.length ? <div className="ls-showcase-sec"><OpenHouses model={model} /></div> : null}
 
               {model.floorPlans.length ? (
@@ -161,6 +170,7 @@ export default function Listing({ model }) {
                   <div className="ls-showcase-agent__acts"><AgentActions model={model} className="b-btn b-btn-outline" /></div>
                 </section>
               ) : null}
+              {agent ? <TeamAgents model={model} /> : null}
             </div>
           </div>
         </div>
