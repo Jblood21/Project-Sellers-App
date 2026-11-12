@@ -41,6 +41,7 @@ export default function AreaTab({ community, reload }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [findAddress, setFindAddress] = useState(null); // what to look up; null until edited, then the saved name and location
   const [mapNote, setMapNote] = useState({ text: '', bad: false });
   const onMap = pointOf({ lat: community.settings?.mapLat, lng: community.settings?.mapLng });
   const isListing = community.settings?.siteKind === 'listing';
@@ -94,11 +95,12 @@ export default function AreaTab({ community, reload }) {
     }
   };
 
+  const searchText = findAddress ?? [community.name, community.location].filter(Boolean).join(', ');
   const locate = async () => {
     setLocating(true);
     setMapNote({ text: '', bad: false });
     try {
-      await adminApi.locateCommunity(token, community.id);
+      await adminApi.locateCommunity(token, community.id, searchText);
       setMapNote({ text: 'Found. The map on the Neighborhood screen now shows it.', bad: false });
       await reload();
     } catch (err) {
@@ -123,6 +125,13 @@ export default function AreaTab({ community, reload }) {
             ? `${isListing ? 'The home' : community.name} is on the map. Buyers see it with the places below, and a Get directions button.`
             : `${isListing ? 'The home' : community.name} is not on the map yet, so buyers see no map.`}
         </p>
+        <label style={{ display: 'grid', gap: 4 }}>
+          <span style={{ fontWeight: 600 }}>Address to find</span>
+          <input
+            className="input" value={searchText} onChange={(event) => setFindAddress(event.target.value)} autoComplete="off"
+            placeholder="e.g. 1234 Maple St, Lehi, UT 84043"
+          />
+        </label>
         <div>
           <button type="button" className="btn btn-secondary" onClick={locate} aria-disabled={locating || undefined} style={{ minHeight: 44 }}>
             {locating ? 'Looking…' : onMap ? 'Find it again' : 'Find it on the map'}
