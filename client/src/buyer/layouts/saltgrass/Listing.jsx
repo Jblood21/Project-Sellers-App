@@ -9,6 +9,7 @@ import {
   Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 import { featureLabels } from '@shared/homeFacts.js';
 
 /**
@@ -172,6 +173,7 @@ export default function Listing({ model }) {
             <WhatsSpecial home={model.home} />
           </div>
         ) : null}
+        <div className="ls-saltgrass-wrap"><RateScenarios /></div>
 
         {more.length ? (
           <section className="ls-saltgrass-wrap ls-saltgrass-gallery" aria-labelledby="ls-saltgrass-gal-h">

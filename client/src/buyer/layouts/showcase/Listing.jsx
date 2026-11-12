@@ -7,6 +7,7 @@ import {
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 import { featureLabels } from '@shared/homeFacts.js';
 
 const Chevron = ({ up }) => (
@@ -153,6 +154,7 @@ export default function Listing({ model }) {
                   <WhatsSpecial home={model.home} />
                 </div>
               ) : null}
+              <div className="ls-showcase-sec"><RateScenarios /></div>
 
               {model.sessions.length ? <div className="ls-showcase-sec"><OpenHouses model={model} /></div> : null}
 

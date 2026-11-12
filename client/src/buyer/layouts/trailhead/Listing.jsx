@@ -7,6 +7,7 @@ import {
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 import { ArrowRight, Check, ChevronLeft, ChevronRight } from './icons.jsx';
 
 /**
@@ -197,6 +198,7 @@ export default function Listing({ model }) {
                     {desc ? <p className="ls-trailhead-desc">{desc}</p> : null}
                     <HomeFacts home={model.home} />
                     <WhatsSpecial home={model.home} />
+                    <RateScenarios />
                     <button type="button" className="ls-trailhead-btn ls-trailhead-btn--line" onClick={model.toggleSave} aria-pressed={model.saved}>
                       {model.saved ? '★ Saved to your pack' : '☆ Save this home'}
                     </button>

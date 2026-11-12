@@ -289,7 +289,7 @@ export default function MoveIn() {
         }
         note={
           timeline.items.length
-            ? `${doneCount} of ${timeline.items.length} done — your plan saves as you go.`
+            ? `${doneCount} of ${timeline.items.length} done — your plan saves as you go. These are typical timings: the deadlines in your signed purchase contract are the ones that count, and your agent can confirm them.`
             : undefined
         }
       />

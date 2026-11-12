@@ -19,6 +19,7 @@ import { cleanSubscription, pushPublicKey, pushToAdmin } from '../lib/push.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { readHomeFacts } from '../../shared/homeFacts.js';
+import { SCENARIO_ASSUMPTIONS_MAX, cleanPicks, validEffectiveDate } from '../../shared/rateScenarios.js';
 import { cleanListingLink, fetchPage, fetchPhoto, readListingPage } from '../lib/listingImport.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
@@ -1733,6 +1734,23 @@ export function adminRouter() {
             if (hex === null) return res.status(400).json({ error: 'Colours must be colour codes like #5A1E33.' });
             settings[key] = hex;
           }
+          continue;
+        }
+        if (key === 'scenarioPicks') {
+          // Which of the five sample loan solutions are shown: known ones only, up to three.
+          const picks = cleanPicks(text);
+          if (picks.error) return res.status(400).json({ error: picks.error });
+          settings[key] = picks.value;
+          continue;
+        }
+        if (key === 'scenarioEffective') {
+          const date = validEffectiveDate(text);
+          if (date.error) return res.status(400).json({ error: date.error });
+          settings[key] = date.value;
+          continue;
+        }
+        if (key === 'scenarioAssumptions') {
+          settings[key] = text.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, SCENARIO_ASSUMPTIONS_MAX);
           continue;
         }
         if (key === 'agentMode') {

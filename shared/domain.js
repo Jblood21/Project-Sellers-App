@@ -2,6 +2,7 @@ import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE, fillTokens, isSafeEmail } from './c
 import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
 import { homeTaxAnnual } from './homeFacts.js';
 import { LISTING_DEFAULTS } from './listing.js';
+import { SCENARIO_DEFAULTS } from './rateScenarios.js';
 import { SETTING_NUMBER_RULES, readNumber } from './numberInput.js';
 
 export {
@@ -682,6 +683,8 @@ export const DEFAULT_SETTINGS = {
   rateFha: '7.02',
   rateVa: '7.04',
   ratesUpdatedAt: '2026-10-19T20:00:00.000Z',
+  // Three of five sample loan solutions with a rate and APR each, a date and an assumptions line (shared/rateScenarios.js).
+  ...SCENARIO_DEFAULTS,
   taxPctYr: '0.55',
   insuranceYr: '1400',
   hoaMo: '45',
@@ -1260,16 +1263,28 @@ export const PAY_METHOD_KEYS = PAY_METHODS.map((m) => m.k);
 export const MOVE_IN_STEPS = [
   { key: 'preapproval', label: 'Get pre-approved', who: 'you', weeks: { loan: -3, cash: null } },
   { key: 'proof', label: 'Gather proof of funds', who: 'you', weeks: { loan: null, cash: -1 } },
+  { key: 'agent', label: 'Sign a buyer agreement with your agent', who: 'agent', weeks: { loan: -3, cash: -2 } },
+  { key: 'tours', label: 'Tour homes and choose the one you want', who: 'you', weeks: { loan: -2, cash: -2 } },
   { key: 'offer', label: 'Offer accepted & earnest money', who: 'you', weeks: { loan: 0, cash: 0 } },
+  { key: 'escrow', label: 'Open escrow and order the title report', who: 'title', weeks: { loan: 0, cash: 0 } },
+  { key: 'disclosures', label: 'Review the seller disclosures and title report', who: 'you', weeks: { loan: 1, cash: 1 } },
   { key: 'inspection', label: 'Home inspection', who: 'you', weeks: { loan: 1, cash: 1 } },
   { key: 'appraisal', label: 'Appraisal ordered', who: 'lender', weeks: { loan: 2, cash: null } },
+  { key: 'diligence', label: 'Due diligence deadline: decide to move forward', who: 'you', weeks: { loan: 2, cash: 2 } },
+  { key: 'insurance', label: 'Choose homeowners insurance', who: 'you', weeks: { loan: 3, cash: 1 } },
+  { key: 'fa', label: 'Financing and appraisal deadline', who: 'you', weeks: { loan: 3, cash: null } },
   { key: 'underwriting', label: 'Loan underwriting & approval', who: 'lender', weeks: { loan: 4, cash: null } },
+  { key: 'cd', label: 'Review your Closing Disclosure', who: 'lender', weeks: { loan: 5, cash: null } },
+  { key: 'funds', label: 'Send your cash to close to the title company', who: 'you', weeks: { loan: 5, cash: 2 } },
+  { key: 'utilities', label: 'Set up utilities and change your address', who: 'you', weeks: { loan: 5, cash: 2 } },
   { key: 'walkthrough', label: 'Final walkthrough', who: 'you', weeks: { loan: 5, cash: 2 } },
   { key: 'closing', label: 'Closing day: you get your keys', who: 'you', weeks: { loan: 6, cash: 3 } },
 ];
 
 export const MOVE_IN_STEP_KEYS = MOVE_IN_STEPS.map((s) => s.key);
-export const WHO_LABELS = { you: 'You', lender: 'Your lender', builder: 'The builder' };
+export const WHO_LABELS = {
+  you: 'You', lender: 'Your lender', builder: 'The builder', agent: 'Your agent', title: 'The title company',
+};
 
 /** Optional prompts for what is driving the date, each adding steps of its own. */
 export const MOVE_IN_DRIVERS = [
@@ -1359,7 +1374,8 @@ export function moveInSchedule({ target, payMethod = 'loan', home = null, driver
   const feasible = Boolean(keys) && (!earliest || keys >= earliest);
   const offerBy = keys ? shiftDate(keys, -span) : '';
 
-  const steps = MOVE_IN_STEPS.filter((step) => step.weeks[method] !== null).map((step) => ({
+  // In order of when each falls for this method (the list reads loan-first, and a cash buyer's weeks differ).
+  const steps = MOVE_IN_STEPS.filter((step) => step.weeks[method] !== null).sort((a, b) => a.weeks[method] - b.weeks[method]).map((step) => ({
     key: step.key,
     label: step.label,
     who: step.who,

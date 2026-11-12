@@ -6,6 +6,7 @@ import {
   AgentActions, Face, FloorPlans, Guides, OpenHouses, StatusNote, TeamAgents, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import RateScenarios from '../../RateScenarios.jsx';
 import { dayLabel, timeRange } from '../../openHouse.js';
 import { Heart } from './icons.jsx';
 
@@ -130,6 +131,7 @@ export default function Listing({ model }) {
               </>
             ) : null}
             <WhatsSpecial home={model.home} style={{ marginTop: 20 }} />
+            <RateScenarios />
           </section>
 
           {sessions.length ? (

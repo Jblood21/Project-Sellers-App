@@ -27,14 +27,24 @@ test('a loan plan prints the sentence, the choices and every step in date order'
   assert.deepEqual(doc.details, [['Keys', 'Sep 20'], ['Offer in by', 'Aug 9'], ['Home', 'The Aspen'], ['Paying', 'With a loan']]);
   assert.deepEqual(doc.steps.map((s) => [s.date, s.label, s.who]), [
     ['Jul 19', 'Get pre-approved', 'You'],
+    ['Jul 19', 'Sign a buyer agreement with your agent', 'Your agent'],
+    ['Jul 26', 'Tour homes and choose the one you want', 'You'],
     ['Aug 9', 'Offer accepted & earnest money', 'You'],
+    ['Aug 9', 'Open escrow and order the title report', 'The title company'],
+    ['Aug 16', 'Review the seller disclosures and title report', 'You'],
     ['Aug 16', 'Home inspection', 'You'],
     ['Aug 23', 'Appraisal ordered', 'Your lender'],
+    ['Aug 23', 'Due diligence deadline: decide to move forward', 'You'],
+    ['Aug 30', 'Choose homeowners insurance', 'You'],
+    ['Aug 30', 'Financing and appraisal deadline', 'You'],
     ['Sep 6', 'Loan underwriting & approval', 'Your lender'],
+    ['Sep 13', 'Review your Closing Disclosure', 'Your lender'],
+    ['Sep 13', 'Send your cash to close to the title company', 'You'],
+    ['Sep 13', 'Set up utilities and change your address', 'You'],
     ['Sep 13', 'Final walkthrough', 'You'],
     ['Sep 20', 'Closing day: you get your keys', 'You'],
   ]);
-  assert.equal(doc.total, 7);
+  assert.equal(doc.total, 17);
   assert.equal(doc.done, 0);
   assert.deepEqual(doc.notes, [], 'nothing to warn about');
 });
@@ -83,7 +93,7 @@ test('their own steps are folded in by date, and done steps are counted', () => 
   const own = doc.steps.filter((s) => s.own);
   assert.deepEqual(own.map((s) => [s.date, s.label]), [['Sep 15', 'Transfer utilities'], ['', 'Change my address']]);
   assert.equal(doc.steps.at(-1).label, 'Change my address', 'an undated step goes last');
-  assert.equal(doc.total, 9);
+  assert.equal(doc.total, 19);
   assert.equal(doc.done, 2);
   assert.deepEqual(doc.steps.filter((s) => s.done).map((s) => s.label), ['Get pre-approved', 'Transfer utilities']);
 });
