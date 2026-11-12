@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  AgentActions, AgentLines, Face, FloorPlans, OpenHouses, StatusNote, VideoButton,
+  AgentActions, AgentLines, Face, FloorPlans, OpenHouses, StatusNote, TeamAgents, VideoButton,
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
@@ -247,6 +247,7 @@ export default function Listing({ model }) {
                     </div>
                   </div>
                 ) : null}
+                {stop.key === 'guide' && agent ? <TeamAgents model={model} /> : null}
 
                 {nextBtn(i)}
               </section>

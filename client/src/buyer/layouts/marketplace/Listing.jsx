@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  AgentActions, Face, FloorPlans, Guides, OpenHouses, StatusNote, statList, useAgent,
+  AgentActions, Face, FloorPlans, Guides, OpenHouses, StatusNote, TeamAgents, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import { dayLabel, timeRange } from '../../openHouse.js';
@@ -219,6 +219,7 @@ export default function Listing({ model }) {
           {agent && (agent.phoneHref || agent.email) ? (
             <div className="ls-marketplace-card__reach"><AgentActions model={model} className="ls-marketplace-reach" /></div>
           ) : null}
+          <TeamAgents model={model} />
           {model.nextSession ? (
             <p className="ls-marketplace-card__oh">
               Open house <strong>{dayLabel(model.nextSession.date)}, {timeRange(model.nextSession.start, model.nextSession.end)}</strong>

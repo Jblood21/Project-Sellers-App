@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, Guides, OpenHouses, PhotoButton, Price, StatusNote,
-  VideoButton, factLines, statList, useAgent,
+  TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 
@@ -87,6 +87,7 @@ function AgentTile({ model }) {
         <div className="ls-cornerpost-agent__lines"><AgentLines model={model} nameTag="strong" /></div>
       </div>
       <div className="ls-cornerpost-agent__acts"><AgentActions model={model} className="ls-cornerpost-act" /></div>
+      <TeamAgents model={model} />
     </section>
   );
 }

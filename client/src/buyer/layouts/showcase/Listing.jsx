@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, OpenHouses, StatusNote, VideoButton,
+  Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, OpenHouses, StatusNote, TeamAgents, VideoButton,
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
@@ -170,6 +170,7 @@ export default function Listing({ model }) {
                   <div className="ls-showcase-agent__acts"><AgentActions model={model} className="b-btn b-btn-outline" /></div>
                 </section>
               ) : null}
+              {agent ? <TeamAgents model={model} /> : null}
             </div>
           </div>
         </div>

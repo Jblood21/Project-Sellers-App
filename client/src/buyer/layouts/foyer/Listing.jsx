@@ -1,7 +1,7 @@
 import { money } from '../../../lib/format.js';
 import { useBuyer } from '../../BuyerContext.jsx';
 import {
-  AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, statList, useAgent,
+  AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, TeamAgents, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 import { dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange } from '../../openHouse.js';
@@ -81,6 +81,7 @@ function Portrait({ model }) {
       {a.brokerage ? <p className="ls-foyer-agent__line">{a.brokerage}</p> : null}
       {a.license ? <p className="ls-foyer-agent__line">{a.license}</p> : null}
       <p className="ls-foyer-agent__acts"><AgentActions model={model} className="ls-foyer-link" emailToo /></p>
+      <TeamAgents model={model} />
     </section>
   );
 }

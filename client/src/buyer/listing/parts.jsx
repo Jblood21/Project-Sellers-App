@@ -72,6 +72,30 @@ export function AgentLines({ model, nameTag: Name = 'strong' }) {
   );
 }
 
+/**
+ * A small round face for a team row. Drawn with its own inline style so it looks the same in every layout (the
+ * layouts style `.ls-face` only inside their own agent card, so the shared Face is unstyled out here).
+ */
+function TeamFace({ agent, size }) {
+  const box = { width: size, height: size, flex: 'none', borderRadius: '50%', overflow: 'hidden' };
+  if (agent?.photo) {
+    return (
+      <img
+        {...photoImgProps(agent.photo, `${size}px`)} alt="" width={size} height={size} decoding="async"
+        style={{ ...box, objectFit: 'cover', display: 'block' }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true" className="b-head"
+      style={{ ...box, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.42, background: 'color-mix(in srgb, currentColor 14%, transparent)' }}
+    >
+      {agent?.name?.trim()?.[0] ?? ''}
+    </span>
+  );
+}
+
 /** One more agent on a team, as a slim row: face, name, brokerage and Call / Text. */
 function TeamRow({ agent, community }) {
   const { track, lead } = useBuyer();
@@ -82,13 +106,13 @@ function TeamRow({ agent, community }) {
   const reached = (what) => track(`Reached out to schedule a showing (${what}): ${agent.name}`);
   const greeting = `Hi${first ? ` ${first}` : ''},${lead?.name ? ` this is ${lead.name}.` : ''} I have a question about ${community?.name ?? 'the home'}.`;
   const act = {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '0 14px', borderRadius: 10,
-    border: '1px solid var(--t-line, rgba(0,0,0,.2))', color: 'inherit', textDecoration: 'none', fontWeight: 600, fontSize: 14, background: 'none',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '0 12px', borderRadius: 10,
+    border: '1px solid color-mix(in srgb, currentColor 30%, transparent)', color: 'inherit', textDecoration: 'none', fontWeight: 600, fontSize: 14, background: 'none',
   };
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <Face agent={agent} size={44} />
-      <div style={{ display: 'grid', gap: 1, flex: '1 1 140px', minWidth: 0 }}>
+      <TeamFace agent={agent} size={44} />
+      <div style={{ display: 'grid', gap: 1, flex: '1 1 100px', minWidth: 0 }}>
         <strong className="b-head" style={{ fontSize: 15 }}>{agent.name}</strong>
         {brokerage ? <span style={{ fontSize: 13, color: 'var(--t-mut)' }}>{brokerage}</span> : null}
       </div>

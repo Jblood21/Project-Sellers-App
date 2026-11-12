@@ -6,7 +6,7 @@ import {
   clock12, dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs,
 } from '../../openHouse.js';
 import {
-  Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, VideoButton, factLines, statList, useAgent,
+  Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import { featureLabels } from '@shared/homeFacts.js';
@@ -116,6 +116,7 @@ function AgentStrip({ model }) {
         </div>
         <div className="ls-saltgrass-agent__acts"><AgentActions model={model} className="ls-saltgrass-act" /></div>
       </div>
+      <div className="ls-saltgrass-wrap"><TeamAgents model={model} /></div>
     </section>
   );
 }

@@ -7,7 +7,7 @@ import {
   dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange,
 } from '../../openHouse.js';
 import {
-  AgentActions, AgentLines, Face, FloorPlans, Guides, useAgent, VideoButton,
+  AgentActions, AgentLines, Face, FloorPlans, Guides, TeamAgents, useAgent, VideoButton,
 } from '../../listing/parts.jsx';
 import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import { featureLabels } from '@shared/homeFacts.js';
@@ -107,6 +107,7 @@ function AgentCard({ model }) {
         <div className="ls-ledger-agent__txt"><AgentLines model={model} nameTag="strong" /></div>
       </div>
       <div className="ls-ledger-agent__acts"><AgentActions model={model} className="ls-ledger-btn" emailToo /></div>
+      <TeamAgents model={model} />
     </section>
   );
 }

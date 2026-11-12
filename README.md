@@ -811,6 +811,12 @@ reports and tools) pointed at one purchase instead of a development of many home
   it is for sale (`shared/schema.js`, `listingTitle`/`describeListing`).
 - **Today** tells a listing from a community (`kind`, `price`, and the open house list on each card).
 
+## Home facts, "What's special" and who shows a listing
+
+Every home (a community's or a listing's) can carry year built, lot size in acres, HOA (none, or $ a month), property tax (a % of the price or $ a year) and picked highlights from a catalog of about 120 (`shared/homeFacts.js`, up to 40 each). All are optional: blank is "not given" and never a made-up zero. The admin has them under Homes; buyers see them on every layout's listing page and on a community's home page, with price per sq ft worked out from price and size. A home's own tax and HOA replace the community-wide figures in every payment estimate (`calcPayment` takes the `home`).
+
+A listing is shown by **one agent** (the default), **several agents** or **a team** with a name (`agentMode`, `teamName` in Setup > Your details). A listing takes up to 8 agents (a community's realtors stay at 4). With one agent chosen, buyers see only the first; the rest stay saved. A team shows "Listed by <name>" with each member's Call and Text under the first agent in every layout.
+
 ## Layouts
 
 **Admin → a community → Setup → Look & feel → Layout** chooses how the buyer app is arranged. There are
