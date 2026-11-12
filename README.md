@@ -848,6 +848,9 @@ photo; with no photo it gets a simple icon. A school with no link of its own lin
   A failed look-up never blocks a save: the place just has no pin.
 - Directions open the phone's own maps app (Apple Maps on Apple devices, Google Maps elsewhere), which starts from where
   the person is. Pure helpers (`directionsUrl`, `driveLabel`, `readPlaceExtras`) are in `shared/neighborhood.js`.
+- The Marketplace listing page has a **Neighborhood** tab under the photos and floor plans: a map with numbered, colour-coded
+  dots beside a numbered list of the places, nearest first (the first 8, then "Show all"). Tapping a row moves the map to
+  that place. On a phone the map comes first.
 - Not built yet: suggesting nearby places automatically. Everything is typed by the agent for now.
 
 ## Import a listing from its MLS link

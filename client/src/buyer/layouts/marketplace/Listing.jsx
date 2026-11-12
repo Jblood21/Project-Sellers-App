@@ -29,10 +29,8 @@ export default function Listing({ model }) {
   const hasPlans = model.floorPlans.length > 0;
   const hasPhotos = photos.length > 1 || hasPlans || model.hasVideo;
   const financing = Boolean(estimate || model.talkFinancing || model.openPayment);
-  // The Neighborhood tab appears when the home has places or a map point. Which of the four layouts is drawn is chosen
-  // with ?nh=1 to ?nh=4 (1 when it is not given) while the agent decides.
+  // The Neighborhood tab appears when the home has places or a map point.
   const hasNeighborhood = Boolean(model.community?.highlights?.length || pointOf({ lat: model.community?.settings?.mapLat, lng: model.community?.settings?.mapLng }));
-  const nhVariant = Math.min(4, Math.max(1, Number(typeof window === 'undefined' ? 1 : new URLSearchParams(window.location.search).get('nh')) || 1));
   const facts = [
     { k: 'Status', v: model.status },
     model.mls ? { k: 'MLS #', v: model.mls } : null,
@@ -177,7 +175,7 @@ export default function Listing({ model }) {
             </section>
           ) : null}
 
-          {hasNeighborhood ? <Neighborhood variant={nhVariant} /> : null}
+          {hasNeighborhood ? <Neighborhood /> : null}
 
           {financing ? (
             <section id="ls-marketplace-financing" className="ls-marketplace-sec" aria-labelledby="ls-marketplace-fin-h">
