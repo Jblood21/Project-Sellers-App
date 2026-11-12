@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, Guides, OpenHouses, PhotoButton, Price, StatusNote,
-  TeamAgents, VideoButton, factLines, statList, useAgent,
+  AgentEquals, TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
@@ -80,6 +80,7 @@ function About({ text }) {
 function AgentTile({ model }) {
   const a = useAgent(model);
   if (!a) return null;
+  if (model.equalAgents) return <section className="ls-cornerpost-tile ls-cornerpost-agent" aria-label="Your agents"><AgentEquals model={model} /></section>;
   return (
     <section className="ls-cornerpost-tile ls-cornerpost-agent" aria-labelledby="ls-cornerpost-agent-h">
       <h2 id="ls-cornerpost-agent-h" className="ls-cornerpost-eyebrow">Your agent</h2>

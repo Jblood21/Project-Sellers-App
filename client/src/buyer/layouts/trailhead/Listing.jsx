@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  AgentActions, AgentLines, Face, FloorPlans, OpenHouses, StatusNote, TeamAgents, VideoButton,
+  AgentActions, AgentLines, Face, FloorPlans, OpenHouses, StatusNote, AgentEquals, TeamAgents, VideoButton,
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
@@ -238,7 +238,9 @@ export default function Listing({ model }) {
                   </>
                 ) : null}
 
-                {stop.key === 'guide' && agent ? (
+                {stop.key === 'guide' && agent && model.equalAgents ? (
+                  <AgentEquals model={model} />
+                ) : stop.key === 'guide' && agent ? (
                   <div className="ls-trailhead-guide">
                     <Face agent={agent.agent} size={72} className="ls-trailhead-face" />
                     <div className="ls-trailhead-guide__who">

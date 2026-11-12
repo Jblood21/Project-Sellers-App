@@ -7,7 +7,7 @@ import {
   dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange,
 } from '../../openHouse.js';
 import {
-  AgentActions, AgentLines, Face, FloorPlans, Guides, StatusNote, TeamAgents, factLines, statList, useAgent,
+  AgentActions, AgentLines, Face, FloorPlans, Guides, StatusNote, AgentEquals, TeamAgents, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
@@ -238,7 +238,8 @@ export default function Listing({ model }) {
           ) : null}
 
           {hasAgent ? (
-            <Section n={++n} id="rr-ls-agent" title="Your agent">
+            <Section n={++n} id="rr-ls-agent" title={model.equalAgents ? 'Your agents' : 'Your agent'}>
+              {model.equalAgents ? <AgentEquals model={model} /> : (
               <div className="ls-redrock-sign">
                 <Face agent={agent.agent} size={112} className="ls-redrock-face" />
                 <div className="ls-redrock-sign__t">
@@ -248,6 +249,7 @@ export default function Listing({ model }) {
                   </div>
                 </div>
               </div>
+              )}
               <TeamAgents model={model} />
             </Section>
           ) : null}

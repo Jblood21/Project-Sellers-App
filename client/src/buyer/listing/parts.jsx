@@ -127,11 +127,68 @@ function TeamRow({ agent, community }) {
   );
 }
 
+/** One agent as an equal card: the picture and name on top, then brokerage and licence, then Call and Text. */
+function EqualCard({ agent, community }) {
+  const { track, lead } = useBuyer();
+  const brokerage = String(agent.brokerage ?? '').trim();
+  const license = agentLicenseLine(agent);
+  const phoneHref = telHref(agent.phone);
+  const email = safeEmail(agent.email);
+  const first = String(agent.name ?? '').trim().split(/\s+/)[0];
+  const reached = (what) => track(`Reached out to schedule a showing (${what}): ${agent.name}`);
+  const greeting = `Hi${first ? ` ${first}` : ''},${lead?.name ? ` this is ${lead.name}.` : ''} I have a question about ${community?.name ?? 'the home'}.`;
+  const act = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 42, flex: 1, padding: '0 10px', borderRadius: 10,
+    border: '1px solid color-mix(in srgb, currentColor 30%, transparent)', color: 'inherit', textDecoration: 'none', fontWeight: 600, fontSize: 14, background: 'none',
+  };
+  return (
+    <div
+      role="listitem"
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 4, padding: '14px 8px', minWidth: 0,
+        border: '1px solid color-mix(in srgb, currentColor 18%, transparent)', borderRadius: 14,
+      }}
+    >
+      <TeamFace agent={agent} size={64} />
+      <strong className="b-head" style={{ fontSize: 16, lineHeight: 1.2, marginTop: 4 }}>{agent.name}</strong>
+      {brokerage ? <span style={{ fontSize: 13, opacity: 0.8 }}>{brokerage}</span> : null}
+      {license ? <span style={{ fontSize: 12, opacity: 0.7 }}>{license}</span> : null}
+      {phoneHref || email ? (
+        <div style={{ display: 'flex', gap: 8, width: '100%', marginTop: 'auto', paddingTop: 8 }}>
+          {phoneHref ? <a style={act} href={phoneHref} onClick={() => reached('call')}>Call</a> : null}
+          <TextAction className="" style={act} phone={agent.phone} message={greeting} onAct={reached} />
+          {!phoneHref && email ? <a style={act} href={`mailto:${email}`} onClick={() => reached('email')}>Email</a> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Several agents, or a team, as equals: each in a card of the same size with the picture and name on top, side by side
+ * (they wrap on a narrow column). Used in place of a layout's single-agent card; `agentTitle` ("Listed by The Whitcombe
+ * Group", "Your listing agents") heads it.
+ */
+export function AgentEquals({ model }) {
+  const list = model.agents ?? [];
+  if (!list.length) return null;
+  return (
+    <div className="ls-equals" style={{ display: 'grid', gap: 10 }}>
+      {model.agentTitle ? <p className="b-head" style={{ margin: 0, fontWeight: 600, fontSize: 15 }}>{model.agentTitle}</p> : null}
+      <div role="list" aria-label="The listing agents" style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))' }}>
+        {list.map((agent) => <EqualCard key={agent.id} agent={agent} community={model.community} />)}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The rest of the listing's team, under the layout's own agent card: the team's name ("Listed by The Whitcombe Group")
  * and every agent after the first, each with Call and Text. Nothing is drawn for one agent on their own.
  */
 export function TeamAgents({ model }) {
+  // With several agents or a team, every agent is shown as an equal card where the layout's agent card is (AgentEquals).
+  if (model.equalAgents) return null;
   const others = (model.agents ?? []).slice(1);
   if (!others.length && !model.agentTitle) return null;
   return (

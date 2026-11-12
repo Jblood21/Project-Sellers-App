@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, OpenHouses, StatusNote, TeamAgents, VideoButton,
+  Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, OpenHouses, StatusNote, AgentEquals, TeamAgents, VideoButton,
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
@@ -165,7 +165,9 @@ export default function Listing({ model }) {
                 </section>
               ) : null}
 
-              {agent ? (
+              {agent && model.equalAgents ? (
+                <section className="ls-showcase-sec" aria-label="Your agents"><AgentEquals model={model} /></section>
+              ) : agent ? (
                 <section className="ls-showcase-sec ls-showcase-agent" aria-label="Your agent">
                   <Face agent={agent.agent} size={56} />
                   <div className="ls-showcase-agent__who"><AgentLines model={model} nameTag="h2" /></div>

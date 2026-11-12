@@ -6,7 +6,7 @@ import {
   clock12, dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs,
 } from '../../openHouse.js';
 import {
-  Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, TeamAgents, VideoButton, factLines, statList, useAgent,
+  Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, AgentEquals, TeamAgents, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
@@ -105,6 +105,9 @@ function Tickets({ model }) {
 function AgentStrip({ model }) {
   const a = useAgent(model);
   if (!a) return null;
+  if (model.equalAgents) {
+    return <section className="ls-saltgrass-agent" aria-label="Your agents"><div className="ls-saltgrass-wrap"><AgentEquals model={model} /></div></section>;
+  }
   return (
     <section className="ls-saltgrass-agent" aria-labelledby="ls-saltgrass-agent-h">
       <div className="ls-saltgrass-wrap ls-saltgrass-agent__in">

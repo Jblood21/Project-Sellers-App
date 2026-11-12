@@ -1,7 +1,7 @@
 import { money } from '../../../lib/format.js';
 import { useBuyer } from '../../BuyerContext.jsx';
 import {
-  AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, TeamAgents, statList, useAgent,
+  AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, AgentEquals, TeamAgents, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
@@ -74,6 +74,7 @@ function Calendar({ model }) {
 function Portrait({ model }) {
   const a = useAgent(model);
   if (!a) return null;
+  if (model.equalAgents) return <section className="ls-foyer-agent" aria-label="Your agents"><AgentEquals model={model} /></section>;
   return (
     <section className="ls-foyer-agent" aria-labelledby="ls-foyer-agent-h">
       <div className="ls-foyer-agent__arch"><Face agent={a.agent} size={320} /></div>
