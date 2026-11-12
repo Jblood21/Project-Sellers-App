@@ -1109,3 +1109,46 @@
 .b-app.l-marketplace .ls-marketplace-bar__p strong { font: 800 20px/1.1 var(--t-head); }
 .b-app.l-marketplace .ls-marketplace-bar__p span { font-size: 13px; color: var(--t-mut); }
 .b-app.l-marketplace .ls-marketplace-bar .b-btn { min-height: 48px; padding: 0 18px; white-space: nowrap; border-radius: var(--t-radbtn); }
+
+/* Neighborhood tab: the places beside a map (four layouts, chosen with ?nh=1..4 while the agent decides). */
+.b-app.l-marketplace .ls-mk-nh__cols { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 760px) {
+  .b-app.l-marketplace .ls-mk-nh__cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .b-app.l-marketplace .ls-mk-nh__cols--wide { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+  .b-app.l-marketplace .ls-mk-nh__sticky { position: sticky; top: calc(var(--mk-bar-h) + 84px); }
+}
+.b-app.l-marketplace .ls-mk-nh__map { display: grid; gap: 10px; }
+.b-app.l-marketplace .ls-mk-nh__go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+.b-app.l-marketplace .ls-mk-nh__all { font-weight: 700; font-size: 14px; color: var(--t-accT); text-decoration: none; min-height: 40px; display: inline-flex; align-items: center; }
+.b-app.l-marketplace .ls-mk-nh__dot { display: inline-block; flex: none; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .2); }
+.b-app.l-marketplace .ls-mk-nh__kind { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font: 800 13px/1.2 var(--t-font); letter-spacing: .05em; text-transform: uppercase; color: var(--t-mut); }
+.b-app.l-marketplace .ls-mk-nh__kind small { font-weight: 600; text-transform: none; letter-spacing: 0; }
+.b-app.l-marketplace .ls-mk-nh__groups { display: grid; gap: 18px; }
+.b-app.l-marketplace .ls-mk-nh__rows { list-style: none; margin: 0; padding: 0; }
+.b-app.l-marketplace .ls-mk-nh__row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--t-line); }
+.b-app.l-marketplace .ls-mk-nh__row--plain { justify-content: space-between; }
+.b-app.l-marketplace .ls-mk-nh__name { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.b-app.l-marketplace .ls-mk-nh__name small { color: var(--t-mut); font-size: 12.5px; }
+.b-app.l-marketplace .ls-mk-nh__drive { font-size: 13px; color: var(--t-mut); white-space: nowrap; }
+.b-app.l-marketplace .ls-mk-nh__chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 14px; }
+.b-app.l-marketplace .ls-mk-nh__chip { flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--t-line); background: var(--t-sur); color: var(--t-ink); font: 700 13px/1 var(--t-font); cursor: pointer; }
+.b-app.l-marketplace .ls-mk-nh__chip.is-on { border-color: var(--t-accT); background: var(--t-tint); color: var(--t-accT); }
+.b-app.l-marketplace .ls-mk-nh__cards { display: grid; gap: 12px; }
+.b-app.l-marketplace .ls-mk-nh__card { display: flex; gap: 12px; padding: 14px; border: 1px solid var(--t-line); border-radius: var(--t-radlg); background: var(--t-sur); }
+.b-app.l-marketplace .ls-mk-nh__icon { flex: none; width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid; display: grid; place-items: center; font-size: 22px; }
+.b-app.l-marketplace .ls-mk-nh__cardbody { min-width: 0; flex: 1; display: grid; gap: 3px; }
+.b-app.l-marketplace .ls-mk-nh__cardbody p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--t-mut); }
+.b-app.l-marketplace .ls-mk-nh__cardbody small { color: var(--t-mut); font-size: 12.5px; }
+.b-app.l-marketplace .ls-mk-nh__cardtop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.b-app.l-marketplace .ls-mk-nh__pill { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--t-tint); color: var(--t-accT); white-space: nowrap; }
+.b-app.l-marketplace .ls-mk-nh__cardlinks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+.b-app.l-marketplace .ls-mk-nh__link { font-size: 13px; font-weight: 700; color: var(--t-accT); text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; }
+.b-app.l-marketplace .ls-mk-nh__nums { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.b-app.l-marketplace .ls-mk-nh__num { width: 100%; display: flex; align-items: center; gap: 12px; padding: 9px 10px; border: 1px solid var(--t-line); border-radius: var(--t-rad); background: var(--t-sur); text-align: left; cursor: pointer; font: inherit; color: var(--t-ink); }
+.b-app.l-marketplace .ls-mk-nh__num.is-on { border-color: var(--t-accT); background: var(--t-tint); }
+.b-app.l-marketplace .ls-mk-nh__badge { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 800 13px/1 system-ui, sans-serif; text-shadow: 0 0 2px rgba(0, 0, 0, .45); }
+@media (max-width: 759px) {
+  /* On a phone the map comes first, then the places. */
+  .b-app.l-marketplace .ls-mk-nh__cols > .ls-mk-nh__sticky,
+  .b-app.l-marketplace .ls-mk-nh__cols > .ls-mk-nh__map { order: -1; }
+}
