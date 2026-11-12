@@ -1037,3 +1037,5 @@ textarea.input { min-height: auto; resize: vertical; }
 .leaflet-tooltip.nm-label::before { display: none; }
 .nm-tag { display: block; padding: 3px 7px; border-left: 4px solid; border-radius: 6px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nm-label--home .nm-tag { font-size: 12px; }
+.nm-dot--num { display: flex; align-items: center; justify-content: center; color: #fff; font: 800 11px/1 system-ui, sans-serif; text-shadow: 0 0 2px rgba(0, 0, 0, .5); }
+.leaflet-tooltip.nm-label.nm-label--off { display: none; }
