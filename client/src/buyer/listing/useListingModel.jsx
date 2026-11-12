@@ -60,7 +60,7 @@ export default function useListingModel({ onOpenLender, onRequestShowing }) {
 
   const saved = Boolean(lead?.savedHomeIds?.includes(home.id));
   const model = {
-    community, home, agent, agents: shown.list, agentTitle: shown.title, features,
+    community, home, agent, agents: shown.list, agentTitle: shown.title, equalAgents: shown.list.length > 1, features,
     name: home.name, city: community?.location ?? '', status, sold,
     price, estimate, beds: home.beds, baths: home.baths, sqft: home.sqft,
     meta: homeMeta(home), mls, brokerage,

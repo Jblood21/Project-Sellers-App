@@ -199,6 +199,11 @@ export function shapeHighlight(row, photo = null) {
     description: row.description || '',
     detail: row.detail || '',
     address: row.address || '',
+    link: row.link || '',
+    miles: optionalNumber(row.miles),
+    minutes: optionalNumber(row.minutes),
+    lat: optionalNumber(row.lat),
+    lng: optionalNumber(row.lng),
     position: Number(row.position) || 0,
     photo,
   };

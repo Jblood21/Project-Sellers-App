@@ -292,6 +292,12 @@ CREATE TABLE IF NOT EXISTS highlights (
 -- highlights predate addresses, so an existing database needs the explicit ALTER:
 -- CREATE TABLE IF NOT EXISTS above is a no-op once the table is there.
 ALTER TABLE highlights ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT '';
+-- How far a place is, a link for more, and where it is on the map. Blank/NULL means not given.
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS link TEXT NOT NULL DEFAULT '';
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS miles NUMERIC;
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS minutes INTEGER;
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
 CREATE INDEX IF NOT EXISTS highlights_community_idx ON highlights(community_id, position);
 
 -- The real estate agents a community lists, at most four (MAX_AGENTS). The cap is

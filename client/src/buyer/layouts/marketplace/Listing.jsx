@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Photo from '../../../components/Photo.jsx';
 import { money } from '../../../lib/format.js';
 import {
-  AgentActions, Face, FloorPlans, Guides, OpenHouses, StatusNote, TeamAgents, statList, useAgent,
+  AgentActions, Face, FloorPlans, Guides, OpenHouses, StatusNote, AgentEquals, TeamAgents, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
@@ -195,7 +195,9 @@ export default function Listing({ model }) {
         </div>
 
         <aside id="ls-marketplace-agent" className="ls-marketplace-card" aria-label="Contact">
-          {agent ? (
+          {agent && model.equalAgents ? (
+            <AgentEquals model={model} />
+          ) : agent ? (
             <div className="ls-marketplace-card__who">
               <Face agent={agent.agent} size={56} />
               <div className="ls-marketplace-card__id">
@@ -218,7 +220,7 @@ export default function Listing({ model }) {
               <Heart size={18} filled={model.saved} /> {model.saved ? 'Saved' : 'Save this home'}
             </button>
           </div>
-          {agent && (agent.phoneHref || agent.email) ? (
+          {agent && !model.equalAgents && (agent.phoneHref || agent.email) ? (
             <div className="ls-marketplace-card__reach"><AgentActions model={model} className="ls-marketplace-reach" /></div>
           ) : null}
           <TeamAgents model={model} />

@@ -832,6 +832,22 @@ through: buyer agreement, tours, offer, escrow and title, disclosures, inspectio
 appraisal, financing and appraisal deadline, insurance, Closing Disclosure, cash to close, utilities, walkthrough and
 closing. The timings are typical; the buyer is told the deadlines in the signed contract are the ones that count.
 
+## Map and neighborhood
+
+The Neighborhood screen (Local Spots for a community) shows a map from OpenStreetMap (Leaflet, loaded only when the
+screen is opened; the tiles carry OpenStreetMap's credit) with the home and the places around it, a **Get directions**
+button, and a tab for each kind of place: Schools, Major employment (within 5 miles), Shopping areas (within 2),
+Closest grocery store, public park, gym, park and ride, golf course and ski resort, Healthcare, Getting Around, and Other
+(typed by the agent). A place has a name, miles and minutes of driving, a note, a link, an address and an optional
+photo; with no photo it gets a simple icon. A school with no link of its own links to the Utah school report card.
+
+- In Setup's Area tab, **Find it on the map** looks the home's address up (Nominatim, no key; `server/lib/geocode.js`)
+  and keeps the point in `settings.mapLat/mapLng`. A place with an address is placed the same way when it is saved.
+  A failed look-up never blocks a save: the place just has no pin.
+- Directions open the phone's own maps app (Apple Maps on Apple devices, Google Maps elsewhere), which starts from where
+  the person is. Pure helpers (`directionsUrl`, `driveLabel`, `readPlaceExtras`) are in `shared/neighborhood.js`.
+- Not built yet: suggesting nearby places automatically. Everything is typed by the agent for now.
+
 ## Import a listing from its MLS link
 
 In **New listing**, an agent can paste a utahrealestate.com link and press **Fill in**. The server (`server/lib/listingImport.js`)

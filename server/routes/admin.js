@@ -19,6 +19,8 @@ import { cleanSubscription, pushPublicKey, pushToAdmin } from '../lib/push.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { readHomeFacts } from '../../shared/homeFacts.js';
+import { readPlaceExtras } from '../../shared/neighborhood.js';
+import { geocode } from '../lib/geocode.js';
 import { SCENARIO_ASSUMPTIONS_MAX, cleanPicks, validEffectiveDate } from '../../shared/rateScenarios.js';
 import { cleanListingLink, fetchPage, fetchPhoto, readListingPage } from '../lib/listingImport.js';
 import { getStore } from '../db/index.js';
@@ -1736,6 +1738,13 @@ export function adminRouter() {
           }
           continue;
         }
+        if (key === 'mapLat' || key === 'mapLng') {
+          const limit = key === 'mapLat' ? 90 : 180;
+          const n = Number(text);
+          if (text && (!Number.isFinite(n) || Math.abs(n) > limit)) return res.status(400).json({ error: `The map ${key === 'mapLat' ? 'latitude' : 'longitude'} must be a number between -${limit} and ${limit}.` });
+          settings[key] = text ? String(Math.round(n * 1e6) / 1e6) : '';
+          continue;
+        }
         if (key === 'scenarioPicks') {
           // Which of the five sample loan solutions are shown: known ones only, up to three.
           const picks = cleanPicks(text);
@@ -1998,6 +2007,23 @@ export function adminRouter() {
     res.status(204).end();
   });
 
+  /**
+   * Finds the home (or community) on the map: its address is looked up and the point is kept in its settings, which
+   * is where the Neighborhood map reads it. `address` may be sent to look up something other than the saved name and
+   * location. Answers { lat, lng, label }, or 404 when nothing was found.
+   */
+  router.post('/communities/:id/locate', async (req, res) => {
+    const store = await getStore();
+    const community = await communityOf(req, res, store);
+    if (!community) return;
+    const typed = str(req.body?.address).slice(0, 200);
+    const query = typed || [community.name, community.location].filter(Boolean).join(', ');
+    const found = await geocode(query);
+    if (!found) return res.status(404).json({ error: 'That address could not be found on the map. Check the address and try again.' });
+    await store.updateCommunity(community.id, { settings: { ...community.settings, mapLat: String(found.lat), mapLng: String(found.lng) } });
+    res.json(found);
+  });
+
   // ── area highlights ──────────────────────────────────────────────────────
   /** What's around the community: schools, parks, shops, clinics, commute notes. */
   router.post('/communities/:id/highlights', async (req, res) => {
@@ -2006,12 +2032,23 @@ export function adminRouter() {
     if (!community) return;
     const name = str(req.body?.name);
     if (!name) return res.status(400).json({ error: 'Give this place a name.' });
+    const extras = readPlaceExtras(req.body);
+    if (extras.error) return res.status(400).json({ error: extras.error });
+    const address = str(req.body?.address);
+    // A place with an address and no pin gets one found, when it can be; a slow or failed look-up just leaves it off the map.
+    let where = {};
+    if (address && !('lat' in extras.data)) {
+      const found = await geocode([address, community.location].filter(Boolean).join(', '));
+      if (found) where = { lat: found.lat, lng: found.lng };
+    }
     const highlight = await store.createHighlight(community.id, {
       category: HIGHLIGHT_CATEGORY_KEYS.includes(req.body?.category) ? req.body.category : 'other',
       name,
       description: str(req.body?.description),
       detail: str(req.body?.detail),
-      address: str(req.body?.address),
+      address,
+      ...extras.data,
+      ...where,
     });
     await recordActivity(store, req, { communityId: community.id, action: 'highlight.added', subject: highlight.name });
     res.status(201).json(highlight);
@@ -2028,6 +2065,16 @@ export function adminRouter() {
     if (req.body?.address !== undefined) patch.address = str(req.body.address);
     if (req.body?.category !== undefined && HIGHLIGHT_CATEGORY_KEYS.includes(req.body.category)) {
       patch.category = req.body.category;
+    }
+    const extras = readPlaceExtras(req.body);
+    if (extras.error) return res.status(400).json({ error: extras.error });
+    Object.assign(patch, extras.data);
+    // A new address moves the pin (unless the request placed it): found again, or cleared when it cannot be.
+    if (patch.address !== undefined && patch.address !== highlight.address && !('lat' in extras.data)) {
+      const community = await store.getCommunity(highlight.communityId);
+      const found = patch.address ? await geocode([patch.address, community?.location].filter(Boolean).join(', ')) : null;
+      patch.lat = found?.lat ?? null;
+      patch.lng = found?.lng ?? null;
     }
     const updated = await store.updateHighlight(highlight.id, patch);
     await recordActivity(store, req, { communityId: highlight.communityId, action: 'highlight.updated', subject: updated?.name ?? highlight.name });

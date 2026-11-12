@@ -7,7 +7,7 @@ import {
   dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange,
 } from '../../openHouse.js';
 import {
-  AgentActions, AgentLines, Face, FloorPlans, Guides, TeamAgents, useAgent, VideoButton,
+  AgentActions, AgentLines, Face, FloorPlans, Guides, AgentEquals, TeamAgents, useAgent, VideoButton,
 } from '../../listing/parts.jsx';
 import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
@@ -100,6 +100,7 @@ function OpenHouseRows({ model }) {
 function AgentCard({ model }) {
   const a = useAgent(model);
   if (!a) return null;
+  if (model.equalAgents) return <section className="ls-ledger-card" aria-label="Your agents"><AgentEquals model={model} /></section>;
   return (
     <section className="ls-ledger-card" aria-labelledby="ls-ledger-agent">
       <h2 id="ls-ledger-agent" className="ls-ledger-tile__lbl">Your agent</h2>

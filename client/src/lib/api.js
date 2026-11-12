@@ -274,6 +274,9 @@ export const adminApi = {
   // Brings a few of those photos into a home, in order. Answers { added, failed: [{url, reason}], total }.
   importHomePhotos: (token, homeId, urls) =>
     request(`/api/admin/homes/${encodeURIComponent(homeId)}/photos/import`, { method: 'POST', body: { urls }, token }),
+  // Looks the home's address up on the map and keeps the point. Answers { lat, lng, label }.
+  locateCommunity: (token, id, address = '') =>
+    request(`/api/admin/communities/${encodeURIComponent(id)}/locate`, { method: 'POST', body: { address }, token }),
   updateCommunity: (token, id, body) =>
     request(`/api/admin/communities/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
   deleteCommunity: (token, id) =>
