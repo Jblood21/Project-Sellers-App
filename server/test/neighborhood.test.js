@@ -156,3 +156,12 @@ for (const kind of backends()) {
     });
   });
 }
+
+describe('map colours', () => {
+  test('every kind of place has its own colour', async () => {
+    const { PLACE_COLORS, placeColor } = await import('../../shared/neighborhood.js');
+    for (const c of HIGHLIGHT_CATEGORIES) assert.match(PLACE_COLORS[c.k] ?? '', /^#[0-9a-f]{6}$/i, c.k);
+    assert.equal(new Set(Object.values(PLACE_COLORS)).size, HIGHLIGHT_CATEGORIES.length, 'no two kinds share a colour');
+    assert.equal(placeColor('nope'), PLACE_COLORS.other);
+  });
+});
