@@ -677,7 +677,7 @@ function primaryImage(ctx, view) {
 function highlightImage(ctx, highlight) {
   return imageObject(ctx, highlight.photo, {
     name: text(highlight.name),
-    caption: `${text(highlight.name)}, ${HIGHLIGHT_CATEGORIES.find((c) => c.k === highlight.category)?.label ?? 'Good to Know'} near ${ctx.name}`,
+    caption: `${text(highlight.name)}, ${HIGHLIGHT_CATEGORIES.find((c) => c.k === highlight.category)?.label ?? 'Other'} near ${ctx.name}`,
   });
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { pointOf } from '@shared/neighborhood.js';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { complianceOf } from '@shared/compliance.js';
@@ -166,7 +167,7 @@ function BuyerShell() {
               <Route path="explore" element={<Navigate to={`/c/${communityId}/home`} replace />} />
               <Route path="saved" element={<Navigate to={`/c/${communityId}/home`} replace />} />
               <Route path="map" element={<Navigate to={`/c/${communityId}/home`} replace />} />
-              <Route path="area" element={community.highlights?.length ? guard(<Area />) : <Navigate to={`/c/${communityId}/home`} replace />} />
+              <Route path="area" element={community.highlights?.length || pointOf({ lat: community.settings?.mapLat, lng: community.settings?.mapLng }) ? guard(<Area />) : <Navigate to={`/c/${communityId}/home`} replace />} />
               <Route path="homes/:homeId" element={guard(<HomeDetail onOpenLender={() => setTourTopic('lender')} onRequestShowing={tourPossible ? bookTour : null} />)} />
             </>
           ) : (

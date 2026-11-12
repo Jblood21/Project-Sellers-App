@@ -207,17 +207,23 @@ export const PROGRAM_DESCRIPTIONS = {
  */
 export const HIGHLIGHT_CATEGORIES = [
   { k: 'schools', label: 'Schools' },
-  { k: 'parks', label: 'Parks & Recreation' },
-  { k: 'shopping', label: 'Shopping & Dining' },
+  { k: 'employment', label: 'Major employment', hint: 'within 5 miles' },
+  { k: 'shopping', label: 'Shopping areas', hint: 'within 2 miles' },
+  { k: 'grocery', label: 'Closest grocery store' },
+  { k: 'parks', label: 'Closest public park' },
+  { k: 'gym', label: 'Closest gym' },
+  { k: 'parkride', label: 'Closest park and ride' },
+  { k: 'golf', label: 'Closest golf course' },
+  { k: 'ski', label: 'Closest ski resort' },
   { k: 'health', label: 'Healthcare' },
   { k: 'commute', label: 'Getting Around' },
-  { k: 'other', label: 'Good to Know' },
+  { k: 'other', label: 'Other' },
 ];
 
 export const HIGHLIGHT_CATEGORY_KEYS = HIGHLIGHT_CATEGORIES.map((c) => c.k);
 
 export function highlightCategoryLabel(key) {
-  return HIGHLIGHT_CATEGORIES.find((c) => c.k === key)?.label ?? 'Good to Know';
+  return HIGHLIGHT_CATEGORIES.find((c) => c.k === key)?.label ?? 'Other';
 }
 
 /**
@@ -685,6 +691,9 @@ export const DEFAULT_SETTINGS = {
   ratesUpdatedAt: '2026-10-19T20:00:00.000Z',
   // Three of five sample loan solutions with a rate and APR each, a date and an assumptions line (shared/rateScenarios.js).
   ...SCENARIO_DEFAULTS,
+  // Where the home or community is on the map (blank until found); set by "Find on the map" in the admin.
+  mapLat: '',
+  mapLng: '',
   taxPctYr: '0.55',
   insuranceYr: '1400',
   hoaMo: '45',

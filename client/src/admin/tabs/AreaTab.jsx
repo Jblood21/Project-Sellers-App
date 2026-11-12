@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-import { HIGHLIGHT_CATEGORIES, highlightCategoryLabel } from '@shared/domain.js';
+import { HIGHLIGHT_CATEGORIES } from '@shared/domain.js';
+import { UTAH_SCHOOL_REPORT_URL, driveLabel, pointOf } from '@shared/neighborhood.js';
 import { Pin, Trash } from '../../components/Icons.jsx';
 import Photo from '../../components/Photo.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -9,7 +10,7 @@ import { LowResNote, useLowRes } from '../lowRes.jsx';
 import PhotoPicker from '../PhotoPicker.jsx';
 import { Dialog, ErrorNote, Field, TextField } from '../ui.jsx';
 
-const BLANK = { category: 'schools', name: '', description: '', detail: '', address: '' };
+const BLANK = { category: 'schools', name: '', description: '', detail: '', address: '', miles: '', minutes: '', link: '' };
 
 /** A place's photo on its card, with a note under it when it is too small for the buyer app. */
 function HighlightPhoto({ highlight }) {
@@ -39,6 +40,10 @@ export default function AreaTab({ community, reload }) {
   const [photo, setPhoto] = useState(null); // downscaled data URL, uploaded on save
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [mapNote, setMapNote] = useState({ text: '', bad: false });
+  const onMap = pointOf({ lat: community.settings?.mapLat, lng: community.settings?.mapLng });
+  const isListing = community.settings?.siteKind === 'listing';
 
   const highlights = community.highlights ?? [];
   const grouped = HIGHLIGHT_CATEGORIES
@@ -59,6 +64,9 @@ export default function AreaTab({ community, reload }) {
       description: highlight.description,
       detail: highlight.detail,
       address: highlight.address ?? '',
+      miles: highlight.miles ?? '',
+      minutes: highlight.minutes ?? '',
+      link: highlight.link ?? '',
     });
     setPhoto(null);
     setError('');
@@ -86,6 +94,20 @@ export default function AreaTab({ community, reload }) {
     }
   };
 
+  const locate = async () => {
+    setLocating(true);
+    setMapNote({ text: '', bad: false });
+    try {
+      await adminApi.locateCommunity(token, community.id);
+      setMapNote({ text: 'Found. The map on the Neighborhood screen now shows it.', bad: false });
+      await reload();
+    } catch (err) {
+      setMapNote({ text: err.message, bad: true });
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const remove = async (highlight) => {
     if (!window.confirm(`Remove ${highlight.name}? This cannot be undone.`)) return;
     await adminApi.deleteHighlight(token, highlight.id);
@@ -94,6 +116,21 @@ export default function AreaTab({ community, reload }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card elev-sm" style={{ gap: 8 }}>
+        <span className="card-kicker">Map</span>
+        <p className="card-body" style={{ margin: 0 }}>
+          {onMap
+            ? `${isListing ? 'The home' : community.name} is on the map. Buyers see it with the places below, and a Get directions button.`
+            : `${isListing ? 'The home' : community.name} is not on the map yet, so buyers see no map.`}
+        </p>
+        <div>
+          <button type="button" className="btn btn-secondary" onClick={locate} aria-disabled={locating || undefined} style={{ minHeight: 44 }}>
+            {locating ? 'Looking…' : onMap ? 'Find it again' : 'Find it on the map'}
+          </button>
+        </div>
+        {mapNote.text ? <span role={mapNote.bad ? 'alert' : 'status'} style={{ fontSize: 14 }}>{mapNote.text}</span> : null}
+      </div>
+
       {highlights.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.55 }}>
           Nothing here yet. Add the schools, parks, shops and drive times buyers ask about —
@@ -111,8 +148,8 @@ export default function AreaTab({ community, reload }) {
               {highlight.photo ? <HighlightPhoto highlight={highlight} /> : null}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <span className="card-title" style={{ fontSize: 17 }}>{highlight.name}</span>
-                {highlight.detail ? (
-                  <span className="text-muted" style={{ flex: 'none', fontSize: 14 }}>{highlight.detail}</span>
+                {driveLabel(highlight.miles, highlight.minutes) || highlight.detail ? (
+                  <span className="text-muted" style={{ flex: 'none', fontSize: 14 }}>{driveLabel(highlight.miles, highlight.minutes) || highlight.detail}</span>
                 ) : null}
               </div>
               {highlight.description ? (
@@ -177,15 +214,30 @@ export default function AreaTab({ community, reload }) {
             label="Name" value={form.name} onChange={(name) => setForm((f) => ({ ...f, name }))}
             placeholder="e.g. Oakridge Elementary"
           />
+          <div className="grid-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+            <TextField
+              label="Miles away" value={form.miles} inputMode="decimal" onChange={(miles) => setForm((f) => ({ ...f, miles }))}
+              placeholder="e.g. 1.2"
+            />
+            <TextField
+              label="Minutes to drive" value={form.minutes} inputMode="numeric" onChange={(minutes) => setForm((f) => ({ ...f, minutes }))}
+              placeholder="e.g. 4"
+            />
+          </div>
           <TextField
-            label="Distance or hours" value={form.detail} onChange={(detail) => setForm((f) => ({ ...f, detail }))}
-            placeholder="e.g. 4 min drive"
+            label="Other note (hours, etc.)" value={form.detail} onChange={(detail) => setForm((f) => ({ ...f, detail }))}
+            placeholder="e.g. Open 5am to 10pm"
+          />
+          <TextField
+            label="Link for more info (optional)" value={form.link} inputMode="url" onChange={(link) => setForm((f) => ({ ...f, link }))}
+            placeholder={form.category === 'schools' ? UTAH_SCHOOL_REPORT_URL : 'e.g. https://example.com'}
+            hint={form.category === 'schools' ? 'Left blank, buyers get a link to the Utah school report card.' : undefined}
           />
           <TextField
             label="Address (optional)" value={form.address}
             onChange={(address) => setForm((f) => ({ ...f, address }))}
             placeholder="e.g. 1234 N Center St, Lehi, UT 84043"
-            hint="Buyers tap this to open directions in Google Maps. A place name works too."
+            hint="Buyers tap this for directions, and the place is put on the map from it. A place name works too."
           />
           <Field label="What buyers should know">
             <textarea

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { pointOf } from '@shared/neighborhood.js';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { CONTACT_METHODS, consentText, formatSlotDate, formatSlotTime, safeHref, TOOLS } from '@shared/domain.js';
@@ -165,7 +166,7 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone, onFina
   const listingItems = [
     { label: 'The home', to: `/c/${communityId}/home` },
     ...(enabled.length ? [{ label: 'Payment tools', to: `/c/${communityId}/tools` }] : []),
-    ...(community?.highlights?.length ? [{ label: 'Neighborhood', to: `/c/${communityId}/area` }] : []),
+    ...((community?.highlights?.length || pointOf({ lat: community?.settings?.mapLat, lng: community?.settings?.mapLng })) ? [{ label: 'Neighborhood', to: `/c/${communityId}/area` }] : []),
     ...(features.guides && guides.length ? [{ label: 'Buyer guides', to: `/c/${communityId}/guides` }] : []),
     ...(features.agents && agents.length ? [{ label: agents.length > 1 ? 'Meet your agents' : 'Meet your agent', to: `/c/${communityId}/realtors` }] : []),
     ...(onFinance && canTalkFinancing(community, features) ? [{ label: 'Talk about financing', action: onFinance }] : []),
@@ -173,7 +174,7 @@ export function MenuDrawer({ open, onClose, onShowTutorial, onAddToPhone, onFina
   const items = isListing ? listingItems : [
     { label: 'All Tools', to: `/c/${communityId}/tools` },
     { label: 'Explore Homes', to: `/c/${communityId}/explore` },
-    ...(community?.highlights?.length ? [{ label: 'Local Spots', to: `/c/${communityId}/area` }] : []),
+    ...((community?.highlights?.length || pointOf({ lat: community?.settings?.mapLat, lng: community?.settings?.mapLng })) ? [{ label: 'Local Spots', to: `/c/${communityId}/area` }] : []),
     ...(community?.features?.siteMap && community?.siteMap
       ? [{ label: 'Site Map', to: `/c/${communityId}/map` }]
       : []),

@@ -1027,3 +1027,8 @@ textarea.input { min-height: auto; resize: vertical; }
 .b-app .b-hd.b-hd--top .b-lat { margin-bottom: 14px; }
 .b-app .b-hd.b-hd--top { margin-bottom: 0 !important; padding-bottom: 0 !important; min-height: 0; }
 .b-app .b-hd.b-hd--top + .b-hd { padding-top: 0 !important; margin-top: 0 !important; }
+
+/* Neighborhood map pins (Leaflet divIcons): the home is a larger solid dot, a place a smaller outlined one. */
+.nm-pin { border-radius: 50%; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .45); }
+.nm-pin--home { background: var(--t-accT, #1b6b5a); }
+.nm-pin--place { background: #e0a21b; border-width: 2px; }
