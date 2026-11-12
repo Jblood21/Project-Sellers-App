@@ -48,9 +48,17 @@ async function census(text) {
   return { lat: round(lat), lng: round(lng), label: String(match.matchedAddress ?? '').slice(0, 200), source: 'census' };
 }
 
-async function nominatim(text, country) {
+/** A box about 25 miles across around a point: Nominatim prefers answers inside it (not only inside it). */
+const NEAR_DEGREES = 0.2;
+const boxAround = ({ lat, lng }) => [lng - NEAR_DEGREES, lat + NEAR_DEGREES, lng + NEAR_DEGREES, lat - NEAR_DEGREES].map((n) => n.toFixed(4)).join(',');
+
+async function nominatim(text, country, near) {
   const url = new URL('https://nominatim.openstreetmap.org/search');
-  url.search = new URLSearchParams({ format: 'jsonv2', limit: '1', q: text, ...(country ? { countrycodes: country } : {}) }).toString();
+  url.search = new URLSearchParams({
+    format: 'jsonv2', limit: '1', q: text,
+    ...(country ? { countrycodes: country } : {}),
+    ...(near ? { viewbox: boxAround(near), bounded: '0' } : {}),
+  }).toString();
   const body = await getJson(url, 'nominatim');
   const first = Array.isArray(body) ? body[0] : null;
   const lat = Number(first?.lat);
@@ -62,8 +70,11 @@ async function nominatim(text, country) {
 /** The same address without a unit or suite, which a street search often trips on. */
 const withoutUnit = (text) => text.replace(/\s*(?:,\s*)?(?:#|apt\.?|unit|suite|ste\.?)\s*[\w-]+/i, '').trim();
 
-/** { lat, lng, label, source } for the best match of `query`, or null. Never throws. */
-export function geocode(query, { country = 'us' } = {}) {
+/**
+ * { lat, lng, label, source } for the best match of `query`, or null. Never throws. `near` ({ lat, lng }, the home)
+ * makes a place found by name (no street address) come from around there, not from another town with the same name.
+ */
+export function geocode(query, { country = 'us', near = null } = {}) {
   const text = String(query ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
   if (!text) return Promise.resolve(null);
   const run = line.then(async () => {
@@ -79,11 +90,11 @@ export function geocode(query, { country = 'us' } = {}) {
       if (found) return found;
     }
     await pause();
-    const found = await nominatim(text, country);
+    const found = await nominatim(text, country, near);
     if (found) return found;
     if (plain !== text) {
       await pause();
-      return nominatim(plain, country);
+      return nominatim(plain, country, near);
     }
     return null;
   });

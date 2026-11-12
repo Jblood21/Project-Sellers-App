@@ -19,7 +19,7 @@ import { cleanSubscription, pushPublicKey, pushToAdmin } from '../lib/push.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { readHomeFacts } from '../../shared/homeFacts.js';
-import { readPlaceExtras } from '../../shared/neighborhood.js';
+import { pointOf, readPlaceExtras } from '../../shared/neighborhood.js';
 import { geocode } from '../lib/geocode.js';
 import { SCENARIO_ASSUMPTIONS_MAX, cleanPicks, validEffectiveDate } from '../../shared/rateScenarios.js';
 import { cleanListingLink, fetchPage, fetchPhoto, readListingPage } from '../lib/listingImport.js';
@@ -2025,6 +2025,38 @@ export function adminRouter() {
   });
 
   // ── area highlights ──────────────────────────────────────────────────────
+  /**
+   * Looks a place up for the map: by its address when it has one, otherwise by its name and the community's town,
+   * leaning toward the home's own pin so a name does not land in another city.
+   */
+  const findPlace = ({ name, address }, community) => geocode(
+    [address || name, community?.location].filter(Boolean).join(', '),
+    { near: pointOf({ lat: community?.settings?.mapLat, lng: community?.settings?.mapLng }) },
+  );
+
+  /**
+   * Puts every place that has no dot yet on the map (the ones saved before the map existed, or whose look-up failed).
+   * Answers { placed, missed: [names] }; a place that cannot be found is left as it was. At most 30 per request.
+   */
+  router.post('/communities/:id/highlights/locate', async (req, res) => {
+    const store = await getStore();
+    const community = await communityOf(req, res, store);
+    if (!community) return;
+    const waiting = (await store.listHighlights(community.id)).filter((h) => !pointOf(h)).slice(0, 30);
+    let placed = 0;
+    const missed = [];
+    for (const place of waiting) {
+      const found = await findPlace(place, community);
+      if (found) {
+        await store.updateHighlight(place.id, { lat: found.lat, lng: found.lng });
+        placed += 1;
+      } else {
+        missed.push(place.name);
+      }
+    }
+    res.json({ placed, missed });
+  });
+
   /** What's around the community: schools, parks, shops, clinics, commute notes. */
   router.post('/communities/:id/highlights', async (req, res) => {
     const store = await getStore();
@@ -2037,8 +2069,8 @@ export function adminRouter() {
     const address = str(req.body?.address);
     // A place with an address and no pin gets one found, when it can be; a slow or failed look-up just leaves it off the map.
     let where = {};
-    if (address && !('lat' in extras.data)) {
-      const found = await geocode([address, community.location].filter(Boolean).join(', '));
+    if (!('lat' in extras.data)) {
+      const found = await findPlace({ name, address }, community);
       if (found) where = { lat: found.lat, lng: found.lng };
     }
     const highlight = await store.createHighlight(community.id, {
@@ -2072,7 +2104,7 @@ export function adminRouter() {
     // A new address moves the pin (unless the request placed it): found again, or cleared when it cannot be.
     if (patch.address !== undefined && patch.address !== highlight.address && !('lat' in extras.data)) {
       const community = await store.getCommunity(highlight.communityId);
-      const found = patch.address ? await geocode([patch.address, community?.location].filter(Boolean).join(', ')) : null;
+      const found = await findPlace({ name: patch.name ?? highlight.name, address: patch.address }, community);
       patch.lat = found?.lat ?? null;
       patch.lng = found?.lng ?? null;
     }
