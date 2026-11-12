@@ -1,10 +1,11 @@
 import { COMPLIANCE_DEFAULTS, SAFE_EMAIL_RE, fillTokens, isSafeEmail } from './compliance.js';
 import { DEFAULT_FAQ_JSON, PREVIOUS_DEFAULT_FAQ_JSONS } from './faq.js';
+import { homeTaxAnnual } from './homeFacts.js';
 import { LISTING_DEFAULTS } from './listing.js';
 import { SETTING_NUMBER_RULES, readNumber } from './numberInput.js';
 
 export {
-  LISTING_DEFAULTS, LISTING_FEATURES, LISTING_LAYOUT, LISTING_LAYOUT_NOTES, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, OPEN_HOUSE_MAX,
+  AGENT_MODES, TEAM_NAME_MAX, LISTING_DEFAULTS, LISTING_FEATURES, LISTING_LAYOUT, LISTING_LAYOUT_NOTES, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, OPEN_HOUSE_MAX,
   isListing, normalizeOpenHouses, readOpenHouses, upcomingOpenHouses,
 } from './listing.js';
 
@@ -559,6 +560,10 @@ export const HOME_GUIDES = 3;
 
 /** Real estate agents a community can list. The server enforces this, not just the form. */
 export const MAX_AGENTS = 4;
+/** A listing may be shown by a team, so it takes more names than a community's realtors. */
+export const MAX_LISTING_AGENTS = 8;
+/** How many agents this community or listing may list. */
+export const maxAgentsFor = (community) => (community?.settings?.siteKind === 'listing' ? MAX_LISTING_AGENTS : MAX_AGENTS);
 
 export const AGENT_TEXT_MAX = {
   name: 80, brokerage: 120, licenseNo: 40, licenseState: 2, phone: 40, email: 120, website: 200,
@@ -995,13 +1000,16 @@ export function fhaAnnualMip(loan, price) {
   return high ? 0.0055 : 0.005;
 }
 
-export function calcPayment({ price, program, downPct, settings }) {
+export function calcPayment({ price, program, downPct, settings, home = null }) {
   const p = num(price);
   const down = (p * num(downPct)) / 100;
   const loan = p - down;
   const rate = ratesOf(settings)[program] ?? 0;
   const pi = pay30(loan, rate);
-  const tax = (p * settingFrom(settings.taxPctYr, 'taxPctYr')) / 100 / 12;
+  // A home's own property tax and HOA (an agent typed them for this home) replace the community-wide figures;
+  // a home without them keeps the community's. HOA 0 is "none", a real figure.
+  const ownTax = homeTaxAnnual(home, p);
+  const tax = ownTax !== null ? ownTax / 12 : (p * settingFrom(settings.taxPctYr, 'taxPctYr')) / 100 / 12;
   const insurance = settingFrom(settings.insuranceYr, 'insuranceYr') / 12;
   const mi =
     program === 'fha'
@@ -1009,7 +1017,10 @@ export function calcPayment({ price, program, downPct, settings }) {
       : program === 'conv' && num(downPct) < 20
         ? (loan * 0.005) / 12
         : 0;
-  const hoa = settingFrom(settings.hoaMo, 'hoaMo');
+  const ownHoa = home?.hoaMonthly;
+  const hoa = ownHoa !== null && ownHoa !== undefined && ownHoa !== '' && Number.isFinite(Number(ownHoa))
+    ? Number(ownHoa)
+    : settingFrom(settings.hoaMo, 'hoaMo');
   return {
     price: p, down, loan, rate, pi, tax, insurance, mi, hoa,
     total: pi + tax + insurance + mi + hoa,

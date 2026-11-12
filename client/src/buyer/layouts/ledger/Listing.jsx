@@ -9,6 +9,8 @@ import {
 import {
   AgentActions, AgentLines, Face, FloorPlans, Guides, useAgent, VideoButton,
 } from '../../listing/parts.jsx';
+import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import { featureLabels } from '@shared/homeFacts.js';
 
 /**
  * Ledger's listing page: the numbers dashboard. A grid of figure tiles first (price, monthly, down payment, beds
@@ -135,6 +137,8 @@ export default function Listing({ model }) {
     baths ? ['Baths', baths] : null,
     sqft ? ['Size', `${sqft} sq ft`] : null,
     perSqft ? ['Price per sq ft', money(perSqft)] : null,
+    // The agent's own facts (year built, lot, HOA, tax); price per sq ft is already a row above.
+    ...factRows(model.home).filter(([k]) => k !== 'Price per sq ft'),
   ].filter(Boolean);
 
   return (
@@ -227,6 +231,12 @@ export default function Listing({ model }) {
             <section className="ls-ledger-sec" aria-labelledby="ls-ledger-desc">
               <h2 id="ls-ledger-desc" className="ls-ledger-sec__h">About this home</h2>
               <p className="ls-ledger-desc">{model.description}</p>
+            </section>
+          ) : null}
+
+          {featureLabels(model.home?.features).length ? (
+            <section className="ls-ledger-sec" aria-label="What's special">
+              <WhatsSpecial home={model.home} style={{ margin: 0 }} />
             </section>
           ) : null}
 

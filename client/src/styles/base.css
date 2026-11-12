@@ -1005,6 +1005,10 @@ textarea.input { min-height: auto; resize: vertical; }
 }
 
 /* Listing mode: the listing agent above the home's pictures (ListingAgentTop). */
+/* Several agents, or a team: a line, then each agent in the same slim row. */
+.b-lat-group { margin: 0 0 14px; }
+.b-lat-group__title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--t-mut); }
+.b-lat-group .b-lat { margin-bottom: 8px; }
 .b-lat { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 10px 12px; text-align: left;
   border: 1px solid var(--t-line); border-radius: var(--t-radlg); background: var(--t-tint); }
 .b-lat__face { flex: none; display: block; width: 60px; height: 60px; border-radius: 50%; object-fit: cover; background: var(--t-line); }

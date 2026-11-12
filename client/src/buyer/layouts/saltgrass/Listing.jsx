@@ -8,6 +8,8 @@ import {
 import {
   Actions, AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, VideoButton, factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import { featureLabels } from '@shared/homeFacts.js';
 
 /**
  * Salt Grass listing page: "Billboard".
@@ -161,6 +163,13 @@ export default function Listing({ model }) {
               <p className="ls-saltgrass-desc">{model.description}</p>
             </div>
           </section>
+        ) : null}
+
+        {factRows(model.home).length || featureLabels(model.home?.features).length ? (
+          <div className="ls-saltgrass-wrap">
+            <HomeFacts home={model.home} />
+            <WhatsSpecial home={model.home} />
+          </div>
         ) : null}
 
         {more.length ? (

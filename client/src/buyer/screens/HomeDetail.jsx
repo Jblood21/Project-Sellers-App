@@ -13,6 +13,7 @@ import ImageViewer from '../ImageViewer.jsx';
 import OpenHouseCard from '../OpenHouseCard.jsx';
 import { useOpenHouses } from '../openHouse.js';
 import AgentCard from '../AgentCard.jsx';
+import { HomeFacts, WhatsSpecial } from '../HomeFacts.jsx';
 import GuidesTeaser from '../GuidesTeaser.jsx';
 import ListingAgentTop from '../ListingAgentTop.jsx';
 import VideoViewer from '../VideoViewer.jsx';
@@ -190,6 +191,8 @@ function SharedHomeDetail({ onOpenLender, onRequestShowing = null }) {
       {home.description ? (
         <p className="b-hd__desc" style={{ fontSize: 14, lineHeight: 1.55, margin: '12px 0 16px' }}>{home.description}</p>
       ) : null}
+      <HomeFacts home={home} />
+      <WhatsSpecial home={home} />
 
       {/*
         Under the description: a buyer scanning photos is not yet deciding to stop and watch. A button, not an

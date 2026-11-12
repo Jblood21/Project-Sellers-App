@@ -48,7 +48,7 @@ export default function useListingModel({ onOpenLender, onRequestShowing }) {
   let estimate = null;
   if (community?.tools?.payment && price && !sold) {
     try {
-      const sum = calcPayment({ price, program: 'conv', downPct: 5, settings });
+      const sum = calcPayment({ price, program: 'conv', downPct: 5, settings, home });
       if (Number.isFinite(sum.total) && sum.total > 0) estimate = { monthly: Math.round(sum.total), down: Math.round(sum.down), downPct: 5, rate: sum.rate };
     } catch {
       estimate = null;

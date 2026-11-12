@@ -12,6 +12,10 @@ import { homeMeta } from '../../lib/format.js';
 import { preparePhoto, videoToDataUrl } from '../../lib/photos.js';
 import { LowResNote, rowNote, useLowRes, useLowResRow } from '../lowRes.jsx';
 import { useAdmin } from '../AdminContext.jsx';
+import FeaturePicker from '../homes/FeaturePicker.jsx';
+import HomeFactsFields, {
+  FACTS_BLANK, factsBody, factsChanged, factsSeed, PricePerSqft,
+} from '../homes/HomeFactsFields.jsx';
 import { RemovalNotes, useRemovals } from '../homes/removals.jsx';
 import { upcomingOf } from '../listing.js';
 import CheckedField, { PROBLEM_RED } from '../setup/CheckedField.jsx';
@@ -21,6 +25,7 @@ import { fromInput, useFileDrop } from '../useFileDrop.js';
 const BLANK = {
   name: '', price: '', beds: '', baths: '', sqft: '', description: '',
   availability: 'Planning', lotNumber: '', readyOn: '', unitsAvailable: '',
+  facts: FACTS_BLANK,
 };
 
 // The boxes that hold a number, in the order they sit in the dialog (the first one wrong is the one to go to).
@@ -101,6 +106,7 @@ function ManyHomes({ community, reload }) {
         : String(home.unitsAvailable),
       lotNumber: home.lotNumber ?? '',
       readyOn: home.readyOn ?? '',
+      facts: factsSeed(home),
     };
     setForm(opened);
     setTried(false);
@@ -127,7 +133,8 @@ function ManyHomes({ community, reload }) {
     setError('');
     try {
       // The figures go as the numbers they were read as; a count left blank goes as '' and is kept as "not given".
-      const body = { ...form };
+      const body = { ...form, ...factsBody(form.facts) };
+      delete body.facts;
       for (const key of NUMBER_FIELDS) {
         // A box left as it was opened is not sent, so a figure from before these rules is neither judged nor rewritten.
         if (!changedBox(form, dialog.base, key)) delete body[key];
@@ -266,12 +273,18 @@ function ManyHomes({ community, reload }) {
               and nothing is filled in for you.
             </span>
           )}
+          <PricePerSqft price={form.price} sqft={form.sqft} />
+          <HomeFactsFields facts={form.facts} onChange={(facts) => setForm((f) => ({ ...f, facts }))} />
           <Field label="Description">
             <textarea
               className="input" rows={3} value={form.description}
               onChange={(event) => setForm((f) => ({ ...f, description: event.target.value }))}
             />
           </Field>
+          <FeaturePicker
+            value={form.facts.features}
+            onChange={(features) => setForm((f) => ({ ...f, facts: { ...f.facts, features } }))}
+          />
           <Field label="Availability">
             <select
               className="input" value={form.availability}
@@ -318,6 +331,7 @@ const seedOf = (home) => ({
   baths: home.baths ? String(home.baths) : '',
   sqft: home.sqft ? String(home.sqft) : '',
   description: home.description ?? '',
+  facts: factsSeed(home),
 });
 
 /**
@@ -347,6 +361,7 @@ function SingleHome({ community, reload }) {
   const priceRead = readNumber(form.price, HOME_NUMBER_RULES.price);
   const countProblemKey = COUNT_FIELDS.find((key) => problemOf(key));
   const dirty = form.name.trim() !== base.name || form.description !== base.description
+    || factsChanged(form.facts, base.facts)
     || NUMBER_FIELDS.some((key) => changedBox(form, base, key));
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -358,7 +373,7 @@ function SingleHome({ community, reload }) {
       return Promise.resolve(false);
     }
     return saver.run(async () => {
-      const body = { name: form.name.trim(), description: form.description };
+      const body = { name: form.name.trim(), description: form.description, ...factsBody(form.facts) };
       for (const key of NUMBER_FIELDS) {
         if (changedBox(form, base, key)) body[key] = readNumber(form[key], HOME_NUMBER_RULES[key]).value ?? '';
       }
@@ -431,12 +446,15 @@ function SingleHome({ community, reload }) {
             nothing is filled in for you.
           </span>
         )}
+        <PricePerSqft price={form.price} sqft={form.sqft} />
+        <HomeFactsFields facts={form.facts} onChange={set('facts')} />
         <Field label="Description">
           <textarea
             className="input" rows={5} value={form.description}
             onChange={(event) => set('description')(event.target.value)}
           />
         </Field>
+        <FeaturePicker value={form.facts.features} onChange={(features) => set('facts')({ ...form.facts, features })} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button
             type="button" className="btn btn-primary" onClick={save}

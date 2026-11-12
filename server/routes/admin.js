@@ -4,7 +4,7 @@ import { Router } from 'express';
 import {
   AGENT_TEXT_MAX, AVAILABILITY, COMMUNITY_STATUSES, DEFAULT_FEATURES, DEFAULT_GUIDE_IMAGE_ALT,
   COMPLIANCE_DEFAULTS, CUSTOM_THEME, DEFAULT_SETTINGS, DEFAULT_THEME, DEFAULT_TOOLS_ENABLED, FEATURE_KEYS, GUIDE_TEXT_MAX, HIGHLIGHT_CATEGORY_KEYS,
-  LAYOUT_KEYS, MAX_AGENTS, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
+  AGENT_MODES, TEAM_NAME_MAX, LAYOUT_KEYS, maxAgentsFor, MAX_PHOTOS_PER_HOME, MAX_VIDEO_BYTES, MAX_VIDEOS, RESOURCE_KINDS,
   VIDEO_TYPES, base64Bytes, megabytes, safeHref, settingMaxLength, slugify, videoEmbed,
   isSafeEmail, isThemeKey, SLOT_TIMES, TOOL_KEYS, normalizeCommunitySlug, normalizeFaqJson, suggestCommunitySlug,
   LISTING_FEATURES, LISTING_LAYOUT, LISTING_SETTINGS, LISTING_STATUSES, LISTING_TOOLS, isListing, normalizeOpenHouses,
@@ -18,6 +18,7 @@ import { dm, slackConfigured } from '../lib/slack.js';
 import { cleanSubscription, pushPublicKey, pushToAdmin } from '../lib/push.js';
 import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customTheme.js';
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
+import { readHomeFacts } from '../../shared/homeFacts.js';
 import { getStore } from '../db/index.js';
 import { uniqueSlug } from '../db/shape.js';
 import { clientKey, createLimiter, mailboxKey, reserve, tooMany } from '../lib/limits.js';
@@ -60,6 +61,7 @@ const ARTWORK_NAMES = {
 const HOME_FIELD_NAMES = {
   name: 'name', price: 'price', beds: 'beds', baths: 'baths', sqft: 'square feet', description: 'description',
   availability: 'availability', lotNumber: 'lot number', readyOn: 'ready date', unitsAvailable: 'units available', videoLink: 'video link',
+  yearBuilt: 'year built', lotAcres: 'lot size', hoaMonthly: 'HOA', taxPct: 'property tax', taxAnnual: 'property tax', features: 'highlights',
 };
 const AGENT_EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
 const AGENT_LABELS = {
@@ -1662,6 +1664,16 @@ export function adminRouter() {
           }
           continue;
         }
+        if (key === 'agentMode') {
+          // Who shows a listing: one agent, several, or a named team. Anything else is refused, never stored.
+          if (!AGENT_MODES.includes(text)) return res.status(400).json({ error: 'Choose one agent, several agents or a team.' });
+          settings[key] = text;
+          continue;
+        }
+        if (key === 'teamName') {
+          settings[key] = text.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, TEAM_NAME_MAX);
+          continue;
+        }
         if (key === 'openHousesJson') {
           // The sessions people can come to see a listing: dates and times as typed, checked and put in order.
           const sessions = normalizeOpenHouses(text);
@@ -1806,9 +1818,12 @@ export function adminRouter() {
     // which every buyer screen leaves out. (This used to fill in $450,000, 3 bed, 2 bath and 2,000 sq ft.)
     const numbers = readHomeNumbers(req.body);
     if (numbers.error) return res.status(400).json({ error: numbers.error });
+    const facts = readHomeFacts(req.body);
+    if (facts.error) return res.status(400).json({ error: facts.error });
     const home = await store.createHome(community.id, {
       name,
       ...numbers.data,
+      ...facts.data,
       description: str(req.body?.description),
       availability: AVAILABILITY.includes(req.body?.availability) ? req.body.availability : 'Planning',
       lotNumber: str(req.body?.lotNumber),
@@ -1844,6 +1859,10 @@ export function adminRouter() {
     const numbers = readHomeNumbers(sentNumbers, { partial: true });
     if (numbers.error) return res.status(400).json({ error: numbers.error });
     Object.assign(patch, numbers.data);
+    // Year built, lot size, HOA, property tax and the highlight picks: each only when sent, each checked.
+    const facts = readHomeFacts(req.body, { partial: true });
+    if (facts.error) return res.status(400).json({ error: facts.error });
+    Object.assign(patch, facts.data);
     if (req.body?.description !== undefined) patch.description = str(req.body.description);
     if (req.body?.availability !== undefined && AVAILABILITY.includes(req.body.availability)) {
       patch.availability = req.body.availability;
@@ -2169,16 +2188,20 @@ export function adminRouter() {
     const store = await getStore();
     const community = await communityOf(req, res, store);
     if (!community) return;
-    const full = () => res.status(400).json({ error: `Up to ${MAX_AGENTS} realtors per community.` });
+    // A listing may be shown by a team, so it takes more names than a community's realtors.
+    const cap = maxAgentsFor(community);
+    const full = () => res.status(400).json({
+      error: isListing(community) ? `Up to ${cap} agents per listing.` : `Up to ${cap} realtors per community.`,
+    });
     // A quick look first so a full community answers "full" before it answers
     // about the body; it is only a courtesy, the check that holds is below.
-    if ((await store.countAgents(community.id)) >= MAX_AGENTS) return full();
+    if ((await store.countAgents(community.id)) >= cap) return full();
     const clean = cleanAgent(req.body);
     if (clean.error) return res.status(400).json({ error: clean.error });
     // Counting and inserting are one step inside the store, under a lock. Done
     // here as two calls, a double-click on "Add a realtor" could pass the count
     // twice and leave five, with two of them sharing a position.
-    const created = await store.createAgentIfRoom(community.id, clean.data, MAX_AGENTS);
+    const created = await store.createAgentIfRoom(community.id, clean.data, cap);
     if (!created) return full();
     await recordActivity(store, req, { communityId: community.id, action: 'agent.added', subject: created.name });
     res.status(201).json(created);

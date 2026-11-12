@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { MAX_AGENTS } from '@shared/domain.js';
+import { maxAgentsFor } from '@shared/domain.js';
 import { adminApi } from '../../lib/api.js';
 import { useAdmin } from '../AdminContext.jsx';
 import { isListing } from '../listing.js';
@@ -8,7 +8,7 @@ import { ErrorNote } from '../ui.jsx';
 import AgentEditor from './AgentEditor.jsx';
 
 /**
- * The community's realtors, up to MAX_AGENTS. The server enforces that limit
+ * The community's realtors, up to maxAgentsFor (a listing takes more, for a team). The server enforces that limit
  * too; the button here only stops a builder reaching a refusal they could have
  * been told about in advance.
  */
@@ -19,7 +19,8 @@ export default function RealtorsCard({ community, reload }) {
   const [error, setError] = useState('');
 
   const agents = community.agents ?? [];
-  const full = agents.length >= MAX_AGENTS;
+  const cap = maxAgentsFor(community);
+  const full = agents.length >= cap;
   const shown = Boolean(community.features?.agents);
   // A listing has the listing agent (and a partner or two), not a team of realtors.
   const listing = isListing(community);
@@ -38,7 +39,7 @@ export default function RealtorsCard({ community, reload }) {
     <div className="card elev-sm" style={{ gap: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span className="card-kicker">{listing ? 'Agents' : 'Realtors'}</span>
-        <span className="tag tag-neutral" aria-live="polite">{agents.length} of {MAX_AGENTS} added</span>
+        <span className="tag tag-neutral" aria-live="polite">{agents.length} of {cap} added</span>
       </div>
       {agents.length && !shown ? (
         <div className="ax-callout">
@@ -83,7 +84,7 @@ export default function RealtorsCard({ community, reload }) {
           </button>
           {full ? (
             <span id="ax-agents-full" className="text-muted" style={{ fontSize: 14 }}>
-              {MAX_AGENTS} is the most {listing ? 'a listing' : 'a community'} can list. Remove one to add another.
+              {cap} is the most {listing ? 'a listing' : 'a community'} can list. Remove one to add another.
             </span>
           ) : null}
         </>

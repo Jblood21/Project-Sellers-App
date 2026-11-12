@@ -19,8 +19,8 @@ export default function Compare() {
   }
 
   const home = homes.find((h) => h.id === tools.pay.homeId) ?? homes[0];
-  const a = calcPayment({ price: home.price, program: state.aProgram, downPct: state.aDown, settings });
-  const b = calcPayment({ price: home.price, program: state.bProgram, downPct: state.bDown, settings });
+  const a = calcPayment({ price: home.price, program: state.aProgram, downPct: state.aDown, settings, home });
+  const b = calcPayment({ price: home.price, program: state.bProgram, downPct: state.bDown, settings, home });
   const difference = Math.abs(a.total - b.total);
   const cheaper = a.total < b.total ? 'A' : 'B';
 

@@ -3,6 +3,7 @@ import { useBuyer } from '../../BuyerContext.jsx';
 import {
   AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 import { dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange } from '../../openHouse.js';
 
 /** "Sat, Nov 14" into its three parts: the weekday, the big day number and the month. */
@@ -139,6 +140,8 @@ export default function Listing({ model }) {
               {paragraphs.map((p, i) => <p key={i} className={i === 0 ? 'ls-foyer-story__lead' : undefined}>{p}</p>)}
             </section>
           ) : null}
+          <HomeFacts home={model.home} />
+          <WhatsSpecial home={model.home} />
 
           {rows.length ? (
             <section className="ls-foyer-glance" aria-labelledby="ls-foyer-glance-h">

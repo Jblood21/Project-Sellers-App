@@ -6,6 +6,8 @@ import {
   Actions, AgentActions, AgentLines, Estimate, Face, FloorPlans, OpenHouses, StatusNote, VideoButton,
   factLines, statList, useAgent,
 } from '../../listing/parts.jsx';
+import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
+import { featureLabels } from '@shared/homeFacts.js';
 
 const Chevron = ({ up }) => (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -143,6 +145,13 @@ export default function Listing({ model }) {
                   <h2 className="ls-showcase-h2 b-head">About this home</h2>
                   <p className="ls-showcase-desc">{model.description}</p>
                 </section>
+              ) : null}
+
+              {factRows(model.home).length || featureLabels(model.home?.features).length ? (
+                <div className="ls-showcase-sec">
+                  <HomeFacts home={model.home} />
+                  <WhatsSpecial home={model.home} />
+                </div>
               ) : null}
 
               {model.sessions.length ? <div className="ls-showcase-sec"><OpenHouses model={model} /></div> : null}
