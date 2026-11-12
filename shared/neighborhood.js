@@ -92,3 +92,14 @@ export function directionsUrl({ lat, lng, address = '', apple = false } = {}) {
   if (apple) return `https://maps.apple.com/?daddr=${encodeURIComponent(query)}&dirflg=d`;
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}&travelmode=driving`;
 }
+
+/**
+ * A colour for each kind of place, used for the dots on the Neighborhood map and its key, so a buyer can tell a school
+ * from a grocery store at a glance. Fixed values (never typed text), so they are safe to write into the map's markup.
+ */
+export const PLACE_COLORS = {
+  schools: '#2563eb', employment: '#7c3aed', shopping: '#db2777', grocery: '#ea580c', parks: '#16a34a', gym: '#dc2626',
+  parkride: '#0891b2', golf: '#84cc16', ski: '#0ea5e9', health: '#f59e0b', commute: '#475569', other: '#a16207',
+};
+
+export const placeColor = (category) => PLACE_COLORS[category] ?? PLACE_COLORS.other;

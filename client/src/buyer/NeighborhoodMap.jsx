@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { pointOf } from '@shared/neighborhood.js';
+import { HIGHLIGHT_CATEGORIES } from '@shared/domain.js';
+import { placeColor, pointOf } from '@shared/neighborhood.js';
 
 /**
  * A map of the home and the places around it, from OpenStreetMap (free, no key, with its credit shown).
@@ -27,22 +28,33 @@ export default function NeighborhoodMap({ home, homeLabel, places = [], height =
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
         }).addTo(map);
         const bounds = [];
-        const pin = (point, label, className, size) => {
+        // A coloured dot for each place with its name over it. The colour is the kind of place (see the key under the map).
+        const pin = (point, label, { className = '', size, color, home = false }) => {
           const marker = L.marker([point.lat, point.lng], {
-            icon: L.divIcon({ className: `nm-pin ${className}`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }),
+            icon: L.divIcon({
+              className: 'nm-icon',
+              html: `<span class="nm-dot ${className}" style="background:${color}"></span>`,
+              iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+            }),
             title: label,
             keyboard: true,
+            zIndexOffset: home ? 1000 : 0,
           }).addTo(map);
+          const tag = document.createElement('span');
+          tag.className = 'nm-tag';
+          tag.style.borderLeftColor = color;
+          tag.textContent = label;
+          marker.bindTooltip(tag, { permanent: true, direction: 'top', offset: [0, -size / 2 - 2], className: `nm-label${home ? ' nm-label--home' : ''}`, opacity: 1 });
           const text = document.createElement('div');
           text.style.fontWeight = '600';
           text.textContent = label;
           marker.bindPopup(text);
           bounds.push([point.lat, point.lng]);
         };
-        if (home) pin(home, homeLabel || 'The home', 'nm-pin--home', 22);
+        if (home) pin(home, homeLabel || 'The home', { className: 'nm-dot--home', size: 24, color: 'var(--t-accT, #1b6b5a)', home: true });
         for (const place of places) {
           const point = pointOf(place);
-          if (point) pin(point, place.name, 'nm-pin--place', 16);
+          if (point) pin(point, place.name, { size: 18, color: placeColor(place.category) });
         }
         if (bounds.length === 1) map.setView(bounds[0], 14);
         else map.fitBounds(bounds, { padding: [28, 28], maxZoom: 15 });
@@ -55,10 +67,24 @@ export default function NeighborhoodMap({ home, homeLabel, places = [], height =
   }, [homeKey, placesKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (failed) return null;
+  // The key: only the kinds of place that are on this map.
+  const kinds = HIGHLIGHT_CATEGORIES.filter((c) => places.some((p) => p.category === c.k && pointOf(p)));
   return (
-    <div
-      ref={box} role="region" aria-label="Map of the home and nearby places"
-      style={{ height, borderRadius: 'var(--t-radlg, 14px)', overflow: 'hidden', border: '1px solid var(--t-line, #ddd)', background: 'var(--t-tint, #eef1f4)' }}
-    />
+    <div style={{ display: 'grid', gap: 8 }}>
+      <div
+        ref={box} role="region" aria-label="Map of the home and nearby places"
+        style={{ height, borderRadius: 'var(--t-radlg, 14px)', overflow: 'hidden', border: '1px solid var(--t-line, #ddd)', background: 'var(--t-tint, #eef1f4)' }}
+      />
+      {kinds.length ? (
+        <ul className="nm-key" aria-label="Map key" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: '6px 14px', fontSize: 12.5 }}>
+          {home ? <li style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span className="nm-dot nm-dot--key nm-dot--home" style={{ background: 'var(--t-accT, #1b6b5a)' }} />The home</li> : null}
+          {kinds.map((c) => (
+            <li key={c.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="nm-dot nm-dot--key" style={{ background: placeColor(c.k) }} />{c.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }

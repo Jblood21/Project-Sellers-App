@@ -1028,7 +1028,12 @@ textarea.input { min-height: auto; resize: vertical; }
 .b-app .b-hd.b-hd--top { margin-bottom: 0 !important; padding-bottom: 0 !important; min-height: 0; }
 .b-app .b-hd.b-hd--top + .b-hd { padding-top: 0 !important; margin-top: 0 !important; }
 
-/* Neighborhood map pins (Leaflet divIcons): the home is a larger solid dot, a place a smaller outlined one. */
-.nm-pin { border-radius: 50%; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .45); }
-.nm-pin--home { background: var(--t-accT, #1b6b5a); }
-.nm-pin--place { background: #e0a21b; border-width: 2px; }
+/* Neighborhood map: a coloured dot for each place (colour = the kind of place) with its name over it. */
+.nm-icon { background: none; border: 0; }
+.nm-dot { display: block; width: 100%; height: 100%; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .5); box-sizing: border-box; }
+.nm-dot--home { border-width: 3px; }
+.nm-dot--key { display: inline-block; width: 13px; height: 13px; border-width: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); flex: none; }
+.leaflet-tooltip.nm-label { background: #fff; color: #1a2330; border: 0; border-radius: 6px; padding: 0; box-shadow: 0 1px 5px rgba(0, 0, 0, .35); font: 700 11px/1.2 system-ui, sans-serif; }
+.leaflet-tooltip.nm-label::before { display: none; }
+.nm-tag { display: block; padding: 3px 7px; border-left: 4px solid; border-radius: 6px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nm-label--home .nm-tag { font-size: 12px; }
