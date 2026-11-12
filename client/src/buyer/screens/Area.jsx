@@ -8,12 +8,12 @@ import { useBuyer } from '../BuyerContext.jsx';
 import NeighborhoodMap from '../NeighborhoodMap.jsx';
 
 // A simple picture for a place with no photo of its own.
-const ICONS = {
+export const ICONS = {
   schools: '🏫', employment: '💼', shopping: '🛍️', grocery: '🛒', parks: '🌳', gym: '🏋️',
   parkride: '🚌', golf: '⛳', ski: '⛷️', health: '🏥', commute: '🚗', other: '📍',
 };
 
-const onApple = () => typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Macintosh/i.test(`${navigator.userAgent} ${navigator.platform ?? ''}`);
+export const onApple = () => typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Macintosh/i.test(`${navigator.userAgent} ${navigator.platform ?? ''}`);
 
 /**
  * "What's around here": the schools, jobs, shops and everyday places near the home, on a map and in a tab for each
