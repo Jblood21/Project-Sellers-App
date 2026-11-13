@@ -277,6 +277,8 @@ export const adminApi = {
   // Looks the home's address up on the map and keeps the point. Answers { lat, lng, label }.
   locateCommunity: (token, id, address = '') =>
     request(`/api/admin/communities/${encodeURIComponent(id)}/locate`, { method: 'POST', body: { address }, token }),
+  locatePlaces: (token, id) =>
+    request(`/api/admin/communities/${encodeURIComponent(id)}/highlights/locate`, { method: 'POST', token }),
   updateCommunity: (token, id, body) =>
     request(`/api/admin/communities/${encodeURIComponent(id)}`, { method: 'PATCH', body, token }),
   deleteCommunity: (token, id) =>

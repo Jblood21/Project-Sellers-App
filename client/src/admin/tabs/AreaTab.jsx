@@ -110,6 +110,25 @@ export default function AreaTab({ community, reload }) {
     }
   };
 
+  const [placing, setPlacing] = useState(false);
+  const [placeNote, setPlaceNote] = useState({ text: '', bad: false });
+  const unplaced = highlights.filter((h) => !pointOf(h));
+  const placeAll = async () => {
+    setPlacing(true);
+    setPlaceNote({ text: '', bad: false });
+    try {
+      const { placed, missed } = await adminApi.locatePlaces(token, community.id);
+      setPlaceNote(missed.length
+        ? { text: `${placed} placed. Not found: ${missed.join(', ')}. Open each one and type its street address.`, bad: true }
+        : { text: `${placed} placed on the map.`, bad: false });
+      await reload();
+    } catch (err) {
+      setPlaceNote({ text: err.message, bad: true });
+    } finally {
+      setPlacing(false);
+    }
+  };
+
   const remove = async (highlight) => {
     if (!window.confirm(`Remove ${highlight.name}? This cannot be undone.`)) return;
     await adminApi.deleteHighlight(token, highlight.id);
@@ -140,6 +159,22 @@ export default function AreaTab({ community, reload }) {
         {mapNote.text ? <span role={mapNote.bad ? 'alert' : 'status'} style={{ fontSize: 14 }}>{mapNote.text}</span> : null}
       </div>
 
+      {unplaced.length ? (
+        <div className="card elev-sm" style={{ gap: 8 }}>
+          <span className="card-kicker">Not on the map yet</span>
+          <p className="card-body" style={{ margin: 0 }}>
+            {unplaced.length === 1 ? '1 place has' : `${unplaced.length} places have`} no dot on the buyer map:{' '}
+            {unplaced.map((h) => h.name).join(', ')}.
+          </p>
+          <div>
+            <button type="button" className="btn btn-secondary" onClick={placeAll} aria-disabled={placing || undefined} style={{ minHeight: 44 }}>
+              {placing ? 'Placing… this can take a minute' : 'Place them on the map'}
+            </button>
+          </div>
+          {placeNote.text ? <span role={placeNote.bad ? 'alert' : 'status'} style={{ fontSize: 14 }}>{placeNote.text}</span> : null}
+        </div>
+      ) : null}
+
       {highlights.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 14, lineHeight: 1.55 }}>
           Nothing here yet. Add the schools, parks, shops and drive times buyers ask about —
@@ -163,6 +198,9 @@ export default function AreaTab({ community, reload }) {
               </div>
               {highlight.description ? (
                 <p className="card-body" style={{ margin: 0 }}>{highlight.description}</p>
+              ) : null}
+              {!pointOf(highlight) ? (
+                <span className="text-muted" style={{ fontSize: 13 }}>Not on the map yet</span>
               ) : null}
               {highlight.address ? (
                 <span
