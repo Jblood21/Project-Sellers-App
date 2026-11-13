@@ -117,9 +117,9 @@ export default function AreaTab({ community, reload }) {
     setPlacing(true);
     setPlaceNote({ text: '', bad: false });
     try {
-      const { placed, missed } = await adminApi.locatePlaces(token, community.id);
+      const { placed, missed, why } = await adminApi.locatePlaces(token, community.id);
       setPlaceNote(missed.length
-        ? { text: `${placed} placed. Not found: ${missed.join(', ')}. Open each one and type its street address.`, bad: true }
+        ? { text: `${placed} placed. Not found: ${missed.join(', ')}. ${why ? `${why} ` : ''}Open each one and type its street address.`, bad: true }
         : { text: `${placed} placed on the map.`, bad: false });
       await reload();
     } catch (err) {

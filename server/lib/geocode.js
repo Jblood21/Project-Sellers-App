@@ -17,34 +17,41 @@ let last = 0;
 let line = Promise.resolve();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const NAMES = { census: 'The US Census service', nominatim: 'OpenStreetMap' };
 const UA = 'Touradoor/1.0 (+https://www.touradoor.com)';
 const round = (n) => Math.round(n * 1e6) / 1e6;
 
 /** What a street address looks like to the Census service: it starts with a number. */
 const looksLikeStreet = (text) => /^\s*\d/.test(text);
 
-async function getJson(url, service) {
+async function getJson(url, service, notes) {
   try {
     const res = await hooks.fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { 'User-Agent': UA, 'Accept-Language': 'en', Accept: 'application/json' } });
     if (!res.ok) {
       console.warn(`Geocode (${service}): answered ${res.status}.`);
+      notes?.push(`${NAMES[service]} answered ${res.status}${res.status === 429 || res.status === 403 ? ' (too many requests, or blocked)' : ''}`);
       return null;
     }
     return await res.json();
   } catch (err) {
-    console.warn(`Geocode (${service}): ${err?.name === 'TimeoutError' ? 'timed out' : `failed (${err?.message ?? 'error'})`}.`);
+    const timedOut = err?.name === 'TimeoutError';
+    console.warn(`Geocode (${service}): ${timedOut ? 'timed out' : `failed (${err?.message ?? 'error'})`}.`);
+    notes?.push(`${NAMES[service]} ${timedOut ? 'did not answer in time' : 'could not be reached'}`);
     return null;
   }
 }
 
-async function census(text) {
+async function census(text, notes) {
   const url = new URL('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress');
   url.search = new URLSearchParams({ address: text, benchmark: 'Public_AR_Current', format: 'json' }).toString();
-  const body = await getJson(url, 'census');
+  const body = await getJson(url, 'census', notes);
   const match = body?.result?.addressMatches?.[0];
   const lng = Number(match?.coordinates?.x);
   const lat = Number(match?.coordinates?.y);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (body) notes?.push('The US Census service has no match for it');
+    return null;
+  }
   return { lat: round(lat), lng: round(lng), label: String(match.matchedAddress ?? '').slice(0, 200), source: 'census' };
 }
 
@@ -52,18 +59,21 @@ async function census(text) {
 const NEAR_DEGREES = 0.2;
 const boxAround = ({ lat, lng }) => [lng - NEAR_DEGREES, lat + NEAR_DEGREES, lng + NEAR_DEGREES, lat - NEAR_DEGREES].map((n) => n.toFixed(4)).join(',');
 
-async function nominatim(text, country, near) {
+async function nominatim(text, country, near, notes) {
   const url = new URL('https://nominatim.openstreetmap.org/search');
   url.search = new URLSearchParams({
     format: 'jsonv2', limit: '1', q: text,
     ...(country ? { countrycodes: country } : {}),
     ...(near ? { viewbox: boxAround(near), bounded: '0' } : {}),
   }).toString();
-  const body = await getJson(url, 'nominatim');
+  const body = await getJson(url, 'nominatim', notes);
   const first = Array.isArray(body) ? body[0] : null;
   const lat = Number(first?.lat);
   const lng = Number(first?.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (body) notes?.push('OpenStreetMap has no match for it');
+    return null;
+  }
   return { lat: round(lat), lng: round(lng), label: String(first.display_name ?? '').slice(0, 200), source: 'nominatim' };
 }
 
@@ -71,10 +81,11 @@ async function nominatim(text, country, near) {
 const withoutUnit = (text) => text.replace(/\s*(?:,\s*)?(?:#|apt\.?|unit|suite|ste\.?)\s*[\w-]+/i, '').trim();
 
 /**
+ * (`trace`, an array, is filled with plain-words reasons each service gave when nothing was found.)
  * { lat, lng, label, source } for the best match of `query`, or null. Never throws. `near` ({ lat, lng }, the home)
  * makes a place found by name (no street address) come from around there, not from another town with the same name.
  */
-export function geocode(query, { country = 'us', near = null } = {}) {
+export function geocode(query, { country = 'us', near = null, trace = null } = {}) {
   const text = String(query ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
   if (!text) return Promise.resolve(null);
   const run = line.then(async () => {
@@ -86,15 +97,15 @@ export function geocode(query, { country = 'us', near = null } = {}) {
     const plain = withoutUnit(text);
     if (looksLikeStreet(text)) {
       await pause();
-      const found = await census(plain);
+      const found = await census(plain, trace);
       if (found) return found;
     }
     await pause();
-    const found = await nominatim(text, country, near);
+    const found = await nominatim(text, country, near, trace);
     if (found) return found;
     if (plain !== text) {
       await pause();
-      return nominatim(plain, country, near);
+      return nominatim(plain, country, near, trace);
     }
     return null;
   });

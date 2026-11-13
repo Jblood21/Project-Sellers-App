@@ -2018,8 +2018,9 @@ export function adminRouter() {
     if (!community) return;
     const typed = str(req.body?.address).slice(0, 200);
     const query = typed || [community.name, community.location].filter(Boolean).join(', ');
-    const found = await geocode(query);
-    if (!found) return res.status(404).json({ error: `Could not find "${query}" on the map. Type the full street address with the city and state, like 1234 Maple St, Lehi, UT 84043, and try again.`, searched: query });
+    const trace = [];
+    const found = await geocode(query, { trace });
+    if (!found) return res.status(404).json({ error: `Could not find "${query}" on the map.${becauseOf(trace)} Type the full street address with the city and state, like 1234 Maple St, Lehi, UT 84043, and try again.`, searched: query });
     await store.updateCommunity(community.id, { settings: { ...community.settings, mapLat: String(found.lat), mapLng: String(found.lng) } });
     res.json(found);
   });
@@ -2029,10 +2030,15 @@ export function adminRouter() {
    * Looks a place up for the map: by its address when it has one, otherwise by its name and the community's town,
    * leaning toward the home's own pin so a name does not land in another city.
    */
-  const findPlace = ({ name, address }, community) => geocode(
+  const findPlace = ({ name, address }, community, trace = null) => geocode(
     [address || name, community?.location].filter(Boolean).join(', '),
-    { near: pointOf({ lat: community?.settings?.mapLat, lng: community?.settings?.mapLng }) },
+    { near: pointOf({ lat: community?.settings?.mapLat, lng: community?.settings?.mapLng }), trace },
   );
+  /** The reasons the map services gave, once each, as one sentence ('' when there were none). */
+  const becauseOf = (trace) => {
+    const reasons = [...new Set(trace)];
+    return reasons.length ? ` ${reasons.join('. ')}.` : '';
+  };
 
   /**
    * Puts every place that has no dot yet on the map (the ones saved before the map existed, or whose look-up failed).
@@ -2045,8 +2051,9 @@ export function adminRouter() {
     const waiting = (await store.listHighlights(community.id)).filter((h) => !pointOf(h)).slice(0, 30);
     let placed = 0;
     const missed = [];
+    const trace = [];
     for (const place of waiting) {
-      const found = await findPlace(place, community);
+      const found = await findPlace(place, community, trace);
       if (found) {
         await store.updateHighlight(place.id, { lat: found.lat, lng: found.lng });
         placed += 1;
@@ -2054,7 +2061,7 @@ export function adminRouter() {
         missed.push(place.name);
       }
     }
-    res.json({ placed, missed });
+    res.json({ placed, missed, why: missed.length ? becauseOf(trace).trim() : '' });
   });
 
   /** What's around the community: schools, parks, shops, clinics, commute notes. */
