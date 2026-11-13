@@ -64,6 +64,21 @@ describe('geocoding', () => {
     assert.match(ua, /Touradoor/);
   });
 
+  test('when nothing is found, the reasons are given in plain words', async () => {
+    const trace = [];
+    hooks.fetch = async (url) => (String(url).includes('census') ? new Response('busy', { status: 503 }) : new Response('[]', { status: 200 }));
+    assert.equal(await geocode('9 Nowhere Rd, Lehi, UT', { trace }), null);
+    assert.deepEqual(trace, ['The US Census service answered 503', 'OpenStreetMap has no match for it']);
+    const blocked = [];
+    hooks.fetch = async () => new Response('no', { status: 429 });
+    await geocode('Some Park, Lehi, UT', { trace: blocked });
+    assert.match(blocked[0], /OpenStreetMap answered 429 \(too many requests, or blocked\)/);
+    const down = [];
+    hooks.fetch = async () => { throw new Error('offline'); };
+    await geocode('Some Park, Lehi, UT', { trace: down });
+    assert.match(down[0], /could not be reached/);
+  });
+
   test('a place found by name leans toward the home', async () => {
     let seen;
     hooks.fetch = async (url) => {
@@ -167,6 +182,7 @@ for (const kind of backends()) {
       const again = (await api(`/api/admin/communities/${community.id}/highlights/locate`, { token: owner, method: 'POST' })).body;
       assert.equal(again.placed, 0);
       assert.deepEqual(again.missed, ['Hidden Spot']);
+      assert.match(again.why, /no match for it/);
     });
 
     test('finding the home on the map keeps its point in the settings', async () => {
@@ -180,6 +196,7 @@ for (const kind of backends()) {
       assert.equal(none.status, 404);
       assert.match(none.body.error, /nowhere/);
       assert.match(none.body.error, /city and state/);
+      assert.match(none.body.error, /no match for it/);
       const bad = await api(`/api/admin/communities/${community.id}`, { token: owner, method: 'PATCH', body: { settings: { mapLat: '95' } } });
       assert.equal(bad.status, 400);
     });
