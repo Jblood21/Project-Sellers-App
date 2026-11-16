@@ -162,7 +162,7 @@ export default function Listing({ model }) {
             </section>
           ) : null}
 
-          <NeighborhoodPreview className="ls-foyer-neighborhood" headingClassName="ls-foyer-kicker" />
+          <NeighborhoodPreview variant="foyer" className="ls-foyer-neighborhood" headingClassName="ls-foyer-kicker" headingId="ls-foyer-hood" mapHeight="clamp(240px, 52vw, 340px)" dirClassName="ls-foyer-link" allClassName="ls-foyer-link" />
 
           {model.hasVideo || model.floorPlans.length ? (
             <section className="ls-foyer-extras" aria-labelledby="ls-foyer-extras-h">

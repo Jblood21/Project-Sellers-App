@@ -10,6 +10,8 @@ import {
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
+import { hasNeighborhood } from '@shared/neighborhood.js';
 import { featureLabels } from '@shared/homeFacts.js';
 
 /**
@@ -199,6 +201,12 @@ export default function Listing({ model }) {
             <FloorPlans model={model} className="ls-saltgrass-planrow" />
           </section>
         ) : null}
+
+        <NeighborhoodPreview
+          variant="saltgrass" className="ls-saltgrass-wrap ls-saltgrass-hood" headingClassName="ls-saltgrass-h2 b-head" headingId="ls-saltgrass-hood-h"
+          mapHeight="clamp(280px, 60vw, 460px)" limit={8}
+          dirClassName="b-btn ls-saltgrass-btn" allClassName="b-btn b-btn-outline ls-saltgrass-btn"
+        />
 
         <AgentStrip model={model} />
 

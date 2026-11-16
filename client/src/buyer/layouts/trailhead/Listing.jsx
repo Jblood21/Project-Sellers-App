@@ -8,6 +8,8 @@ import {
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
+import { hasNeighborhood } from '@shared/neighborhood.js';
 import { ArrowRight, Check, ChevronLeft, ChevronRight } from './icons.jsx';
 
 /**
@@ -112,15 +114,17 @@ export default function Listing({ model }) {
   const est = model.estimate;
   const hasTour = model.sessions.length > 0 || Boolean(model.requestShowing);
   const hasMoney = Boolean(est || model.openPayment || model.talkFinancing);
+  const hasHood = hasNeighborhood(model.community);
 
   const stops = useMemo(() => {
     const list = [{ key: 'see', short: 'See it', title: 'See it', hint: 'Take a look around' }];
     list.push({ key: 'know', short: 'Know it', title: 'Know it', hint: 'The lay of the land' });
+    if (hasHood) list.push({ key: 'area', short: 'Look around', title: 'Look around', hint: 'What is nearby' });
     if (hasTour) list.push({ key: 'tour', short: 'Tour it', title: 'Tour it', hint: 'Walk it in person' });
     if (hasMoney && !model.sold) list.push({ key: 'finance', short: 'Finance it', title: 'Finance it', hint: 'What it takes to get there' });
     if (agent) list.push({ key: 'guide', short: 'Your guide', title: 'Meet your guide', hint: 'Someone who knows the way' });
     return list;
-  }, [hasTour, hasMoney, model.sold, agent]);
+  }, [hasTour, hasMoney, hasHood, model.sold, agent]);
 
   const ids = stops.map((s) => `th-ls-${s.key}`);
   const [active, setActive] = useActiveStop(ids);
@@ -203,6 +207,13 @@ export default function Listing({ model }) {
                       {model.saved ? '★ Saved to your pack' : '☆ Save this home'}
                     </button>
                   </>
+                ) : null}
+
+                {stop.key === 'area' ? (
+                  <NeighborhoodPreview
+                    variant="trailhead" showTitle={false} title="Look around" mapHeight="clamp(230px, 58vw, 320px)" limit={5}
+                    dirClassName="ls-trailhead-btn ls-trailhead-btn--line" allClassName="ls-trailhead-btn ls-trailhead-btn--line"
+                  />
                 ) : null}
 
                 {stop.key === 'tour' ? (

@@ -9,7 +9,7 @@ import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
 import { dayLabel, timeRange } from '../../openHouse.js';
 import Neighborhood from './Neighborhood.jsx';
-import { pointOf } from '@shared/neighborhood.js';
+import { hasNeighborhood as hasNeighborhoodIn } from '@shared/neighborhood.js';
 import { Heart } from './icons.jsx';
 
 /**
@@ -30,7 +30,7 @@ export default function Listing({ model }) {
   const hasPhotos = photos.length > 1 || hasPlans || model.hasVideo;
   const financing = Boolean(estimate || model.talkFinancing || model.openPayment);
   // The Neighborhood tab appears when the home has places or a map point.
-  const hasNeighborhood = Boolean(model.community?.highlights?.length || pointOf({ lat: model.community?.settings?.mapLat, lng: model.community?.settings?.mapLng }));
+  const hasNeighborhood = hasNeighborhoodIn(model.community);
   const facts = [
     { k: 'Status', v: model.status },
     model.mls ? { k: 'MLS #', v: model.mls } : null,

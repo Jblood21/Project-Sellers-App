@@ -8,6 +8,8 @@ import {
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
+import { hasNeighborhood } from '@shared/neighborhood.js';
 import { featureLabels } from '@shared/homeFacts.js';
 
 const Chevron = ({ up }) => (
@@ -157,6 +159,12 @@ export default function Listing({ model }) {
               <div className="ls-showcase-sec"><RateScenarios /></div>
 
               {model.sessions.length ? <div className="ls-showcase-sec"><OpenHouses model={model} /></div> : null}
+
+              <NeighborhoodPreview
+                variant="showcase" className="ls-showcase-sec" headingClassName="ls-showcase-h2 b-head" headingId="ls-showcase-hood"
+                mapHeight="clamp(220px, 60vw, 320px)" limit={5}
+                dirClassName="b-btn b-btn-outline" allClassName="b-btn b-btn-outline"
+              />
 
               {model.floorPlans.length ? (
                 <section className="ls-showcase-sec">

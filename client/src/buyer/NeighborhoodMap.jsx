@@ -118,7 +118,7 @@ export default function NeighborhoodMap({ home, homeLabel, places = [], height =
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       <div
-        ref={box} role="region" aria-label="Map of the home and nearby places"
+        ref={box} className="nm-frame" role="region" aria-label="Map of the home and nearby places"
         style={{ height, borderRadius: 'var(--t-radlg, 14px)', overflow: 'hidden', border: '1px solid var(--t-line, #ddd)', background: 'var(--t-tint, #eef1f4)' }}
       />
       {showKey && kinds.length ? (

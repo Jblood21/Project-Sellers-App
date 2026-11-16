@@ -1646,3 +1646,17 @@
 @media (max-width: 899px) { .b-app.l-ledger .b-shell.ls-ledger { padding-bottom: 24px; } }
 
 .b-app.l-ledger .ls-ledger-more { margin-top: 8px; }
+
+/* ── the neighborhood: a section of the dashboard: the map framed like a panel, the places as a ruled table ──── */
+.b-app.l-ledger .nh-preview[data-nh='ledger'] { margin: 0 0 22px; gap: 10px; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__title { margin: 0; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nm-frame { border-radius: var(--t-radlg); }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__dir,
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__all { justify-self: start; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__list { border-bottom: 1px solid var(--t-line); }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__row { padding: 10px 2px; align-items: center; gap: 2px 12px; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__ico { display: none; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__what { flex: 1 1 0; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 12px; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__name { font-weight: 600; font-size: 15px; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__kind { font: 600 11.5px/1.3 var(--t-font); text-transform: uppercase; letter-spacing: 0.08em; color: var(--t-mut); order: 2; text-align: right; }
+.b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__drive { font-family: var(--lg-mono); font-weight: 500; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--t-ink); min-width: 9ch; text-align: right; }

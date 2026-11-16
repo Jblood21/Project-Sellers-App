@@ -1908,3 +1908,21 @@
 .b-app.l-trailhead .ls-trailhead-guide .ls-agent__license { font-size: 14px; color: var(--th-mut); }
 .b-app.l-trailhead .ls-trailhead-guide__acts { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
 .b-app.l-trailhead .ls-trailhead-guide__acts > * { flex: 1 1 120px; }
+
+/* ── the neighborhood: a stop on the trail: "Look around". The places are waypoints on a short path ────────────── */
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] { margin: 0; gap: 12px; }
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nm-frame { border-color: var(--th-ctl); border-radius: var(--t-rad); }
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__dir,
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__all { text-decoration: none; min-height: 48px; }
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__list { position: relative; gap: 0; padding-left: 4px; }
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__list::before {
+  content: ''; position: absolute; left: 17px; top: 18px; bottom: 18px; border-left: 2px dashed var(--th-ctl);
+}
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__row { position: relative; border: 0; padding: 9px 0 9px 44px; align-items: center; gap: 2px 10px; }
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__ico {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--t-sur); border: 2px solid var(--th-ctl); font-size: 14px;
+}
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__name { font: 700 16px/1.25 var(--t-head); color: var(--th-ink); }
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__kind { color: var(--th-mut); }
+.b-app.l-trailhead .nh-preview[data-nh='trailhead'] .nh-preview__drive { color: var(--th-ink); font-weight: 600; }

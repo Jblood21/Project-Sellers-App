@@ -1071,6 +1071,14 @@ the community's name is set as text. Logos are JPEG, PNG, WebP or GIF up to 3 MB
 on purpose, because an uploaded SVG can carry a script and these files are served from the app's own
 origin. The server checks the file's first bytes against its declared type, not just the label.
 
+## The Neighborhood on a listing's page
+
+Every layout shows the Neighborhood on a listing's own page, dressed in that layout's look (one piece, `NeighborhoodPreview`, with a
+`.nh-preview` block of CSS in each layout's stylesheet): a tile in Cornerpost, a table-ruled section in Ledger, a magazine plate in Foyer, a
+numbered "The neighborhood" section in Red Rock, a billboard band in Saltgrass, a panel inside the dark sheet in Showcase, a "Look around" stop
+on the trail in Trailhead, and the Neighborhood tab in Marketplace. It draws only when the listing has a point on the map or places, and the
+whole screen stays one tap away ("See the whole neighborhood").
+
 ## The privacy box at sign-in
 
 The sign-in (`GateForm`) always shows a privacy box, and a person cannot get in without making one of two choices. They tick it

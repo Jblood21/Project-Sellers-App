@@ -11,6 +11,8 @@ import {
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
+import { hasNeighborhood } from '@shared/neighborhood.js';
 import { featureLabels } from '@shared/homeFacts.js';
 
 /**
@@ -143,6 +145,7 @@ export default function Listing({ model }) {
   const hasSee = model.sessions.length > 0 || Boolean(model.requestShowing);
   const hasYours = Boolean(model.openPayment || model.talkFinancing || model.toggleSave);
   const hasAgent = Boolean(agent);
+  const hasHood = hasNeighborhood(model.community);
   let n = 0;
 
   return (
@@ -198,6 +201,15 @@ export default function Listing({ model }) {
               {facts.length ? (
                 <ul className="ls-redrock-facts">{facts.map((f) => <li key={f}>{f}</li>)}</ul>
               ) : null}
+            </Section>
+          ) : null}
+
+          {hasHood ? (
+            <Section n={++n} id="rr-ls-hood" title="The neighborhood">
+              <NeighborhoodPreview
+                variant="redrock" showTitle={false} title="The neighborhood" mapHeight="clamp(260px, 62vw, 400px)"
+                dirClassName="ls-redrock-btn ls-redrock-btn--line" allClassName="ls-redrock-btn ls-redrock-btn--line"
+              />
             </Section>
           ) : null}
 

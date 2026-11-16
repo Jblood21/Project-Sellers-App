@@ -85,6 +85,11 @@ export function pointOf(item) {
  * devices open Apple Maps (which starts from where the person is), everything else Google Maps, which does too.
  * Returns null when there is nothing to point at.
  */
+/** Whether a community or listing has anything to draw on the Neighborhood: its own point on the map, or places. */
+export function hasNeighborhood(community) {
+  return Boolean(community?.highlights?.length || pointOf({ lat: community?.settings?.mapLat, lng: community?.settings?.mapLng }));
+}
+
 export function directionsUrl({ lat, lng, address = '', apple = false } = {}) {
   const point = pointOf({ lat, lng });
   const query = point ? `${point.lat},${point.lng}` : String(address ?? '').trim();

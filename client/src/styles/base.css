@@ -1029,6 +1029,28 @@ textarea.input { min-height: auto; resize: vertical; }
 .b-app .b-hd.b-hd--top + .b-hd { padding-top: 0 !important; margin-top: 0 !important; }
 
 /* Neighborhood map: a coloured dot for each place (colour = the kind of place) with its name over it. */
+/* ── the Neighborhood on a listing's page (NeighborhoodPreview) ─────────────────────────────────────────────────
+   The plain version, in the theme's own colours. Each layout's CSS file dresses it for that layout. */
+.nh-preview { margin: 28px 0; display: grid; gap: 12px; min-width: 0; color: var(--t-ink); }
+.nh-preview__title { margin: 0; }
+.nh-preview__map { min-width: 0; }
+:where(.nh-preview__dir) {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 700; color: var(--t-accT);
+  text-decoration: underline; text-underline-offset: 3px; justify-self: start;
+}
+.nh-preview__dir.b-btn, .nh-preview__all.b-btn { justify-self: stretch; justify-content: center; text-decoration: none; }
+.nh-preview__list { list-style: none; margin: 0; padding: 0; display: grid; }
+.nh-preview__row {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; padding: 10px 0;
+  border-top: 1px solid var(--t-line);
+}
+.nh-preview__ico { flex: none; }
+.nh-preview__what { flex: 1 1 160px; min-width: 0; display: grid; }
+.nh-preview__name { font-weight: 700; overflow-wrap: anywhere; }
+.nh-preview__kind { font-size: 13px; color: var(--t-mut); }
+.nh-preview__drive { font-size: 13px; white-space: nowrap; color: var(--t-mut); }
+:where(.nh-preview__all) { font-weight: 700; color: var(--t-accT); min-height: 44px; display: inline-flex; align-items: center; justify-self: start; }
+
 .nm-icon { background: none; border: 0; }
 .nm-dot { display: block; width: 100%; height: 100%; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .5); box-sizing: border-box; }
 .nm-dot--home { border-width: 3px; }

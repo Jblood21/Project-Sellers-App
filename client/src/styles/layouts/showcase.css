@@ -2061,3 +2061,17 @@
 }
 .b-app.l-showcase .ls-showcase-chip .ls-face { width: 32px !important; height: 32px !important; max-width: none; }
 .b-app.l-showcase .ls-showcase-agent .ls-face { width: 56px !important; height: 56px !important; max-width: none; }
+
+/* ── the neighborhood: inside the dark sheet: light text, the places as panels like the stat tiles, outline buttons ── */
+.b-app.l-showcase .nh-preview[data-nh='showcase'] { margin: 24px 0 0; gap: 10px; color: var(--t-onacc2); }
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__title { margin: 0 0 2px; }
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nm-frame { border-color: var(--sc-edge); border-radius: var(--t-radlg); }
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nm-key { color: var(--t-onacc2); }
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__dir,
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__all { text-decoration: none; }
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__list { gap: 8px; }
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__row {
+  padding: 12px 14px; border: 1px solid var(--sc-hair); border-radius: var(--t-radlg); background: var(--sc-panel); align-items: center;
+}
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__kind,
+.b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__drive { color: color-mix(in oklab, var(--t-onacc2) 78%, var(--sc-night)); }
