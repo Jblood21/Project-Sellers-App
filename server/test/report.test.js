@@ -81,7 +81,7 @@ test('the email says what is waiting, who is new and where everyone is', () => {
   const text = reportText(report);
   assert.match(text, /^Willow Creek — leads report for Mon, Oct 12, 2026\nPrepared by Summit Home Loans · NMLS #1790749\nThis is the first report, so everyone is new\./);
   assert.match(text, /\n—\nSummit Home Loans · NMLS #1790749\n801-855-8535 · myloanteam@summithomeloans\.com$/, 'it ends with how to reach the lender');
-  assert.match(text, /SCHEDULED CALLS WAITING \(1\)\n {2}Tue, Oct 13 at 2:00 PM · by email · about financing \(Summit Home Loans\) — Pat Vale\n {4}\(801\) 555-0101 · pat@test\.co · also spouse@test\.co\n {4}https:\/\/touradoor\.example\/admin\/communities\/willow-creek-abcd\/leads\/l/);
+  assert.match(text, /SCHEDULED CALLS WAITING \(1\)\n {2}Tue, Oct 13 at 2:00 PM · by email · about financing \(Summit Home Loans\) — Pat Vale\n {4}\(801\) 555-0101 · pat@test\.co · also spouse@test\.co · Privacy box: Not asked\n {4}https:\/\/touradoor\.example\/admin\/communities\/willow-creek-abcd\/leads\/l/);
   assert.doesNotMatch(text, /PAST THEIR DAY/i);
   assert.match(text, /NEW PEOPLE SINCE THE LAST REPORT \(1\)\n {2}Pat Vale — \(801\) 555-0101/);
   assert.match(text, /Saved: The Aspen, The Birch · Agreed to calls and texts/, 'a deleted home is skipped');
@@ -113,8 +113,8 @@ test('the spreadsheet: one row per open person, no closed column, anything typed
   const closed = lead({ name: 'Closed Cleo', email: 'cleo@test.co', archivedAt: '2026-10-10T10:00:00Z', tour: tour('2026-10-14', '09:30') });
   const csv = leadsCsv(buildReport({ community, homes, now: NOW, leads: [pat, quiet, closed], baseUrl: 'https://t.example' }));
   const lines = csv.replace('﻿', '').split('\r\n');
-  assert.equal(lines[0], 'Name,Email,Second email,Phone,Agreed to calls and texts,Signed up,Call date,Call time,Call by,Call about,Call status,Homes saved,Tools used,What they worked out,Status,Notes,Link');
-  assert.ok(lines[1].startsWith(`"'=HYPERLINK(""http://evil.example"",""click"")",pat@test.co,,(801) 555-0101,Yes,2026-10-01,2026-10-13,2:00 PM,Email,Financing (Summit Home Loans),Waiting,The Aspen,My Price Range; Down Payment Help,About $400k | May qualify,contacted,line one line two,https://t.example/admin/communities/willow-creek-abcd/leads/`), lines[1]);
+  assert.equal(lines[0], 'Name,Email,Second email,Phone,Agreed to calls and texts,Privacy box,Signed up,Call date,Call time,Call by,Call about,Call status,Homes saved,Tools used,What they worked out,Status,Notes,Link');
+  assert.ok(lines[1].startsWith(`"'=HYPERLINK(""http://evil.example"",""click"")",pat@test.co,,(801) 555-0101,Yes,Not asked,2026-10-01,2026-10-13,2:00 PM,Email,Financing (Summit Home Loans),Waiting,The Aspen,My Price Range; Down Payment Help,About $400k | May qualify,contacted,line one line two,https://t.example/admin/communities/willow-creek-abcd/leads/`), lines[1]);
   assert.ok(lines[2].startsWith('"Quinn, Q",'), lines[2]);
   assert.match(lines[2], /,Handled,/);
   assert.equal(lines.filter((l) => l !== '').length, 3, 'the header and two people');

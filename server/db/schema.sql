@@ -455,6 +455,8 @@ CREATE TABLE IF NOT EXISTS lead_consents (
   user_agent TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Whether the sign-in's privacy box was ticked ('agreed') or the email-only terms were accepted instead ('email_only'); '' before it was required.
+ALTER TABLE lead_consents ADD COLUMN IF NOT EXISTS privacy TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS lead_consents_lead_idx ON lead_consents(lead_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS lead_plan_items (

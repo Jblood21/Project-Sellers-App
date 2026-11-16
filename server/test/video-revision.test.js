@@ -8,6 +8,7 @@ import { createFileStore } from '../db/file.js';
 import { resetStoreForTests } from '../db/index.js';
 import { hashPassword } from '../lib/auth.js';
 import { createApp } from '../index.js';
+import { tickPrivacy } from './fixtures/privacy.js';
 
 let server;
 let base;
@@ -21,7 +22,7 @@ const api = async (path, { method = 'GET', body } = {}) => {
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(tickPrivacy(path, method, body)),
   });
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };

@@ -313,7 +313,7 @@ describe('the report PDF for one person', () => {
     const text = pdfText(made.buffer);
     assert.equal(made.filename, 'dana-reyes-report-2026-10-16.pdf');
     for (const wanted of [
-      'Willow Creek', 'User report: Dana Reyes', 'dana@test.co', '(801) 555-0111', 'Contact', 'Calls and texts', 'Scheduled call',
+      'Willow Creek', 'User report: Dana Reyes', 'dana@test.co', '(801) 555-0111', 'Contact', 'Privacy and calls', 'Scheduled call',
       'Homes saved (1)', 'Tools they used', 'Notes', 'Activity (2)', 'Prefers texts after 5.',
     ]) assert.ok(text.includes(wanted), wanted);
     assert.ok(text.includes('Sep 20, 2026'), 'signed up');
@@ -577,12 +577,14 @@ for (const kind of backends()) {
         'Up to $400,000', 'Prefers texts after 5.', 'Activity (',
       ]) assert.ok(text.includes(wanted), wanted);
       assert.match(text, /Saved|saved/, 'the activity the app recorded is listed');
+      assert.ok(text.includes('Privacy box: ticked. OK to email, call and text'), 'the box they ticked is on their report');
     });
 
     test('a person with no number says nobody has asked, and one who declined says do not call', async () => {
       const none = await signUp({ name: 'No Phone', email: 'nophone@test.co' });
       const noneText = (await getPdf(`/api/admin/leads/${none.lead.id}/report.pdf`)).buffer;
       assert.ok(pdfText(noneText).replace(/\n/g, ' ').includes('because there is no number'));
+      assert.ok(pdfText(noneText).replace(/\n/g, ' ').includes('Privacy box: NOT ticked'), 'and says the box was not ticked (email-only terms)');
       const declined = await signUp({ name: 'Said No', email: 'saidno@test.co', phone: '(801) 555-0166', consent: false });
       const declinedText = (await getPdf(`/api/admin/leads/${declined.lead.id}/report.pdf`)).buffer;
       assert.ok(pdfText(declinedText).replace(/\n/g, ' ').includes('Do not call or text. They were asked on'));

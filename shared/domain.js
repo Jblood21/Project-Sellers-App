@@ -371,7 +371,7 @@ export function megabytes(bytes) {
  * only `true` proves nothing a year later, because nobody can say what the
  * screen said at the time.
  */
-export const CONSENT_VERSION = '2026-09-25.1';
+export const CONSENT_VERSION = '2026-11-16.1';
 
 export function consentText(who) {
   const name = String(who || '').trim() || 'this community';
@@ -380,6 +380,41 @@ export function consentText(who) {
     + 'or artificial voice, about homes, financing and the plan I save here. I understand '
     + 'that agreeing is not a condition of buying anything, that message and data rates may '
     + 'apply, and that I can stop at any time by replying STOP or asking the team.';
+}
+
+/**
+ * The privacy box on the sign-in is required: to get in, a person either ticks it (`agreed`: calls and texts too, when they
+ * gave a number, and email) or accepts the email-only terms that come up when they will not (`email_only`: no calls or
+ * texts, email only). Agreeing to calls and texts is still never what is being asked for as the price of getting in; the
+ * email-only terms are the way in that does not include it.
+ */
+export const PRIVACY_CHOICES = ['agreed', 'email_only'];
+
+/** What the ticked box says, with or without a number: the calls-and-texts words when there is one, the email words when not. */
+export function privacyBoxText(who, hasPhone) {
+  const name = String(who || '').trim() || 'this community';
+  const email = `${name} and its home sales team may email me at the address I gave about homes, financing and the plan I save here, `
+    + 'and I can ask the team to stop at any time.';
+  return hasPhone ? `${consentText(who)} I also agree that ${email}` : `I agree that ${email}`;
+}
+
+/** The email-only terms shown when the box is left unticked, and kept as the words they accepted. */
+export function limitedPrivacyText(who) {
+  const name = String(who || '').trim() || 'this community';
+  return `We will not call or text you. By continuing you agree that ${name} and its home sales team may contact you by email only, `
+    + 'at the address you gave, about homes, financing and the plan you save here. You can ask the team to stop emailing you at any time.';
+}
+
+/**
+ * Whether the person ticked the privacy box, in one line for the emails the team gets and the lead screen. `consent` is
+ * the lead's latest consent record (or null) and `hasPhone` whether they gave a number.
+ */
+export function privacyLine(consent, hasPhone = true) {
+  if (!consent || !consent.privacy) return 'Privacy box: not asked (signed up before the box was required)';
+  if (consent.privacy === 'email_only') return 'Privacy box: NOT ticked. They accepted the email-only terms: do not call or text, email only';
+  return consent.granted
+    ? 'Privacy box: ticked. OK to email, call and text'
+    : `Privacy box: ticked. OK to email${hasPhone ? ' (calls and texts were not agreed to)' : ''}`;
 }
 
 export const RESOURCE_KINDS = ['article', 'video'];

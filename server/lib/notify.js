@@ -1,6 +1,6 @@
 import {
   PLAN_LABELS, complianceOf, complianceText, contactMethodLabel, describeTour, fillTokens, isoDate, lenderNameOf, money, isSafeEmail,
-  toolsUsedOf,
+  toolsUsedOf, privacyLine,
 } from '../../shared/domain.js';
 import { moveInPlanLines, printableMoveIn } from '../../shared/moveInPrint.js';
 import { sendEmail } from './email.js';
@@ -46,6 +46,7 @@ export async function notifyCallRequest({ store, community, lead, baseUrl }) {
     prefersEmail ? `Email:     ${lead.email}` : `Phone:     ${lead.phone || 'not given'}`,
     prefersEmail ? `Phone:     ${lead.phone || 'not given'}` : `Email:     ${lead.email}`,
     ...(lead.extraEmails?.length ? [`Also email: ${lead.extraEmails.join(', ')}`] : []),
+    privacyLine(lead.consent, Boolean(lead.phone)),
     `Community: ${community.name}`,
     `Booked at: ${when(lead.tour?.requestedAt)}`,
     '',
@@ -161,6 +162,7 @@ export async function emailLoanTeam({ community, lead, to, name, email, message,
     `  Name:  ${clean(name)}`,
     `  Email: ${clean(email)}  (reply to this email to answer them)`,
     `  Phone: ${lead.phone || 'not given'}`,
+    `  ${privacyLine(lead.consent, Boolean(lead.phone))}`,
     '',
     'What they wrote (typed in the app, not checked):',
     ...quoted,

@@ -142,6 +142,8 @@ export function shapeConsent(row) {
     version: row.version ?? '',
     at: row.created_at ?? row.createdAt ?? null,
     ip: row.ip ?? '',
+    // 'agreed' (ticked the privacy box), 'email_only' (accepted the email-only terms instead), or '' (before the box was required).
+    privacy: row.privacy ?? '',
   };
 }
 

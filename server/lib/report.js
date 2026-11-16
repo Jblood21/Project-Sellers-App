@@ -57,9 +57,14 @@ function dayCounter(timeZone) {
 export const reportDay = (now = new Date()) => dayCounter(reportTimeZone())(now);
 
 /** What a lead agreed to, in the words the Leads tab uses beside a phone number. */
-const consentLabel = (lead) => (lead.consent?.granted
-  ? 'Agreed to calls and texts'
-  : `Do not call · ${lead.consent ? 'declined' : 'never asked'}`);
+export const consentLabel = (lead) => {
+  if (lead.consent?.granted) return 'Agreed to calls and texts';
+  const why = !lead.consent ? 'never asked' : lead.consent.privacy === 'email_only' ? 'email only' : !lead.phone ? 'no number' : 'declined';
+  return `Do not call · ${why}`;
+};
+
+/** Whether the sign-in's privacy box was ticked, in a word for the spreadsheet and the emails. */
+export const privacyWord = (lead) => (lead.consent?.privacy === 'agreed' ? 'Ticked' : lead.consent?.privacy === 'email_only' ? 'Email-only terms' : 'Not asked');
 
 /**
  * One spreadsheet cell. Quoted when it holds a comma, a quote or a line break. A cell that starts with = + - @
@@ -76,7 +81,7 @@ export function csvCell(value) {
 export const toCsv = (rows) => `﻿${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}\r\n`;
 
 const COLUMNS = [
-  'Name', 'Email', 'Second email', 'Phone', 'Agreed to calls and texts', 'Signed up', 'Call date', 'Call time',
+  'Name', 'Email', 'Second email', 'Phone', 'Agreed to calls and texts', 'Privacy box', 'Signed up', 'Call date', 'Call time',
   'Call by', 'Call about', 'Call status', 'Homes saved', 'Tools used', 'What they worked out', 'Status', 'Notes', 'Link',
 ];
 
@@ -135,6 +140,7 @@ export function leadsCsv(report) {
       (lead.extraEmails ?? []).join(' '),
       lead.phone,
       lead.consent?.granted ? 'Yes' : lead.consent ? 'Declined' : 'Never asked',
+      privacyWord(lead),
       report.dayOf(lead.firstVisitAt),
       tour?.date ?? '',
       tour?.time ? (tour.date ? formatSlotTime(tour.time) : oneLine(tour.time)) : '',
@@ -160,7 +166,7 @@ export function reportText(report) {
   const reach = (lead) => [lead.phone || 'no phone', lead.email, ...(lead.extraEmails ?? []).map((e) => `also ${e}`)].join(' · ');
   const callLines = (lead) => [
     `  ${describeTour(lead.tour, lender)} — ${oneLine(lead.name)}`,
-    `    ${reach(lead)}${lead.consent?.granted ? '' : ` · ${consentLabel(lead)}`}`,
+    `    ${reach(lead)}${lead.consent?.granted ? '' : ` · ${consentLabel(lead)}`} · Privacy box: ${privacyWord(lead)}`,
     ...(report.link(lead) ? [`    ${report.link(lead)}`] : []),
   ];
   // A long list is cut here and complete in the spreadsheet, so one busy weekend cannot make an unreadable email.
@@ -193,7 +199,7 @@ export function reportText(report) {
         const used = toolNames(lead);
         return [
           `  ${oneLine(lead.name)} — ${reach(lead)}`,
-          `    Signed up ${report.dayOf(lead.firstVisitAt)}${saved.length ? ` · Saved: ${saved.join(', ')}` : ''} · ${consentLabel(lead)}`,
+          `    Signed up ${report.dayOf(lead.firstVisitAt)}${saved.length ? ` · Saved: ${saved.join(', ')}` : ''} · ${consentLabel(lead)} · Privacy box: ${privacyWord(lead)}`,
           ...(used.length ? [`    Used: ${used.join(', ')}`] : []),
           ...(worked ? [`    Worked out: ${worked}`] : []),
           ...(report.link(lead) ? [`    ${report.link(lead)}`] : []),

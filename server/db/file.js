@@ -1117,11 +1117,11 @@ export function createFileStore(path) {
       return shapeLead(row, {});
     },
 
-    async recordConsent(leadId, { granted, text, version, ip, userAgent }) {
+    async recordConsent(leadId, { granted, text, version, ip, userAgent, privacy }) {
       // Append-only, like the Postgres store: a change of mind is a new row.
       const row = {
         id: `cs_${shortId(12)}`, leadId, granted: Boolean(granted), consentText: text ?? '',
-        version: version ?? '', ip: ip ?? '', userAgent: userAgent ?? '', createdAt: now(),
+        version: version ?? '', ip: ip ?? '', userAgent: userAgent ?? '', privacy: privacy ?? '', createdAt: now(),
       };
       db.consents.push(row);
       save();

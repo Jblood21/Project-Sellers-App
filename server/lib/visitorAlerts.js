@@ -1,3 +1,4 @@
+import { privacyLine } from '../../shared/domain.js';
 import { loadAccess } from './access.js';
 import { emailConfigured, sendEmail } from './email.js';
 import { pushToAdmin } from './push.js';
@@ -33,6 +34,7 @@ export function visitorEmail({ community, lead, baseUrl }) {
     `Name:      ${lead.name}`,
     `Email:     ${lead.email}`,
     `Phone:     ${lead.phone || 'not given'}`,
+    privacyLine(lead.consent, Boolean(lead.phone)),
     `${kind === 'listing' ? 'Listing' : 'Community'}: ${community.name}`,
     `Signed in: ${when()}`,
     '',
@@ -98,6 +100,7 @@ export async function alertShowingRequest({ store, community, lead, showing, bas
         `Name:    ${lead.name}`,
         `Phone:   ${lead.phone || 'not given'}`,
         `Email:   ${lead.email}`,
+        privacyLine(lead.consent, Boolean(lead.phone)),
         showing.message ? `Message: ${showing.message}` : '', '',
         link ? `Confirm, decline or suggest another time: ${link}` : '', '',
         'You get this because the owner switched on new-visitor alerts for you on the Team page.',

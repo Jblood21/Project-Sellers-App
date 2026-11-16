@@ -1071,6 +1071,21 @@ the community's name is set as text. Logos are JPEG, PNG, WebP or GIF up to 3 MB
 on purpose, because an uploaded SVG can carry a script and these files are served from the app's own
 origin. The server checks the file's first bytes against its declared type, not just the label.
 
+## The privacy box at sign-in
+
+The sign-in (`GateForm`) always shows a privacy box, and a person cannot get in without making one of two choices. They tick it
+(`privacy: 'agreed'`: email, and calls and texts too when they gave a number), or they leave it and press the button, which brings up
+the **email-only terms** (no calls, no texts, email only): accepting those (`privacy: 'email_only'`) gets them in. The server refuses a
+sign-in with neither (`POST /c/:id/leads`, 400), renders the words itself from the community or builder name (`privacyBoxText`,
+`limitedPrivacyText` in `shared/domain.js`) and stores them with the choice on the consent row (`lead_consents.privacy`), for
+people with and without a number. Email-only never records a yes to calls or texts, whatever the request says. A returning buyer
+sees the box again; a changed choice is a new row and an activity line.
+
+The choice is on the lead screen, in the new-visitor, showing-request, call-request and incentive emails to the team ("Privacy box:
+ticked. OK to email, call and text" / "NOT ticked. They accepted the email-only terms: do not call or text, email only" / "not asked"
+for people who signed up before it was required), in the leads report email and spreadsheet (a Privacy box column), and on the person's PDF.
+People already signed in on a phone are not asked again until they sign in again.
+
 ## Lender and compliance
 
 Every buyer page ends with a footer built from **Setup → Lender & compliance**: the lender's logo and

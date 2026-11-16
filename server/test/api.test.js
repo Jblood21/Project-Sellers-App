@@ -14,6 +14,7 @@ import {
 } from '../../shared/domain.js';
 import { PREVIOUS_DEFAULT_FAQ_JSONS } from '../../shared/faq.js';
 import { createApp } from '../index.js';
+import { tickPrivacy } from './fixtures/privacy.js';
 
 let server;
 let base;
@@ -26,7 +27,7 @@ const api = async (path, { method = 'GET', body, token } = {}) => {
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(tickPrivacy(path, method, body)),
   });
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };
@@ -1479,7 +1480,7 @@ test('consent to calls and texts is recorded with the words the buyer saw', asyn
     name: 'Sam Lee', email: 'sam@test.co', phone: '801-555-0115', consent: true,
   });
   // The record is the builder's evidence; the buyer is only told their own answer.
-  assert.deepEqual(Object.keys(agreed.body.lead.consent).sort(), ['at', 'granted']);
+  assert.deepEqual(Object.keys(agreed.body.lead.consent).sort(), ['at', 'granted', 'privacy']);
   const record = async (leadId) => (await api(`/api/admin/leads/${leadId}/consents`, { token })).body[0];
   const consent = await record(agreed.body.lead.id);
   assert.equal(consent.granted, true);
