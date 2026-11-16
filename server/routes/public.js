@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-  CONSENT_VERSION, cleanExtraEmails, consentText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, incentiveWritten, isSafeEmail,
+  CONSENT_VERSION, PRIVACY_CHOICES, cleanExtraEmails, consentText, limitedPrivacyText, privacyBoxText, DEFAULT_SETTINGS, GUIDE_TEXT_MAX, incentiveRecipient, incentiveWritten, isSafeEmail,
   CONTACT_METHOD_KEYS, describeTour, lenderNameOf, MOVE_IN_DRIVER_KEYS, MOVE_IN_DRIVER_STEP_KEYS,
   TOUR_TOPICS, isDay, SHOWING_PARTS, describeShowing,
   MOVE_IN_STEP_KEYS, PAY_METHOD_KEYS,
@@ -68,7 +68,7 @@ export const publicLead = (lead) => (lead ? {
         : null,
     }
     : null,
-  consent: lead.consent ? { granted: Boolean(lead.consent.granted), at: lead.consent.at ?? null } : null,
+  consent: lead.consent ? { granted: Boolean(lead.consent.granted), at: lead.consent.at ?? null, privacy: lead.consent.privacy ?? '' } : null,
 } : null);
 const PLAN_KEYS = new Set([...TOOL_KEYS, 'homes']);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -360,17 +360,22 @@ export function publicRouter() {
       return res.status(400).json({ error: 'That cell number looks too short. Check it, or leave it blank for now.' });
     }
 
-    // The consent paragraph is rendered HERE, from this community's own name,
-    // and never taken from the request. What gets stored has to be the words the
-    // server put on the screen: text supplied by the caller would make the
-    // record say whatever a modified client felt like claiming, which is worth
-    // less than no record at all.
-    // Consent to calls and texts is about a number. Without one there is nothing to agree to, so the
-    // answer is not taken and no row is written; it is asked for again when a number is given.
-    const granted = Boolean(phone) && req.body?.consent === true;
+    // To get in a person either ticks the privacy box ('agreed') or accepts the email-only terms that come up when
+    // they will not ('email_only'). Anything else does not get in, so a modified client cannot skip the choice.
+    const privacy = req.body?.privacy;
+    if (!PRIVACY_CHOICES.includes(privacy)) {
+      return res.status(400).json({ error: 'Please tick the privacy box, or accept the email-only terms, to continue.' });
+    }
+    // The words are rendered HERE, from this community's own name, and never taken from the request. What gets
+    // stored has to be the words the server put on the screen: text supplied by the caller would make the
+    // record say whatever a modified client felt like claiming, which is worth less than no record at all.
+    // Calls and texts are about a number, and only a ticked box agrees to them: the email-only terms never do.
+    const who = community.builder || community.name;
+    const granted = privacy === 'agreed' && Boolean(phone);
     const consent = {
       granted,
-      text: consentText(community.builder || community.name),
+      privacy,
+      text: privacy === 'agreed' ? privacyBoxText(who, Boolean(phone)) : limitedPrivacyText(who),
       version: CONSENT_VERSION,
       ip: req.ip ?? '',
       userAgent: String(req.get('user-agent') ?? '').slice(0, 400),
@@ -386,11 +391,13 @@ export function publicRouter() {
       // Only a real change is written: re-recording an identical answer on
       // every visit would bury the moment they actually decided under noise.
       const current = existing.consent;
-      if (phone && (!current || current.granted !== granted || current.version !== consent.version)) {
+      if (!current || current.privacy !== privacy || current.granted !== granted || current.version !== consent.version) {
         await store.recordConsent(existing.id, consent);
         await store.addActivity(
           existing.id,
-          granted ? 'Agreed to calls and texts' : 'Declined calls and texts',
+          privacy === 'email_only'
+            ? 'Chose the email-only terms: no calls or texts'
+            : granted ? 'Agreed to the privacy box, calls and texts' : 'Ticked the privacy box',
         );
       }
       const lead = await store.getLead(existing.id);
@@ -399,15 +406,14 @@ export function publicRouter() {
 
     const created = await store.createLead(community.id, { name, email, phone });
     await store.addActivity(created.id, 'Scanned QR — entered the app');
-    // Recorded either way: that somebody was asked and left the box unchecked
-    // is the answer, and it is the one that has to be visible before anyone
-    // picks up the phone.
+    // Recorded either way, with or without a number: which way they got in (ticked, or the email-only terms) is
+    // the answer, and it has to be visible before anyone picks up the phone or sends an email.
     //
     // Not written to the activity feed. Every lead would carry the same line
     // and it is the feed the builder actually reads; the consent record is the
     // record, and the lead screen puts it next to the phone number. Only a
     // CHANGE of mind is news, and that is logged below on a return visit.
-    if (phone) await store.recordConsent(created.id, consent);
+    await store.recordConsent(created.id, consent);
     const lead = await store.getLead(created.id);
     // Chosen team members hear about a new visitor by email and/or Slack. Not waited for: a slow provider never holds up the sign-in.
     alertNewVisitor({ store, community, lead, baseUrl: linkOriginOf(req) }).catch(() => {});
@@ -731,6 +737,9 @@ export function publicRouter() {
       const granted = req.body?.consent === true;
       await store.recordConsent(req.leadId, {
         granted,
+        // Giving a number later is about calls and texts; how they got in (the privacy box, or email only) stays as it was,
+        // unless they now agree to calls and texts, which is ticking the box.
+        privacy: granted ? 'agreed' : (buyer.consent?.privacy ?? ''),
         text: consentText(community?.builder || community?.name),
         version: CONSENT_VERSION,
         ip: req.ip ?? '',

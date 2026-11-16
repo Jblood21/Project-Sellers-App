@@ -10,6 +10,7 @@ import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import { cleanExtraEmails } from '../../shared/domain.js';
 import { createApp } from '../index.js';
+import { tickPrivacy } from './fixtures/privacy.js';
 
 let server;
 let base;
@@ -27,7 +28,7 @@ const api = async (path, { method = 'GET', body, token } = {}) => {
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(tickPrivacy(path, method, body)),
   });
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };

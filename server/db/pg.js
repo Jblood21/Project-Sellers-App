@@ -1549,12 +1549,12 @@ export function createPostgresStore(connectionString) {
      * Write a consent answer. Append-only: nothing here updates a previous row,
      * because the record of what somebody agreed to on a given day is the point.
      */
-    async recordConsent(leadId, { granted, text, version, ip, userAgent }) {
+    async recordConsent(leadId, { granted, text, version, ip, userAgent, privacy }) {
       const { rows } = await q(
-        `INSERT INTO lead_consents (id, lead_id, granted, consent_text, version, ip, user_agent)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        `INSERT INTO lead_consents (id, lead_id, granted, consent_text, version, ip, user_agent, privacy)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
         [`cs_${shortId(12)}`, leadId, Boolean(granted), text ?? '', version ?? '', ip ?? '',
-          userAgent ?? ''],
+          userAgent ?? '', privacy ?? ''],
       );
       return shapeConsent(rows[0]);
     },

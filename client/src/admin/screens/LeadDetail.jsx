@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { telHref } from '@shared/compliance.js';
 import {
   formatSlotDate, leaseOverlap, MOVE_IN_DRIVERS, moveInTimeline, PLAN_LABELS,
-  describeTour, INTEREST_LEVELS, isTourPending, lenderNameOf, toolAnswerOf, toolsUsedOf,
+  describeTour, INTEREST_LEVELS, isTourPending, lenderNameOf, privacyLine, toolAnswerOf, toolsUsedOf,
 } from '@shared/domain.js';
 import { ChevronLeft } from '../../components/Icons.jsx';
 import { adminApi } from '../../lib/api.js';
@@ -271,6 +271,7 @@ export default function LeadDetail({ community, reload, leadId, embedded = false
         ) : (
           <div className="text-muted" style={{ fontSize: 14 }}>No cell number yet. They signed up with just an email.</div>
         )}
+        <PrivacyNote consent={lead.consent} hasPhone={Boolean(lead.phone)} />
         <ConsentNote consent={lead.consent} hasPhone={Boolean(lead.phone)} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
           {/* One-tap Call and Text only for someone who agreed, and only for a number that can be dialled safely. */}
@@ -504,6 +505,26 @@ function MoveInCard({ lead, homes }) {
 }
 
 /**
+ * Whether they ticked the sign-in's privacy box: ticked, or the email-only terms accepted instead (no calls, no texts),
+ * or nothing on file because they signed up before the box was required. The same line the emails to the team carry.
+ */
+function PrivacyNote({ consent, hasPhone }) {
+  const ticked = consent?.privacy === 'agreed';
+  const emailOnly = consent?.privacy === 'email_only';
+  return (
+    <div
+      style={{
+        padding: '9px 11px', borderRadius: 8, fontSize: 14, lineHeight: 1.45, marginBottom: 8,
+        background: ticked ? '#e9f7ef' : emailOnly ? '#fff4e0' : 'var(--color-neutral-200)',
+        color: ticked ? '#1b5e37' : emailOnly ? '#7a4a00' : 'var(--color-neutral-700)',
+      }}
+    >
+      <strong>{privacyLine(consent, hasPhone)}</strong>
+    </div>
+  );
+}
+
+/**
  * Whether this person agreed to be called, in the one place somebody looks
  * before they dial.
  *
@@ -518,7 +539,7 @@ function ConsentNote({ consent, hasPhone = true }) {
   const stamp = consent?.at ? new Date(consent.at).toLocaleString() : '';
 
   // No number, so no calls or texts to agree to. Not the same as a "no": nobody was asked.
-  if (!hasPhone && !consent) {
+  if (!hasPhone) {
     return (
       <div style={{ padding: '9px 11px', borderRadius: 8, background: 'var(--color-neutral-200)', color: 'var(--color-neutral-700)', fontSize: 14, lineHeight: 1.45 }}>
         Nobody has asked about calls and texts yet, because there is no number. They are asked when they give one to book a time.
@@ -536,7 +557,9 @@ function ConsentNote({ consent, hasPhone = true }) {
       >
         <strong>Do not call or text.</strong>{' '}
         {consent
-          ? `They were asked on ${stamp} and left the box unchecked.`
+          ? (consent.privacy === 'email_only'
+            ? `They did not tick the privacy box and accepted the email-only terms on ${stamp}: email only.`
+            : `They were asked on ${stamp} and did not agree.`)
           : 'No consent on file — this lead predates the consent box.'}{' '}
         Replying to something they asked for is fine; marketing calls and texts are not.
       </div>

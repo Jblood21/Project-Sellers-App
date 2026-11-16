@@ -1,6 +1,6 @@
 import {
   DEFAULT_LEAD_SORT, LEAD_SORTS, PLAN_LABELS, TOOL_ORDER, describeTour, formatSlotDate, formatSlotTime, isArchived, isTourPending,
-  lenderNameOf, money, slugify, sortLeads, toolAnswerOf, toolsOfferedBy, toolsUsedOf,
+  lenderNameOf, money, privacyLine, slugify, sortLeads, toolAnswerOf, toolsOfferedBy, toolsUsedOf,
 } from '../../shared/domain.js';
 import { themeView } from '../../shared/customTheme.js';
 import { printableMoveIn } from '../../shared/moveInPrint.js';
@@ -102,7 +102,7 @@ const mondayOf = (day) => {
 
 // The five colours the theme is made from, the community's own when it uses its own colours.
 const themeOf = (community) => themeView(community?.theme, community?.settings).colors;
-const consentWords = (lead) => (lead.consent?.granted ? 'Agreed' : lead.consent ? 'Declined' : 'Never asked');
+const consentWords = (lead) => (lead.consent?.granted ? 'Agreed' : lead.consent?.privacy === 'email_only' ? 'Email only' : lead.consent ? 'Declined' : 'Never asked');
 const callAbout = (lead, lender) => (lead.tour.topic === 'lender' ? `Financing (${lender})` : 'Tour (booked earlier)');
 const callWhen = (tour) => {
   if (tour.date) return [`${formatSlotDate(tour.date)}, ${tour.date.slice(0, 4)}`, tour.time ? formatSlotTime(tour.time) : ''];
@@ -438,7 +438,7 @@ export function buildLeadsPdf({
         ],
         consent?.granted
           ? [{ parts: [{ text: `${reach} · ` }, { text: 'Agreed', font: 'bold' }] }]
-          : [{ text: reach }, { tag: true, text: `DO NOT CALL · ${consent ? 'DECLINED' : 'NEVER ASKED'}`, size: 6.2 }],
+          : [{ text: reach }, { tag: true, text: `DO NOT CALL · ${!consent ? 'NEVER ASKED' : consent.privacy === 'email_only' ? 'EMAIL ONLY' : 'DECLINED'}`, size: 6.2 }],
         dayText(lead.firstVisitAt, timeZone),
         toolsCell(lead),
         names.length ? `${names.length} saved: ${names.slice(0, 3).join(', ')}${names.length > 3 ? `, +${names.length - 3} more` : ''}` : { text: 'None', color: COLORS.muted },
@@ -521,8 +521,12 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
   ]);
 
   // ── what they agreed to ──
-  doc.heading('Calls and texts');
-  if (lead.consent) {
+  doc.heading('Privacy and calls');
+  doc.paragraph(privacyLine(lead.consent, Boolean(lead.phone)), { font: 'bold', color: lead.consent?.privacy === 'email_only' || !lead.consent?.privacy ? RED : COLORS.ink, gap: 3 });
+  if (!lead.phone) {
+    doc.paragraph('Nobody has asked about calls and texts yet, because there is no number. They are asked when they give one to book a time.', { color: COLORS.muted, gap: 3 });
+    if (lead.consent?.text) doc.paragraph(`Wording shown${lead.consent.version ? ` (version ${lead.consent.version})` : ''}: ${lead.consent.text}`, { size: 8, color: COLORS.muted, gap: 3 });
+  } else if (lead.consent) {
     doc.paragraph(
       lead.consent.granted
         ? `Agreed to calls and texts on ${stamp(lead.consent.at, timeZone)}.`
@@ -534,8 +538,6 @@ export function buildUserPdf({ community, lead, homes = [], consents = [], now =
     if (consents.length > 1) {
       doc.paragraph(`${plural(consents.length, 'answer')} on record: ${consents.map((c) => `${c.granted ? 'agreed' : 'declined'} ${dayText(c.at, timeZone)}`).join('; ')}.`, { size: 8, color: COLORS.muted });
     }
-  } else if (!lead.phone) {
-    doc.paragraph('Nobody has asked about calls and texts yet, because there is no number. They are asked when they give one to book a time.', { color: COLORS.muted });
   } else {
     doc.paragraph('Do not call or text. Never asked: no consent is on file, because this person signed up before the question was added.', { font: 'bold', color: RED, gap: 3 });
     doc.paragraph(REPLY_NOTE, { size: 8.5, color: COLORS.muted });

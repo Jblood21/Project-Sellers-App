@@ -10,6 +10,7 @@ import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import { incentiveRecipient } from '../../shared/domain.js';
 import { createApp } from '../index.js';
+import { tickPrivacy } from './fixtures/privacy.js';
 
 // The limits are off under `node --test`; this file is partly about them.
 process.env.RATE_LIMITS = 'on';
@@ -31,7 +32,7 @@ const api = async (path, { method = 'GET', body, token, headers = {} } = {}) => 
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(tickPrivacy(path, method, body)),
   });
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null, headers: res.headers };

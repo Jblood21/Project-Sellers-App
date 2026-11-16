@@ -10,6 +10,7 @@ import { hashPassword } from '../lib/auth.js';
 import { setTransportForTests } from '../lib/email.js';
 import { consentText } from '../../shared/domain.js';
 import { createApp } from '../index.js';
+import { tickPrivacy } from './fixtures/privacy.js';
 
 let server;
 let base;
@@ -26,7 +27,7 @@ const api = async (path, { method = 'GET', body, token } = {}) => {
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(tickPrivacy(path, method, body)),
   });
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };
@@ -72,17 +73,23 @@ after(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('sign-in: a name and an email are enough, and no consent is recorded for a number nobody gave', async () => {
+test('sign-in: a name and an email are enough, and with no number the privacy choice is recorded but nothing about calls', async () => {
   const res = await enter({ name: 'No Phone', email: 'nophone@test.co' });
   assert.equal(res.status, 201);
   assert.equal(res.body.lead.phone, '');
-  assert.deepEqual(await consentsOf(res.body.lead.id), [], 'nothing to agree to without a number');
+  const [record, ...others] = await consentsOf(res.body.lead.id);
+  assert.equal(others.length, 0);
+  assert.equal(record.privacy, 'email_only');
+  assert.equal(record.granted, false, 'nothing to agree to about calls without a number');
 });
 
-test('sign-in: ticking the box with no number does not record a yes', async () => {
+test('sign-in: ticking the box with no number is the privacy box, not a yes to calls', async () => {
   const res = await enter({ name: 'Box Only', email: 'boxonly@test.co', phone: '', consent: true });
   assert.equal(res.status, 201);
-  assert.deepEqual(await consentsOf(res.body.lead.id), []);
+  const [record, ...others] = await consentsOf(res.body.lead.id);
+  assert.equal(others.length, 0);
+  assert.equal(record.privacy, 'agreed');
+  assert.equal(record.granted, false);
 });
 
 test('sign-in: a number that is given still has to look like one', async () => {
@@ -144,8 +151,9 @@ test('booking: the number is saved on the lead with the answer, in the words the
   assert.equal(booked.body.tour.slotId, slots[0].id);
 
   const records = await consentsOf(buyer.body.lead.id);
-  assert.equal(records.length, 1);
+  assert.equal(records.length, 2, 'the sign-in choice, then this answer');
   assert.equal(records[0].granted, true);
+  assert.equal(records[0].privacy, 'agreed', 'agreeing to calls and texts is ticking the box');
   assert.equal(records[0].text, consentText('Acme Homes'));
 
   const lead = (await api(`/api/admin/leads/${buyer.body.lead.id}`, { token: adminToken })).body;
@@ -165,8 +173,9 @@ test('booking: giving a number and leaving the box unticked is recorded as a no'
   });
   assert.equal(booked.status, 200);
   const records = await consentsOf(buyer.body.lead.id);
-  assert.equal(records.length, 1);
+  assert.equal(records.length, 2, 'the sign-in choice, then this answer');
   assert.equal(records[0].granted, false);
+  assert.equal(records[0].privacy, 'email_only', 'how they got in stays as it was');
 });
 
 test('booking: a number sent for someone who already has one is ignored', async () => {

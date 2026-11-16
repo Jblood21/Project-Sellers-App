@@ -15,6 +15,7 @@ import { clientKey, createLimiter, reserve, tooMany } from '../lib/limits.js';
 import { linkOriginOf } from '../lib/ssr.js';
 import { setTransportForTests } from '../lib/email.js';
 import { createApp } from '../index.js';
+import { tickPrivacy } from './fixtures/privacy.js';
 
 // The limits are off under `node --test` so the other suites can reuse one address and a few
 // emails freely; this file is about the limits, so it turns them on for its own process.
@@ -28,7 +29,7 @@ let port;
 
 /** fetch cannot be trusted to send an arbitrary Host or X-Forwarded-Host, so this talks HTTP itself. */
 const raw = (path, { method = 'GET', body, token, headers = {} } = {}) => new Promise((resolve, reject) => {
-  const payload = body === undefined ? null : JSON.stringify(body);
+  const payload = body === undefined ? null : JSON.stringify(tickPrivacy(path, method, body));
   const req = http.request({
     host: '127.0.0.1',
     port,
@@ -132,7 +133,7 @@ test('a buyer is shown their own record, never the builder\'s notes on it', asyn
     for (const key of ['notes', 'status', 'openedAt', 'archivedAt', 'activity', 'firstVisitAt', 'updatedAt']) {
       assert.equal(lead[key], undefined, `${where} carries ${key}`);
     }
-    assert.ok(lead.consent == null || JSON.stringify(Object.keys(lead.consent).sort()) === '["at","granted"]',
+    assert.ok(lead.consent == null || JSON.stringify(Object.keys(lead.consent).sort()) === '["at","granted","privacy"]',
       `${where}: the consent record is the builder's evidence (its wording, version and IP), not the buyer's view`);
     assert.equal(lead.id, responses['GET /me'].body.id);
     assert.equal(lead.email, `sam${counter}@test.co`);

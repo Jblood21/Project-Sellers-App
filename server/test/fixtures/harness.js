@@ -9,6 +9,7 @@ import { resetStoreForTests } from '../../db/index.js';
 import { createPostgresStore } from '../../db/pg.js';
 import { hashPassword } from '../../lib/auth.js';
 import { createApp } from '../../index.js';
+import { tickPrivacy } from './privacy.js';
 
 /**
  * Shared scaffolding for the tests that drive the real HTTP API against BOTH
@@ -67,7 +68,8 @@ export async function startBackend(kind, label) {
   const base = `http://127.0.0.1:${server.address().port}`;
 
   // `redirect: 'manual'` hands back a 3xx as it is, for a test of where it points.
-  const api = async (path, { method = 'GET', body, token, raw, headers = {}, redirect = 'follow' } = {}) => {
+  const api = async (path, { method = 'GET', body: sent, token, raw, headers = {}, redirect = 'follow' } = {}) => {
+    const body = tickPrivacy(path, method, sent);
     const res = await fetch(`${base}${path}`, {
       method,
       redirect,
