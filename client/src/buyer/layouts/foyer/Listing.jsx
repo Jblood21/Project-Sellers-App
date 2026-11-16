@@ -4,6 +4,7 @@ import {
   AgentActions, Face, FloorPlans, Guides, PhotoButton, StatusNote, AgentEquals, TeamAgents, statList, useAgent,
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
 import { dayLabel, directionsUrl, downloadIcs, isNowOpen, openHouseIcs, timeRange } from '../../openHouse.js';
 
@@ -160,6 +161,8 @@ export default function Listing({ model }) {
               </dl>
             </section>
           ) : null}
+
+          <NeighborhoodPreview className="ls-foyer-neighborhood" headingClassName="ls-foyer-kicker" />
 
           {model.hasVideo || model.floorPlans.length ? (
             <section className="ls-foyer-extras" aria-labelledby="ls-foyer-extras-h">
