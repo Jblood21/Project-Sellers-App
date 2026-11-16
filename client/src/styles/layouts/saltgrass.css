@@ -1346,3 +1346,27 @@
 @media (min-width: 900px) {
   .b-app.l-saltgrass .ls-saltgrass-price { --lsg-lift: calc(var(--lsg-cut) * 0.5); margin-bottom: calc(var(--lsg-cut) * -0.5); }
 }
+
+/* ── the neighborhood: a billboard band: a big heading, a hard-edged map, the places as ticket stubs ──────────── */
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] { margin-top: 2.6rem; margin-bottom: 0; gap: 1rem; }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__title { margin: 0; }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nm-frame { border: 3px solid var(--sg-deep); border-radius: var(--t-rad); }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__dir,
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__all { text-decoration: none; }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__list { gap: 0.6rem; }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__row {
+  position: relative; padding: 0.7rem 0.9rem 0.7rem 1.1rem; background: var(--t-sur); border: 2px solid var(--sg-deep); border-radius: var(--t-rad);
+  align-items: center; gap: 0.2rem 0.8rem; overflow: hidden;
+}
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__row::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 0.45rem; background: var(--sg-deep); }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__name { font: var(--t-headwt) 1.3rem/1.05 var(--t-head); text-transform: uppercase; letter-spacing: 0.02em; }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__kind { font: 700 0.78rem/1.2 var(--t-font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--sg-mut); }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__drive { font: 800 1.15rem/1 var(--t-head); letter-spacing: 0.04em; text-transform: uppercase; color: var(--sg-accT); }
+@media (min-width: 900px) {
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); column-gap: 1.6rem; align-items: start; }
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__title { grid-column: 1 / -1; }
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__map { grid-column: 1; grid-row: 2 / span 3; }
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__dir,
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__list,
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__all { grid-column: 2; }
+}

@@ -11,6 +11,8 @@ import {
 } from '../../listing/parts.jsx';
 import { WhatsSpecial, factRows } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
+import { hasNeighborhood } from '@shared/neighborhood.js';
 import { featureLabels } from '@shared/homeFacts.js';
 
 /**
@@ -246,6 +248,12 @@ export default function Listing({ model }) {
           <RateScenarios />
 
           <OpenHouseRows model={model} />
+
+          <NeighborhoodPreview
+            variant="ledger" className="ls-ledger-sec" headingClassName="ls-ledger-sec__h" headingId="ls-ledger-hood"
+            mapHeight="clamp(240px, 44vw, 340px)" limit={8}
+            dirClassName="ls-ledger-link" allClassName="ls-ledger-link"
+          />
 
           {model.floorPlans.length ? (
             <section className="ls-ledger-sec" aria-labelledby="ls-ledger-plans">

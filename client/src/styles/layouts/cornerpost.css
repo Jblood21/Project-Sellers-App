@@ -880,3 +880,21 @@
 @media (prefers-reduced-motion: reduce) {
   .b-app.l-cornerpost .ls-cornerpost-strip { scroll-behavior: auto; }
 }
+
+/* ── the neighborhood: a tile like the rest, the map rounded with it, the places as soft rows ───────────────── */
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] { gap: 12px; }
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__title { margin: 0; }
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nm-frame { border-radius: 16px; }
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__dir,
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__all {
+  justify-self: stretch; justify-content: center; min-height: 48px; padding: 0 18px; border-radius: 999px; text-decoration: none; font-weight: 700;
+}
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__dir { background: var(--t-acc); color: var(--t-onacc); }
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__all { border: 1.5px solid var(--t-accT); }
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__list { gap: 8px; }
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__row {
+  padding: 12px 14px; border: 0; border-radius: var(--cp-radius-md, 14px); background: var(--t-tint); align-items: center;
+}
+.b-app.l-cornerpost .nh-preview[data-nh='cornerpost'] .nh-preview__drive {
+  padding: 4px 10px; border-radius: 999px; background: var(--t-sur); border: 1px solid var(--t-line); color: var(--t-ink); font-weight: 600;
+}

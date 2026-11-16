@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
 import { HIGHLIGHT_CATEGORIES } from '../../shared/domain.js';
-import { UTAH_SCHOOL_REPORT_URL, directionsUrl, driveLabel, pointOf, readPlaceExtras } from '../../shared/neighborhood.js';
+import { UTAH_SCHOOL_REPORT_URL, directionsUrl, driveLabel, hasNeighborhood, pointOf, readPlaceExtras } from '../../shared/neighborhood.js';
 import { hooks, geocode } from '../lib/geocode.js';
 import { backends, startBackend } from './fixtures/harness.js';
 
@@ -24,6 +24,15 @@ describe('neighborhood (shared)', () => {
     for (const bad of [{ miles: 'far' }, { miles: -1 }, { minutes: 9999 }, { link: 'javascript:alert(1)' }, { link: 'https://u:p@x.com' }, { lat: 91, lng: 0 }, { lat: 40 }]) {
       assert.ok(readPlaceExtras(bad).error, JSON.stringify(bad));
     }
+  });
+
+  test('a home has a neighborhood to show when it has a point on the map or places', () => {
+    assert.equal(hasNeighborhood({ highlights: [], settings: {} }), false);
+    assert.equal(hasNeighborhood({}), false);
+    assert.equal(hasNeighborhood(null), false);
+    assert.equal(hasNeighborhood({ highlights: [{ id: 'h1' }], settings: {} }), true);
+    assert.equal(hasNeighborhood({ highlights: [], settings: { mapLat: '40.4', mapLng: '-111.9' } }), true);
+    assert.equal(hasNeighborhood({ highlights: [], settings: { mapLat: '40.4', mapLng: '' } }), false);
   });
 
   test('the drive line and the directions link', () => {

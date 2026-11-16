@@ -6,6 +6,8 @@ import {
 } from '../../listing/parts.jsx';
 import { HomeFacts, WhatsSpecial } from '../../HomeFacts.jsx';
 import RateScenarios from '../../RateScenarios.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
+import { hasNeighborhood } from '@shared/neighborhood.js';
 
 /** A small chevron for the carousel arrows. */
 function Chev({ dir }) {
@@ -147,6 +149,10 @@ export default function Listing({ model }) {
           <HomeFacts home={model.home} />
           <WhatsSpecial home={model.home} />
           <RateScenarios />
+          <NeighborhoodPreview
+            variant="cornerpost" className="ls-cornerpost-tile" headingClassName="ls-cornerpost-h2" headingId="ls-cornerpost-hood"
+            mapHeight="clamp(210px, 56vw, 320px)" limit={5}
+          />
           {facts.length ? (
             <ul className="ls-cornerpost-facts">{facts.map((f) => <li key={f}>{f}</li>)}</ul>
           ) : null}

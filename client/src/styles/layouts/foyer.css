@@ -1651,3 +1651,17 @@
   .b-app.l-foyer .ls-foyer-hero__btn:hover img, .b-app.l-foyer .ls-foyer-plate__btn:hover img { opacity: 0.94; }
 }
 .b-app.l-foyer .ls-foyer .b-ls-guides__sub { text-align: center; }
+
+/* ── the neighborhood: set like a plate in a magazine: a square frame, the places as a typeset list, links underlined ─ */
+.b-app.l-foyer .nh-preview[data-nh='foyer'] { margin: 40px 0; gap: 14px; }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__title { margin: 0; }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nm-frame { border-radius: 0; border: 1px solid var(--fy-frame); }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__dir,
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__all { justify-self: start; }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__list { border-bottom: 1px solid var(--t-line); }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__row { padding: 12px 0; align-items: baseline; gap: 2px 20px; }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__ico { display: none; }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__what { flex: 1 1 200px; }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__name { font: 500 19px/1.3 var(--t-head); color: var(--t-ink); }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__kind { font: 600 11.5px/1.4 var(--t-font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--t-mut); }
+.b-app.l-foyer .nh-preview[data-nh='foyer'] .nh-preview__drive { font: italic 500 15px/1.4 var(--fy-italic); color: var(--t-ink); }
