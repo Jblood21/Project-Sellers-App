@@ -2075,3 +2075,6 @@
 }
 .b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__kind,
 .b-app.l-showcase .nh-preview[data-nh='showcase'] .nh-preview__drive { color: color-mix(in oklab, var(--t-onacc2) 78%, var(--sc-night)); }
+
+/* on the community home, inside its section (which has its own heading) */
+.b-app.l-showcase .sc-near .nh-preview[data-nh='showcase'] { margin: 0 0 10px; }

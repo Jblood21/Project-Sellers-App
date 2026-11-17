@@ -10,7 +10,8 @@ import FaqList, { useFaq } from '../../FaqList.jsx';
 import IncentiveCard from '../../IncentiveCard.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
 import { GuideCard } from '../../screens/Guides.jsx';
-import { ChevronRight, Heart, HouseGlyph, MapGlyph, PinGlyph } from './icons.jsx';
+import { ChevronRight, Heart, HouseGlyph, MapGlyph } from './icons.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /** How many homes the home screen shows before "See all": the board's handful, not the whole list. */
 const HOME_CARDS = 3;
@@ -352,7 +353,7 @@ function Resource({ item }) {
 export default function Home({ model }) {
   const {
     community, paths, homes, leadTools, otherTools, resources, inPlan, isSaved, savedCount,
-    openTool, openExplore, openArea, openMap, openLender, openHome, toggleSave,
+    openTool, openExplore, openMap, openLender, openHome, toggleSave,
   } = model;
   const { tools, settings, features } = useBuyer();
   const faq = useFaq();
@@ -370,7 +371,7 @@ export default function Home({ model }) {
 
   const allTools = [...leadTools, ...otherTools];
   const doneTools = allTools.filter((tool) => inPlan(tool.k)).length;
-  const nearby = model.hasSpots || model.hasMap;
+  const nearby = model.hasHood || model.hasMap;
   // The lender and the places share a row on a wide screen only when both are drawn. The lender card draws
   // nothing until the lender is set up, and a row with one of the two leaves half of it empty.
   const lenderReady = complianceOf(community?.settings, { community }).lender.ready;
@@ -483,19 +484,17 @@ export default function Home({ model }) {
         {nearby ? (
           <section className="rr-sec rr-near" aria-labelledby="home-nearby">
             <h2 id="home-nearby" className="rr-h2">Around {community?.name ?? 'the community'}</h2>
-            <ul className="rr-places" role="list">
-              {model.hasSpots ? (
-                <PlaceTile
-                  icon={<PinGlyph />}
-                  title="Local Spots"
-                  sub="Schools, parks and everyday places nearby"
-                  onOpen={openArea}
-                />
-              ) : null}
-              {model.hasMap ? (
+            {model.hasHood ? (
+              <NeighborhoodPreview
+                variant="redrock" showTitle={false} title={`Around ${community?.name ?? 'the community'}`} mapHeight="clamp(240px, 60vw, 360px)" limit={5}
+                dirClassName="rr-btn rr-btn--line" allClassName="rr-btn rr-btn--line"
+              />
+            ) : null}
+            {model.hasMap ? (
+              <ul className="rr-places" role="list">
                 <PlaceTile icon={<MapGlyph />} title="Site Map" sub="View the community layout" onOpen={openMap} />
-              ) : null}
-            </ul>
+              </ul>
+            ) : null}
           </section>
         ) : null}
       </div>

@@ -9,6 +9,7 @@ import AgentsBlock from '../../AgentsBlock.jsx';
 import FaqList, { useFaq } from '../../FaqList.jsx';
 import IncentiveCard from '../../IncentiveCard.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /** The row chevron: 2.4px stroke, round caps, in the accent, as the design draws it. */
 function RowChevron() {
@@ -171,7 +172,7 @@ function LenderCard({ onOpen }) {
 export default function Home({ model }) {
   const {
     community, paths, leadTools, otherTools, resources, inPlan, savedCount,
-    openTool, openExplore, openArea, openMap, openLender,
+    openTool, openExplore, openMap, openLender,
   } = model;
   const faq = useFaq();
   const floorplans = model.homesCount === 1 ? 'available floorplan' : 'available floorplans';
@@ -216,8 +217,11 @@ export default function Home({ model }) {
           </span>
         </button>
 
-        {model.hasSpots ? (
-          <RowButton title="Local Spots" sub="Schools, parks and everyday places nearby" onClick={openArea} />
+        {model.hasHood ? (
+          <NeighborhoodPreview
+            variant="cornerpost" className="ls-cornerpost-tile" headingClassName="ls-cornerpost-h2" headingId="cp-hood"
+            mapHeight="clamp(210px, 56vw, 320px)" limit={5}
+          />
         ) : null}
         {model.hasMap ? (
           <RowButton title="Site Map" sub="View the community layout" onClick={openMap} />

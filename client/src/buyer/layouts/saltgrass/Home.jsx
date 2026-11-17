@@ -10,6 +10,7 @@ import FaqList, { useFaq } from '../../FaqList.jsx';
 import IncentiveCard from '../../IncentiveCard.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
 import { GuideCard } from '../../screens/Guides.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /** The small "done" flag a tool card carries once its answer is in the plan. */
 function InPlan() {
@@ -163,7 +164,7 @@ function Resources({ resources }) {
 export default function Home({ model }) {
   const {
     community, paths, leadTools, otherTools, resources, inPlan, savedCount,
-    openTool, openExplore, openArea, openMap, openLender,
+    openTool, openExplore, openMap, openLender,
   } = model;
   const faq = useFaq();
   const allTools = [...leadTools, ...otherTools];
@@ -243,12 +244,16 @@ export default function Home({ model }) {
             </div>
           </div>
 
-          {model.hasSpots || model.hasMap ? (
+          {model.hasHood ? (
+            <NeighborhoodPreview
+              variant="saltgrass" className="sg-hood" headingClassName="sg-h2" headingId="sg-hood-h" title={`Around ${community?.name ?? 'the community'}`}
+              mapHeight="clamp(240px, 62vw, 360px)" limit={5}
+              dirClassName="b-btn" allClassName="b-btn b-btn-outline"
+            />
+          ) : null}
+          {model.hasMap ? (
             <div className="sg-rows">
-              {model.hasSpots ? (
-                <Row title="Local Spots" sub="Schools, parks and everyday places nearby" onOpen={openArea} />
-              ) : null}
-              {model.hasMap ? <Row title="Site Map" sub="View the community layout" onOpen={openMap} /> : null}
+              <Row title="Site Map" sub="View the community layout" onOpen={openMap} />
             </div>
           ) : null}
 

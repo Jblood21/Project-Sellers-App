@@ -16,7 +16,8 @@ import LenderLogo, { EhlMark } from '../../LenderLogo.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
 import { GuideCard } from '../../screens/Guides.jsx';
 import { TOOLS_ANCHOR } from './anchor.js';
-import { ChevronRight, DoneGlyph, Heart, HouseGlyph, MapGlyph, OpenGlyph, PinGlyph } from './icons.jsx';
+import { ChevronRight, DoneGlyph, Heart, HouseGlyph, MapGlyph, OpenGlyph } from './icons.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /** How many homes the homes tile lists before "See all": a tile's worth, not the whole list. */
 const HOME_ROWS = 5;
@@ -834,8 +835,7 @@ function Resource({ item }) {
  */
 export default function Home({ model }) {
   const {
-    community, paths, homes, leadTools, otherTools, resources, inPlan, isSaved, openTool, openExplore, openArea,
-    openMap, openLender, openHome, toggleSave,
+    community, paths, homes, leadTools, otherTools, resources, inPlan, isSaved, openTool, openExplore, openMap, openLender, openHome, toggleSave,
   } = model;
   const { tools, settings, features } = useBuyer();
   const faq = useFaq();
@@ -912,7 +912,7 @@ export default function Home({ model }) {
     dpaTool ? { key: 'dpa', want: { 2: 1, 4: 1 } } : null,
     { key: 'tools', want: { 2: 2, 4: 2 } },
     lenderReady ? { key: 'lender', want: { 2: 2, 4: 2 } } : null,
-    model.hasSpots ? { key: 'spots', want: { 2: 1, 4: 1 } } : null,
+    model.hasHood ? { key: 'hood', want: { 2: 2, 4: 2 } } : null,
     model.hasMap ? { key: 'map', want: { 2: 1, 4: 1 } } : null,
     model.showAgents ? { key: 'agents', want: { 2: 2, 4: 4 } } : null,
     model.showGuides ? { key: 'guides', want: { 2: 2, 4: 4 } } : null,
@@ -977,15 +977,14 @@ export default function Home({ model }) {
         )}
 
         {lenderReady ? <LenderTile cls={cls('lender')} onOpen={openLender} /> : null}
-        {model.hasSpots ? (
-          <PlaceTile
-            cls={cls('spots')}
-            id="lg-spots"
-            icon={<PinGlyph />}
-            title="Local Spots"
-            sub={`Schools, parks and everyday places near ${community?.name ?? 'the community'}`}
-            onOpen={openArea}
-          />
+        {model.hasHood ? (
+          <section className={`lg-tile lg-hood ${cls('hood')}`} aria-labelledby="lg-hood">
+            <TileHead id="lg-hood" title={`Around ${community?.name ?? 'the community'}`} />
+            <NeighborhoodPreview
+              variant="ledger" showTitle={false} title={`Around ${community?.name ?? 'the community'}`} mapHeight="clamp(200px, 40vw, 300px)" limit={6}
+              dirClassName="ls-ledger-link" allClassName="ls-ledger-link"
+            />
+          </section>
         ) : null}
         {model.hasMap ? (
           <PlaceTile cls={cls('map')} id="lg-map" icon={<MapGlyph />} title="Site Map" sub="View the community layout" onOpen={openMap} />

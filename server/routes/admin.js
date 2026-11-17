@@ -20,6 +20,7 @@ import { CUSTOM_KEYS, customThemeFrom, normalizeHex } from '../../shared/customT
 import { HOME_NUMBER_RULES, SETTING_NUMBER_RULES, creditOrderProblem, readHomeNumbers, readSetting } from '../../shared/numberInput.js';
 import { readHomeFacts } from '../../shared/homeFacts.js';
 import { pointOf, readPlaceExtras } from '../../shared/neighborhood.js';
+import { autoLocateInBackground } from '../lib/autoLocate.js';
 import { geocode } from '../lib/geocode.js';
 import { SCENARIO_ASSUMPTIONS_MAX, cleanPicks, validEffectiveDate } from '../../shared/rateScenarios.js';
 import { cleanListingLink, fetchPage, fetchPhoto, readListingPage } from '../lib/listingImport.js';
@@ -1502,6 +1503,8 @@ export function adminRouter() {
       if (Object.keys(keep).length) await store.updateAdmin(req.admin.sub, { profile: { ...(me?.profile ?? {}), ...keep } });
     } catch { /* the listing is made; remembering the details is a convenience */ }
     await recordActivity(store, req, { communityId: community.id, action: 'listing.created', subject: community.name });
+    // On the map without anyone pressing a button: looked up in the background, so the reply does not wait for it.
+    autoLocateInBackground(store, community);
     return res.status(201).json({ ...community, homes: [home], agents: agent ? [agent] : [] });
   }
 
@@ -1583,6 +1586,7 @@ export function adminRouter() {
       builder: str(req.body?.builder).slice(0, COMMUNITY_TEXT_MAX),
     });
     await recordActivity(store, req, { communityId: community.id, action: 'community.created', subject: community.name });
+    autoLocateInBackground(store, community);
     res.status(201).json(community);
   });
 

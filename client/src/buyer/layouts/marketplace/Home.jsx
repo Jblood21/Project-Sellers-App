@@ -13,7 +13,8 @@ import AgentsBlock from '../../AgentsBlock.jsx';
 import FaqList, { useFaq } from '../../FaqList.jsx';
 import IncentiveCard from '../../IncentiveCard.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
-import { ChevronRight, Heart, HouseGlyph, MapGlyph, PinGlyph } from './icons.jsx';
+import { ChevronRight, Heart, HouseGlyph, MapGlyph } from './icons.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /** A price as a filter offers it: "$425K", "$1.25M". The cards print the full figure. */
 function shortMoney(value) {
@@ -305,7 +306,7 @@ function Resource({ item }) {
 export default function Home({ model }) {
   const {
     community, paths, homes, leadTools, otherTools, resources, inPlan, isSaved, savedCount,
-    openTool, openArea, openMap, openLender, openHome, toggleSave,
+    openTool, openMap, openLender, openHome, toggleSave,
   } = model;
   const { tools, settings, features } = useBuyer();
   const faq = useFaq();
@@ -325,7 +326,7 @@ export default function Home({ model }) {
   };
   const rate = ratesOf(settings)[program] ?? 0;
   const estimates = Boolean(paymentTool) && shown.some((home) => monthlyOf(home) > 0);
-  const nearby = model.hasSpots || model.hasMap;
+  const nearby = model.hasHood || model.hasMap;
   const allTools = leadTools.length + otherTools.length;
 
   return (
@@ -421,19 +422,17 @@ export default function Home({ model }) {
       {nearby ? (
         <section className="mk-sec" aria-labelledby="home-nearby">
           <h2 id="home-nearby" className="mk-h2">Around {community?.name ?? 'the community'}</h2>
-          <ul className="mk-rows mk-rows--tiles" role="list">
-            {model.hasSpots ? (
-              <Row
-                icon={<PinGlyph />}
-                title="Local Spots"
-                sub="Schools, parks and everyday places nearby"
-                onOpen={openArea}
-              />
-            ) : null}
-            {model.hasMap ? (
+          {model.hasHood ? (
+            <NeighborhoodPreview
+              variant="marketplace" showTitle={false} title={`Around ${community?.name ?? 'the community'}`} mapHeight="clamp(240px, 52vw, 360px)" limit={6}
+              dirClassName="b-btn b-btn-outline" allClassName="b-btn b-btn-outline"
+            />
+          ) : null}
+          {model.hasMap ? (
+            <ul className="mk-rows mk-rows--tiles" role="list">
               <Row icon={<MapGlyph />} title="Site Map" sub="View the community layout" onOpen={openMap} />
-            ) : null}
-          </ul>
+            </ul>
+          ) : null}
         </section>
       ) : null}
 

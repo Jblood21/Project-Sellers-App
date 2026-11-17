@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { HOME_GUIDES, TOOLS, homeGreeting, videoEmbed } from '@shared/domain.js';
 import { complianceOf } from '@shared/compliance.js';
 import Photo, { photoImgProps } from '../../components/Photo.jsx';
+import { hasNeighborhood } from '@shared/neighborhood.js';
 import { firstName } from '../../lib/format.js';
 import { useBuyer } from '../BuyerContext.jsx';
 import { telHref } from '@shared/compliance.js';
@@ -10,6 +11,7 @@ import LenderLogo, { EhlMark } from '../LenderLogo.jsx';
 import { layoutFor } from '../layouts/index.js';
 import { GuideCard } from './Guides.jsx';
 import LoanProcessLink from '../LoanProcessLink.jsx';
+import NeighborhoodPreview from '../NeighborhoodPreview.jsx';
 
 /**
  * The two questions a buyer asks before any other, so they lead rather than
@@ -50,6 +52,8 @@ export function useHomeModel({ onOpenLender } = {}) {
     leadTools: enabled.filter((tool) => LEAD_TOOLS.includes(tool.k)),
     otherTools: enabled.filter((tool) => !LEAD_TOOLS.includes(tool.k)),
     hasSpots: Boolean(community?.highlights?.length),
+    // Places or a point on the map: the Neighborhood (map, directions, nearest places) is drawn on the home screen.
+    hasHood: hasNeighborhood(community),
     hasMap: Boolean(community?.features?.siteMap && community?.siteMap),
     // The server sends an empty list when the builder has this switched off, so
     // its length is the only condition worth checking.
@@ -194,27 +198,7 @@ export function HomeScreen({ model }) {
         </div>
       </div>
 
-      {model.hasSpots ? (
-        <button
-          type="button"
-          onClick={openArea}
-          style={{
-            width: '100%', cursor: 'pointer', marginBottom: 12, textAlign: 'left',
-            background: 'var(--t-tint)', border: '1px solid var(--t-line)',
-            borderRadius: 'var(--t-radlg)', padding: '14px 16px',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
-            color: 'var(--t-ink)', fontFamily: 'var(--t-font)',
-          }}
-        >
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span className="b-head" style={{ fontSize: 16 }}>Local Spots</span>
-            <span style={{ fontSize: 12, color: 'var(--t-mut)' }}>
-              Schools, parks and everyday places nearby
-            </span>
-          </span>
-          <span style={{ flex: 'none', color: 'var(--t-accT)', fontSize: 18 }} aria-hidden="true">›</span>
-        </button>
-      ) : null}
+      {model.hasHood ? <NeighborhoodPreview mapHeight="clamp(220px, 56vw, 320px)" limit={5} /> : null}
 
       {model.hasMap ? (
         <button

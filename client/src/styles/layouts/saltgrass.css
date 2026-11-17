@@ -1363,10 +1363,14 @@
 .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__kind { font: 700 0.78rem/1.2 var(--t-font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--sg-mut); }
 .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__drive { font: 800 1.15rem/1 var(--t-head); letter-spacing: 0.04em; text-transform: uppercase; color: var(--sg-accT); }
 @media (min-width: 900px) {
-  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); column-gap: 1.6rem; align-items: start; }
-  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__title { grid-column: 1 / -1; }
-  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__map { grid-column: 1; grid-row: 2 / span 3; }
-  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__dir,
-  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__list,
-  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'] .nh-preview__all { grid-column: 2; }
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].ls-saltgrass-hood { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); column-gap: 1.6rem; align-items: start; }
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].ls-saltgrass-hood .nh-preview__title { grid-column: 1 / -1; }
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].ls-saltgrass-hood .nh-preview__map { grid-column: 1; grid-row: 2 / span 3; }
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].ls-saltgrass-hood .nh-preview__dir,
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].ls-saltgrass-hood .nh-preview__list,
+  .b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].ls-saltgrass-hood .nh-preview__all { grid-column: 2; }
 }
+
+/* the same band on the community home: in the home's own column, so no side-by-side */
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].sg-hood { margin: 1.4rem 0 0.4rem; gap: 0.8rem; }
+.b-app.l-saltgrass .nh-preview[data-nh='saltgrass'].sg-hood .nh-preview__title { font-size: clamp(1.6rem, 7vw, 2.4rem); }

@@ -14,7 +14,7 @@
     "dev": "concurrently -n server,client -c blue,magenta \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "node --watch server/index.js",
     "dev:client": "npm --prefix client run dev",
-    "test": "node --test server/test/*.test.js"
+    "test": "AUTO_LOCATE=off node --test server/test/*.test.js"
   },
   "dependencies": {
     "express": "^4.21.2",

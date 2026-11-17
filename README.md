@@ -1071,13 +1071,20 @@ the community's name is set as text. Logos are JPEG, PNG, WebP or GIF up to 3 MB
 on purpose, because an uploaded SVG can carry a script and these files are served from the app's own
 origin. The server checks the file's first bytes against its declared type, not just the label.
 
-## The Neighborhood on a listing's page
+## The Neighborhood on every page that has one
 
-Every layout shows the Neighborhood on a listing's own page, dressed in that layout's look (one piece, `NeighborhoodPreview`, with a
-`.nh-preview` block of CSS in each layout's stylesheet): a tile in Cornerpost, a table-ruled section in Ledger, a magazine plate in Foyer, a
-numbered "The neighborhood" section in Red Rock, a billboard band in Saltgrass, a panel inside the dark sheet in Showcase, a "Look around" stop
-on the trail in Trailhead, and the Neighborhood tab in Marketplace. It draws only when the listing has a point on the map or places, and the
-whole screen stays one tap away ("See the whole neighborhood").
+The Neighborhood (the map with the home or community and nearby places, Get directions, the nearest places, and a link to the whole screen) is
+part of every layout, on a listing's own page and on a community's home screen. It is one piece, `NeighborhoodPreview`, with a `.nh-preview`
+block of CSS in each layout's stylesheet that dresses it for that layout. On a listing: a tile in Cornerpost, a table-ruled section in Ledger, a
+magazine plate in Foyer, a numbered "The neighborhood" section in Red Rock, a billboard band in Saltgrass, a panel inside the dark sheet in
+Showcase, a "Look around" stop on the trail in Trailhead, and the Neighborhood tab in Marketplace. On a community's home screen it takes the place
+of the Local Spots row, in the "Around the community" section (a tile of the dashboard in Ledger). It draws only when there is a point on the map or
+places (`hasNeighborhood`).
+
+Nobody has to press anything to put a listing or community on the map: `server/lib/autoLocate.js` looks it up in the background when it is made,
+the first time somebody opens one that is not on the map, and once for everything already there when the server starts (a listing by its address and
+city, a community by its name and location, never one whose location is still "Location TBD"). A failed look-up is tried again after six hours, and a
+point somebody set by hand or with the Find button is never replaced. The test script sets `AUTO_LOCATE=off` so no test reaches the network.
 
 ## The privacy box at sign-in
 
