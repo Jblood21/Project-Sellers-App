@@ -1130,3 +1130,15 @@
   /* On a phone the map comes first, then the places. */
   .b-app.l-marketplace .ls-mk-nh__cols > .ls-mk-nh__sticky { order: -1; }
 }
+
+/* ── the neighborhood on the community home (search-site look): a framed map, listing-card rows ────────────────── */
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] { margin: 0 0 12px; gap: 12px; }
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] .nm-frame { border-radius: var(--t-radlg); }
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] .nh-preview__list { gap: 8px; }
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] .nh-preview__row {
+  padding: 12px 14px; border: 1px solid var(--t-line); border-radius: var(--t-radlg); background: var(--t-sur); align-items: center;
+}
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] .nh-preview__name { font-weight: 700; }
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] .nh-preview__drive { font-weight: 700; color: var(--t-ink); }
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] .nh-preview__dir,
+.b-app.l-marketplace .nh-preview[data-nh='marketplace'] .nh-preview__all { text-decoration: none; min-height: 46px; }

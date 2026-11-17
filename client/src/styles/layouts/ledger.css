@@ -1660,3 +1660,6 @@
 .b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__name { font-weight: 600; font-size: 15px; }
 .b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__kind { font: 600 11.5px/1.3 var(--t-font); text-transform: uppercase; letter-spacing: 0.08em; color: var(--t-mut); order: 2; text-align: right; }
 .b-app.l-ledger .nh-preview[data-nh='ledger'] .nh-preview__drive { font-family: var(--lg-mono); font-weight: 500; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--t-ink); min-width: 9ch; text-align: right; }
+
+/* on the community home: a tile of the dashboard */
+.b-app.l-ledger .lg-hood .nh-preview[data-nh='ledger'] { margin: 0; }

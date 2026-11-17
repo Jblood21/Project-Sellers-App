@@ -9,6 +9,7 @@ import AgentsBlock from '../../AgentsBlock.jsx';
 import FaqList, { useFaq } from '../../FaqList.jsx';
 import IncentiveCard from '../../IncentiveCard.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /** A hairline arrow, drawn so it does not depend on the body face having one. */
 function Arrow() {
@@ -199,11 +200,11 @@ function LenderPanel({ onOpen }) {
 export default function Home({ model }) {
   const {
     community, paths, leadTools, otherTools, resources, inPlan, savedCount,
-    openTool, openExplore, openArea, openMap, openLender,
+    openTool, openExplore, openMap, openLender,
   } = model;
   const faq = useFaq();
   const floorplans = model.homesCount === 1 ? 'available floorplan' : 'available floorplans';
-  const nearby = model.hasSpots || model.hasMap;
+  const nearby = model.hasHood || model.hasMap;
 
   return (
     <div className="b-shell fy-home">
@@ -250,12 +251,17 @@ export default function Home({ model }) {
       {nearby ? (
         <section aria-labelledby="home-nearby" className="fy-section">
           <Eyebrow id="home-nearby">The neighbourhood</Eyebrow>
-          <ul className="fy-list" role="list">
-            {model.hasSpots ? (
-              <ListRow title="Local Spots" sub="Schools, parks and everyday places nearby" onOpen={openArea} />
-            ) : null}
-            {model.hasMap ? <ListRow title="Site Map" sub="View the community layout" onOpen={openMap} /> : null}
-          </ul>
+          {model.hasHood ? (
+            <NeighborhoodPreview
+              variant="foyer" showTitle={false} title="The neighbourhood" mapHeight="clamp(220px, 52vw, 320px)"
+              dirClassName="ls-foyer-link" allClassName="ls-foyer-link" limit={5}
+            />
+          ) : null}
+          {model.hasMap ? (
+            <ul className="fy-list" role="list">
+              <ListRow title="Site Map" sub="View the community layout" onOpen={openMap} />
+            </ul>
+          ) : null}
         </section>
       ) : null}
 

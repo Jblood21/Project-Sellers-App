@@ -15,6 +15,8 @@ import { hasControlCharacter, rejectControlCharacters, stripControlCharacters } 
 import { emailConfigured } from '../lib/email.js';
 import { emailLoanTeam, notifyCallRequest, sendPlanToBuyer } from '../lib/notify.js';
 import { alertNewVisitor, alertShowingRequest } from '../lib/visitorAlerts.js';
+import { pointOf } from '../../shared/neighborhood.js';
+import { autoLocateInBackground } from '../lib/autoLocate.js';
 import { linkOriginOf, pinnedOrigin } from '../lib/ssr.js';
 import { askedWidth, sizedPhoto } from '../lib/photoSizes.js';
 import { sendVideo } from '../lib/video.js';
@@ -298,8 +300,12 @@ export function publicRouter() {
 
   /** Everything the buyer app needs to render a community. */
   router.get('/c/:communityId', async (req, res) => {
-    const payload = await loadPublicCommunity(await getStore(), req.params.communityId);
+    const store = await getStore();
+    const payload = await loadPublicCommunity(store, req.params.communityId);
     if (!payload) return res.status(404).json({ error: 'This link isn’t active anymore. Ask whoever shared it for a new one.' });
+    // The first time somebody opens one that is not on the map yet, it is looked up in the background (not sooner than the
+    // cool-down again), so the next visitor sees the map without anybody having pressed a button.
+    if (!pointOf({ lat: payload.settings?.mapLat, lng: payload.settings?.mapLng })) autoLocateInBackground(store, payload);
     res.json(payload);
   });
 

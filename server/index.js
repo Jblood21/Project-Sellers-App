@@ -9,6 +9,7 @@ import { getStore } from './db/index.js';
 import { seedIfEmpty } from './db/seed.js';
 import { forgetAdminAccess, forgetAdminSessions, hashPassword, requireAdmin, roleOf, verifyPassword } from './lib/auth.js';
 import { bootWarnings } from './lib/bootcheck.js';
+import { autoLocateAll } from './lib/autoLocate.js';
 import { hasControlCharacter } from './lib/params.js';
 import { originOfRequest, pinnedOrigin, renderBuyerPage, unavailablePage } from './lib/ssr.js';
 import { adminRouter } from './routes/admin.js';
@@ -384,6 +385,8 @@ if (isMain) {
   }
   const server = createApp().listen(port, () => {
     console.log(`Touradoor listening on :${port} (${store.kind} store)`);
+    // Everything already here that is not on the map yet, one at a time, in the background.
+    autoLocateAll(store).then((n) => { if (n) console.log(`Put ${n} on the map.`); }).catch(() => {});
   });
   // Node closes a request that has not finished arriving after 5 minutes (408), and an
   // idle connection after 5 seconds. A 25 MB video over a weak phone signal needs far

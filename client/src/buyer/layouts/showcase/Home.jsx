@@ -12,10 +12,11 @@ import IncentiveCard from '../../IncentiveCard.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
 import { canTalkFinancing } from '../../reach.js';
 import { GuideCard } from '../../screens/Guides.jsx';
-import { ChevronLeft, ChevronRight, Heart, MapGlyph, PinGlyph } from './icons.jsx';
+import { ChevronLeft, ChevronRight, Heart, MapGlyph } from './icons.jsx';
 import Placeholder from './Placeholder.jsx';
 import Row from './Row.jsx';
 import { lastHomeSeen, paymentFor, setHomeOnScreen, slideOrder, termsLine } from './numbers.js';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /**
  * How wide a slide's photo is drawn. The slide fills the window, and on any window
@@ -271,7 +272,7 @@ function Resource({ item }) {
 export default function Home({ model }) {
   const {
     community, paths, homes, leadTools, otherTools, resources, inPlan, isSaved, savedCount,
-    openTool, openArea, openMap, openLender, openHome, toggleSave,
+    openTool, openMap, openLender, openHome, toggleSave,
   } = model;
   const { tools, settings, features } = useBuyer();
   const faq = useFaq();
@@ -383,7 +384,7 @@ export default function Home({ model }) {
   const allTools = [...leadTools, ...otherTools];
   const done = allTools.filter((tool) => inPlan(tool.k)).length;
   const next = allTools.find((tool) => !inPlan(tool.k)) ?? null;
-  const nearby = model.hasSpots || model.hasMap;
+  const nearby = model.hasHood || model.hasMap;
   const { lender } = complianceOf(community?.settings, { community });
   // The lender and the places share a row on a wide screen only when both are drawn. The lender card draws
   // nothing until the lender is set up, and a row with one of the two leaves half of it empty.
@@ -600,19 +601,17 @@ export default function Home({ model }) {
           {nearby ? (
             <section className="sc-sec sc-near" aria-labelledby="home-nearby">
               <h2 id="home-nearby" className="sc-h2">Around {community?.name ?? 'the community'}</h2>
-              <ul className="sc-rows" role="list">
-                {model.hasSpots ? (
-                  <Row
-                    icon={<PinGlyph />}
-                    title="Local Spots"
-                    sub="Schools, parks and everyday places nearby"
-                    onOpen={openArea}
-                  />
-                ) : null}
-                {model.hasMap ? (
+              {model.hasHood ? (
+                <NeighborhoodPreview
+                  variant="showcase" showTitle={false} title={`Around ${community?.name ?? 'the community'}`} mapHeight="clamp(220px, 58vw, 320px)" limit={5}
+                  dirClassName="b-btn b-btn-outline" allClassName="b-btn b-btn-outline"
+                />
+              ) : null}
+              {model.hasMap ? (
+                <ul className="sc-rows" role="list">
                   <Row icon={<MapGlyph />} title="Site Map" sub="View the community layout" onOpen={openMap} />
-                ) : null}
-              </ul>
+                </ul>
+              ) : null}
             </section>
           ) : null}
         </div>

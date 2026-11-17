@@ -10,9 +10,10 @@ import IncentiveCard from '../../IncentiveCard.jsx';
 import LoanProcessLink from '../../LoanProcessLink.jsx';
 import { canBookTour, canTalkFinancing } from '../../reach.js';
 import { GuideCard } from '../../screens/Guides.jsx';
-import { ArrowRight, Calendar, ChevronRight, Heart, HouseGlyph, MapGlyph, PinGlyph } from './icons.jsx';
+import { ArrowRight, Calendar, ChevronRight, Heart, HouseGlyph, MapGlyph } from './icons.jsx';
 import TrailMap, { HereCard } from './TrailMap.jsx';
 import { TOUR_EVENT, WIDE, stopLink, trailOf, useMedia } from './trail.js';
+import NeighborhoodPreview from '../../NeighborhoodPreview.jsx';
 
 /**
  * The slim line under the greeting: how much of the trail is walked. It is one progress bar with a name for a
@@ -206,7 +207,7 @@ function Resource({ item }) {
  * where each goes and how it looks. The homes' monthly figures are shown only while the Payment tool is on.
  */
 export default function Home({ model }) {
-  const { community, paths, homes, leadTools, otherTools, resources, savedCount, openArea, openMap, openLender } = model;
+  const { community, paths, homes, leadTools, otherTools, resources, savedCount, openMap, openLender } = model;
   const { features, agents, settings } = useBuyer();
   const faq = useFaq();
   const wide = useMedia(WIDE);
@@ -217,7 +218,7 @@ export default function Home({ model }) {
   // "Talk about financing" follows).
   const onFinance = canTalkFinancing(community, features) ? openLender : null;
   const tour = canBookTour(features, agents, settings);
-  const nearby = model.hasSpots || model.hasMap;
+  const nearby = model.hasHood || model.hasMap;
   const allDone = trail.total > 0 && !trail.current;
 
   const first = model.firstName;
@@ -290,19 +291,17 @@ export default function Home({ model }) {
       {nearby ? (
         <section className="th-sec" aria-labelledby="home-nearby">
           <h2 id="home-nearby" className="th-h2">Around {community?.name ?? 'the community'}</h2>
-          <ul className="th-places" role="list">
-            {model.hasSpots ? (
-              <PlaceTile
-                icon={<PinGlyph />}
-                title="Local Spots"
-                sub="Schools, parks and everyday places nearby"
-                onOpen={openArea}
-              />
-            ) : null}
-            {model.hasMap ? (
+          {model.hasHood ? (
+            <NeighborhoodPreview
+              variant="trailhead" showTitle={false} title={`Around ${community?.name ?? 'the community'}`} mapHeight="clamp(220px, 58vw, 320px)" limit={5}
+              dirClassName="th-btn th-btn--line" allClassName="th-btn th-btn--line"
+            />
+          ) : null}
+          {model.hasMap ? (
+            <ul className="th-places" role="list">
               <PlaceTile icon={<MapGlyph />} title="Site Map" sub="View the community layout" onOpen={openMap} />
-            ) : null}
-          </ul>
+            </ul>
+          ) : null}
         </section>
       ) : null}
 
