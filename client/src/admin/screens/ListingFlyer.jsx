@@ -53,7 +53,18 @@ export default function ListingFlyer({ community, reload }) {
   const saver = useSaving();
   const settings = community.settings ?? {};
   const home = community.homes?.[0] ?? null;
-  const agent = community.agents?.[0] ?? null;
+  // Every agent on the listing is printed, whatever the buyer page shows (an agent who chose "one" on the page still has the
+  // others saved), in the order they are saved: the flyer is handed out for the whole team's name.
+  const agents = (community.agents ?? []).filter((a) => a?.name);
+  const agent = agents[0] ?? null;
+  const many = agents.length > 1;
+  const teamName = String(settings.teamName ?? '').trim();
+  const agentsHead = settings.agentMode === 'team' ? (teamName ? `Listed by ${teamName}` : 'Your listing team') : many ? 'Your listing agents' : '';
+  // One agent keeps the big portrait and the page's usual proportions. Several sit in a grid (two across, three from five),
+  // and each extra row takes a little of the photo's height so the page still fits.
+  const agentCols = agents.length <= 1 ? 1 : agents.length <= 4 ? 2 : 3;
+  const agentRows = Math.max(1, Math.ceil(agents.length / agentCols));
+  const heroHeight = `${(4.9 - (agentRows - 1) * 0.75).toFixed(2)}in`;
   const qr = useQrDataUrl(community, 8);
   const applyHref = safeHref(settings.loanApplicationUrl);
   const applyQr = useMemo(() => (applyHref ? qrOf(applyHref) : ''), [applyHref]);
@@ -105,6 +116,8 @@ export default function ListingFlyer({ community, reload }) {
   ].filter(Boolean);
   const license = agentLicenseLine(agent);
   const agentPhone = agent?.phone ?? '';
+  /** One line for an agent on the back: name, then brokerage and licence. */
+  const agentLine = (a) => [a.name, a.brokerage, agentLicenseLine(a)].filter(Boolean).join(', ');
 
   return (
     <div className="a-shell fl-shell">
@@ -174,7 +187,7 @@ export default function ListingFlyer({ community, reload }) {
       <div ref={stage} className="fl-stage">
         <div id="plan-doc" className="fl-doc" style={{ '--fl-zoom': zoom }}>
           {/* FRONT: the home */}
-          <section className="fl-page fl-front" aria-label="Front of the flyer">
+          <section className="fl-page fl-front" aria-label="Front of the flyer" style={{ '--fl-hero-h': heroHeight }}>
             <div className="fl-hero">
               {lead ? <img src={lead.url} alt="" /> : <div className="fl-hero__none" />}
               <div className="fl-badge">
@@ -204,16 +217,26 @@ export default function ListingFlyer({ community, reload }) {
               ) : null}
             </div>
             <div className="fl-agent">
-              {agent?.photo?.url ? <img className="fl-face" src={agent.photo.url} alt="" /> : <span className="fl-face fl-face--initial">{agent?.name?.trim()?.[0] ?? ''}</span>}
-              <div className="fl-agent__who">
-                <strong>{agent?.name ?? ''}</strong>
-                {agent?.brokerage ? <span>{agent.brokerage}</span> : null}
-                {license ? <span>{license}</span> : null}
-                {settings.mlsNumber ? <span>MLS #{settings.mlsNumber}</span> : null}
-                <span className="fl-agent__contact">
-                  {agentPhone ? <a href={telHref(agentPhone) || undefined}>{agentPhone}</a> : null}
-                  {agent?.email ? <span>{agent.email}</span> : null}
-                </span>
+              <div className="fl-agents" data-count={agents.length || 1} style={{ '--fl-cols': agentCols }}>
+                {agentsHead ? <span className="fl-label fl-agents__head">{agentsHead}</span> : null}
+                <ul className="fl-agents__list">
+                  {(agents.length ? agents : [null]).map((a, i) => (
+                    <li className="fl-agent__card" key={a?.id ?? i}>
+                      {a?.photo?.url ? <img className="fl-face" src={a.photo.url} alt="" /> : <span className="fl-face fl-face--initial">{a?.name?.trim()?.[0] ?? ''}</span>}
+                      <div className="fl-agent__who">
+                        <strong>{a?.name ?? ''}</strong>
+                        {a?.brokerage ? <span>{a.brokerage}</span> : null}
+                        {agentLicenseLine(a) ? <span>{agentLicenseLine(a)}</span> : null}
+                        {!many && settings.mlsNumber ? <span>MLS #{settings.mlsNumber}</span> : null}
+                        <span className="fl-agent__contact">
+                          {a?.phone ? <a href={telHref(a.phone) || undefined}>{a.phone}</a> : null}
+                          {a?.email ? <span>{a.email}</span> : null}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {many && settings.mlsNumber ? <span className="fl-agents__mls">MLS #{settings.mlsNumber}</span> : null}
               </div>
               <div className="fl-qr">
                 {qr ? <img src={qr} alt={`QR code for ${community.name}`} /> : null}
@@ -295,15 +318,28 @@ export default function ListingFlyer({ community, reload }) {
               ) : (
                 <div className="fl-lender__main">
                   <span className="fl-label">Ready to talk financing?</span>
-                  <strong className="fl-lender__name">Ask {agent?.name ?? 'your agent'} for a lender introduction</strong>
-                  {agentPhone ? <span>{agentPhone}</span> : null}
-                  {agent?.email ? <span>{agent.email}</span> : null}
+                  <strong className="fl-lender__name">Ask {many ? 'your listing agents' : (agent?.name ?? 'your agent')} for a lender introduction</strong>
+                  {many
+                    ? agents.map((a) => <span key={a.id ?? a.name}>{[a.name, a.phone, a.email].filter(Boolean).join(' · ')}</span>)
+                    : (
+                      <>
+                        {agentPhone ? <span>{agentPhone}</span> : null}
+                        {agent?.email ? <span>{agent.email}</span> : null}
+                      </>
+                    )}
                   <span className="no-print fl-hint">Add your lender above and their details print here.</span>
                 </div>
               )}
             </div>
 
-            {agent?.name ? (
+            {many ? (
+              <div className="fl-backagent fl-backagent--many">
+                <span>Questions? Call or write any of us:</span>
+                {agents.map((a) => (
+                  <span key={a.id ?? a.name}><strong>{a.name}</strong>{a.phone ? ` · ${a.phone}` : ''}{a.email ? ` · ${a.email}` : ''}</span>
+                ))}
+              </div>
+            ) : agent?.name ? (
               <p className="fl-backagent">
                 Questions? <strong>{agent.name}</strong>{agentPhone ? ` · ${agentPhone}` : ''}{agent.email ? ` · ${agent.email}` : ''}
               </p>
@@ -318,8 +354,8 @@ export default function ListingFlyer({ community, reload }) {
               {c.lender.nmls ? <p>Verify licensing at nmlsconsumeraccess.org.</p> : null}
               {settings.listingDisclosure ? <p>{settings.listingDisclosure}</p> : null}
               <p>
-                Listing agent: {agent?.name}{agent?.brokerage ? `, ${agent.brokerage}` : ''}{license ? ` · ${license}` : ''}.
-                Lender details were supplied by the listing agent.
+                {many ? 'Listing agents' : 'Listing agent'}: {many ? agents.map(agentLine).join('; ') : `${agent?.name ?? ''}${agent?.brokerage ? `, ${agent.brokerage}` : ''}${license ? ` · ${license}` : ''}`}.
+                Lender details were supplied by the listing {many ? 'agents' : 'agent'}.
               </p>
             </footer>
           </section>

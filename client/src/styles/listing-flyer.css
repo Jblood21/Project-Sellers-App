@@ -7,7 +7,7 @@
   box-shadow: 0 2px 14px rgba(0, 0, 0, .12); font-family: var(--font-body, system-ui, sans-serif);
 }
 .fl-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--color-primary-700, #1d5fa8); }
-.fl-hero { position: relative; height: 4.9in; flex: none; background: #dfe5ec; }
+.fl-hero { position: relative; height: var(--fl-hero-h, 4.9in); flex: none; background: #dfe5ec; }
 .fl-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fl-badge { position: absolute; left: .4in; bottom: .3in; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .fl-status { background: var(--color-primary-700, #1d5fa8); color: #fff; font-weight: 700; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; padding: 5px 12px; border-radius: 4px; }
@@ -25,6 +25,17 @@
 .fl-agent { display: flex; gap: 16px; align-items: center; padding: 14px .5in; background: #f2f5f8; flex: none; }
 .fl-face { width: .95in; height: .95in; border-radius: 50%; object-fit: cover; flex: none; }
 .fl-face--initial { display: grid; place-items: center; background: var(--color-primary-700, #1d5fa8); color: #fff; font-size: 34px; font-weight: 700; }
+.fl-agents { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.fl-agents__head { display: block; }
+.fl-agents__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--fl-cols, 1), minmax(0, 1fr)); gap: 10px 16px; }
+.fl-agent__card { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.fl-agents__mls { font-size: 12px; color: #56606b; }
+/* several agents: smaller portraits and type, so the whole team fits in the band */
+.fl-agents:not([data-count='1']) .fl-face { width: .62in; height: .62in; }
+.fl-agents:not([data-count='1']) .fl-face--initial { font-size: 22px; }
+.fl-agents:not([data-count='1']) .fl-agent__who strong { font-size: 16px; }
+.fl-agents:not([data-count='1']) .fl-agent__who { font-size: 11.5px; }
+.fl-agents:not([data-count='1']) .fl-agent__contact { font-size: 12.5px; margin-top: 2px; }
 .fl-agent__who { display: flex; flex-direction: column; gap: 1px; font-size: 13px; flex: 1; min-width: 0; }
 .fl-agent__who strong { font-size: 20px; }
 .fl-agent__contact { display: flex; flex-direction: column; margin-top: 4px; font-size: 15px; font-weight: 700; }
@@ -48,6 +59,7 @@
 .fl-ready li { padding-left: 20px; position: relative; }
 .fl-ready li::before { content: ''; position: absolute; left: 0; top: .3em; width: 11px; height: 11px; border: 2px solid var(--color-primary-700, #1d5fa8); border-radius: 2px; }
 .fl-backagent { margin: 0; text-align: center; font-size: 15px; }
+.fl-backagent--many { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .fl-lender { display: flex; gap: 20px; align-items: center; justify-content: space-between; padding: 18px 20px; border: 2px solid var(--color-primary-700, #1d5fa8); border-radius: 10px; }
 .fl-lender__main { display: flex; flex-direction: column; gap: 2px; font-size: 15px; min-width: 0; }
 .fl-lender__logo { max-width: 2.4in; max-height: .7in; width: auto; height: auto; object-fit: contain; margin-bottom: 6px; align-self: flex-start; }

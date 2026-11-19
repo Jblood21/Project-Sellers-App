@@ -1071,6 +1071,14 @@ the community's name is set as text. Logos are JPEG, PNG, WebP or GIF up to 3 MB
 on purpose, because an uploaded SVG can carry a script and these files are served from the app's own
 origin. The server checks the file's first bytes against its declared type, not just the label.
 
+## The printable flyer shows every agent
+
+A listing's two-sided flyer (QR code dialog > Printable flyer) prints **every agent saved on the listing**, whatever the buyer page is set to show (an
+agent who chose "one" on the page still has the others saved, and the flyer is handed out for the whole team). The front's agent band is one card with a
+big portrait for a single agent, and a grid of smaller cards (two across, three from five agents, up to the eight a listing can have) for several, headed
+"Your listing agents" or "Listed by {team name}" in team mode; each extra row gives the photo a little less height so the page still fits. The back lists
+every agent's phone and email under "Questions?", and the small print names each agent with brokerage and licence.
+
 ## The Neighborhood on every page that has one
 
 The Neighborhood (the map with the home or community and nearby places, Get directions, the nearest places, and a link to the whole screen) is
